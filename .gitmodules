@@ -1,0 +1,3 @@
+[submodule "deps/ase-abacus"]
+	path = deps/ase-abacus
+	url = https://gitlab.com/1041176461/ase-abacus
