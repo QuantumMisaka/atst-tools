@@ -27,9 +27,12 @@ Copyright @ QuantumMisaka from TMC-PKU & AISI
 - Examples Update
 
 ## Dependencies:
+
+### Required dependencies
 - [ASE](https://wiki.fysik.dtu.dk/ase/about.html), but you should install ASE by [ASE-ABACUS interface](https://gitlab.com/1041176461/ase-abacus) as a separate ASE package for ABACUS usage.
 - [ABACUS](https://github.com/deepmodeling/abacus-develop), one can install ABACUS by ABACUS toolchain [ABACUS](https://github.com/deepmodeling/abacus-develop/tree/develop/toolchain), or refer to [ABACUS-docs](https://abacus.deepmodeling.com/en/latest/)
-- [pymatgen](https://pymatgen.org/) and [pymatgen-analysis-diffusion](https://github.com/materialsvirtuallab/pymatgen-analysis-diffusion) in the usage of new `neb_make.py` script and D2S TS method, which can be installed by `pip install pymatgen pymatgen-analysis-diffusion`
+
+### Optional dependencies
 - [Sella](https://github.com/zadorlab/sella) if one wants to use Sella method for Single-End TS search. which can be installed by `pip install sella`
 - [GPAW](https://wiki.fysik.dtu.dk/gpaw/install.html) if one wants to run NEB images relaxation in parallel. The installation of GPAW need some efferts, and one can refer to [GPAW installation](https://wiki.fysik.dtu.dk/gpaw/install.html) for more details.
 - [deepmd-kit](https://github.com/deepmodeling/deepmd-kit) or [DPA-2](https://zenodo.org/records/10428497) if one wants to use Deep-Potential or DPA-2 potential, one can refer to [deepmd-docs](https://docs.deepmodeling.com/projects/deepmd/en/master/)

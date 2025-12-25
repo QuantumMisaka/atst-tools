@@ -1,0 +1,8 @@
+# Core Dependencies
+ase>=3.22.1
+numpy>=1.21.0
+scipy>=1.7.0
+sella>=2.3.0
+
+# Optional Dependencies (for specific functionalities)
+matplotlib>=3.3.0  # For plotting
