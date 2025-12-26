@@ -1,0 +1,31 @@
+calculation:
+  type: autoneb
+  init_chain: init_neb_chain.traj
+  prefix: run_autoneb
+  n_simul: 4 # Number of simultaneous calculations
+  n_max: 10 # Max images
+  climb: true
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+
+abacus:
+  command: abacus
+  mpi: 4
+  omp: 1
+  directory: run_autoneb
+  parameters:
+    calculation: scf
+    nspin: 2
+    xc: pbe
+    ecutwfc: 100
+    ks_solver: genelpa
+    # ... Add other DFT parameters here ...
+    pp:
+      C: C_ONCV_PBE-1.0.upf
+    basis:
+      C: C_gga_7au_100Ry_2s2p1d.orb
+    pseudo_dir: "/path/to/PP"
+    basis_dir: "/path/to/ORB"
+    cal_force: 1
+    cal_stress: 0 # AutoNEB usually fixes cell
