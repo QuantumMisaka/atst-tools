@@ -9,6 +9,22 @@ calculation:
   optimizer: FIRE # Options: FIRE, BFGS
 
 abacus:
+  # MPI Configuration Examples:
+  # 1. Standard mpirun (Default if command doesn't contain '{mpi}'):
+  #    command: abacus
+  #    mpi: 4
+  #    -> Runs: mpirun -np 4 abacus
+  #
+  # 2. Slurm srun (Recommended for Slurm clusters):
+  #    command: "srun -n {mpi} --exclusive abacus"
+  #    mpi: 4
+  #    -> Runs: srun -n 4 --exclusive abacus
+  #
+  # 3. Custom mpirun (e.g., with core binding):
+  #    command: "mpirun --bind-to core -np {mpi} abacus"
+  #    mpi: 4
+  #    -> Runs: mpirun --bind-to core -np 4 abacus
+  
   command: abacus
   mpi: 4
   omp: 1

@@ -24,7 +24,9 @@ class AbacusCalculator:
         os.environ['OMP_NUM_THREADS'] = f'{omp}'
         
         # Determine command
-        if mpi > 1:
+        if "{mpi}" in abacus_cmd:
+            command = abacus_cmd.format(mpi=mpi)
+        elif mpi > 1:
             command = f"mpirun -np {mpi} {abacus_cmd}"
         else:
             command = abacus_cmd

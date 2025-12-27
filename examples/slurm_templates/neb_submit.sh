@@ -18,4 +18,4 @@ source activate atst
 atst-run config.yaml
 
 # 3. Post Processing
-atst-neb-post neb.traj --plot
+# atst-neb-post neb.traj --plot
