@@ -2,3 +2,4 @@
 dev/*
 *egg-info
 *__pycache__*
+temp_*
