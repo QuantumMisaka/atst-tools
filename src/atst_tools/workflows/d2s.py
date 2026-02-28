@@ -3,14 +3,12 @@
 
 import os
 import numpy as np
-from copy import deepcopy
-from ase.io import read, write, Trajectory
-from ase.mep.neb import NEBTools, DyNEB
+from ase.io import read, write
+from ase.mep.neb import DyNEB
 from ase.optimize import FIRE, QuasiNewton
 
-from atst_tools.calculators.abacus import AbacusCalculator
-from atst_tools.utils.idpp import generate
-from atst_tools.mep.neb import AbacusNEB
+from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
 
@@ -25,6 +23,17 @@ class D2SWorkflow:
     """
     
     def __init__(self, config, dft_params, mpi, omp, abacus_cmd, directory):
+        """
+        Initialize D2S Workflow.
+
+        Args:
+            config (dict): Workflow configuration.
+            dft_params (dict): DFT calculator parameters.
+            mpi (int): Number of MPI processes.
+            omp (int): Number of OpenMP threads.
+            abacus_cmd (str): Command to run ABACUS.
+            directory (str): Base directory for calculation.
+        """
         self.config = config
         self.dft_params = dft_params
         self.mpi = mpi
@@ -38,15 +47,44 @@ class D2SWorkflow:
         self.single_config = config.get(self.method, {})
 
     def _get_calc(self, sub_dir):
-        """Helper to get calculator with specific directory"""
-        return AbacusCalculator.get_calculator(
-            self.dft_params, 
-            os.path.join(self.directory, sub_dir), 
-            self.mpi, self.omp, self.abacus_cmd
+        """
+        Helper to get calculator with specific directory using CalculatorFactory.
+        
+        Args:
+            sub_dir (str): Sub-directory for calculation.
+            
+        Returns:
+            Calculator: Configured calculator instance.
+        """
+        # Create a config dict compatible with CalculatorFactory
+        # We need to wrap dft_params into the expected structure
+        calc_config = {
+            'calculator': {
+                'name': 'abacus',
+                'abacus': self.dft_params
+            },
+            'command': self.abacus_cmd
+        }
+        
+        return CalculatorFactory.get_calculator(
+            'abacus', 
+            calc_config, 
+            directory=os.path.join(self.directory, sub_dir),
+            mpi=self.mpi,
+            omp=self.omp
         )
 
     def optimize_endpoints(self, init_atoms, final_atoms):
-        """Optimize Initial and Final States"""
+        """
+        Optimize Initial and Final States.
+
+        Args:
+            init_atoms (Atoms): Initial structure.
+            final_atoms (Atoms): Final structure.
+
+        Returns:
+            tuple: (optimized_init_atoms, optimized_final_atoms)
+        """
         print("=== Step 1: Optimizing Endpoints ===")
         
         # Optimize IS
@@ -66,7 +104,16 @@ class D2SWorkflow:
         return init_atoms, final_atoms
 
     def run_rough_neb(self, init_atoms, final_atoms):
-        """Run Rough NEB to find approximate TS"""
+        """
+        Run Rough NEB to find approximate TS.
+
+        Args:
+            init_atoms (Atoms): Initial structure.
+            final_atoms (Atoms): Final structure.
+
+        Returns:
+            list: List of Atoms objects representing the rough NEB path.
+        """
         print("=== Step 2: Running Rough NEB ===")
         
         n_images = self.neb_config.get('n_images', 8)
@@ -74,29 +121,12 @@ class D2SWorkflow:
         algorism = self.neb_config.get('algorism', 'improvedtangent')
         climb = self.neb_config.get('climb', True)
         
-        # Generate IDPP Path
-        # Note: We use our internal generate function or IDPP solver directly
-        # For simplicity, we assume linear/idpp generation here.
-        # But `generate` writes to file. We might want direct object handling.
-        # Let's use IDPP solver directly from utils.
-        from atst_tools.utils.idpp import Fast_IDPPSolver
-        
         print(f"  Generating {n_images} images via IDPP...")
-        # Create list of images
-        images = [init_atoms] 
-        for i in range(n_images):
-            images.append(init_atoms.copy())
-        images.append(final_atoms)
         
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
         images = solver.run() # This returns the path list [IS, img1...imgN, FS]
         
         # Attach Calculators
-        # Note: D2S scripts use DyNEB (Serial) for efficiency usually, 
-        # but we can support parallel if user wants.
-        # Defaulting to Serial DyNEB as per original script logic for now?
-        # The original script used DyNEB with parallel=False.
-        
         # We'll stick to serial DyNEB for "Rough" phase unless configured otherwise
         # to avoid massive resource usage for a rough guess.
         
@@ -114,6 +144,9 @@ class D2SWorkflow:
         return images
 
     def run(self):
+        """
+        Execute the full D2S workflow.
+        """
         # 0. Load Inputs
         init_file = self.config.get('init_file')
         final_file = self.config.get('final_file')
@@ -142,8 +175,6 @@ class D2SWorkflow:
         
         if self.method == 'dimer':
             # Calculate displacement vector
-            # Vector = (Before - After) / Norm
-            # Check boundary conditions
             idx_before = max(0, max_idx - 1)
             idx_after = min(len(neb_chain)-1, max_idx + 1)
             
@@ -157,11 +188,22 @@ class D2SWorkflow:
             
             fmax = self.single_config.get('fmax', 0.05)
             
+            # Construct a config for AbacusDimer
+            # It expects 'calculator' section or similar
+            # We need to adapt dft_params
+            dimer_config = {
+                'calculator': {
+                    'name': 'abacus',
+                    'abacus': self.dft_params
+                },
+                'command': self.abacus_cmd
+            }
+            
             dimer = AbacusDimer(ts_guess, 
-                                self.dft_params, 
-                                abacus=self.abacus_cmd,
-                                mpi=self.mpi, omp=self.omp, 
-                                directory=os.path.join(self.directory, "DIMER"),
+                                dimer_config, # Passing constructed config
+                                'abacus',
+                                self.single_config,
+                                traj_file='dimer.traj',
                                 init_eigenmode_method='displacement',
                                 displacement_vector=disp_vec)
             dimer.run(fmax=fmax)
@@ -170,11 +212,19 @@ class D2SWorkflow:
             fmax = self.single_config.get('fmax', 0.05)
             eta = self.single_config.get('eta', 0.005)
             
+            sella_config = {
+                'calculator': {
+                    'name': 'abacus',
+                    'abacus': self.dft_params
+                },
+                'command': self.abacus_cmd
+            }
+            
             sella = AbacusSella(ts_guess,
-                                self.dft_params,
-                                abacus=self.abacus_cmd,
-                                mpi=self.mpi, omp=self.omp,
-                                directory=os.path.join(self.directory, "SELLA"),
+                                sella_config,
+                                'abacus',
+                                self.single_config,
+                                traj_file='sella.traj',
                                 sella_eta=eta,
                                 fmax=fmax)
             sella.run()

@@ -1,30 +1,37 @@
 # ATST-Tools
 
-Advanced ASE Transition State Tools for ABACUS (and Deep-Potential).
+**Advanced ASE Transition State Tools for ABACUS (and Deep-Potential).**
+
+ATST-Tools provides a robust, configuration-driven workflow for performing transition state searches (NEB, Dimer, Sella) and related calculations (Relax, Vibration) using the ASE interface. It is designed to work seamlessly with **ABACUS** and **DeepMD-kit**.
+
+> **Note**: This project focuses on **Transition State Calculations** (NEB, Dimer, Sella, Vibration) and standard MD/Relaxation. Advanced electronic structure analysis (e.g., Band Structure, DOS, NSCF) is **NOT** currently supported.
 
 ## Installation
 
 ### Prerequisites
-1. **ASE with ABACUS Support**: You must install the ASE version adapted for ABACUS.
-   ```bash
-   cd deps/ase-abacus
-   pip install .
-   ```
-2. **Core Dependencies**:
-   ```bash
-   pip install -e .
-   ```
+1.  **Python 3.9+**
+2.  **ABACUS**: Ensure `abacus` is in your PATH (for DFT calculations).
+3.  **DeepMD-kit** (Optional): For using Deep Potential models.
 
-### Optional Dependencies
-- **DeepMD-kit**: For using Deep Potential models.
+### Install from Source
+Clone the repository and install in editable mode:
+
+```bash
+git clone https://github.com/deepmodeling/atst-tools.git
+cd atst-tools
+pip install -e .
+```
+
+*Note: The ABACUS interface (`abacuslite`) is now bundled internally, so no external ASE-ABACUS dependency is required.*
 
 ## Usage
 
-ATST-Tools now supports a configuration-driven workflow.
+ATST-Tools uses a single entry point `atst-run` driven by a `config.yaml` file.
 
 ### 1. Prepare Configuration
-Create a `config.yaml` file (see `examples/` for templates):
+Create a `config.yaml` file. See `examples/` for comprehensive templates.
 
+**Example (NEB with ABACUS):**
 ```yaml
 calculation:
   type: neb
@@ -33,37 +40,65 @@ calculation:
   fmax: 0.05
   parallel: true
 
-abacus:
-  command: abacus
-  mpi: 4
-  parameters:
-    calculation: scf
-    nspin: 2
-    xc: pbe
-    # ... other DFT parameters
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_neb
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: genelpa
+        dft_functional: pbe
+        # ... other parameters
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           Au: Au_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           Au: Au_gga_7au_100Ry_4s2p2d1f.orb
 ```
 
 ### 2. Run Calculation
-Execute the unified entry point:
-
 ```bash
 atst-run config.yaml
 ```
 
-This command will automatically dispatch the task (NEB, AutoNEB, or Dimer) based on your configuration.
+### 3. Analysis
+Use the provided utility scripts to analyze results.
+
+**Analyze NEB barrier and extract TS:**
+```bash
+atst-neb-post neb.traj --plot
+```
+
+**Identify atoms for Vibration analysis:**
+Use the `--vib-analysis` flag to find which atoms have significant displacement in the NEB mode, which helps in setting the `indices` parameter for vibration tasks.
+```bash
+atst-neb-post neb.traj --vib-analysis --vib-thr 0.10
+```
 
 ## Features
 
-- **NEB**: Supports CI-NEB, IT-NEB, and DyNEB (Dynamic NEB).
-  - *New*: Correctly handles stress tensor for variable cell NEB (not supported in standard ASE).
-- **AutoNEB**: Automated NEB workflow with automatic image addition and path smoothing.
-  - *New*: Automatic cleanup of bulky ABACUS calculation directories.
-- **Dimer**: Improved Dimer method for ABACUS.
-- **Sella**: Integration with Sella library for efficient saddle point search.
+- **Calculators**: 
+  - **ABACUS**: Full support via `abacuslite` (LCAO/PW).
+  - **Deep Potential**: Support for `.pb` / `.pt` models with efficient instance sharing.
+- **Workflows**:
+  - **NEB**: CI-NEB, DyNEB, AutoNEB.
+  - **Dimer**: Improved Dimer method.
+  - **Sella**: Integration with Sella optimizer.
+  - **Relax**: Geometry optimization.
+  - **Vibration**: Vibrational mode analysis.
+  - **D2S**: Double-to-Single ended workflow (NEB -> Sella/Dimer).
 
 ## Documentation
 
-For detailed algorithm descriptions, see [ASE Documentation](https://wiki.fysik.dtu.dk/ase/).
+See `docs/` for more details.
 
 ## License
 

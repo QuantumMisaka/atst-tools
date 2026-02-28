@@ -1,5 +1,5 @@
+from typing import Dict, Any
 import os
-from typing import Dict, Any, Optional
 from ase.calculators.calculator import Calculator
 from atst_tools.external.abacuslite.core import Abacus
 
@@ -16,14 +16,14 @@ class AbacusFactory:
         Create an ABACUS calculator instance.
         
         Args:
-            config: Configuration dictionary containing calculator settings
-            directory: Working directory for calculation
-            mpi: Number of MPI processes
-            omp: Number of OpenMP threads
-            **kwargs: Additional arguments
+            config (dict): Configuration dictionary containing calculator settings.
+            directory (str): Working directory for calculation.
+            mpi (int): Number of MPI processes.
+            omp (int): Number of OpenMP threads.
+            **kwargs: Additional arguments passed to Abacus calculator.
             
         Returns:
-            Configured ASE Calculator
+            Calculator: Configured ASE Calculator.
         """
         # Extract ABACUS specific parameters
         calc_params = config.get('calculator', {}).get('abacus', {})
@@ -77,12 +77,15 @@ class DeepPotentialFactory:
         Create a DeepMD calculator instance.
         
         Args:
-            config: Configuration dictionary
-            shared: Whether to share calculator instance (for serial execution)
-            **kwargs: Additional arguments
+            config (dict): Configuration dictionary.
+            shared (bool): Whether to share calculator instance (for serial execution).
+            **kwargs: Additional arguments.
             
         Returns:
-            Configured ASE Calculator
+            Calculator: Configured ASE Calculator.
+            
+        Raises:
+            ImportError: If deepmd-kit is not installed.
         """
         try:
             from deepmd.calculator import DP
@@ -106,7 +109,7 @@ class DeepPotentialFactory:
         
         if shared:
             DeepPotentialFactory._instances[model_key] = calc
-            
+        
         return calc
 
 class CalculatorFactory:
@@ -118,15 +121,15 @@ class CalculatorFactory:
         Get a calculator instance by name.
         
         Args:
-            name: Calculator name ('abacus' or 'dp')
-            config: Full configuration dictionary
-            **kwargs: Additional arguments passed to specific factory
+            name (str): Calculator name ('abacus' or 'dp').
+            config (dict): Full configuration dictionary.
+            **kwargs: Additional arguments passed to specific factory.
             
         Returns:
-            Configured ASE Calculator instance
+            Calculator: Configured ASE Calculator instance.
             
         Raises:
-            ValueError: If calculator name is not supported
+            ValueError: If calculator name is not supported.
         """
         name = name.lower()
         

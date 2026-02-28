@@ -1,0 +1,44 @@
+calculation:
+  type: relax
+  init_structure: init.stru
+  fmax: 0.05
+  optimizer: QuasiNewton
+  trajectory: relax.traj
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: relax_run
+    kpts: [3, 1, 3]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: genelpa
+        vdw_method: d3_bj
+        nspin: 2
+        symmetry: 1
+        scf_thr: 1e-07
+        scf_nmax: 300
+        smearing_method: mp
+        smearing_sigma: 0.002
+        mixing_type: broyden
+        mixing_ndim: 20
+        cal_force: 1
+        cal_stress: 0
+        out_stru: 1
+        out_chg: -1
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           Au: Au_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           Au: Au_gga_7au_100Ry_4s2p2d1f.orb

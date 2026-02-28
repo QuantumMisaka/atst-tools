@@ -1,0 +1,12 @@
+calculation:
+  type: dimer
+  init_structure: dimer_init.traj
+  fmax: 0.05
+  trajectory: dimer.traj
+  init_eigenmode_method: displacement
+  displacement_vector: displacement_vector.npy
+
+calculator:
+  name: dp
+  dp:
+    model: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/temp_repos/dp_model/DPA-3.1-3M.pt

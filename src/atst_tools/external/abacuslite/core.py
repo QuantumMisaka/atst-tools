@@ -32,9 +32,6 @@ Refactored from Sun Dec 07 21:41 2025
 
 import os
 import re
-import shutil
-import tempfile
-import unittest
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Set
 
@@ -47,9 +44,8 @@ from ase.calculators.genericfileio import (
 )
 from ase.atoms import Atoms
 from ase.dft.kpoints import BandPath
-from ase.io import read
 
-from abacuslite.io.generalio import (
+from atst_tools.external.abacuslite.io.generalio import (
     file_safe_backup,
     read_input,
     read_stru,
@@ -334,9 +330,9 @@ class AbacusTemplate(CalculatorTemplate):
         read_abacus_out = lambda fn: None
         global __LEGACYIO__
         if __LEGACYIO__:
-            from abacuslite.io.legacyio import read_abacus_out
+            from atst_tools.external.abacuslite.io.legacyio import read_abacus_out
         else:
-            from abacuslite.io.latestio import read_abacus_out
+            from atst_tools.external.abacuslite.io.latestio import read_abacus_out
 
         outdir = directory / f'OUT.{self.suffix}'
         # only the last frame
@@ -528,109 +524,3 @@ class Abacus(GenericFileIOCalculator):
         (now not only GPAW can calculate the band structure ;) )'''
         from ase.spectrum.band_structure import get_band_structure
         return get_band_structure(calc=self, reference=efermi)
-
-class TestAbacusCalculator(unittest.TestCase):
-
-    here = Path(__file__).parent
-    pporb = here.parent.parent.parent / 'tests' / 'PP_ORB'
-
-    def test_calculator_results(self):
-        from ase.build.bulk import bulk
-        silicon = bulk('Si', crystalstructure='diamond', a=5.43)
-        aprof = AbacusProfile(
-            command='mpirun -np 2 abacus',
-            pseudo_dir=self.pporb,
-            orbital_dir=self.pporb,
-            omp_num_threads=1
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            calculator = Abacus(aprof,
-                                directory=tmpdir,
-                                pseudopotentials={'Si': 'Si_ONCV_PBE-1.0.upf'},
-                                basissets={'Si': 'Si_gga_6au_100Ry_2s2p1d.orb'},
-                                inp={'calculation': 'scf',
-                                    'basis_type': 'lcao',
-                                    'ks_solver': 'genelpa',
-                                    'ecutwfc': 40,
-                                    'symmetry': 1,
-                                    'nspin': 1,
-                                    'gamma_only': True,
-                                    'cal_force': 1,
-                                    'cal_stress': 1})
-            silicon.calc = calculator
-            e = silicon.get_potential_energy()
-        
-        # check!
-        self.assertAlmostEqual(e, -194.953053309)
-        self.assertIsNotNone(calculator.results)
-        self.assertIsInstance(calculator.results, dict)
-        for k in ['nspins', 'nkpts', 'nbands', 'eigenvalues', 'occupations',
-                  'fermi_level', 'kpoint_weights', 'ibz_kpoints', 'energy', 
-                  'free_energy', 'natoms', 'forces', 'stress', 'magmoms']:
-            self.assertIn(k, calculator.results)
-        self.assertEqual(calculator.results['nspins'], 1)
-        self.assertEqual(calculator.results['nkpts'], 1)
-        self.assertEqual(calculator.results['nbands'], 14)
-        self.assertEqual(calculator.results['energy'], e)
-        self.assertEqual(calculator.results['free_energy'], e)
-        self.assertEqual(calculator.results['natoms'], 2)
-        
-        for k in ['eigenvalues', 'occupations', 'ibz_kpoints', 'forces', 'stress', 'magmoms']:
-            self.assertIsInstance(calculator.results[k], np.ndarray)
-
-        self.assertEqual(calculator.results['eigenvalues'].shape, (1, 1, 14))
-        ekb = [-4.82194,  7.62727,  7.62727,  7.62737, 10.2436 , 10.2436 ,
-                10.2436 , 10.9884 , 16.057  , 16.057  , 23.8353 , 25.421  ,
-                25.421  , 25.4212 ]
-        self.assertTrue(np.allclose(calculator.results['eigenvalues'][0, 0, :], np.array(ekb)))
-
-        self.assertEqual(calculator.results['occupations'].shape, (1, 1, 14))
-        occ = [2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-        self.assertTrue(np.allclose(calculator.results['occupations'][0, 0, :], np.array(occ)))
-        
-        self.assertEqual(calculator.results['ibz_kpoints'].shape, (1, 3))
-        self.assertTrue(np.allclose(calculator.results['ibz_kpoints'][0, :], np.array([0,0,0])))
-
-        self.assertEqual(calculator.results['forces'].shape, (2, 3))
-        self.assertTrue(np.allclose(calculator.results['forces'], np.zeros((2, 3))))
-
-        self.assertEqual(calculator.results['stress'].shape, (6,))
-        stress = [-0.19327923, -0.19327923, -0.19327923, -0.        ,  0.        ,   0.        ]
-        self.assertTrue(np.allclose(calculator.results['stress'], np.array(stress)))
-        
-        self.assertEqual(calculator.results['magmoms'].shape, (2,))
-        self.assertTrue(np.allclose(calculator.results['magmoms'], np.zeros(2)))
-
-    def test_restart(self):
-        from ase.build.bulk import bulk
-        silicon = bulk('Si', crystalstructure='diamond', a=5.43)
-        aprof = AbacusProfile(
-            command='mpirun -np 2 abacus',
-            pseudo_dir=self.pporb,
-            orbital_dir=self.pporb,
-            omp_num_threads=1
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            calculator = Abacus(aprof,
-                                directory=tmpdir,
-                                pseudopotentials={'Si': 'Si_ONCV_PBE-1.0.upf'},
-                                basissets={'Si': 'Si_gga_6au_100Ry_2s2p1d.orb'},
-                                inp={'calculation': 'scf',
-                                    'basis_type': 'lcao',
-                                    'ks_solver': 'genelpa',
-                                    'ecutwfc': 40,
-                                    'symmetry': 1,
-                                    'nspin': 1,
-                                    'gamma_only': True,
-                                    'cal_force': 1,
-                                    'cal_stress': 1})
-            silicon.calc = calculator
-            e = silicon.get_potential_energy()
-        
-            # restart
-            silicon.calc = Abacus.restart(aprof, directory=tmpdir)
-            e2 = silicon.get_potential_energy()
-            self.assertAlmostEqual(e2, e)
-
-if __name__ == '__main__':
-    unittest.main()

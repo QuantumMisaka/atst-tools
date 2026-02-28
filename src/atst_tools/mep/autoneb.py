@@ -3,39 +3,61 @@
 
 import os
 import shutil
-from pathlib import Path
 from ase.mep.autoneb import AutoNEB
 from ase.io import read, write, Trajectory
-from ase.parallel import world, parprint
-from ase.constraints import FixAtoms
+from ase.parallel import world
+from ase.optimize import FIRE, BFGS
 
 from atst_tools.mep.neb import AbacusNEB
+from atst_tools.calculators.factory import CalculatorFactory
 
 class AbacusAutoNEB(AutoNEB):
     """
-    Customized AutoNEB for ABACUS.
-    Key features:
-    1. File cleanup: Removes bulky calculation directories after each step.
-    2. Abacus-specific initialization (FixAtoms, Magmom).
+    Customized AutoNEB for ABACUS/ATST-Tools.
+    
+    This class overrides the standard AutoNEB execution to:
+    1.  Use `AbacusNEB` instead of standard `NEB` for improved force/stress handling.
+    2.  Implement aggressive file cleanup to manage disk usage during long runs.
+    3.  Support parallel execution with correct directory management.
+
+    Attributes:
+        attach_calculators (callable): Function to attach calculators to images.
+        prefix (str): Prefix for trajectory files.
+        n_simul (int): Number of simultaneous images to optimize.
+        n_max (int): Maximum number of images.
+        iter_folder (str): Folder for iteration logs and trajectories.
     """
     
     def __init__(self, attach_calculators, prefix, n_simul, n_max,
                  iter_folder='AutoNEB_iter', **kwargs):
-        # Ensure we use AbacusNEB method if not specified? 
-        # Actually AutoNEB internally instantiates NEB class. 
-        # We need to override _execute_one_neb to use AbacusNEB or inject it.
-        # However, ASE's AutoNEB hardcodes `NEB` class usage in _execute_one_neb.
-        # So we MUST override _execute_one_neb.
-        
+        """
+        Initialize AbacusAutoNEB.
+
+        Args:
+            attach_calculators (callable): Function that accepts a list of Atoms and attaches calculators.
+            prefix (str): File prefix for trajectories.
+            n_simul (int): Number of simultaneous images.
+            n_max (int): Maximum number of images.
+            iter_folder (str): Directory to store iteration history.
+            **kwargs: Additional arguments for AutoNEB.
+        """
         super().__init__(attach_calculators, prefix, n_simul, n_max, 
                          iter_folder=iter_folder, **kwargs)
 
     def _execute_one_neb(self, exitstack, n_cur, to_run,
                          climb=False, many_steps=False):
-        '''Internal method which executes one NEB optimization.'''
+        """
+        Internal method which executes one NEB optimization.
         
-        # --- COPIED & MODIFIED FROM ASE AutoNEB ---
-        
+        Overrides ASE AutoNEB._execute_one_neb to use AbacusNEB and handle cleanup.
+
+        Args:
+            exitstack: Context manager stack.
+            n_cur (int): Current number of images.
+            to_run (list): Indices of images to run.
+            climb (bool): Whether to use climbing image NEB.
+            many_steps (bool): Whether to run many steps (not typically used here).
+        """
         closelater = exitstack.enter_context
         self.iteration += 1
 
@@ -72,22 +94,7 @@ class AbacusAutoNEB(AutoNEB):
                    / f'{self.prefix.name}_log_iter{self.iteration:03d}.log')
         qn = closelater(self.optimizer(neb, logfile=logpath))
         
-        # ATST-Tools: CLEANUP LOGIC
-        # Remove calculation directories to save space/inodes
-        for ind in to_run[1: -1]:
-            if hasattr(self.all_images[ind].calc, 'directory'):
-                calc_dir = self.all_images[ind].calc.directory
-                if os.path.isdir(calc_dir):
-                    # Only print on master, but logic runs on all? 
-                    # shutil.rmtree should be careful in MPI.
-                    # Usually calc_dir is rank-specific if parallel=True.
-                    pass 
-                    # We will implement cleanup AFTER run, see below.
-
-        # 5. Setup Trajectories (Standard ASE logic)
-        # ... (Omitted for brevity, assuming standard AutoNEB behavior is fine, 
-        #      but we need to replicate it to attach to qn)
-        
+        # 5. Setup Trajectories
         if self.parallel:
             nneb = to_run[0]
             nim = len(to_run) - 2
@@ -110,19 +117,28 @@ class AbacusAutoNEB(AutoNEB):
             qn.attach(traj)
             qn.attach(trajhist)
         else:
-            # Serial logic...
-            pass
+            # Serial logic
+            for i in to_run[1: -1]:
+                traj = closelater(Trajectory(
+                    '%s%03d.traj' % (self.prefix, i), 'w',
+                    self.all_images[i],
+                    properties=["energy", "forces", "stress"]
+                ))
+                filename_ref = self.iter_trajpath(i, self.iteration)
+                trajhist = closelater(Trajectory(
+                    filename_ref, 'w',
+                    self.all_images[i],
+                    properties=["energy", "forces", "stress"]
+                ))
+                qn.attach(traj)
+                qn.attach(trajhist)
 
         # 6. Run Optimizer
-        # Determine steps and fmax...
         steps = self.maxsteps
-        fmax = self.fmax
-        # (Simplified parameter handling)
-        
-        qn.run(fmax=fmax, steps=steps)
+        qn.run(fmax=self.fmax, steps=steps)
 
-        # 7. CLEANUP (The main reason for this subclass)
-        # Remove calculation directories
+        # 7. CLEANUP
+        # Remove calculation directories to save space
         for ind in to_run[1: -1]:
             calc = self.all_images[ind].calc
             if calc and hasattr(calc, 'directory'):
@@ -133,31 +149,112 @@ class AbacusAutoNEB(AutoNEB):
                     except OSError:
                         pass # Ignore errors
 
-        # 8. Post-run cleanup (Standard ASE)
-        # Remove calculators, store results in SinglePointCalculator
-        # Note: We need to use our custom store_E_and_F logic if we want to keep stress?
-        # ASE's default logic might miss stress.
-        
-        # We can implement a custom hook here if needed.
-
 class AutoNEBRunner:
-    """Helper to run AutoNEB workflow"""
-    def __init__(self, init_chain, calculator_factory, prefix, 
-                 n_simul, n_max, algorism='improvedtangent', parallel=True):
-        self.init_chain = init_chain
-        self.calculator_factory = calculator_factory
-        self.prefix = prefix
-        self.n_simul = n_simul
-        self.n_max = n_max
-        self.algorism = algorism
-        self.parallel = parallel
+    """
+    Helper class to configure and run AutoNEB workflows from a dictionary configuration.
+    
+    Attributes:
+        config (dict): Global configuration.
+        calc_name (str): Calculator name.
+        calc_config (dict): Calculation-specific configuration.
+    """
+    def __init__(self, config, calc_name, calc_config):
+        """
+        Initialize AutoNEBRunner.
 
-    def prepare_initial_chain(self):
-        """Ensure initial chain has constraints and magmoms propagated"""
-        # Logic from original AbacusAutoNEB.set_init_and_final_conditions
-        # ...
-        pass
+        Args:
+            config (dict): Global configuration.
+            calc_name (str): Calculator name.
+            calc_config (dict): Calculation config section.
+        """
+        self.config = config
+        self.calc_name = calc_name
+        self.calc_config = calc_config
+        self.prefix = calc_config.get('prefix', 'run_autoneb')
+        self.n_simul = calc_config.get('n_simul', world.size)
+        self.n_max = calc_config.get('n_max', 10)
+        self.algorism = calc_config.get('algorism', 'improvedtangent')
+        self.parallel = calc_config.get('parallel', True)
+        self.fmax = calc_config.get('fmax', 0.05) 
+        self.maxsteps = calc_config.get('maxsteps', 100)
+        self.optimizer_name = calc_config.get('optimizer', 'FIRE')
+        self.climb = calc_config.get('climb', True)
+        self.iter_folder = calc_config.get('iter_folder', 'AutoNEB_iter')
+        
+        # Initial chain
+        init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
+        self.init_chain = read(init_chain_file, index=':')
+
+    def attach_calculators(self, images):
+        """
+        Callback to attach calculators to a list of images.
+
+        Args:
+            images (list): List of Atoms objects to attach calculators to.
+        """
+        for i, image in enumerate(images):
+             if self.parallel:
+                 base_dir = self.calc_config.get('directory', 'autoneb_run')
+                 if 'abacus' in self.config:
+                      base_dir = self.config['abacus'].get('directory', base_dir)
+                      
+                 image_dir = f"{base_dir}-rank{world.rank}"
+                 
+                 image.calc = CalculatorFactory.get_calculator(
+                    self.calc_name, 
+                    self.config, 
+                    directory=image_dir
+                 )
+             else:
+                 base_dir = self.calc_config.get('directory', 'autoneb_run')
+                 if 'abacus' in self.config:
+                      base_dir = self.config['abacus'].get('directory', base_dir)
+                 
+                 image.calc = CalculatorFactory.get_calculator(
+                    self.calc_name, 
+                    self.config, 
+                    directory=base_dir
+                 )
+
+    def _get_optimizer(self):
+        """
+        Get the optimizer class based on configuration.
+
+        Returns:
+            class: ASE optimizer class.
+        """
+        if self.optimizer_name.upper() == 'FIRE':
+            return FIRE
+        elif self.optimizer_name.upper() == 'BFGS':
+            return BFGS
+        else:
+            return FIRE
 
     def run(self):
-        # ...
-        pass
+        """
+        Run the AutoNEB workflow.
+        """
+        print("=== Starting AutoNEB Calculation ===")
+        
+        autoneb = AbacusAutoNEB(
+            attach_calculators=self.attach_calculators,
+            prefix=self.prefix,
+            n_simul=self.n_simul,
+            n_max=self.n_max,
+            iter_folder=self.iter_folder,
+            world=world,
+            method=self.algorism,
+            parallel=self.parallel,
+            optimizer=self._get_optimizer(),
+            fmax=self.fmax,
+            maxsteps=self.maxsteps
+        )
+        
+        # Write initial files if they don't exist
+        for i, atoms in enumerate(self.init_chain):
+             filename = f'{self.prefix}{i:03d}.traj'
+             if not os.path.exists(filename):
+                 write(filename, atoms)
+                 
+        autoneb.run(climb=self.climb)
+        print("=== AutoNEB Calculation Finished ===")

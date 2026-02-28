@@ -1,3 +1,5 @@
+# Relax Workflow
+# part of ATST-Tools
 
 import os
 from ase.io import read, write
@@ -5,7 +7,30 @@ from ase.optimize import FIRE, BFGS, LBFGS
 from atst_tools.calculators.factory import CalculatorFactory
 
 class RelaxWorkflow:
+    """
+    Workflow for geometry optimization (relaxation).
+
+    Attributes:
+        config (dict): Global configuration.
+        calc_name (str): Calculator name.
+        calc_config (dict): Calculation-specific configuration.
+        fmax (float): Force convergence criterion.
+        max_steps (int): Maximum optimization steps.
+        optimizer_name (str): Name of optimizer.
+        traj_file (str): Output trajectory file.
+        logfile (str): Log file path.
+        init_structure (str): Path to initial structure file.
+    """
+    
     def __init__(self, config, calc_name, calc_config):
+        """
+        Initialize RelaxWorkflow.
+
+        Args:
+            config (dict): Global configuration.
+            calc_name (str): Calculator name.
+            calc_config (dict): Calculation configuration.
+        """
         self.config = config
         self.calc_name = calc_name
         self.calc_config = calc_config
@@ -17,6 +42,12 @@ class RelaxWorkflow:
         self.init_structure = calc_config.get('init_structure', 'init.stru')
 
     def _get_optimizer(self):
+        """
+        Get the optimizer class.
+
+        Returns:
+            class: ASE optimizer class.
+        """
         if self.optimizer_name.upper() == 'FIRE':
             return FIRE
         elif self.optimizer_name.upper() == 'BFGS':
@@ -28,6 +59,9 @@ class RelaxWorkflow:
             return FIRE
 
     def run(self):
+        """
+        Execute the relaxation workflow.
+        """
         print(f"=== Starting Relaxation with {self.calc_name} ===")
         
         # 1. Read Structure
@@ -66,11 +100,8 @@ class RelaxWorkflow:
         opt.run(fmax=self.fmax, steps=self.max_steps)
         
         # 5. Save Final Structure
-        final_file = "final_relaxed.stru" # Or generic format
-        # If input was traj, output traj? standardizing on traj/stru
         write("final_relaxed.traj", atoms)
         # Also write standard format like xyz or poscar/stru
         # write("final_relaxed.stru", atoms, format='abacus') # Need ase-abacus support for this format string or use ext
         
         print(f"=== Relaxation Finished. Final energy: {atoms.get_potential_energy():.4f} eV ===")
-

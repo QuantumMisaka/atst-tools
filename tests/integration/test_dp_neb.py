@@ -1,7 +1,5 @@
 
 import pytest
-from ase import Atoms
-from ase.build import bulk
 from atst_tools.calculators.factory import CalculatorFactory
 try:
     from deepmd.calculator import DP
@@ -38,10 +36,20 @@ def test_dp_factory_shared_instance():
         
         # Mocking the DP class
         mock_dp = MagicMock()
+        # Ensure DP() returns a NEW mock instance each time it's called
+        mock_dp.side_effect = lambda **kwargs: MagicMock()
+        
+        # We need to patch the imported module inside factory.py if it was imported at top level,
+        # but factory.py imports inside the method.
+        # So mocking sys.modules might work if factory hasn't imported it yet.
+        # But if HAS_DP is True, it might have been imported.
+        # Let's mock sys.modules['deepmd.calculator'] BEFORE calling get_calculator.
+        
         sys.modules['deepmd.calculator'] = MagicMock()
         sys.modules['deepmd.calculator'].DP = mock_dp
         
         # 1. Test Shared (Default)
+        # Note: factory.py uses os.path.abspath('frozen_model.pb') as key.
         calc1 = CalculatorFactory.get_calculator('dp', config, shared=True)
         calc2 = CalculatorFactory.get_calculator('dp', config, shared=True)
         

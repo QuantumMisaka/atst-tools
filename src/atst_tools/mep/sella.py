@@ -1,47 +1,79 @@
 # AbacusSella implementation
 # part of ATST-Tools
 
-import os
 from ase.io import Trajectory
-from ase.calculators.abacus import AbacusProfile, Abacus
-from sella import Sella, Constraints
+from sella import Sella
+
+from atst_tools.calculators.factory import CalculatorFactory
 
 class AbacusSella:
-    """Customize Sella calculation workflow by using ABACUS"""
+    """
+    Customize Sella calculation workflow by using ABACUS.
     
-    def __init__(self, init_Atoms, parameters, abacus='abacus',
-                 mpi=1, omp=1, directory='ABACUS', 
+    This class manages the setup and execution of the Sella method for finding
+    saddle points (Transition States) using ABACUS as the force calculator.
+
+    Attributes:
+        init_Atoms (Atoms): Initial structure (guess for TS).
+        config (dict): Global configuration.
+        calc_name (str): Calculator name.
+        calc_config (dict): Calculation-specific configuration.
+        traj_file (str): Output trajectory file.
+        sella_eta (float): Sella eta parameter.
+        fmax (float): Force convergence criterion.
+    """
+    
+    def __init__(self, init_Atoms, config, calc_name, calc_config,
                  traj_file='run_sella.traj',
                  sella_eta=0.005,
                  fmax=0.05):
-        """Initialize Sella method by using ASE-ABACUS"""
+        """
+        Initialize Sella method by using ASE-ABACUS.
+
+        Args:
+            init_Atoms (Atoms): Initial Atoms object.
+            config (dict): Global configuration dictionary.
+            calc_name (str): Name of the calculator.
+            calc_config (dict): Calculation configuration dictionary.
+            traj_file (str): Path to output trajectory file.
+            sella_eta (float): Sella eta parameter.
+            fmax (float): Force convergence criterion.
+        """
         self.init_Atoms = init_Atoms
-        self.parameters = parameters
-        self.abacus = abacus
-        self.mpi = mpi
-        self.omp = omp
-        self.directory = directory
+        self.config = config
+        self.calc_name = calc_name
+        self.calc_config = calc_config
         self.traj_file = traj_file
         self.sella_eta = sella_eta
         self.fmax = fmax
         
     def set_calculator(self):
-        """Set Abacus calculators"""
-        os.environ['OMP_NUM_THREADS'] = f'{self.omp}'
-        # Use mpirun if mpi > 1
-        if self.mpi > 1:
-            command = f"mpirun -np {self.mpi} {self.abacus}"
-        else:
-            command = self.abacus
-            
-        profile = AbacusProfile(command=command)
-        out_directory = self.directory
-        calc = Abacus(profile=profile, directory=out_directory,
-                        **self.parameters)
-        return calc
+        """
+        Set calculators using Factory.
+
+        Returns:
+            Calculator: Configured calculator instance.
+        """
+        directory = self.calc_config.get('directory', 'sella_run')
+        if 'abacus' in self.config:
+             directory = self.config['abacus'].get('directory', directory)
+        
+        return CalculatorFactory.get_calculator(
+            self.calc_name, 
+            self.config, 
+            directory=directory
+        )
     
     def run(self, fmax=None):
-        """run sella calculation workflow"""
+        """
+        Run Sella calculation workflow.
+
+        Args:
+            fmax (float, optional): Force convergence criterion.
+            
+        Returns:
+            Atoms: The optimized transition state structure.
+        """
         if fmax is None:
             fmax = self.fmax
             

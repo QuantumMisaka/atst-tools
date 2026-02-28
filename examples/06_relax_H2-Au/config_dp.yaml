@@ -1,0 +1,11 @@
+calculation:
+  type: relax
+  init_structure: init.stru
+  fmax: 0.05
+  optimizer: FIRE
+  trajectory: relax.traj
+
+calculator:
+  name: dp
+  dp:
+    model: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/temp_repos/dp_model/DPA-3.1-3M.pt

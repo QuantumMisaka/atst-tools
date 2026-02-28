@@ -1,0 +1,14 @@
+calculation:
+  type: neb
+  init_chain: init_neb_chain.traj
+  climb: true
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+
+calculator:
+  name: dp
+  dp:
+    model: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/temp_repos/dp_model/DPA-3.1-3M.pt
