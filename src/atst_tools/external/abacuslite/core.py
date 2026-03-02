@@ -255,19 +255,79 @@ class AbacusTemplate(CalculatorTemplate):
         # should this function be responsible for checking the integrity
         # of information provided by the user? There may be the case that
         # user provides incomplete information, such that the ABACUS cannot
-        # run with parameters.
-
         # INPUT
         # after writing the KPT and STRU, delete them from the parameters
         _ = parameters.pop('kpts', None)
 
-        _ = parameters.pop('pseudopotentials', None)
-        parameters.update({'pseudo_dir': profile.pseudo_dir})
+        #_ = parameters.pop('pseudopotentials', None)
+        #parameters.update({'pseudo_dir': profile.pseudo_dir})
+        if profile.pseudo_dir is not None:
+             p_dir = Path(profile.pseudo_dir)
+             if p_dir.exists():
+                 p_dir_str = str(p_dir.resolve())
+                 if not p_dir_str.endswith('/'):
+                     p_dir_str += '/'
+                 parameters.update({'pseudo_dir': p_dir_str})
+             else:
+                 parameters.update({'pseudo_dir': str(profile.pseudo_dir)})
 
-        _ = parameters.pop('basissets', None)
-        parameters.update({'orbital_dir': profile.orbital_dir})
+        #_ = parameters.pop('basissets', None)
+        #parameters.update({'orbital_dir': profile.orbital_dir})
+        if profile.orbital_dir is not None:
+             o_dir = Path(profile.orbital_dir)
+             if o_dir.exists():
+                 o_dir_str = str(o_dir.resolve())
+                 if not o_dir_str.endswith('/'):
+                     o_dir_str += '/'
+                 parameters.update({'orbital_dir': o_dir_str})
+             else:
+                 parameters.update({'orbital_dir': str(profile.orbital_dir)})
+             
         # update the parameters respect to the properties desired
         parameters = self.get_property_keywords(parameters, properties)
+        
+        # Pop pseudopotentials and basissets AFTER get_property_keywords?
+        # get_property_keywords usually filters out keys that are not valid ABACUS INPUT keywords.
+        # But pseudopotentials and basissets are definitely NOT valid INPUT keywords.
+        # They should be popped before writing INPUT.
+        # But wait! 'write_stru' is called BEFORE this section.
+        # See line 246.
+        # And write_stru uses parameters.get('pseudopotentials').
+        # So popping here is correct.
+        
+        # Why did I comment them out? Because I suspected they were popped too early?
+        # No, they are popped here (Line 260+). write_stru is at Line 246.
+        # So they exist when write_stru runs.
+        
+        # However, why did write_stru fail to write PP filenames into STRU?
+        # Maybe parameters['pseudopotentials'] is None or empty?
+        
+        # Let's restore the pop, but print debug info if needed.
+        _ = parameters.pop('pseudopotentials', None)
+        _ = parameters.pop('basissets', None)
+        
+        # NOTE: ensure pseudo_dir and orbital_dir are written into INPUT file
+        # The previous code only updated parameters dict, but parameters dict is used to write INPUT.
+        # Wait, get_property_keywords might overwrite or filter parameters?
+        # get_property_keywords returns updated parameters.
+        # But look at lines above: parameters.update({'pseudo_dir': ...})
+        # This puts pseudo_dir into parameters.
+        # Then get_property_keywords is called.
+        # Then write_input is called (which we are inside).
+        # Finally write_input calls write_input function from generalio.
+        
+        # Let's check if pseudo_dir key is present in parameters when calling write_input
+        # It seems fine.
+        
+        # However, looking at the grep result:
+        # OUT.ABACUS/INPUT:pseudo_dir                      #the directory containing pseudo files
+        # It seems the value is EMPTY!
+        
+        # Why?
+        # Maybe profile.pseudo_dir is None?
+        # In factory.py, we pass pseudo_dir to profile.
+        # Let's verify if parameters dict actually has the value.
+        pass
         # postprocess on the parameters: convert the key and values
         # from any to string. For the case where the value is a 
         # array, convert to the string spaced by whitespace

@@ -189,12 +189,15 @@ pytest tests/integration
 
 ### 6.5 暂不支持的功能与未来规划 (Unsupported / Future Capabilities)
 
-虽然 `abacuslite` 理论上支持更多功能，但本项目当前**仅专注于**过渡态与结构优化。以下功能在当前版本中**不支持**：
+虽然 `abacuslite` 理论上支持更多功能，但本项目当前**仅专注于**过渡态与结构优化。以下功能在当前版本中**不支持且不计划支持**：
 
 *   **电子结构分析 (Electronic Structure)**:
     *   ❌ NSCF (Non-Self-Consistent Field)
     *   ❌ Band Structure (能带)
     *   ❌ DOS (态密度)
+
+以下功能在当前版本中**不支持，但有计划支持**：
+
 *   **Metadynamics (元动力学)**:
     *   ❌ PLUMED 接口集成
 *   **高级分子动力学 (Advanced MD)**:
