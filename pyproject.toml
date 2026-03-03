@@ -15,6 +15,7 @@ dependencies = [
     "matplotlib",
     "ruamel.yaml",
     "seekpath",
+    "sella",
 ]
 
 [project.scripts]
