@@ -115,6 +115,18 @@ src/atst_tools/
 *   **测试驱动**: 修复 Bug 或新增功能时，必须在 `tests/` 下添加对应的单元测试。
 *   **Import 规范**: 禁止使用相对引用跨越顶层模块，统一使用绝对引用 (e.g., `from atst_tools.utils import ...`)。
 
+### 4.3 外部依赖集成策略 (Vendor Integration Strategy)
+
+本项目采用 **"Vendor / Soft Fork"** 模式集成 `abacuslite`，而非作为外部 pip 依赖引入。这主要是为了解决版本兼容性与快速热修复的需求。
+
+*   **上游仓库**: `deepmodeling/abacus-develop` (`interfaces/ASE_interface/abacuslite`)
+*   **本地路径**: `src/atst_tools/external/abacuslite/`
+*   **同步策略**:
+    1.  **按需同步**: 仅当上游有重大 Bug 修复或本项目需要的新功能时，手动从上游拉取代码。
+    2.  **保留补丁**: 同步时必须小心保留本地的 `import` 路径修正（例如 `from atst_tools.external...`）。
+    3.  **功能裁剪**: 仅保留核心的 `core.py`, `io/` 等模块，`examples/` 与 `tests/` 可根据需要选择性同步或忽略。
+    4.  **文档记录**: 每次同步需在 `CHANGELOG` 或 Commit Message 中注明上游 Commit ID。
+
 ---
 
 ## 5. 迁移指南 (Migration Quick Guide)

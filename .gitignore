@@ -20,3 +20,5 @@ temp_repos/
 !examples/**/*.traj
 !examples/**/*.cif
 !tests/data/**
+*pytest_cache*
+temp_repos/abacus-develop

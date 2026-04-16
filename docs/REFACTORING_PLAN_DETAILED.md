@@ -83,14 +83,19 @@
 
 ### 3.1 彻底清理 (Purge)
 *   **执行步骤**:
-    1.  [ ] **删除遗留目录**: `ase-dp/`, `dimer/`, `neb/`, `relax/`, `sella/`, `vibration/`。
-    2.  [ ] **更新示例**: 将 `examples/` 下的旧版脚本全部替换为基于 `atst-run` + `config.yaml` 的新示例。
-    3.  [ ] **文档清洗**: 移除所有关于旧脚本的文档引用。
+    1.  [x] **删除遗留目录**: `ase-dp/`, `dimer/`, `neb/`, `relax/`, `sella/`, `vibration/`。
+    2.  [x] **更新示例**: 将 `examples/` 下的旧版脚本全部替换为基于 `atst-run` + `config.yaml` 的新示例。
+    3.  [x] **文档清洗**: 移除所有关于旧脚本的文档引用。
 
 ### 3.2 扩展功能 (Future)
 *   **执行步骤**:
     1.  [ ] **Metadynamics**: 探索通过 `abacuslite` + `plumed` 支持元动力学计算。
     2.  [ ] **Band Structure**: 集成 `seekpath`，支持自动能带路径生成与计算。
+
+---
+
+## 4. 后续计划 (Next Steps)
+本项目重构阶段已基本完成（Phase 1-4）。后续开发请参考 [ITERATION_1_PLAN.md](ITERATION_1_PLAN.md)。
 
 ---
 

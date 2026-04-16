@@ -231,7 +231,7 @@ def write_stru(stru: Atoms,
             {
                 'symbol': e,
                 'mass': ATOM_MASS[e],
-                'pp_file': pp_file.get(e, 'auto') if pp_file else 'auto',
+                'pp_file': pp_file.get(e, ''),
                 'pp_type': '',
                 'natom': n,
                 'mag_each': 0.0,
@@ -246,10 +246,6 @@ def write_stru(stru: Atoms,
             for i, (n, e) in enumerate(zip(nat, elem_uniq))
         ]
     }
-    
-    # Debug: print pp_file content to stdout
-    # import sys
-    # print(f"DEBUG: write_stru pp_file={pp_file}", file=sys.stdout)
     if orb_file is not None:
         for s in stru_dict['species']:
             s['orb_file'] = orb_file[s['symbol']]

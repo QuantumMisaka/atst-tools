@@ -104,14 +104,15 @@ atst-run config_relax.yaml
   - abacus: command|mpi|omp|directory|parameters（pseudopotentials|basissets|xc|ecutwfc 等）
   - dp: model|type_map
 
-### 3.4 示例索引（即将发布）
-- NEB: examples/01_neb/config.yaml
-- AutoNEB: examples/02_autoneb/config.yaml
-- Dimer: examples/03_dimer/config.yaml
-- Sella: examples/04_sella/config.yaml
-- Relax: examples/05_relax/config.yaml
-- Vibration: examples/06_vibration/config.yaml
-- D2S: examples/07_d2s/config.yaml
+### 3.4 示例索引 (Example Index)
+- **NEB (Li-Si)**: `examples/01_neb_Li-Si/config.yaml`
+- **NEB (H2-Au)**: `examples/02_neb_H2-Au/config.yaml`
+- **AutoNEB**: `examples/03_autoneb_Cy-Pt/config.yaml`
+- **Dimer**: `examples/04_dimer_CO-Pt/config.yaml`
+- **Sella**: `examples/05_sella_H2-Au/config.yaml`
+- **Relax**: `examples/06_relax_H2-Au/config.yaml`
+- **Vibration**: `examples/07_vibration_H2-Au/config.yaml`
+- **D2S**: `examples/08_d2s_Cy-Pt/config.yaml` (Pending integration)
 
 ## 4. 目录结构 (Directory Structure)
 
