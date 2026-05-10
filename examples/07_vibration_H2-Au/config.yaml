@@ -1,6 +1,6 @@
 calculation:
   type: vibration
-  init_structure: ts_opt.stru
+  init_structure: inputs/ts_opt.stru
   indices: [0, 1]
   delta: 0.01
   nfree: 2
@@ -19,7 +19,7 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 1

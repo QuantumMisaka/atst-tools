@@ -3,16 +3,20 @@
 ## 1. 目录层级
 ```text
 docs/
-├── ATST_Tools_Documentation_CN.md      # 用户向导与快速上手（主入口）
-├── REFACTORING_GUIDE.md                # 路线图与愿景（RC 阶段）
-├── REFACTORING_PLAN_DETAILED.md        # 计划与检查项（RC 阶段）
-├── LEGACY_EVALUATION.md                # 旧示例评估与迁移建议
-├── DOCUMENTATION_STATUS_REPORT.md      # 状态对齐与追踪（单一入口）
-├── DOCUMENTATION_STANDARDS.md          # 规范与模板
-├── HANDOVER.md                         # 交接与维护流程
-├── DOCS_ARCHITECTURE.md                # 本文件（结构与导航）
-└── releases/
-    └── RC_RELEASE_NOTES_2.0.0-rc.md    # RC 发布说明归档
+├── index.md                            # 文档总入口
+├── user/                               # 用户文档
+│   ├── CLI_REFERENCE.md
+│   ├── CONFIG_REFERENCE.md
+│   └── USER_GUIDE_CN.md
+├── developer/                          # 开发者文档
+│   ├── DOCS_ARCHITECTURE.md
+│   ├── DOCUMENTATION_STANDARDS.md
+│   ├── HANDOVER.md
+│   ├── REFACTORING_GUIDE.md
+│   └── plans/
+├── reports/                            # 审查、验收、状态报告
+├── releases/                           # 发布说明
+└── archive/                            # 归档文档
 ```
 
 ## 2. 角色与定位
@@ -23,7 +27,8 @@ docs/
 - **发布与归档**：面向版本管理，提供版本历史与查找入口。
 
 ## 3. 导航与索引
-- **主入口**：[ATST_Tools_Documentation_CN.md](ATST_Tools_Documentation_CN.md)
-- **状态追踪**：[DOCUMENTATION_STATUS_REPORT.md](DOCUMENTATION_STATUS_REPORT.md)
+- **主入口**：[docs/index.md](../index.md)
+- **用户向导**：[USER_GUIDE_CN.md](../user/USER_GUIDE_CN.md)
+- **状态追踪**：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
 - **开发规范**：[DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
-- **发布说明**：[releases/RC_RELEASE_NOTES_2.0.0-rc.md](releases/RC_RELEASE_NOTES_2.0.0-rc.md)
+- **发布说明**：[RC_RELEASE_NOTES_2.0.0-rc.md](../releases/RC_RELEASE_NOTES_2.0.0-rc.md)

@@ -1,8 +1,9 @@
 calculation:
   type: d2s
   method: dimer # Options: dimer, sella
-  init_file: init.stru
-  final_file: final.stru
+  init_file: inputs/init.stru
+  final_file: inputs/final.stru
+  endpoint_max_steps: 1
 
   # Rough NEB Phase
   neb:
@@ -10,10 +11,12 @@ calculation:
     fmax: 1.00
     climb: true
     algorism: improvedtangent
+    max_steps: 1
 
   # Single-Ended Search Phase
   dimer: # Only used if method=dimer
     fmax: 0.05
+    max_steps: 1
     # separation: 0.01
   
   sella:
@@ -32,13 +35,13 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 0
         scf_thr: 1e-06
         scf_nmax: 300
-        smearing_method: gau
+        smearing_method: gauss
         smearing_sigma: 0.001
         mixing_type: broyden
         mixing_ndim: 20

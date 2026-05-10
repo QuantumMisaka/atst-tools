@@ -1,6 +1,6 @@
 calculation:
   type: neb
-  init_chain: init_neb_chain.traj
+  init_chain: inputs/init_neb_chain.traj
   climb: true
   fmax: 0.05
   k: 0.1

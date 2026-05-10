@@ -1,10 +1,11 @@
 calculation:
   type: dimer
-  init_structure: dimer_init.traj
+  init_structure: inputs/dimer_init.traj
   fmax: 0.05
+  max_steps: 1
   trajectory: dimer.traj
   init_eigenmode_method: displacement
-  displacement_vector: displacement_vector.npy
+  displacement_vector: inputs/displacement_vector.npy
 
 calculator:
   name: abacus
@@ -18,7 +19,7 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 0

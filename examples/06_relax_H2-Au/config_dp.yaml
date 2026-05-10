@@ -1,6 +1,6 @@
 calculation:
   type: relax
-  init_structure: init.stru
+  init_structure: inputs/init.stru
   fmax: 0.05
   optimizer: FIRE
   trajectory: relax.traj

@@ -1,10 +1,10 @@
 calculation:
   type: dimer
-  init_structure: dimer_init.traj
+  init_structure: inputs/dimer_init.traj
   fmax: 0.05
   trajectory: dimer.traj
   init_eigenmode_method: displacement
-  displacement_vector: displacement_vector.npy
+  displacement_vector: inputs/displacement_vector.npy
 
 calculator:
   name: dp

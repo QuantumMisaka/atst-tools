@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from ase.calculators.calculator import Calculator
 
-from atst_tools.external.ASE_interface.abacuslite import Abacus, AbacusProfile
+from atst_tools.calculators.abacuslite_backend import Abacus, AbacusProfile
 
 
 _ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters"}
@@ -51,7 +51,7 @@ def _resolve_directory(path: str | None) -> str | None:
 
 
 class AbacusFactory:
-    """Factory for creating ABACUS ASE calculators using vendored abacuslite."""
+    """Factory for creating ABACUS ASE calculators through abacuslite."""
 
     @staticmethod
     def get_calculator(

@@ -6,6 +6,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 ## Directory Structure
 
 *   `data/`: Centralized repository for Pseudopotentials (`.upf`) and Numerical Orbitals (`.orb`).
+*   `<case>/inputs/`: Curated input structures and vectors referenced by `config*.yaml`.
 
 ### 1. Basic Examples (Li Diffusion)
 *   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
@@ -26,8 +27,9 @@ The examples are organized by chemical system and method to demonstrate the vers
 ## Usage
 
 1.  **Environment**: Ensure `atst-tools` is installed and you have access to `abacus` or `deepmd-kit`.
-2.  **Data**: The `data/` directory is referenced by relative paths (e.g., `../data`) in `config.yaml`.
-3.  **Run**:
+2.  **Inputs**: Each example keeps runnable inputs under `inputs/`; generated trajectories and ABACUS scratch directories are ignored.
+3.  **Data**: The shared `data/` directory is referenced by relative paths (e.g., `../data`) in `config.yaml`.
+4.  **Run**:
     ```bash
     cd 01_neb_Li-Si
     atst-run config.yaml

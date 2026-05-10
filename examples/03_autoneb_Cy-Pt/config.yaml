@@ -1,7 +1,7 @@
 calculation:
   type: autoneb
   prefix: run_autoneb
-  init_chain: init_neb_chain.traj
+  init_chain: inputs/init_neb_chain.traj
   n_simul: 4
   n_max: 10
   algorism: improvedtangent
@@ -9,7 +9,7 @@ calculation:
   optimizer: FIRE
   fmax: [1.00, 0.05]
   climb: true
-  maxsteps: 100
+  maxsteps: 1
   iter_folder: AutoNEB_iter
 
 calculator:
@@ -24,13 +24,13 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 0
         scf_thr: 1e-06
         scf_nmax: 300
-        smearing_method: gau
+        smearing_method: gauss
         smearing_sigma: 0.001
         mixing_type: broyden
         mixing_ndim: 20

@@ -1,7 +1,8 @@
 calculation:
   type: sella
-  init_structure: sella_init.stru
+  init_structure: inputs/sella_init.stru
   fmax: 0.05
+  max_steps: 1
   trajectory: sella.traj
   eta: 0.002
 
@@ -17,7 +18,7 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 1

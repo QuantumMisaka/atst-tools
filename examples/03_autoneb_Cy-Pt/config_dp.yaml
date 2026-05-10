@@ -1,7 +1,7 @@
 calculation:
   type: autoneb
   prefix: run_autoneb
-  init_chain: init_neb_chain.traj
+  init_chain: inputs/init_neb_chain.traj
   n_simul: 4
   n_max: 10
   algorism: improvedtangent

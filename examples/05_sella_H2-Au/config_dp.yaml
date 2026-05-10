@@ -1,6 +1,6 @@
 calculation:
   type: sella
-  init_structure: sella_init.stru
+  init_structure: inputs/sella_init.stru
   fmax: 0.05
   trajectory: sella.traj
   eta: 0.005

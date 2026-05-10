@@ -115,16 +115,18 @@ src/atst_tools/
 *   **测试驱动**: 修复 Bug 或新增功能时，必须在 `tests/` 下添加对应的单元测试。
 *   **Import 规范**: 禁止使用相对引用跨越顶层模块，统一使用绝对引用 (e.g., `from atst_tools.utils import ...`)。
 
-### 4.3 外部依赖集成策略 (Vendor Integration Strategy)
+### 4.3 外部依赖集成策略 (Backend Integration Strategy)
 
-本项目采用 **"Vendor / Soft Fork"** 模式集成 `abacuslite`，而非作为外部 pip 依赖引入。这主要是为了解决版本兼容性与快速热修复的需求。
+本项目采用 **外部安装优先 + vendored fallback** 的过渡策略集成 `abacuslite`。运行时优先导入用户环境中独立安装的 `abacuslite`；如果不可用，再回退到 `src/atst_tools/external/ASE_interface/` 中的快照。
 
 *   **上游仓库**: `deepmodeling/abacus-develop` (`interfaces/ASE_interface/abacuslite`)
-*   **本地路径**: `src/atst_tools/external/ASE_interface/`
+*   **本地 fallback 路径**: `src/atst_tools/external/ASE_interface/`
+*   **解析入口**: `src/atst_tools/calculators/abacuslite_backend.py`
+*   **长期方向**: 当 `abacuslite` 有稳定发布源后，将其改为 optional dependency 或 extras，并逐步移除 vendored fallback。
 *   **同步策略**:
     1.  **按需同步**: 仅当上游有重大 Bug 修复或本项目需要的新功能时，手动从上游拉取代码。
-    2.  **保留补丁**: 同步时必须小心保留本地的 `import` 路径修正（例如 `from atst_tools.external...`）。
-    3.  **完整快照**: 保留整个 `ASE_interface` 目录，包含 `abacuslite/`、上游示例、测试和说明文档，便于后续与上游同步和独立验证。
+    2.  **保持上游形态**: `ASE_interface` 本身带 `pyproject.toml`，可单独 `pip install .`；ATST-Tools 只消费该 backend。
+    3.  **完整快照**: 2.0.0-rc 保留整个 `ASE_interface` 目录，包含 `abacuslite/`、上游示例、测试和说明文档，便于后续与上游同步和独立验证。
     4.  **文档记录**: 每次同步需在 `CHANGELOG` 或 Commit Message 中注明上游 Commit ID。
 
 ---
@@ -150,7 +152,7 @@ src/atst_tools/
 
 **环境名称**: `atst-dev`
 **Python 版本**: 3.10
-**关键依赖**: `pytest`, `deepmd-kit`, `ase`, `abacuslite` (vendored)
+**关键依赖**: `pytest`, `deepmd-kit`, `ase`, `abacuslite` (external install or vendored fallback)
 
 ### 6.2 激活与测试
 

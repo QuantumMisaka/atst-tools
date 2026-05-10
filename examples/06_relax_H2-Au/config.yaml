@@ -1,7 +1,8 @@
 calculation:
   type: relax
-  init_structure: init.stru
+  init_structure: inputs/init.stru
   fmax: 0.05
+  max_steps: 1
   optimizer: QuasiNewton
   trajectory: relax.traj
 
@@ -17,7 +18,7 @@ calculator:
         calculation: scf
         ecutwfc: 100
         basis_type: lcao
-        ks_solver: genelpa
+        ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
         symmetry: 1
@@ -34,8 +35,8 @@ calculator:
         efield_flag: 1
         dip_cor_flag: 1
         efield_dir: 1
-        pseudo_dir: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/examples/data
-        orbital_dir: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/examples/data
+        pseudo_dir: ../data
+        orbital_dir: ../data
         pseudopotentials:
            H: H_ONCV_PBE-1.0.upf
            Au: Au_ONCV_PBE-1.0.upf

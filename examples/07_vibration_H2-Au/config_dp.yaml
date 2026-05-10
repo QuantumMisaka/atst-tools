@@ -1,6 +1,6 @@
 calculation:
   type: vibration
-  init_structure: ts_opt.stru
+  init_structure: inputs/ts_opt.stru
   delta: 0.01
   nfree: 2
   name: vib_calc

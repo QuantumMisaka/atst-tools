@@ -68,7 +68,7 @@ calculator:
         "neb": """\
 calculation:
   type: neb
-  init_chain: init_neb_chain.traj
+  init_chain: inputs/init_neb_chain.traj
   fmax: 0.05
   max_steps: 100
   climb: true
@@ -77,7 +77,7 @@ calculation:
         "autoneb": """\
 calculation:
   type: autoneb
-  init_chain: init_neb_chain.traj
+  init_chain: inputs/init_neb_chain.traj
   prefix: run_autoneb
   n_simul: 4
   n_max: 10
@@ -88,17 +88,17 @@ calculation:
         "dimer": """\
 calculation:
   type: dimer
-  init_structure: dimer_init.traj
+  init_structure: inputs/dimer_init.traj
   fmax: 0.05
   max_steps: 100
   trajectory: dimer.traj
   init_eigenmode_method: displacement
-  displacement_vector: displacement_vector.npy
+  displacement_vector: inputs/displacement_vector.npy
 """,
         "sella": """\
 calculation:
   type: sella
-  init_structure: sella_init.stru
+  init_structure: inputs/sella_init.stru
   fmax: 0.05
   max_steps: 100
   trajectory: sella.traj
@@ -108,8 +108,8 @@ calculation:
 calculation:
   type: d2s
   method: dimer
-  init_file: init.stru
-  final_file: final.stru
+  init_file: inputs/init.stru
+  final_file: inputs/final.stru
   endpoint_max_steps: 100
   neb:
     n_images: 8
@@ -122,7 +122,7 @@ calculation:
         "relax": """\
 calculation:
   type: relax
-  init_structure: init.stru
+  init_structure: inputs/init.stru
   fmax: 0.05
   max_steps: 100
   optimizer: FIRE
@@ -131,7 +131,7 @@ calculation:
         "vibration": """\
 calculation:
   type: vibration
-  init_structure: ts_opt.stru
+  init_structure: inputs/ts_opt.stru
   indices: [0, 1]
   delta: 0.01
   nfree: 2
@@ -359,7 +359,7 @@ def _build_parser():
           atst-run --list-types
           atst-run --show-template neb --calculator abacus
 
-        Full YAML examples are in examples/. The detailed reference is docs/CONFIG_REFERENCE.md.
+        Full YAML examples are in examples/. The detailed reference is docs/user/CONFIG_REFERENCE.md.
         """
     )
     parser = argparse.ArgumentParser(

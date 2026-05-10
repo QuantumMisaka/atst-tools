@@ -125,6 +125,7 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 **Name**: `abacus`
 > **Note**: For backward compatibility, parameters can also be placed under an `abacus` root key instead of `calculator.abacus`.
 > On the SAI GPU validation environment, LCAO examples use `ks_solver: cusolver`.
+> ATST-Tools imports an independently installed `abacuslite` package first and falls back to the vendored `src/atst_tools/external/ASE_interface/abacuslite` snapshot if that import is unavailable.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -143,7 +144,7 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 **Name**: `dp`
 
 DP support is planned and validated after the ABACUS-first 2.0.0 acceptance path.
-The intended implementation is documented in `docs/ML_CALCULATOR_PLAN.md`.
+The intended implementation is documented in `../developer/plans/ML_CALCULATOR_PLAN.md`.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |

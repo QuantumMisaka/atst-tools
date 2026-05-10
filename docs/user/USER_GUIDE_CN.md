@@ -134,8 +134,8 @@ src/atst_tools/
 
 ## 5. 开发指南 (Development)
 
-请参考 `docs/REFACTORING_GUIDE.md` 和 `docs/REFACTORING_PLAN_DETAILED.md` 了解架构设计与开发规范。
-更多关于文档编写与维护规范，请参阅 [docs/DOCS_ARCHITECTURE.md](docs/DOCS_ARCHITECTURE.md)。
+请参考 [重构指南](../developer/REFACTORING_GUIDE.md) 和 [详细重构计划](../developer/plans/REFACTORING_PLAN_DETAILED.md) 了解架构设计与开发规范。
+更多关于文档编写与维护规范，请参阅 [文档架构](../developer/DOCS_ARCHITECTURE.md)。
 
 ### 测试
 ```bash
