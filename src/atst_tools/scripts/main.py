@@ -1,12 +1,16 @@
-# ATST-Tools Main Entry Point
+"""ATST-Tools CLI entry point."""
 
 import argparse
+import logging
 import numpy as np
 from ase.io import read
-from ase.optimize import FIRE, BFGS
+from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
+from importlib.metadata import PackageNotFoundError, version
+from textwrap import dedent
 
 from atst_tools.utils.config import ConfigLoader
+from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.mep.autoneb import AutoNEBRunner
@@ -14,6 +18,129 @@ from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
 from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
+from atst_tools.workflows.d2s import D2SWorkflow
+from atst_tools.utils.io import read_structure
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _package_version():
+    try:
+        return version("atst-tools")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _template(calculation_type, calculator_name):
+    if calculator_name == "dp":
+        calculator = """\
+calculator:
+  name: dp
+  dp:
+    model: /path/to/model.pb
+"""
+    else:
+        calculator = """\
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_atst
+    kpts: [1, 1, 1]
+    parameters:
+      calculation: scf
+      basis_type: lcao
+      ks_solver: cusolver
+      ecutwfc: 100
+      scf_thr: 1e-6
+      cal_force: 1
+      pseudo_dir: ./data
+      orbital_dir: ./data
+      pseudopotentials:
+        H: H_ONCV_PBE-1.0.upf
+      basissets:
+        H: H_gga_6au_100Ry_2s1p.orb
+"""
+
+    calculation_blocks = {
+        "neb": """\
+calculation:
+  type: neb
+  init_chain: init_neb_chain.traj
+  fmax: 0.05
+  max_steps: 100
+  climb: true
+  parallel: true
+""",
+        "autoneb": """\
+calculation:
+  type: autoneb
+  init_chain: init_neb_chain.traj
+  prefix: run_autoneb
+  n_simul: 4
+  n_max: 10
+  fmax: [0.20, 0.05]
+  maxsteps: 100
+  parallel: true
+""",
+        "dimer": """\
+calculation:
+  type: dimer
+  init_structure: dimer_init.traj
+  fmax: 0.05
+  max_steps: 100
+  trajectory: dimer.traj
+  init_eigenmode_method: displacement
+  displacement_vector: displacement_vector.npy
+""",
+        "sella": """\
+calculation:
+  type: sella
+  init_structure: sella_init.stru
+  fmax: 0.05
+  max_steps: 100
+  trajectory: sella.traj
+  eta: 0.002
+""",
+        "d2s": """\
+calculation:
+  type: d2s
+  method: dimer
+  init_file: init.stru
+  final_file: final.stru
+  endpoint_max_steps: 100
+  neb:
+    n_images: 8
+    fmax: 0.20
+    max_steps: 100
+  dimer:
+    fmax: 0.05
+    max_steps: 100
+""",
+        "relax": """\
+calculation:
+  type: relax
+  init_structure: init.stru
+  fmax: 0.05
+  max_steps: 100
+  optimizer: FIRE
+  trajectory: relax.traj
+""",
+        "vibration": """\
+calculation:
+  type: vibration
+  init_structure: ts_opt.stru
+  indices: [0, 1]
+  delta: 0.01
+  nfree: 2
+  name: vib_calc
+  temperature: 300.0
+""",
+    }
+    return calculation_blocks[calculation_type] + "\n" + calculator
+
 
 def get_optimizer(opt_name):
     """
@@ -25,12 +152,17 @@ def get_optimizer(opt_name):
     Returns:
         class: The ASE optimizer class. Default is FIRE.
     """
-    if opt_name.upper() == 'FIRE':
+    name = opt_name.upper()
+    if name == 'FIRE':
         return FIRE
-    elif opt_name.upper() == 'BFGS':
+    elif name == 'BFGS':
         return BFGS
+    elif name == 'LBFGS':
+        return LBFGS
+    elif name == 'QUASINEWTON':
+        return QuasiNewton
     else:
-        print(f"Warning: Unknown optimizer {opt_name}, defaulting to FIRE")
+        LOGGER.warning("Unknown optimizer %s, defaulting to FIRE", opt_name)
         return FIRE
 
 def run_neb(config, calc_name, calc_config):
@@ -42,7 +174,7 @@ def run_neb(config, calc_name, calc_config):
         calc_name (str): Name of the calculator (e.g., 'abacus', 'dp').
         calc_config (dict): Calculation-specific configuration.
     """
-    print("=== Starting NEB Calculation ===")
+    LOGGER.info("Starting NEB calculation")
     
     # Load Initial Chain
     init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
@@ -54,19 +186,25 @@ def run_neb(config, calc_name, calc_config):
     k = calc_config.get('k', 0.1)
     algorism = calc_config.get('algorism', 'improvedtangent')
     parallel = calc_config.get('parallel', True)
+    max_steps = calc_config.get('max_steps', 100)
     opt_name = calc_config.get('optimizer', 'FIRE')
+    from ase.parallel import world
+    effective_parallel = parallel and world.size > 1
+    if parallel and not effective_parallel:
+        LOGGER.warning(
+            "Image-level NEB parallelism requires MPI-launched atst-run; running images serially."
+        )
     
     # Initialize NEB
     neb = AbacusNEB(init_chain, 
-                    parallel=parallel,
+                    parallel=effective_parallel,
                     method=algorism, 
                     k=k,
                     climb=climb)
     
     # Attach Calculators
-    from ase.parallel import world
     for i, image in enumerate(init_chain[1:-1]):
-        if parallel:
+        if effective_parallel:
             if world.rank == i % world.size:
                 # Determine directory logic
                 base_dir = config.get('calculator', {}).get('abacus', {}).get('directory', 'run_atst')
@@ -88,14 +226,14 @@ def run_neb(config, calc_name, calc_config):
              image.calc = CalculatorFactory.get_calculator(
                     calc_name, 
                     config, 
-                    directory=base_dir
+                    directory=f"{base_dir}/image_{i + 1:03d}"
                 )
 
     # Run
     optimizer = get_optimizer(opt_name)
     opt = optimizer(neb, trajectory='neb.traj')
-    opt.run(fmax=fmax)
-    print("=== NEB Calculation Finished ===")
+    opt.run(fmax=fmax, steps=max_steps)
+    LOGGER.info("NEB calculation finished")
 
 def run_autoneb(config, calc_name, calc_config):
     """
@@ -118,7 +256,7 @@ def run_dimer(config, calc_name, calc_config):
         calc_name (str): Name of the calculator.
         calc_config (dict): Calculation-specific configuration.
     """
-    print("=== Starting Dimer Calculation ===")
+    LOGGER.info("Starting Dimer calculation")
     
     # 1. Load Initial Structure
     # Dimer needs a single structure (Transition State guess)
@@ -128,7 +266,7 @@ def run_dimer(config, calc_name, calc_config):
          if os.path.exists('dimer_init.traj'):
              init_structure = 'dimer_init.traj'
     
-    atoms = read(init_structure)
+    atoms = read_structure(init_structure)
     
     # 2. Parameters
     fmax = calc_config.get('fmax', 0.05)
@@ -139,12 +277,16 @@ def run_dimer(config, calc_name, calc_config):
     method = calc_config.get('init_eigenmode_method', 'displacement')
     displacement_vector = calc_config.get('displacement_vector', None)
     
-    if method == 'displacement' and displacement_vector is None:
+    if method == 'displacement' and isinstance(displacement_vector, str):
+        displacement_vector = np.load(displacement_vector)
+    elif method == 'displacement' and displacement_vector is None:
         # Try loading from file
         if os.path.exists('displacement_vector.npy'):
             displacement_vector = np.load('displacement_vector.npy')
         else:
-            print("Warning: No displacement vector found for Dimer. Using default [0.01, ...]")
+            LOGGER.warning(
+                "No displacement vector found for Dimer. The dimer runner will validate this input."
+            )
             # AbacusDimer might handle None? It raises ValueError.
             # We should probably ask user or default to something?
             # Let's let AbacusDimer handle the error if not provided.
@@ -160,8 +302,8 @@ def run_dimer(config, calc_name, calc_config):
         displacement_vector=displacement_vector
     )
     
-    dimer.run(fmax=fmax)
-    print("=== Dimer Calculation Finished ===")
+    dimer.run(fmax=fmax, max_steps=calc_config.get('max_steps'))
+    LOGGER.info("Dimer calculation finished")
 
 def run_sella(config, calc_name, calc_config):
     """
@@ -172,7 +314,7 @@ def run_sella(config, calc_name, calc_config):
         calc_name (str): Name of the calculator.
         calc_config (dict): Calculation-specific configuration.
     """
-    print("=== Starting Sella Calculation ===")
+    LOGGER.info("Starting Sella calculation")
     
     # 1. Load Initial Structure (TS guess)
     init_structure = calc_config.get('init_structure', 'sella_init.stru')
@@ -181,7 +323,7 @@ def run_sella(config, calc_name, calc_config):
          if os.path.exists('sella_init.traj'):
              init_structure = 'sella_init.traj'
     
-    atoms = read(init_structure)
+    atoms = read_structure(init_structure)
     
     # 2. Parameters
     fmax = calc_config.get('fmax', 0.05)
@@ -200,20 +342,69 @@ def run_sella(config, calc_name, calc_config):
     )
     
     sella_run.run()
-    print("=== Sella Calculation Finished ===")
+    LOGGER.info("Sella calculation finished")
+
+
+def _build_parser():
+    description = "ATST-Tools: ASE workflows for ABACUS-first transition-state calculations"
+    epilog = dedent(
+        """
+        Configuration shape:
+          calculation.type: neb | autoneb | dimer | sella | d2s | relax | vibration
+          calculator.name:  abacus | dp
+
+        Common commands:
+          atst-run examples/06_relax_H2-Au/config.yaml
+          atst-run --dry-run examples/01_neb_Li-Si/config.yaml
+          atst-run --list-types
+          atst-run --show-template neb --calculator abacus
+
+        Full YAML examples are in examples/. The detailed reference is docs/CONFIG_REFERENCE.md.
+        """
+    )
+    parser = argparse.ArgumentParser(
+        description=description,
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument('config', nargs='?', help='Path to configuration file (YAML)')
+    parser.add_argument('--dry-run', action='store_true', help='Load and validate YAML, then exit without running a calculation')
+    parser.add_argument('--list-types', action='store_true', help='Print supported calculation types and exit')
+    parser.add_argument('--show-template', choices=VALID_CALCULATION_TYPES, help='Print a minimal YAML template for a calculation type')
+    parser.add_argument('--calculator', choices=('abacus', 'dp'), default='abacus', help='Calculator used with --show-template')
+    parser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'), help='Console log level')
+    parser.add_argument('--version', action='version', version=f'%(prog)s {_package_version()}')
+    return parser
 
 def main():
     """
     Main entry point for ATST-Tools CLI.
     Parses arguments, loads config, and dispatches to specific workflows.
     """
-    parser = argparse.ArgumentParser(description="ATST-Tools: Advanced Transition State Tools")
-    parser.add_argument('config', type=str, help='Path to configuration file (YAML)')
+    parser = _build_parser()
     args = parser.parse_args()
+    logging.basicConfig(level=getattr(logging, getattr(args, "log_level", "INFO")), format="%(message)s")
+
+    if getattr(args, "list_types", False):
+        print("\n".join(VALID_CALCULATION_TYPES))
+        return
+
+    show_template = getattr(args, "show_template", None)
+    if show_template:
+        print(_template(show_template, getattr(args, "calculator", "abacus")))
+        return
+
+    if not getattr(args, "config", None):
+        parser.error("the following arguments are required: config")
 
     # 1. Load Configuration
     config = ConfigLoader.load(args.config)
     ConfigLoader.validate(config)
+    if getattr(args, "dry_run", False):
+        calc_type = config["calculation"]["type"]
+        calc_name = config.get("calculator", {}).get("name", "abacus")
+        LOGGER.info("Configuration is valid: calculation.type=%s, calculator.name=%s", calc_type, calc_name)
+        return
     
     # New Config Structure Support
     if 'calculation' in config:
@@ -245,9 +436,8 @@ def main():
     elif calc_type == 'sella':
         run_sella(config, calc_name, calc_config)
     elif calc_type == 'd2s':
-        # D2S might need specific handling as it manages its own calculators often?
-        pass
-        print("D2S workflow update pending in this refactor step.")
+        workflow = D2SWorkflow(config, calc_name, calc_config)
+        workflow.run()
     elif calc_type == 'relax':
         workflow = RelaxWorkflow(config, calc_name, calc_config)
         workflow.run()

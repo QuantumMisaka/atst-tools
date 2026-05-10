@@ -1,7 +1,7 @@
 # ATST-Tools Feature Status Matrix
 
 **Version**: 2.0.0-rc  
-**Last Updated**: 2026-03-04
+**Last Updated**: 2026-05-10
 
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
@@ -11,5 +11,5 @@
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling. |
 | **Dimer** | ✅ Supported | TS Search | Min-mode following. |
 | **Sella** | ✅ Supported | Saddle Point Finder | Robust optimization. |
-| **D2S** | ⚠️ Pending | Double-Ended to Single | Code exists but unlinked in CLI. |
+| **D2S** | ✅ Supported | Double-Ended to Single | `atst-run` dispatches rough DyNEB followed by Dimer or Sella. |
 | **MD** | ❌ Not Supported | Molecular Dynamics | Not implemented in `atst-run`. |

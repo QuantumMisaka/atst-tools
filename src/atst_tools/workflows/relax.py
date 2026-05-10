@@ -2,9 +2,10 @@
 # part of ATST-Tools
 
 import os
-from ase.io import read, write
-from ase.optimize import FIRE, BFGS, LBFGS
+from ase.io import write
+from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.io import read_structure
 
 class RelaxWorkflow:
     """
@@ -54,6 +55,8 @@ class RelaxWorkflow:
             return BFGS
         elif self.optimizer_name.upper() == 'LBFGS':
             return LBFGS
+        elif self.optimizer_name.upper() == 'QUASINEWTON':
+            return QuasiNewton
         else:
             print(f"Warning: Unknown optimizer {self.optimizer_name}, defaulting to FIRE")
             return FIRE
@@ -74,7 +77,7 @@ class RelaxWorkflow:
 
         try:
             # Try reading as abacus format first if suffix matches or generic
-            atoms = read(self.init_structure)
+            atoms = read_structure(self.init_structure)
         except Exception as e:
             print(f"Error reading structure: {e}")
             raise

@@ -1,9 +1,22 @@
-# ATST-Tools configuration loader
-# part of ATST-Tools
+"""Configuration loading and validation for ATST-Tools."""
 
-import yaml
 from pathlib import Path
 from typing import Dict, Any
+
+
+VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration")
+VALID_CALCULATORS = ("abacus", "dp", "deepmd")
+
+_REQUIRED_CALCULATION_FIELDS = {
+    "neb": ("init_chain",),
+    "autoneb": ("init_chain",),
+    "dimer": ("init_structure",),
+    "sella": ("init_structure",),
+    "d2s": ("init_file", "final_file"),
+    "relax": ("init_structure",),
+    "vibration": ("init_structure",),
+}
+
 
 class ConfigLoader:
     """
@@ -55,21 +68,60 @@ class ConfigLoader:
         Raises:
             ValueError: If validation fails (missing sections or invalid types).
         """
+        if not isinstance(config, dict):
+            raise ValueError("Configuration must be a YAML mapping")
+
         # 1. Check for required calculation section
         if 'calculation' not in config:
             raise ValueError("Missing required section 'calculation' in configuration")
-            
-        # 2. Check for calculator configuration (either 'abacus' or 'calculator' section)
-        if 'abacus' not in config and 'calculator' not in config:
-            # Check if calculation type is 'd2s' which might have its own params handling?
-            # But generally we need a calculator definition.
-            raise ValueError("Missing calculator configuration (either 'abacus' or 'calculator' section)")
-                
-        # 3. Validate calculation type
-        calc_type = config['calculation'].get('type')
-        valid_types = ['neb', 'autoneb', 'dimer', 'sella', 'd2s', 'relax', 'vibration']
-        
-        if calc_type not in valid_types:
-            raise ValueError(f"Unsupported calculation type: {calc_type}. Supported: {valid_types}")
+
+        calculation = config['calculation']
+        if not isinstance(calculation, dict):
+            raise ValueError("'calculation' must be a mapping")
+
+        # 2. Validate calculation type and required workflow inputs.
+        calc_type = calculation.get('type')
+        if calc_type not in VALID_CALCULATION_TYPES:
+            raise ValueError(
+                f"Unsupported calculation type: {calc_type}. "
+                f"Supported: {list(VALID_CALCULATION_TYPES)}"
+            )
+
+        missing_fields = [
+            field for field in _REQUIRED_CALCULATION_FIELDS[calc_type]
+            if field not in calculation
+        ]
+        if missing_fields:
+            raise ValueError(
+                f"Missing required field(s) for calculation.type={calc_type}: "
+                f"{', '.join(missing_fields)}"
+            )
+
+        # 3. Validate calculator configuration. The root-level 'abacus' layout is
+        # retained only as a migration path; new YAML should use calculator.name.
+        if 'calculator' in config:
+            calculator = config['calculator']
+            if not isinstance(calculator, dict):
+                raise ValueError("'calculator' must be a mapping")
+            calc_name = calculator.get('name')
+            if calc_name not in VALID_CALCULATORS:
+                raise ValueError(
+                    f"Unsupported calculator name: {calc_name}. "
+                    f"Supported: {list(VALID_CALCULATORS)}"
+                )
+            section = 'dp' if calc_name == 'deepmd' else calc_name
+            if section not in calculator:
+                raise ValueError(
+                    f"Missing calculator.{section} section for calculator.name={calc_name}"
+                )
+            if not isinstance(calculator[section], dict):
+                raise ValueError(f"'calculator.{section}' must be a mapping")
+            if section == "dp" and not calculator[section].get("model"):
+                raise ValueError("Missing required field calculator.dp.model")
+        elif 'abacus' in config:
+            if not isinstance(config['abacus'], dict):
+                raise ValueError("'abacus' must be a mapping")
+        else:
+            raise ValueError("Missing calculator configuration. Use 'calculator.name' and a matching section.")
 
         return True

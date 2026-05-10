@@ -3,11 +3,12 @@
 
 import os
 import json
+from pathlib import Path
 import numpy as np
-from ase.io import read
 from ase.vibrations import Vibrations
 from ase.thermochemistry import HarmonicThermo
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.io import read_structure
 
 class VibrationWorkflow:
     """
@@ -43,6 +44,17 @@ class VibrationWorkflow:
         self.name = calc_config.get('name', 'vib')
         self.init_structure = calc_config.get('init_structure', 'vib_init.stru')
         self.temp = calc_config.get('temperature', 300.0) # Temperature for thermo analysis
+        self.restart = calc_config.get('restart', False)
+
+    def _prepare_cache(self):
+        vib_path = Path(self.name)
+        if not vib_path.exists():
+            return
+        cache_files = list(vib_path.glob("cache*.json"))
+        if self.restart:
+            return
+        for cache_file in cache_files:
+            cache_file.unlink()
 
     def run(self):
         """
@@ -58,7 +70,7 @@ class VibrationWorkflow:
                  raise FileNotFoundError(f"Initial structure {self.init_structure} not found")
 
         try:
-            atoms = read(self.init_structure)
+            atoms = read_structure(self.init_structure)
         except Exception as e:
             print(f"Error reading structure: {e}")
             raise
@@ -76,6 +88,7 @@ class VibrationWorkflow:
 
         # 3. Setup Vibrations
         # Use ASE Vibrations class
+        self._prepare_cache()
         vib = Vibrations(atoms, 
                          indices=self.indices, 
                          delta=self.delta, 

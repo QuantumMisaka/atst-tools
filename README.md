@@ -1,20 +1,32 @@
 # ATST-Tools
 
-**Advanced ASE Transition State Tools for ABACUS (and Deep-Potential).**
+ATST-Tools is a CLI + YAML toolkit for ASE-based transition-state and local
+structure workflows. The 2.0 line is ABACUS-first: ABACUS is supported through
+the vendored upstream `ASE_interface`/abacuslite backend, while DeePMD and other
+machine-learning potentials are kept as secondary calculator targets.
 
-ATST-Tools provides a robust, configuration-driven workflow for performing transition state searches (NEB, Dimer, Sella) and related calculations (Relax, Vibration) using the ASE interface. It is designed to work seamlessly with **ABACUS** and **DeepMD-kit**.
+The supported workflow entry point is:
 
-> **Note**: This project focuses on **Transition State Calculations** (NEB, Dimer, Sella, Vibration) and standard MD/Relaxation. Advanced electronic structure analysis (e.g., Band Structure, DOS, NSCF) is **NOT** currently supported.
+```bash
+atst-run config.yaml
+```
+
+## Scope
+
+Current workflows:
+
+- NEB / CI-NEB / DyNEB
+- AutoNEB
+- Dimer
+- Sella
+- D2S, a rough NEB to Dimer/Sella workflow
+- Relax
+- Vibration analysis
+
+Electronic-structure post-processing workflows such as band structure, DOS, and
+NSCF are outside the current ATST-Tools scope.
 
 ## Installation
-
-### Prerequisites
-1.  **Python 3.9+**
-2.  **ABACUS**: Ensure `abacus` is in your PATH (for DFT calculations).
-3.  **DeepMD-kit** (Optional): For using Deep Potential models.
-
-### Install from Source
-Clone the repository and install in editable mode:
 
 ```bash
 git clone https://github.com/deepmodeling/atst-tools.git
@@ -22,23 +34,53 @@ cd atst-tools
 pip install -e .
 ```
 
-*Note: The ABACUS interface (`abacuslite`) is now bundled internally, so no external ASE-ABACUS dependency is required.*
+Runtime requirements:
 
-## Usage
+- Python 3.9+
+- ASE, NumPy, SciPy, Matplotlib, ruamel.yaml, Sella
+- ABACUS executable available in `PATH` for ABACUS calculations
+- deepmd-kit only when using `calculator.name: dp`
 
-ATST-Tools uses a single entry point `atst-run` driven by a `config.yaml` file.
+The ABACUS ASE backend is bundled in
+`src/atst_tools/external/ASE_interface`; no separate `ase-abacus` install is
+needed.
 
-### 1. Prepare Configuration
-Create a `config.yaml` file. See `examples/` for comprehensive templates.
+## Quick Start
 
-**Example (NEB with ABACUS):**
+Validate a YAML file before spending compute time:
+
+```bash
+atst-run --dry-run examples/06_relax_H2-Au/config.yaml
+```
+
+Run a calculation:
+
+```bash
+cd examples/06_relax_H2-Au
+atst-run config.yaml
+```
+
+List supported workflow types:
+
+```bash
+atst-run --list-types
+```
+
+Print a starter YAML template:
+
+```bash
+atst-run --show-template neb --calculator abacus
+```
+
+## YAML Shape
+
+All production configs should use two top-level sections:
+
 ```yaml
 calculation:
-  type: neb
-  init_chain: init_neb_chain.traj
-  climb: true
+  type: relax
+  init_structure: init.stru
   fmax: 0.05
-  parallel: true
 
 calculator:
   name: abacus
@@ -46,59 +88,44 @@ calculator:
     command: abacus
     mpi: 4
     omp: 1
-    directory: run_neb
+    directory: relax_run
     parameters:
-        calculation: scf
-        ecutwfc: 100
-        basis_type: lcao
-        ks_solver: genelpa
-        dft_functional: pbe
-        # ... other parameters
-        pseudo_dir: ../data
-        orbital_dir: ../data
-        pseudopotentials:
-           H: H_ONCV_PBE-1.0.upf
-           Au: Au_ONCV_PBE-1.0.upf
-        basissets:
-           H: H_gga_6au_100Ry_2s1p.orb
-           Au: Au_gga_7au_100Ry_4s2p2d1f.orb
+      calculation: scf
+      basis_type: lcao
+      ks_solver: cusolver
+      cal_force: 1
+      pseudo_dir: ../data
+      orbital_dir: ../data
+      pseudopotentials:
+        H: H_ONCV_PBE-1.0.upf
+      basissets:
+        H: H_gga_6au_100Ry_2s1p.orb
 ```
 
-### 2. Run Calculation
-```bash
-atst-run config.yaml
-```
+`calculator.name: abacus` is the primary supported path. For Slurm clusters,
+wrap `atst-run config.yaml` in the site-specific job script and keep scheduler
+details outside the YAML. On the SAI GPU environment, LCAO ABACUS examples use
+`ks_solver: cusolver`.
 
-### 3. Analysis
-Use the provided utility scripts to analyze results.
+## Analysis
 
-**Analyze NEB barrier and extract TS:**
+Analyze an NEB trajectory and extract a transition-state guess:
+
 ```bash
 atst-neb-post neb.traj --plot
 ```
 
-**Identify atoms for Vibration analysis:**
-Use the `--vib-analysis` flag to find which atoms have significant displacement in the NEB mode, which helps in setting the `indices` parameter for vibration tasks.
+Suggest vibration indices from the NEB displacement pattern:
+
 ```bash
 atst-neb-post neb.traj --vib-analysis --vib-thr 0.10
 ```
 
-## Features
-
-- **Calculators**: 
-  - **ABACUS**: Full support via `abacuslite` (LCAO/PW).
-  - **Deep Potential**: Support for `.pb` / `.pt` models with efficient instance sharing.
-- **Workflows**:
-  - **NEB**: CI-NEB, DyNEB, AutoNEB.
-  - **Dimer**: Improved Dimer method.
-  - **Sella**: Integration with Sella optimizer.
-  - **Relax**: Geometry optimization.
-  - **Vibration**: Vibrational mode analysis.
-  - **D2S**: Double-to-Single ended workflow (NEB -> Sella/Dimer).
-
 ## Documentation
 
-See `docs/` for more details.
+- [Configuration reference](docs/CONFIG_REFERENCE.md)
+- [Refactoring acceptance report](docs/REFACTORING_ACCEPTANCE_REPORT.md)
+- [Machine-learning calculator plan](docs/ML_CALCULATOR_PLAN.md)
 
 ## License
 

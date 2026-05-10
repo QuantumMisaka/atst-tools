@@ -3,6 +3,7 @@
 
 import os
 import shutil
+from pathlib import Path
 from ase.mep.autoneb import AutoNEB
 from ase.io import read, write, Trajectory
 from ase.parallel import world
@@ -174,12 +175,18 @@ class AutoNEBRunner:
         self.n_simul = calc_config.get('n_simul', world.size)
         self.n_max = calc_config.get('n_max', 10)
         self.algorism = calc_config.get('algorism', 'improvedtangent')
-        self.parallel = calc_config.get('parallel', True)
-        self.fmax = calc_config.get('fmax', 0.05) 
+        requested_parallel = calc_config.get('parallel', True)
+        self.parallel = requested_parallel and world.size > 1
+        if requested_parallel and not self.parallel:
+            print("Notice: image-level AutoNEB parallelism requires MPI-launched atst-run; running images serially.")
+        self.fmax = calc_config.get('fmax', 0.05)
+        if isinstance(self.fmax, (list, tuple)):
+            self.fmax = self.fmax[-1]
         self.maxsteps = calc_config.get('maxsteps', 100)
         self.optimizer_name = calc_config.get('optimizer', 'FIRE')
         self.climb = calc_config.get('climb', True)
         self.iter_folder = calc_config.get('iter_folder', 'AutoNEB_iter')
+        self.restart = calc_config.get('restart', False)
         
         # Initial chain
         init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
@@ -235,6 +242,13 @@ class AutoNEBRunner:
         Run the AutoNEB workflow.
         """
         print("=== Starting AutoNEB Calculation ===")
+
+        if not self.restart:
+            for path in Path(".").glob(f"{self.prefix}[0-9][0-9][0-9].traj"):
+                path.unlink()
+            iter_path = Path(self.iter_folder)
+            if iter_path.exists():
+                shutil.rmtree(iter_path)
         
         autoneb = AbacusAutoNEB(
             attach_calculators=self.attach_calculators,
@@ -247,14 +261,14 @@ class AutoNEBRunner:
             parallel=self.parallel,
             optimizer=self._get_optimizer(),
             fmax=self.fmax,
-            maxsteps=self.maxsteps
+            maxsteps=self.maxsteps,
+            climb=self.climb,
         )
         
         # Write initial files if they don't exist
         for i, atoms in enumerate(self.init_chain):
              filename = f'{self.prefix}{i:03d}.traj'
-             if not os.path.exists(filename):
-                 write(filename, atoms)
+             write(filename, atoms)
                  
-        autoneb.run(climb=self.climb)
+        autoneb.run()
         print("=== AutoNEB Calculation Finished ===")

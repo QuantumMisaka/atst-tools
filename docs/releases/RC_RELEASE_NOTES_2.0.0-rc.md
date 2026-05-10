@@ -4,8 +4,8 @@
   - 本版本为 2.0.0 正式版的发布候选（RC），冻结接口与功能，完成示例与测试收尾。
 
 - 新功能特性
-  - 计算器解耦：CalculatorFactory 统一管理 ABACUS（abacuslite）与 DeepMD
-  - 工作流：NEB/AutoNEB、Dimer、Sella、Relax、Vibration 完整
+  - 计算器解耦：CalculatorFactory 统一管理 ABACUS（vendored abacuslite ASE_interface）与 DeepMD
+  - 工作流：NEB/AutoNEB、Dimer、Sella、D2S、Relax、Vibration 完整
   - 振动分析增强：ZPE、频率与 HarmonicThermo 指标（S、U、F）
   - CLI 入口：atst-run 统一调度，配置驱动执行
 
@@ -13,9 +13,8 @@
   - 清理旧版强耦合与路径硬编码；DP 串行共享策略降低显存
 
 - 已知问题
-  - examples/ 需补齐 YAML 驱动示例并清理 legacy
-  - source/ 残留旧实现需迁移/归档
-  - 文档配置字段需进一步系统化列出
+  - DP/机器学习势真实算例验证排在 ABACUS 验证之后
+  - 全量 ABACUS examples 需要通过 SAI Slurm 队列完成最终实算验收
 
 - 系统要求
   - Python >= 3.9；依赖：ase>=3.22.1, numpy, scipy, matplotlib, ruamel.yaml, seekpath

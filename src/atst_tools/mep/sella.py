@@ -46,6 +46,7 @@ class AbacusSella:
         self.traj_file = traj_file
         self.sella_eta = sella_eta
         self.fmax = fmax
+        self.max_steps = calc_config.get('max_steps')
         
     def set_calculator(self):
         """
@@ -93,5 +94,8 @@ class AbacusSella:
             eta = self.sella_eta,
         )
         
-        dyn.run(fmax=fmax)
+        if self.max_steps is None:
+            dyn.run(fmax=fmax)
+        else:
+            dyn.run(fmax=fmax, steps=self.max_steps)
         return ts_atoms

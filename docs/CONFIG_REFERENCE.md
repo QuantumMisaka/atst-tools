@@ -1,10 +1,10 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.0.0-rc  
-**Last Updated**: 2026-03-04  
+**Last Updated**: 2026-05-10  
 **Status**: Release Candidate
 
-This document provides a comprehensive reference for the `config.yaml` file used by `atst-run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration).
+This document provides a comprehensive reference for the `config.yaml` file used by `atst-run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
 
 ---
 
@@ -12,12 +12,20 @@ This document provides a comprehensive reference for the `config.yaml` file used
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, relax, vibration
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration
   # ... task specific parameters ...
 
 calculator:
   name: <engine_name> # Required. Options: abacus, dp
   # ... engine specific parameters ...
+```
+
+Useful CLI checks:
+
+```bash
+atst-run --dry-run config.yaml
+atst-run --list-types
+atst-run --show-template neb --calculator abacus
 ```
 
 ---
@@ -29,7 +37,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `relax`, `vibration`. (`d2s` is pending) |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`. |
 | `fmax` | float | `0.05` | Maximum force convergence criterion (eV/Å). |
 | `optimizer` | string | `FIRE` | Optimization algorithm: `FIRE`, `BFGS`, `QuasiNewton`, etc. |
 | `trajectory` | string | `None` | Path to save the optimization trajectory (e.g., `opt.traj`). |
@@ -93,17 +101,17 @@ The `calculation` section defines the type of task and its parameters.
 | `indices` | list[int] | `None` | List of atom indices to vibrate. If None, all atoms are vibrated. |
 | `name` | string | `vib` | Name prefix for vibration files. |
 | `temperature` | float | `300.0` | Temperature for thermodynamic analysis (K). |
+| `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
 
-### 2.8 D2S (Double-Ended to Single-Ended) [Experimental]
+### 2.8 D2S (Double-Ended to Single-Ended)
 **Type**: `d2s`
-> **Note**: This workflow is defined in `src/atst_tools/workflows/d2s.py` but is currently **pending integration** in `main.py`.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `method` | string | `dimer` | Single-ended method: `dimer` or `sella`. |
 | `init_file` | string | **Required** | Initial state structure file. |
 | `final_file` | string | **Required** | Final state structure file. |
-| `neb` | dict | `{}` | Configuration for the Rough NEB phase. |
+| `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
 
@@ -116,6 +124,7 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 ### 3.1 ABACUS (DFT)
 **Name**: `abacus`
 > **Note**: For backward compatibility, parameters can also be placed under an `abacus` root key instead of `calculator.abacus`.
+> On the SAI GPU validation environment, LCAO examples use `ks_solver: cusolver`.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -133,9 +142,15 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 ### 3.2 Deep Potential (DP)
 **Name**: `dp`
 
+DP support is planned and validated after the ABACUS-first 2.0.0 acceptance path.
+The intended implementation is documented in `docs/ML_CALCULATOR_PLAN.md`.
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `model` | string | **Required** | Absolute path to the frozen model file (`.pb` or `.pt`). |
+| `type_map` | list[string] | `None` | Optional element type map passed to deepmd-kit. |
+| `omp` | int | `1` | Planned OpenMP thread count for DP evaluation. |
+| `share_calculator` | bool | `true` | Planned calculator reuse policy for workflows where ASE permits sharing. |
 
 ---
 

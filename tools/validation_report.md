@@ -1,53 +1,53 @@
 # Validation Report for atst-tools and abacuslite Integration
 
-**Date:** 2026-02-28
-**Environment:** `atst-dev` (Conda)
-**ABACUS Module:** `abacus/LTSv3.10.1-sm70-auto`
-**Git Branch:** (Current Workspace)
+**Date:** 2026-05-10  
+**Environment:** `atst-dev` (Conda)  
+**ABACUS Module:** `abacus/LTSv3.10.1-sm70-auto`  
+**Git Branch:** `refactor/unify-structure`
 
 ## 1. Environment Status
-- **Conda Environment**: `atst-dev` activated successfully.
+
+- **Conda Environment**: `atst-dev` exists and is the project test environment.
 - **Python Imports**:
-  - `abacuslite`: PASSED (via `ASE_interface` source path)
   - `atst_tools`: PASSED
-  - `deepmd`: **FAILED** (Module not found in conda or system modules)
-- **Snapshots**:
-  - [conda_env_snapshot.txt](conda_env_snapshot.txt)
-  - [pip_snapshot.txt](pip_snapshot.txt)
+  - vendored `abacuslite`: PASSED via `src/atst_tools/external/ASE_interface`
+  - `deepmd`: PASSED (`deepmd-kit` is installed in `atst-dev`)
 
 ## 2. abacuslite Interface Verification
-Location: `temp_repos/abacus-develop/interfaces/ASE_interface`
 
-| Test Case | Status | Duration | Notes |
-|Str|Str|Str|Str|
-|---|---|---|---|
-| `tests/scf.py` | **PASS** | ~19s | Si bulk SCF, Energy: -194.955 eV |
-| `tests/relax.py` | **PASS** | ~19s | Ionic Relaxation (BFGS) |
-| `tests/md.py` | **PASS** | ~44s | Langevin MD |
-| `tests/band.py` | **PASS** | ~37s | SCF followed by NSCF |
+Location: `src/atst_tools/external/ASE_interface`
 
-**Conclusion**: The vendored `abacuslite` source code is fully compatible with the loaded ABACUS module.
+The complete upstream `ASE_interface` snapshot is now copied into this repository.
+Its runtime package is imported through `atst_tools.external.ASE_interface.abacuslite`.
 
 ## 3. atst-tools Examples Verification
+
 Location: `examples/`
 
-### DP Calculator (Deep Potential)
-- **Status**: **FAILED**
-- **Error**: `ImportError: deepmd-kit is not installed`
-- **Impact**: All `config_dp.yaml` examples cannot be executed in the current `atst-dev` environment.
-- **Recommendation**: Install `deepmd-kit` via pip or load appropriate module (e.g., `deepmd-kit/2.x`).
-
 ### ABACUS Calculator (DFT)
-- **Status**: **SUBMITTED**
-- **Job ID**: `195748`
-- **Case**: `01_neb_Li-Si`
-- **Configuration**: `config.yaml` (MPI=4, but submitted as 1 task for validation on 4V100PX)
-- **Note**: Due to resource constraints on login node, this heavy DFT calculation was submitted to Slurm.
 
-## 4. Overall Conclusion
-- **abacuslite Integration**: **VERIFIED**. The core interface works correctly for SCF, Relax, MD, and Band calculations.
-- **atst-tools Workflow**: Partially verified. The codebase structure is correct, but execution is blocked by missing dependencies (`deepmd-kit`) and requires job scheduling for DFT tasks.
+- **Status**: Slurm smoke validation started on SAI
+- **Cases**: all tracked `examples/*/config.yaml`
+- **SAI note**: LCAO examples use `ks_solver: cusolver` for GPU nodes.
+- **Completed evidence**: jobs `394339`, `394340`, `394341`, `394342`, and
+  `394344` completed with exit code `0:0`.
+- **In-flight evidence**: job `394343` is still running. Failed jobs `394345`
+  and `394346` were diagnosed, fixed, and resubmitted as `394371` and `394370`.
+  The rerun jobs are running.
+
+### DP Calculator (Deep Potential)
+
+- **Status**: Deferred
+- **Reason**: Project priority is ABACUS-first. DP imports and config parsing are covered; real DP workflow validation follows after ABACUS examples pass.
+
+## 4. Completed Local Checks
+
+- `atst-run --help`: PASSED
+- `pytest tests -q`: PASSED
+- `python -m compileall -q src/atst_tools tests`: PASSED
+- Example YAML parse and validation tests: PASSED
 
 ## 5. Next Steps
-1. Install `deepmd-kit` in `atst-dev`.
-2. Monitor Slurm Job `195748` for `01_neb_Li-Si` results.
+
+1. Let SAI jobs `394343`, `394370`, and `394371` finish.
+2. Update `docs/REFACTORING_ACCEPTANCE_REPORT.md` with their final pass/fail status.

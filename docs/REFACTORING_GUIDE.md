@@ -120,11 +120,11 @@ src/atst_tools/
 本项目采用 **"Vendor / Soft Fork"** 模式集成 `abacuslite`，而非作为外部 pip 依赖引入。这主要是为了解决版本兼容性与快速热修复的需求。
 
 *   **上游仓库**: `deepmodeling/abacus-develop` (`interfaces/ASE_interface/abacuslite`)
-*   **本地路径**: `src/atst_tools/external/abacuslite/`
+*   **本地路径**: `src/atst_tools/external/ASE_interface/`
 *   **同步策略**:
     1.  **按需同步**: 仅当上游有重大 Bug 修复或本项目需要的新功能时，手动从上游拉取代码。
     2.  **保留补丁**: 同步时必须小心保留本地的 `import` 路径修正（例如 `from atst_tools.external...`）。
-    3.  **功能裁剪**: 仅保留核心的 `core.py`, `io/` 等模块，`examples/` 与 `tests/` 可根据需要选择性同步或忽略。
+    3.  **完整快照**: 保留整个 `ASE_interface` 目录，包含 `abacuslite/`、上游示例、测试和说明文档，便于后续与上游同步和独立验证。
     4.  **文档记录**: 每次同步需在 `CHANGELOG` 或 Commit Message 中注明上游 Commit ID。
 
 ---
@@ -181,9 +181,9 @@ src/atst_tools/
 
 本项目依赖以下外部软件进行集成测试。开发人员可使用 Environment Modules 加载：
 
-*   **ABACUS**: `module load abacus/v3.9.0.17-sm70-auto` (敏捷版) 或 `module load abacus/LTSv3.10.1-sm70-auto` (稳定版)
+*   **ABACUS**: `module load abacus/LTSv3.10.1-sm70-auto`
     *   用途: 验证 `AbacusCalculator` 及相关工作流。
-    *   注意: 这是一个基于 CUDA 的版本，需在 GPU 节点运行。
+    *   注意: 这是一个基于 CUDA 的版本，需在 GPU 节点运行；默认 LCAO 示例使用 `ks_solver: cusolver`。
 *   **DeepMD-kit**: `module load deepmd-kit/3.1.2`
     *   用途: 验证 DP 支持及 ASE 接口。
 *   **MPI**: `module load openmpi/4.1.6-nvhpc24.3` (或系统默认)

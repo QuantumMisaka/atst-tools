@@ -131,7 +131,8 @@ class AbacusDimer:
             d_mask[ind] = True
         return d_mask
         
-    def run(self, fmax=0.05, properties=["energy", "forces", "stress"], moving_atoms_ind: list = None):
+    def run(self, fmax=0.05, properties=["energy", "forces", "stress"], moving_atoms_ind: list = None,
+            max_steps: int = None):
         """
         Run dimer calculation workflow.
 
@@ -173,4 +174,7 @@ class AbacusDimer:
             
         # MinModeTranslate is the optimizer
         dimer_relax = MinModeTranslate(d_atoms, trajectory=self.traj_file)
-        dimer_relax.run(fmax=fmax)
+        if max_steps is None:
+            dimer_relax.run(fmax=fmax)
+        else:
+            dimer_relax.run(fmax=fmax, steps=max_steps)
