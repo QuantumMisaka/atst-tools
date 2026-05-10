@@ -8,6 +8,7 @@ from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
 from importlib.metadata import PackageNotFoundError, version
 from textwrap import dedent
+from pathlib import Path
 
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
@@ -178,7 +179,17 @@ def run_neb(config, calc_name, calc_config):
     
     # Load Initial Chain
     init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
-    init_chain = read(init_chain_file, index=':')
+    traj_file = calc_config.get('trajectory', 'neb.traj')
+    restart = calc_config.get('restart', False)
+    if restart and Path(traj_file).exists():
+        all_images = read(traj_file, index=':')
+        try:
+            n_images = len(read(init_chain_file, index=':'))
+        except Exception:
+            n_images = len(all_images)
+        init_chain = all_images[-n_images:]
+    else:
+        init_chain = read(init_chain_file, index=':')
     
     # NEB Parameters
     climb = calc_config.get('climb', True)
@@ -192,7 +203,7 @@ def run_neb(config, calc_name, calc_config):
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
         LOGGER.warning(
-            "Image-level NEB parallelism requires MPI-launched atst-run; running images serially."
+            "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
         )
     
     # Initialize NEB
@@ -231,7 +242,7 @@ def run_neb(config, calc_name, calc_config):
 
     # Run
     optimizer = get_optimizer(opt_name)
-    opt = optimizer(neb, trajectory='neb.traj')
+    opt = optimizer(neb, trajectory=traj_file)
     opt.run(fmax=fmax, steps=max_steps)
     LOGGER.info("NEB calculation finished")
 
@@ -261,16 +272,21 @@ def run_dimer(config, calc_name, calc_config):
     # 1. Load Initial Structure
     # Dimer needs a single structure (Transition State guess)
     init_structure = calc_config.get('init_structure', 'dimer_init.stru')
+    traj_file = calc_config.get('trajectory', 'dimer.traj')
+    if calc_config.get('restart') and os.path.exists(traj_file):
+        init_structure = traj_file
     if not os.path.exists(init_structure):
          # Try traj
          if os.path.exists('dimer_init.traj'):
              init_structure = 'dimer_init.traj'
     
-    atoms = read_structure(init_structure)
+    if calc_config.get('restart') and os.path.exists(traj_file):
+        atoms = read(traj_file, index=-1)
+    else:
+        atoms = read_structure(init_structure)
     
     # 2. Parameters
     fmax = calc_config.get('fmax', 0.05)
-    traj_file = calc_config.get('trajectory', 'dimer.traj')
     
     # Displacement
     # User can provide displacement vector or method
@@ -318,16 +334,21 @@ def run_sella(config, calc_name, calc_config):
     
     # 1. Load Initial Structure (TS guess)
     init_structure = calc_config.get('init_structure', 'sella_init.stru')
+    traj_file = calc_config.get('trajectory', 'sella.traj')
+    if calc_config.get('restart') and os.path.exists(traj_file):
+        init_structure = traj_file
     if not os.path.exists(init_structure):
          # Try traj
          if os.path.exists('sella_init.traj'):
              init_structure = 'sella_init.traj'
     
-    atoms = read_structure(init_structure)
+    if calc_config.get('restart') and os.path.exists(traj_file):
+        atoms = read(traj_file, index=-1)
+    else:
+        atoms = read_structure(init_structure)
     
     # 2. Parameters
     fmax = calc_config.get('fmax', 0.05)
-    traj_file = calc_config.get('trajectory', 'sella.traj')
     eta = calc_config.get('eta', 0.005) # Sella eta parameter
     
     # 3. Run
@@ -354,10 +375,10 @@ def _build_parser():
           calculator.name:  abacus | dp
 
         Common commands:
-          atst-run examples/06_relax_H2-Au/config.yaml
-          atst-run --dry-run examples/01_neb_Li-Si/config.yaml
-          atst-run --list-types
-          atst-run --show-template neb --calculator abacus
+          atst run examples/06_relax_H2-Au/config.yaml
+          atst run --dry-run examples/01_neb_Li-Si/config.yaml
+          atst run --list-types
+          atst run --show-template neb --calculator abacus
 
         Full YAML examples are in examples/. The detailed reference is docs/user/CONFIG_REFERENCE.md.
         """
@@ -369,6 +390,7 @@ def _build_parser():
     )
     parser.add_argument('config', nargs='?', help='Path to configuration file (YAML)')
     parser.add_argument('--dry-run', action='store_true', help='Load and validate YAML, then exit without running a calculation')
+    parser.add_argument('--restart', action='store_true', help='Resume from workflow checkpoints when supported')
     parser.add_argument('--list-types', action='store_true', help='Print supported calculation types and exit')
     parser.add_argument('--show-template', choices=VALID_CALCULATION_TYPES, help='Print a minimal YAML template for a calculation type')
     parser.add_argument('--calculator', choices=('abacus', 'dp'), default='abacus', help='Calculator used with --show-template')
@@ -376,14 +398,11 @@ def _build_parser():
     parser.add_argument('--version', action='version', version=f'%(prog)s {_package_version()}')
     return parser
 
-def main():
-    """
-    Main entry point for ATST-Tools CLI.
-    Parses arguments, loads config, and dispatches to specific workflows.
-    """
-    parser = _build_parser()
-    args = parser.parse_args()
-    logging.basicConfig(level=getattr(logging, getattr(args, "log_level", "INFO")), format="%(message)s")
+def run_from_args(args):
+    logging.basicConfig(
+        level=getattr(logging, getattr(args, "log_level", "INFO")),
+        format="%(message)s",
+    )
 
     if getattr(args, "list_types", False):
         print("\n".join(VALID_CALCULATION_TYPES))
@@ -394,11 +413,10 @@ def main():
         print(_template(show_template, getattr(args, "calculator", "abacus")))
         return
 
-    if not getattr(args, "config", None):
-        parser.error("the following arguments are required: config")
-
     # 1. Load Configuration
     config = ConfigLoader.load(args.config)
+    if getattr(args, "restart", False):
+        config.setdefault("calculation", {})["restart"] = True
     ConfigLoader.validate(config)
     if getattr(args, "dry_run", False):
         calc_type = config["calculation"]["type"]
@@ -446,6 +464,21 @@ def main():
         workflow.run()
     else:
         raise ValueError(f"Unknown calculation type: {calc_type}")
+
+def main(argv=None):
+    """
+    Main entry point for ATST-Tools run subcommand.
+    Parses arguments, loads config, and dispatches to specific workflows.
+    """
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    if (
+        not getattr(args, "config", None)
+        and not getattr(args, "list_types", False)
+        and not getattr(args, "show_template", None)
+    ):
+        parser.error("the following arguments are required: config")
+    return run_from_args(args)
 
 if __name__ == "__main__":
     main()

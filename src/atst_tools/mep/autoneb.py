@@ -178,7 +178,7 @@ class AutoNEBRunner:
         requested_parallel = calc_config.get('parallel', True)
         self.parallel = requested_parallel and world.size > 1
         if requested_parallel and not self.parallel:
-            print("Notice: image-level AutoNEB parallelism requires MPI-launched atst-run; running images serially.")
+            print("Notice: image-level AutoNEB parallelism requires MPI-launched atst run; running images serially.")
         self.fmax = calc_config.get('fmax', 0.05)
         if isinstance(self.fmax, (list, tuple)):
             self.fmax = self.fmax[-1]

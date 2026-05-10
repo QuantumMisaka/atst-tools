@@ -19,9 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-atst-run = "atst_tools.scripts.main:main"
-atst-neb-make = "atst_tools.scripts.neb_make:main"
-atst-neb-post = "atst_tools.scripts.neb_post:main"
+atst = "atst_tools.scripts.cli:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

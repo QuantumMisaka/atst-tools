@@ -7,7 +7,7 @@ from copy import deepcopy
 from typing import Any, Dict
 
 import numpy as np
-from ase.io import write
+from ase.io import read, write
 from ase.mep.neb import DyNEB
 from ase.optimize import FIRE, QuasiNewton
 
@@ -34,6 +34,7 @@ class D2SWorkflow:
         self.neb_config = calc_config.get("neb", {})
         self.single_config = calc_config.get(self.method, {})
         self.base_directory = self._base_directory()
+        self.restart = calc_config.get("restart", False)
 
         if self.method not in {"dimer", "sella"}:
             raise ValueError("D2S method must be 'dimer' or 'sella'")
@@ -57,20 +58,30 @@ class D2SWorkflow:
         fmax = self.calc_config.get("endpoint_fmax", 0.05)
         max_steps = self.calc_config.get("endpoint_max_steps", 200)
 
-        init_atoms.calc = self._get_calc("IS_OPT")
-        opt_is = QuasiNewton(init_atoms, logfile="opt_is.log")
-        opt_is.run(fmax=fmax, steps=max_steps)
-        write("IS_opt.traj", init_atoms)
+        if self.restart and os.path.exists("IS_opt.traj"):
+            init_atoms = read("IS_opt.traj", index=-1)
+        else:
+            init_atoms.calc = self._get_calc("IS_OPT")
+            opt_is = QuasiNewton(init_atoms, logfile="opt_is.log")
+            opt_is.run(fmax=fmax, steps=max_steps)
+            write("IS_opt.traj", init_atoms)
 
-        final_atoms.calc = self._get_calc("FS_OPT")
-        opt_fs = QuasiNewton(final_atoms, logfile="opt_fs.log")
-        opt_fs.run(fmax=fmax, steps=max_steps)
-        write("FS_opt.traj", final_atoms)
+        if self.restart and os.path.exists("FS_opt.traj"):
+            final_atoms = read("FS_opt.traj", index=-1)
+        else:
+            final_atoms.calc = self._get_calc("FS_OPT")
+            opt_fs = QuasiNewton(final_atoms, logfile="opt_fs.log")
+            opt_fs.run(fmax=fmax, steps=max_steps)
+            write("FS_opt.traj", final_atoms)
 
         return init_atoms, final_atoms
 
     def run_rough_neb(self, init_atoms, final_atoms):
         print("=== Step 2: Running Rough NEB ===")
+        if self.restart and os.path.exists("neb_rough.traj"):
+            all_images = read("neb_rough.traj", index=":")
+            return all_images[-(self.neb_config.get("n_images", 8) + 2):]
+
         n_images = self.neb_config.get("n_images", 8)
         fmax = self.neb_config.get("fmax", 0.8)
         algorism = self.neb_config.get("algorism", "improvedtangent")
@@ -113,12 +124,16 @@ class D2SWorkflow:
             norm = np.linalg.norm(vec)
             disp_vec = None if norm < 1e-3 else vec / norm * 0.01
             dimer_config = self._single_config_with_directory("DIMER")
+            dimer_traj = dimer_config.get("trajectory", "dimer.traj")
+            if self.restart and os.path.exists(dimer_traj):
+                print(f"=== Dimer trajectory exists ({dimer_traj}); skipping single-ended step ===")
+                return
             dimer = AbacusDimer(
                 ts_guess,
                 self.config,
                 self.calc_name,
                 dimer_config,
-                traj_file=dimer_config.get("trajectory", "dimer.traj"),
+                traj_file=dimer_traj,
                 init_eigenmode_method=dimer_config.get(
                     "init_eigenmode_method", "displacement"
                 ),
@@ -133,12 +148,16 @@ class D2SWorkflow:
             return
 
         sella_config = self._single_config_with_directory("SELLA")
+        sella_traj = sella_config.get("trajectory", "sella.traj")
+        if self.restart and os.path.exists(sella_traj):
+            print(f"=== Sella trajectory exists ({sella_traj}); skipping single-ended step ===")
+            return
         sella = AbacusSella(
             ts_guess,
             self.config,
             self.calc_name,
             sella_config,
-            traj_file=sella_config.get("trajectory", "sella.traj"),
+            traj_file=sella_traj,
             sella_eta=sella_config.get("eta", 0.005),
             fmax=sella_config.get("fmax", 0.05),
         )

@@ -13,7 +13,7 @@
 **核心哲学 (Zen of Python)**:
 - **Explicit is better than implicit**: 统一通过 `config.yaml` 显式定义工作流，而非隐藏在脚本硬编码中。
 - **Simple is better than complex**: 对用户屏蔽底层的 MPI/并行处理细节，提供简洁的 CLI 入口。
-- **There should be one-- and preferably only one --obvious way to do it**: 消除 `legacy` 目录下的重复脚本，确保 `atst-run` 是唯一的执行入口。
+- **There should be one-- and preferably only one --obvious way to do it**: 消除 `legacy` 目录下的重复脚本，确保 `atst run` 是唯一的执行入口。
 
 ---
 
@@ -22,7 +22,7 @@
 ### 2.1 架构断层 (The "Limbo" State)
 项目目前呈现“新旧共存”的分裂状态：
 *   **新架构 (`src/atst_tools`)**: 
-    *   ✅ **优势**: 模块化设计 (`mep`, `workflows`, `calculators`)，统一入口 (`atst-run`)。
+    *   ✅ **优势**: 模块化设计 (`mep`, `workflows`, `calculators`)，统一入口 (`atst run`)。
     *   ❌ **缺陷**: **强耦合 ABACUS**，导致无法扩展支持 DP；功能覆盖率仅约 60%。
 *   **旧脚本 (`dimer/`, `neb/`, `ase-dp/` 等)**:
     *   ✅ **优势**: 功能完整，包含 DP 支持及振动分析等辅助工具。
@@ -73,7 +73,7 @@
     *   [x] **定义计算器接口**: 在 `src/atst_tools/calculators/base.py` 中定义协议。
     *   [x] **实现工厂模式**: 创建 `src/atst_tools/calculators/factory.py`，根据 config 动态加载计算器 (ABACUS/DP)。
     *   [x] **重构配置结构**: 升级 `config.yaml` Schema，分离 `calculation` (任务) 与 `calculator` (计算引擎) 参数。
-    *   [x] **重构入口**: 修改 `atst-run` 以适配工厂模式。
+    *   [x] **重构入口**: 修改 `atst run` 以适配工厂模式。
 
 ### Phase 3: 功能迁移与补全 (Migration) ✅ **[已完成]**
 *   **目标**: 将遗留脚本的功能完全移植到新架构，达到 Feature Parity。
@@ -87,7 +87,7 @@
 *   **目标**: 移除所有遗留代码，发布 v2.0 正式版。
 *   **成果**:
     *   [x] **彻底删除**: `dimer/`, `neb/`, `relax/`, `sella/`, `vibration/`, `ase-dp/`。
-    *   [x] **文档更新**: 全面更新 `docs/`，移除旧脚本使用说明，仅保留 `atst-run` 指南。
+    *   [x] **文档更新**: 全面更新 `docs/`，移除旧脚本使用说明，仅保留 `atst run` 指南。
     *   [x] **示例更新**: 将 `examples/` 下的所有脚本示例更新为 YAML 配置驱动的示例。
 
 ---

@@ -4,7 +4,7 @@
 **Last Updated**: 2026-05-10  
 **Status**: Release Candidate
 
-This document provides a comprehensive reference for the `config.yaml` file used by `atst-run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
+This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
 
 ---
 
@@ -23,9 +23,9 @@ calculator:
 Useful CLI checks:
 
 ```bash
-atst-run --dry-run config.yaml
-atst-run --list-types
-atst-run --show-template neb --calculator abacus
+atst run --dry-run config.yaml
+atst run --list-types
+atst run --show-template neb --calculator abacus
 ```
 
 ---
@@ -42,6 +42,7 @@ The `calculation` section defines the type of task and its parameters.
 | `optimizer` | string | `FIRE` | Optimization algorithm: `FIRE`, `BFGS`, `QuasiNewton`, etc. |
 | `trajectory` | string | `None` | Path to save the optimization trajectory (e.g., `opt.traj`). |
 | `parallel` | bool | `False` | Enable parallel execution (e.g., for NEB images). |
+| `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 ### 2.2 Nudged Elastic Band (NEB)
 **Type**: `neb`
@@ -52,6 +53,7 @@ The `calculation` section defines the type of task and its parameters.
 | `climb` | bool | `True` | Enable Climbing Image NEB (CI-NEB). |
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
+| `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
 
 ### 2.3 AutoNEB
 **Type**: `autoneb`
@@ -73,6 +75,7 @@ The `calculation` section defines the type of task and its parameters.
 | `init_structure` | string | **Required** | Path to the initial structure (e.g., `dimer_init.traj`). |
 | `init_eigenmode_method` | string | `displacement` | Method to initialize eigenmode: `displacement`. |
 | `displacement_vector` | string | `None` | Path to numpy file containing displacement vector (e.g., `vector.npy`). |
+| `trajectory` | string | `dimer.traj` | Dimer trajectory. Restart uses the last frame when available. |
 
 ### 2.5 Sella (Saddle Point Finder)
 **Type**: `sella`
@@ -82,6 +85,7 @@ The `calculation` section defines the type of task and its parameters.
 | `init_structure` | string | **Required** | Path to the initial structure. |
 | `eta` | float | `0.002` | Sella parameter (step size control). |
 | `order` | int | `1` | Saddle point order (1 for TS). |
+| `trajectory` | string | `sella.traj` | Sella trajectory. Restart uses the last frame when available. |
 
 ### 2.6 Structure Relaxation (Relax)
 **Type**: `relax`
@@ -89,6 +93,7 @@ The `calculation` section defines the type of task and its parameters.
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Path to the initial structure file. |
+| `trajectory` | string | `relax.traj` | Relaxation trajectory. Restart uses the last frame when available. |
 
 ### 2.7 Vibration Analysis
 **Type**: `vibration`

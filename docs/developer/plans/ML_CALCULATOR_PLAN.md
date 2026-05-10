@@ -2,7 +2,7 @@
 
 **Status**: Planned after ABACUS 2.0.0 acceptance  
 **Primary baseline**: `main` branch `ase-dp/*.py` scripts  
-**Target interface**: `atst-run config.yaml`
+**Target interface**: `atst run config.yaml`
 
 ## Background
 
@@ -115,7 +115,7 @@ Optional fields:
 
 ## Acceptance Criteria
 
-- `atst-run --dry-run examples/*/config_dp.yaml` passes for all DP examples.
+- `atst run --dry-run examples/*/config_dp.yaml` passes for all DP examples.
 - Unit tests cover the DP adapter without requiring deepmd-kit.
 - At least one DP smoke case runs on SAI before DP support is marked complete.
 - Documentation states clearly that ABACUS is the primary backend for 2.0.0 and

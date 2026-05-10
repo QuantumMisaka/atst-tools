@@ -13,7 +13,7 @@
 本项目基于 `ASE` 框架，采用模块化设计，核心组件如下：
 *   **Calculators**: 采用工厂模式 (`CalculatorFactory`) 统一管理 `abacuslite` (Vendor集成) 和 `DeepMD`。
 *   **Workflows**: 封装了 `Relax`, `NEB`, `Vibration`, `D2S` 等高阶工作流。
-*   **CLI**: 统一入口 `atst-run`，通过 `config.yaml` 驱动任务。
+*   **CLI**: 统一入口 `atst run`，通过 `config.yaml` 驱动任务。
 
 ### 1.2 基础设施与资源 (Infrastructure)
 *   **计算资源**:
@@ -26,7 +26,7 @@
 *   **依赖管理**: 采用 `conda` 环境 (`atst-dev`)，核心依赖包括 `ase`, `abacuslite` (vendored), `deepmd-kit`。
 
 ### 1.3 核心痛点 (Critical Pain Points)
-1.  **运行适配困难**: 当前 `atst-run` 默认使用 `mpirun` 直接启动，未适配集群的 `sbatch` + `mps_mapping` 模式，导致在登录节点无法运行，在计算节点可能因映射错误低效。
+1.  **运行适配困难**: 当前 `atst run` 默认使用 `mpirun` 直接启动，未适配集群的 `sbatch` + `mps_mapping` 模式，导致在登录节点无法运行，在计算节点可能因映射错误低效。
 2.  **功能缺失**: `RelaxWorkflow` 仅支持原子坐标优化，不支持 **Cell-Relax (晶胞弛豫)**。
 3.  **逻辑缺陷**: NEB 工作流在处理端点（Initial/Final Image）时未挂载 Calculator，导致 `get_forces()` 报错。
 4.  **D2S 未闭环**: `d2s` 模块逻辑存在但未接入 `main.py`。
@@ -55,16 +55,16 @@
 *   **Task 1.3: D2S 工作流接入** (Priority: P1)
     *   **需求**: 将 `d2s` 接入 `main.py`。
     *   **方案**: 在 `main.py` 的分发逻辑中增加 `elif calc_type == 'd2s':` 分支，实例化 `D2SWorkflow` 并运行。
-    *   **验收**: `examples/08_d2s_Cy-Pt` 可通过 `atst-run` 启动。
+    *   **验收**: `examples/08_d2s_Cy-Pt` 可通过 `atst run` 启动。
 
 ### 2.2 阶段二：集群适配与测试升级 (HPC Integration & Testing)
 **周期**: 2周 (Week 3-4)  
 **目标**: 完美适配 Slurm 环境，建立分层测试体系。
 
 *   **Task 2.1: Slurm 作业提交辅助** (Priority: P1)
-    *   **需求**: 用户在登录节点也能方便地提交 `atst-run` 任务。
+    *   **需求**: 用户在登录节点也能方便地提交 `atst run` 任务。
     *   **方案**:
-        *   开发 `atst-submit` 命令或 `atst-run --submit` 参数。
+        *   开发 `atst-submit` 命令或 `atst run --submit` 参数。
         *   自动生成符合 `/opt/sbatch_examples/gpu_abacus.sbatch` 规范的脚本。
         *   关键参数自动注入：`#SBATCH --partition`, `source mps_mapping.d`, `mpirun -map-by $MAP_OPT`。
     *   **验收**: `atst-submit config.yaml` 能成功投递作业并正确运行 ABACUS。

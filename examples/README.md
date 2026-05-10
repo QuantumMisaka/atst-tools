@@ -32,7 +32,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 4.  **Run**:
     ```bash
     cd 01_neb_Li-Si
-    atst-run config.yaml
+    atst run config.yaml
     ```
 
 ## Chemical Systems Summary

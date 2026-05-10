@@ -20,7 +20,7 @@
 *   **I want to** 使用 `type: d2s` 配置运行双端到单端搜索
 *   **So that** 我可以自动化完成从粗糙路径到精确过渡态的搜索
 *   **验收标准**:
-    *   `atst-run config.yaml` (type=d2s) 能正常启动。
+    *   `atst run config.yaml` (type=d2s) 能正常启动。
     *   `src/atst_tools/workflows/d2s.py` 逻辑被正确调用。
     *   提供完整的 `examples/08_d2s` 运行测试报告。
 

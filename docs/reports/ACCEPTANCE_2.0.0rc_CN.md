@@ -27,8 +27,8 @@ def _build_abacus_command(command: str, mpi: int) -> str:
 从验收报告和项目设计分析：
 
 **结论：✅ Slurm支持符合预期模式**
-- `atst-run` 默认本地运行，不内置Slurm提交逻辑
-- 用户可通过编写Slurm脚本包装 `atst-run` 进行投作业
+- `atst run` 默认本地运行，不内置Slurm提交逻辑
+- 用户可通过编写Slurm脚本包装 `atst run` 进行投作业
 - 示例配置中的 `ks_solver: cusolver` 已针对SAI GPU环境优化
 - 验证结果显示任务通过Slurm正常提交和运行（Job ID 394339已完成）
 
@@ -206,7 +206,7 @@ calculator:          # 计算器配置
 | AutoNEB | ✅ 支持 |
 | Dimer | ✅ 支持，基于ASE Dimer类 |
 | Sella | ✅ 支持，通过sella包 |
-| D2S | ✅ 支持，集成到atst-run |
+| D2S | ✅ 支持，集成到atst run |
 | Relax | ✅ 支持 |
 | Vibration分析 | ✅ 支持 |
 | DP脚本 | ⚠️ 配置和工厂支持，实体验证延后 |
@@ -217,7 +217,7 @@ calculator:          # 计算器配置
 - ✅ 统一CLI/YAML工作流，替代方法特定硬编码脚本
 - ✅ ABACUS后端从ase-abacus迁移到vendored abacuslite
 - ✅ ABACUS示例针对SAI GPU环境优化（ks_solver: cusolver）
-- ✅ D2S集成到atst-run，遵循预期流程
+- ✅ D2S集成到atst run，遵循预期流程
 - ✅ 单元测试覆盖配置验证、计算器构建、CLI调度、核心工作流、示例YAML解析
 
 ---
@@ -235,7 +235,7 @@ calculator:          # 计算器配置
 
 ## ⚠️ 改进建议
 
-1. **CLI帮助信息** - 已补强：`atst-run` 增加 workflow 列表、模板输出、dry-run 校验、示例命令和文档入口。
+1. **CLI帮助信息** - 已补强：`atst run` 增加 workflow 列表、模板输出、dry-run 校验、示例命令和文档入口。
 2. **错误处理** - 已补强：主 CLI 调度中的状态和警告切换到 `logging`，便于 Slurm 日志和本地调试统一处理。
 3. **DP验证** - 已规划：见 `docs/ML_CALCULATOR_PLAN.md`，基于 main 分支 `ase-dp/*.py` 能力迁移到统一 CalculatorFactory/Workflow 架构。
 4. **README** - 已迭代：补充快速入门、YAML 结构、ABACUS-first 边界和文档入口。
@@ -244,9 +244,9 @@ calculator:          # 计算器配置
 
 本轮进一步收紧 `CLI + YAML input`：
 
-- 保留 `atst-run config.yaml` 作为唯一生产运行入口。
-- 新增 `atst-run --dry-run config.yaml`，用于在提交 Slurm 前验证 YAML。
-- 新增 `atst-run --list-types` 和 `atst-run --show-template <type> --calculator <abacus|dp>`，降低用户从示例复制配置时的误用概率。
+- 保留 `atst run config.yaml` 作为唯一生产运行入口。
+- 新增 `atst run --dry-run config.yaml`，用于在提交 Slurm 前验证 YAML。
+- 新增 `atst run --list-types` 和 `atst run --show-template <type> --calculator <abacus|dp>`，降低用户从示例复制配置时的误用概率。
 - `ConfigLoader.validate` 现在显式检查 `calculation.type`、各 workflow 必要输入字段、`calculator.name` 以及匹配的 calculator 配置段。
 - 对 `calculator.name: dp` 显式要求 `calculator.dp.model`，为后续 DP 验证阶段提前固化配置契约。
 

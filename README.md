@@ -14,13 +14,13 @@ pip install -e .
 
 ```bash
 cd examples/06_relax_H2-Au
-atst-run config.yaml
+atst run config.yaml
 ```
 
 Validate a config without starting a calculation:
 
 ```bash
-atst-run --dry-run examples/06_relax_H2-Au/config.yaml
+atst run --dry-run examples/06_relax_H2-Au/config.yaml
 ```
 
 ## Documentation

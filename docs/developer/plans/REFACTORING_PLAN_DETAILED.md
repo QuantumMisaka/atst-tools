@@ -12,7 +12,7 @@
 
 *   **Priority 0**: 集成 `abacuslite` 官方插件，摆脱对 `ase-abacus` 的依赖。
 *   **Priority 1**: 实现 `CalculatorFactory`，统一管理 ABACUS 和 DP 的实例化逻辑。
-*   **Priority 2**: 重构 `atst-run` 入口，使其支持通过 `config.yaml` 动态选择计算器。
+*   **Priority 2**: 重构 `atst run` 入口，使其支持通过 `config.yaml` 动态选择计算器。
 
 ---
 
@@ -40,7 +40,7 @@
         *   **单例控制**: 实现 `_dp_instances` 缓存池。
         *   **逻辑**: 当 `parallel=False` (串行/多Image) 时，复用同一模型实例以节省显存；当 `parallel=True` (MPI并行) 时，强制返回新实例。
 
-### 1.3 重构入口 `atst-run`
+### 1.3 重构入口 `atst run`
 *   **背景**: `main.py` 目前逻辑混乱，强耦合。
 *   **执行步骤**:
     1.  [ ] **配置升级**: 更新 `config.yaml` Schema，明确分离 `calculator` (引擎配置) 与 `calculation` (任务配置)。
@@ -84,7 +84,7 @@
 ### 3.1 彻底清理 (Purge)
 *   **执行步骤**:
     1.  [x] **删除遗留目录**: `ase-dp/`, `dimer/`, `neb/`, `relax/`, `sella/`, `vibration/`。
-    2.  [x] **更新示例**: 将 `examples/` 下的旧版脚本全部替换为基于 `atst-run` + `config.yaml` 的新示例。
+    2.  [x] **更新示例**: 将 `examples/` 下的旧版脚本全部替换为基于 `atst run` + `config.yaml` 的新示例。
     3.  [x] **文档清洗**: 移除所有关于旧脚本的文档引用。
 
 ### 3.2 扩展功能 (Future)
@@ -119,6 +119,6 @@ src/atst_tools/
 ```
 
 ### 验证标准
-1.  **安装测试**: `pip install .` 在新环境中无报错，且 `atst-run --help` 正常输出。
-2.  **ABACUS 兼容性**: `atst-run` 能正确调用 `abacuslite` 并完成 NEB 计算。
-3.  **DP 显存优化**: 在 8GB 显存 GPU 上，`atst-run` (DP模式) 能跑通 16 Image 的 NEB 计算（证明 Shared Instance 生效）。
+1.  **安装测试**: `pip install .` 在新环境中无报错，且 `atst run --help` 正常输出。
+2.  **ABACUS 兼容性**: `atst run` 能正确调用 `abacuslite` 并完成 NEB 计算。
+3.  **DP 显存优化**: 在 8GB 显存 GPU 上，`atst run` (DP模式) 能跑通 16 Image 的 NEB 计算（证明 Shared Instance 生效）。

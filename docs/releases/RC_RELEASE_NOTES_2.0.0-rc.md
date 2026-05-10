@@ -7,7 +7,7 @@
   - 计算器解耦：CalculatorFactory 统一管理 ABACUS（vendored abacuslite ASE_interface）与 DeepMD
   - 工作流：NEB/AutoNEB、Dimer、Sella、D2S、Relax、Vibration 完整
   - 振动分析增强：ZPE、频率与 HarmonicThermo 指标（S、U、F）
-  - CLI 入口：atst-run 统一调度，配置驱动执行
+  - CLI 入口：atst run 统一调度，配置驱动执行
 
 - 修复的缺陷
   - 清理旧版强耦合与路径硬编码；DP 串行共享策略降低显存
@@ -21,7 +21,7 @@
   - 可选：deepmd-kit（DP），ABACUS 可执行与环境模块（abacuslite 后端）
 
 - 升级与迁移
-  - pip install . 安装；通过 atst-run + config.yaml 执行
+  - pip install . 安装；通过 atst run + config.yaml 执行
   - legacy 示例仅作参考，不直接运行
 
 - 归档机制

@@ -2,7 +2,7 @@
 # part of ATST-Tools
 
 import os
-from ase.io import write
+from ase.io import read, write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.io import read_structure
@@ -41,6 +41,7 @@ class RelaxWorkflow:
         self.traj_file = calc_config.get('trajectory', 'relax.traj')
         self.logfile = calc_config.get('logfile', 'relax.log')
         self.init_structure = calc_config.get('init_structure', 'init.stru')
+        self.restart = calc_config.get('restart', False)
 
     def _get_optimizer(self):
         """
@@ -68,16 +69,23 @@ class RelaxWorkflow:
         print(f"=== Starting Relaxation with {self.calc_name} ===")
         
         # 1. Read Structure
-        if not os.path.exists(self.init_structure):
+        input_structure = self.init_structure
+        if self.restart and os.path.exists(self.traj_file):
+            input_structure = self.traj_file
+
+        if not os.path.exists(input_structure):
              # Try traj
              if os.path.exists('init.traj'):
-                 self.init_structure = 'init.traj'
+                 input_structure = 'init.traj'
              else:
-                 raise FileNotFoundError(f"Initial structure {self.init_structure} not found")
+                 raise FileNotFoundError(f"Initial structure {input_structure} not found")
 
         try:
             # Try reading as abacus format first if suffix matches or generic
-            atoms = read_structure(self.init_structure)
+            if self.restart and input_structure == self.traj_file:
+                atoms = read(input_structure, index=-1)
+            else:
+                atoms = read_structure(input_structure)
         except Exception as e:
             print(f"Error reading structure: {e}")
             raise

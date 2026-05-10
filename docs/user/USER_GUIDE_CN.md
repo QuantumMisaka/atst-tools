@@ -6,7 +6,7 @@
 
 **v2.0.0 重大更新**：
 *   **重构架构**: 引入了 `CalculatorFactory`，实现了计算引擎（ABACUS/DP）与工作流的完全解耦。
-*   **统一入口**: 所有计算任务统一通过 `atst-run` 命令行工具和 `config.yaml` 配置文件驱动。
+*   **统一入口**: 所有计算任务统一通过 `atst run` 命令行工具和 `config.yaml` 配置文件驱动。
 *   **功能对齐**: 完整支持 Deep Potential (DP) 工作流，包括显存优化的多 Image 并行计算。
 *   **新工作流**: 新增了结构优化 (Relax) 和振动分析 (Vibration) 模块。
 
@@ -41,7 +41,7 @@ pip install .
 ```
 
 ### 3.2 运行任务
-所有任务均通过 `atst-run` 命令执行，由配置文件指定任务类型。
+所有任务均通过 `atst run` 命令执行，由配置文件指定任务类型。
 
 #### 示例 1: ABACUS NEB 计算
 创建 `config.yaml`:
@@ -72,7 +72,7 @@ calculator:
 ```
 运行:
 ```bash
-atst-run config.yaml
+atst run config.yaml
 ```
 
 #### 示例 2: Deep Potential 结构优化
@@ -91,7 +91,7 @@ calculator:
 ```
 运行:
 ```bash
-atst-run config_relax.yaml
+atst run config_relax.yaml
 ```
 
 ### 3.3 配置 Schema（字段说明）
@@ -129,7 +129,7 @@ src/atst_tools/
 │   ├── vibration.py   # 振动分析
 │   └── d2s.py         # Double-to-Single
 └── scripts/           # CLI 入口
-    └── main.py        # atst-run 主程序
+    └── main.py        # atst run 主程序
 ```
 
 ## 5. 开发指南 (Development)

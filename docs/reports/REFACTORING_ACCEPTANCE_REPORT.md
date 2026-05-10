@@ -6,7 +6,7 @@
 ## Engineering Design
 
 ATST-Tools is organized as a pip-installable Python package under `src/atst_tools`.
-The primary user interface is `atst-run config.yaml`, where YAML selects both the workflow and calculator.
+The primary user interface is `atst run config.yaml`, where YAML selects both the workflow and calculator.
 The package separates CLI dispatch, workflow orchestration, MEP method wrappers, calculator construction, and shared utilities.
 
 ABACUS support is the first-class calculator path. `CalculatorFactory` resolves ABACUS through `abacuslite`, preferring an independently installed package and falling back to the vendored upstream ABACUS `ASE_interface` snapshot under `src/atst_tools/external/ASE_interface`. DP/DeepMD support remains available through `calculator.name: dp`, but real DP workflow validation is secondary to ABACUS validation.
@@ -15,7 +15,7 @@ ABACUS support is the first-class calculator path. `CalculatorFactory` resolves 
 
 | Main capability | Refactored status |
 | :--- | :--- |
-| NEB / CI-NEB / DyNEB | Supported through ASE-native NEB/DyNEB wrappers and `atst-run` |
+| NEB / CI-NEB / DyNEB | Supported through ASE-native NEB/DyNEB wrappers and `atst run` |
 | AutoNEB | Supported through ASE AutoNEB integration |
 | Dimer | Supported through ASE Dimer classes |
 | Sella | Supported through the `sella` package |
@@ -30,7 +30,7 @@ ABACUS support is the first-class calculator path. `CalculatorFactory` resolves 
 - Unified CLI/YAML workflow instead of method-specific hardcoded scripts.
 - ABACUS backend migrated away from legacy `ase-abacus` toward official `abacuslite`, with external install preferred and vendored fallback retained for RC reproducibility.
 - ABACUS examples are adjusted for SAI GPU validation with `ks_solver: cusolver`.
-- D2S is integrated into `atst-run` and follows the intended rough NEB to single-ended search structure.
+- D2S is integrated into `atst run` and follows the intended rough NEB to single-ended search structure.
 - Unit tests now cover config validation, calculator construction, CLI dispatch, core workflows, and example YAML parsing.
 
 ## Validation Status
@@ -45,7 +45,7 @@ SAI environment facts confirmed:
 
 Local checks completed:
 
-- `atst-run --help` imports and runs successfully.
+- `atst run --help` imports and runs successfully.
 - `pytest tests -q` passes with 21 tests.
 - `python -m compileall -q src/atst_tools tests` passes.
 - All tracked example YAML files parse and validate.
