@@ -7,6 +7,7 @@ ATST-Tools 仓库的目的是：建立用 ASE 等科学计算 Python Package 调
 ### 仓库状态
 
 ATST-Tools 目前处于重构状态，重构的主要目标是：
+- 保留原有的基于ase的结构优化功能
 - 保留原有的基于ase的过渡态计算功能：
     - (CI-)NEB, DyNEB, AutoNEB
         - NEB部分在原仓库内单独实现，在迁移后要求直接基于ASE已有实现，舍弃此前加入的额外新内容
@@ -15,6 +16,7 @@ ATST-Tools 目前处于重构状态，重构的主要目标是：
         - 直接基于ASE已有实现
     - Sella
         - 通过pip install sella引入sella库后使用
+- 适当拓展基于ase的分子动力学计算功能
 - 将原有main branch的Python脚本集重构为一套正式的，可快速pip install拉取的代码仓库
 - 优化 user interface，使用 CLI + YAML inputs 进行工作流交互，并在examples/目录下留下示例交互模式。
 - 对于 abacus 的 ase 支持，ATST-Tools 将从 ase-abacus 迁移到 abacuslite。开发环境下，abacuslite 会在 temp_repos/abacus-develop/interfaces/ASE_interface 目录下。
@@ -37,4 +39,7 @@ ATST-Tools 目前处于重构状态，重构的主要目标是：
 DeePMD相关开发与测试暂缓。
 
 ### 基本边界
+重构在refractor/unify-structure branch下进行，main分支不做改动，作为基线参考
 README内容暂时不迭代，先收敛项目本身。项目开发文档集中在docs/目录下，部分审阅文档和计划在.trae下。
+abacuslite 将成为项目的 ABACUS-ASE backend。它位于temp_repos/abacus-develop/interfaces/ASE_interface。你可将此backend链接或复制到项目核心代码中，但除非特别必要，否则不对该代码仓库进行修改。
+ase-abacus 为项目main分支采用的legacy ABACUS-ASE backend，它位于temp_repos/ase-abacus，该仓库仅与main分支一同作为参考功能基线，不能参与项目开发。
