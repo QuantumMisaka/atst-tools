@@ -45,6 +45,7 @@ def test_validate_accepts_supported_calculation_types():
         "d2s": {"init_file": "init.stru", "final_file": "final.stru"},
         "relax": {"init_structure": "init.stru"},
         "vibration": {"init_structure": "ts_opt.stru"},
+        "irc": {"init_structure": "ts_opt.stru"},
     }
     for calc_type, fields in required_fields.items():
         config = {
@@ -90,5 +91,33 @@ def test_validate_requires_dp_model():
             {
                 "calculation": {"type": "relax", "init_structure": "init.stru"},
                 "calculator": {"name": "dp", "dp": {}},
+            }
+        )
+
+
+def test_validate_rejects_invalid_irc_direction():
+    with pytest.raises(ValueError, match="direction"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "irc",
+                    "init_structure": "ts_opt.stru",
+                    "direction": "sideways",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_rejects_invalid_vibration_thermochemistry_model():
+    with pytest.raises(ValueError, match="thermochemistry.model"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "vibration",
+                    "init_structure": "ts_opt.stru",
+                    "thermochemistry": {"model": "unknown"},
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
             }
         )

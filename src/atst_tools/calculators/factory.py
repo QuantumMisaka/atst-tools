@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import os
 import shlex
+import logging
 from typing import Any, Dict
 
 from ase.calculators.calculator import Calculator
 
-from atst_tools.calculators.abacuslite_backend import Abacus, AbacusProfile
+from atst_tools.calculators.abacuslite_backend import Abacus, AbacusProfile, BACKEND_SOURCE
 
 
 _ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters"}
+LOGGER = logging.getLogger(__name__)
+_ABACUS_BACKEND_LOGGED = False
 
 
 def _abacus_section(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,6 +57,13 @@ class AbacusFactory:
     """Factory for creating ABACUS ASE calculators through abacuslite."""
 
     @staticmethod
+    def _log_backend_source_once() -> None:
+        global _ABACUS_BACKEND_LOGGED
+        if not _ABACUS_BACKEND_LOGGED:
+            LOGGER.info("Using %s abacuslite backend for ABACUS calculator.", BACKEND_SOURCE)
+            _ABACUS_BACKEND_LOGGED = True
+
+    @staticmethod
     def get_calculator(
         config: Dict[str, Any],
         directory: str | None = None,
@@ -61,6 +71,7 @@ class AbacusFactory:
         omp: int | None = None,
         **kwargs: Any,
     ) -> Calculator:
+        AbacusFactory._log_backend_source_once()
         abacus_config = _abacus_section(config)
         raw_parameters = dict(abacus_config.get("parameters", {}))
 

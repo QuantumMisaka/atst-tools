@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 from ase.io import read, write
-from ase.thermochemistry import HarmonicThermo
 from ase.vibrations import Vibrations
 
 from atst_tools.scripts import main as run_cli
@@ -17,6 +16,8 @@ from atst_tools.utils.config import ConfigLoader, VALID_CALCULATION_TYPES
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.post import NEBPost
+from atst_tools.utils.restart_helpers import check_cache_files
+from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
 
 def _add_run_parser(subparsers):
@@ -116,7 +117,8 @@ def _add_dimer_parser(subparsers):
     )
     make.add_argument("traj_file", help="NEB trajectory file")
     make.add_argument("--n-max", type=int, default=0, help="Number of intermediate images")
-    make.add_argument("--output-structure", default="dimer_init.traj", help="Output TS guess")
+    make.add_argument("--output-traj", default="dimer_init.traj", help="Output TS guess trajectory")
+    make.add_argument("--output-structure", dest="output_traj", help=argparse.SUPPRESS)
     make.add_argument("--output-vector", default="displacement_vector.npy", help="Output displacement vector")
     make.add_argument("--norm", type=float, default=0.01, help="Displacement vector norm")
     make.set_defaults(func=_dimer_make_from_neb_command)
@@ -134,11 +136,61 @@ def _dimer_make_from_neb_command(args):
     vector_norm = np.linalg.norm(vector)
     displacement_vector = vector if vector_norm < 1e-12 else vector / vector_norm * args.norm
 
-    write(args.output_structure, chain[ts_idx])
+    write(args.output_traj, chain[ts_idx])
     np.save(args.output_vector, displacement_vector)
     print(f"TS image index: {ts_idx}")
-    print(f"Wrote {args.output_structure}")
+    print(f"Wrote {args.output_traj}")
     print(f"Wrote {args.output_vector}")
+
+
+def _add_relax_parser(subparsers):
+    parser = subparsers.add_parser("relax", help="Relaxation post-processing tools")
+    relax_subparsers = parser.add_subparsers(dest="relax_command", required=True)
+
+    post = relax_subparsers.add_parser(
+        "post",
+        help="Extract a frame for relax or TS relax restart",
+        description=(
+            "Extract a structure from a relax trajectory. This is also useful for "
+            "TS relax / Single-End Methods restart preparation."
+        ),
+        epilog="Use this command to prepare restart structures for TS relax / Single-End Methods restart.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    post.add_argument("traj_file", help="Relax, Dimer, or Sella trajectory file")
+    post.add_argument("--ind", type=int, default=-1, help="Frame index to extract")
+    post.add_argument("--output-format", default="stru", choices=("stru", "cif", "poscar", "traj", "xyz"))
+    post.add_argument("--output", help="Output structure path")
+    post.set_defaults(func=_relax_post_command)
+
+
+def _max_force(atoms) -> float:
+    try:
+        forces = atoms.get_forces()
+    except Exception:
+        return float("nan")
+    if len(forces) == 0:
+        return 0.0
+    return float(np.linalg.norm(forces, axis=1).max())
+
+
+def _relax_post_command(args):
+    atoms = read(args.traj_file, index=args.ind)
+    default_outputs = {"stru": "STRU", "poscar": "POSCAR"}
+    output = args.output or default_outputs.get(args.output_format, f"relax_frame_{args.ind}.{args.output_format}")
+    write_format = "vasp" if args.output_format == "poscar" else args.output_format
+    print(f"Energy: {atoms.get_potential_energy():.10f} eV")
+    print(f"Max force: {_max_force(atoms):.10f} eV/Ang")
+    try:
+        write(output, atoms, format=write_format)
+    except Exception as exc:
+        if args.output_format != "stru":
+            raise
+        raise RuntimeError(
+            "Failed to write STRU output. Ensure an ASE writer for ABACUS STRU is available, "
+            "or use --output-format cif/poscar/traj."
+        ) from exc
+    print(f"Wrote {output}")
 
 
 def _add_vibration_parser(subparsers):
@@ -156,6 +208,13 @@ def _vibration_post_command(args):
     config = ConfigLoader.load(args.config)
     ConfigLoader.validate(config)
     calc_config = config["calculation"]
+    cache_status = check_cache_files(calc_config.get("name", "vib"))
+    if cache_status["invalid"]:
+        bad_files = ", ".join(str(path) for path in cache_status["invalid"])
+        raise RuntimeError(
+            "Invalid vibration cache file(s) detected. Remove them or rerun with "
+            f"`atst run --restart {args.config}` before post-processing: {bad_files}"
+        )
     atoms = read_structure(calc_config.get("init_structure", "vib_init.stru"))
     vib = Vibrations(
         atoms,
@@ -172,31 +231,14 @@ def _vibration_post_command(args):
     energies = vib.get_energies()
     frequencies = vib.get_frequencies()
     zpe = vib.get_zero_point_energy()
-    real_vib_energies = np.array(
-        [energy.real for energy in energies if energy.imag == 0 and energy.real > 0],
-        dtype=float,
-    )
-    if len(real_vib_energies) == 0:
-        entropy = 0.0
-        free_energy = 0.0
-        internal_energy = 0.0
-    else:
-        thermo = HarmonicThermo(real_vib_energies)
-        temperature = calc_config.get("temperature", 300.0)
-        entropy = thermo.get_entropy(temperature)
-        internal_energy = thermo.get_internal_energy(temperature)
-        free_energy = thermo.get_helmholtz_energy(temperature)
+    thermo = compute_vibration_thermochemistry(atoms, energies, calc_config, zpe)
 
     results = {
         "frequencies": frequencies.real.tolist(),
         "imaginary_frequencies": frequencies.imag.tolist(),
         "zpe": float(zpe),
-        "thermo": {
-            "temperature": float(calc_config.get("temperature", 300.0)),
-            "entropy": float(entropy),
-            "internal_energy": float(internal_energy),
-            "free_energy": float(free_energy),
-        },
+        "indices": calc_config.get("indices"),
+        "thermo": thermo,
     }
     Path(args.output).write_text(json.dumps(results, indent=4), encoding="utf-8")
     print(f"Wrote {args.output}")
@@ -212,6 +254,7 @@ def build_parser():
     _add_run_parser(subparsers)
     _add_neb_parser(subparsers)
     _add_dimer_parser(subparsers)
+    _add_relax_parser(subparsers)
     _add_vibration_parser(subparsers)
     return parser
 

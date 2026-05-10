@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 
-VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration")
+VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
 _REQUIRED_CALCULATION_FIELDS = {
@@ -15,6 +15,7 @@ _REQUIRED_CALCULATION_FIELDS = {
     "d2s": ("init_file", "final_file"),
     "relax": ("init_structure",),
     "vibration": ("init_structure",),
+    "irc": ("init_structure",),
 }
 
 
@@ -96,6 +97,17 @@ class ConfigLoader:
                 f"Missing required field(s) for calculation.type={calc_type}: "
                 f"{', '.join(missing_fields)}"
             )
+
+        if calc_type == "irc" and calculation.get("direction", "both") not in {"both", "forward", "reverse"}:
+            raise ValueError("calculation.direction for irc must be 'both', 'forward', or 'reverse'")
+
+        if calc_type == "vibration" and "thermochemistry" in calculation:
+            thermochemistry = calculation["thermochemistry"]
+            if not isinstance(thermochemistry, dict):
+                raise ValueError("'calculation.thermochemistry' must be a mapping")
+            model = thermochemistry.get("model", "harmonic")
+            if model not in {"harmonic", "ideal_gas"}:
+                raise ValueError("vibration thermochemistry.model must be 'harmonic' or 'ideal_gas'")
 
         # 3. Validate calculator configuration. The root-level 'abacus' layout is
         # retained only as a migration path; new YAML should use calculator.name.

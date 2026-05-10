@@ -73,3 +73,16 @@ def test_dp_factory_uses_deepmd_calculator(monkeypatch):
 def test_invalid_calculator_name_raises():
     with pytest.raises(ValueError, match="Unsupported calculator"):
         factory.CalculatorFactory.get_calculator("vasp", {})
+
+
+def test_abacus_backend_source_logs_once(monkeypatch, caplog):
+    monkeypatch.setattr(factory, "AbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+    monkeypatch.setattr(factory, "_ABACUS_BACKEND_LOGGED", False)
+    caplog.set_level("INFO")
+
+    config = {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}}
+    factory.CalculatorFactory.get_calculator("abacus", config)
+    factory.CalculatorFactory.get_calculator("abacus", config)
+
+    assert caplog.text.count("abacuslite backend") == 1

@@ -8,7 +8,6 @@ from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
 from importlib.metadata import PackageNotFoundError, version
 from textwrap import dedent
-from pathlib import Path
 
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
@@ -20,7 +19,9 @@ from atst_tools.mep.sella import AbacusSella
 from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
+from atst_tools.workflows.irc import IRCWorkflow
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 
 LOGGER = logging.getLogger(__name__)
 
@@ -138,6 +139,22 @@ calculation:
   nfree: 2
   name: vib_calc
   temperature: 300.0
+  thermochemistry:
+    model: harmonic
+    temperature: 300.0
+    ignore_imag_modes: true
+""",
+        "irc": """\
+calculation:
+  type: irc
+  init_structure: inputs/ts_opt.stru
+  trajectory: irc_log.traj
+  normalized_trajectory: norm_irc_log.traj
+  direction: both
+  fmax: 0.05
+  max_steps: 1000
+  dx: 0.1
+  eta: 0.002
 """,
     }
     return calculation_blocks[calculation_type] + "\n" + calculator
@@ -181,13 +198,9 @@ def run_neb(config, calc_name, calc_config):
     init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
     traj_file = calc_config.get('trajectory', 'neb.traj')
     restart = calc_config.get('restart', False)
-    if restart and Path(traj_file).exists():
-        all_images = read(traj_file, index=':')
-        try:
-            n_images = len(read(init_chain_file, index=':'))
-        except Exception:
-            n_images = len(all_images)
-        init_chain = all_images[-n_images:]
+    if restart:
+        n_images = len(read(init_chain_file, index=':'))
+        init_chain = get_last_neb_band(traj_file, n_images)
     else:
         init_chain = read(init_chain_file, index=':')
     
@@ -273,16 +286,13 @@ def run_dimer(config, calc_name, calc_config):
     # Dimer needs a single structure (Transition State guess)
     init_structure = calc_config.get('init_structure', 'dimer_init.stru')
     traj_file = calc_config.get('trajectory', 'dimer.traj')
-    if calc_config.get('restart') and os.path.exists(traj_file):
-        init_structure = traj_file
-    if not os.path.exists(init_structure):
-         # Try traj
-         if os.path.exists('dimer_init.traj'):
-             init_structure = 'dimer_init.traj'
-    
-    if calc_config.get('restart') and os.path.exists(traj_file):
-        atoms = read(traj_file, index=-1)
+    if calc_config.get('restart'):
+        atoms = get_last_frame(traj_file)
     else:
+        if not os.path.exists(init_structure):
+         # Try traj
+            if os.path.exists('dimer_init.traj'):
+                init_structure = 'dimer_init.traj'
         atoms = read_structure(init_structure)
     
     # 2. Parameters
@@ -335,16 +345,13 @@ def run_sella(config, calc_name, calc_config):
     # 1. Load Initial Structure (TS guess)
     init_structure = calc_config.get('init_structure', 'sella_init.stru')
     traj_file = calc_config.get('trajectory', 'sella.traj')
-    if calc_config.get('restart') and os.path.exists(traj_file):
-        init_structure = traj_file
-    if not os.path.exists(init_structure):
-         # Try traj
-         if os.path.exists('sella_init.traj'):
-             init_structure = 'sella_init.traj'
-    
-    if calc_config.get('restart') and os.path.exists(traj_file):
-        atoms = read(traj_file, index=-1)
+    if calc_config.get('restart'):
+        atoms = get_last_frame(traj_file)
     else:
+        if not os.path.exists(init_structure):
+         # Try traj
+            if os.path.exists('sella_init.traj'):
+                init_structure = 'sella_init.traj'
         atoms = read_structure(init_structure)
     
     # 2. Parameters
@@ -371,7 +378,7 @@ def _build_parser():
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | d2s | relax | vibration
+          calculation.type: neb | autoneb | dimer | sella | d2s | relax | vibration | irc
           calculator.name:  abacus | dp
 
         Common commands:
@@ -461,6 +468,9 @@ def run_from_args(args):
         workflow.run()
     elif calc_type == 'vibration':
         workflow = VibrationWorkflow(config, calc_name, calc_config)
+        workflow.run()
+    elif calc_type == 'irc':
+        workflow = IRCWorkflow(config, calc_name, calc_config)
         workflow.run()
     else:
         raise ValueError(f"Unknown calculation type: {calc_type}")

@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -109,3 +110,91 @@ def test_vibration_workflow_writes_results(monkeypatch, tmp_path):
     workflow.run()
 
     assert (tmp_path / "vibration_results.json").exists()
+
+
+def test_vibration_restart_removes_invalid_cache(monkeypatch, tmp_path):
+    from atst_tools.workflows import vibration
+
+    class FakeVibrations:
+        def __init__(self, atoms, indices=None, delta=None, nfree=None, name=None):
+            return None
+
+        def run(self):
+            return None
+
+        def summary(self):
+            return None
+
+        def get_energies(self):
+            return np.array([0.1])
+
+        def get_frequencies(self):
+            return np.array([100.0])
+
+        def get_zero_point_energy(self):
+            return 0.05
+
+    monkeypatch.chdir(tmp_path)
+    vib_dir = tmp_path / "vib"
+    vib_dir.mkdir()
+    good = vib_dir / "cache.eq.json"
+    bad = vib_dir / "cache.0x+.json"
+    good.write_text("{}", encoding="utf-8")
+    bad.touch()
+    monkeypatch.setattr(vibration.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(vibration, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(vibration.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(vibration, "Vibrations", FakeVibrations)
+
+    workflow = vibration.VibrationWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "vibration", "init_structure": "ts.traj", "restart": True, "name": "vib"},
+    )
+    workflow.run()
+
+    assert good.exists()
+    assert not bad.exists()
+
+
+def test_irc_workflow_runs_forward_and_reverse(monkeypatch, tmp_path):
+    from atst_tools.workflows import irc
+
+    calls = []
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            calls.append(("init", kwargs["dx"], kwargs["eta"]))
+            self.atoms = atoms
+
+        def run(self, fmax, steps=None, direction=None):
+            calls.append(("run", fmax, steps, direction))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(irc.IRCWorkflow, "_normalize_trajectory", lambda self: calls.append(("normalize",)))
+    monkeypatch.setitem(sys.modules, "sella", type("SellaModule", (), {"IRC": FakeIRC})())
+
+    workflow = irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "irc",
+            "init_structure": "ts.traj",
+            "trajectory": "irc.traj",
+            "direction": "both",
+            "fmax": 0.03,
+            "max_steps": 7,
+            "dx": 0.2,
+            "eta": 0.003,
+        },
+    )
+    workflow.run()
+
+    assert calls == [
+        ("init", 0.2, 0.003),
+        ("run", 0.03, 7, "forward"),
+        ("run", 0.03, 7, "reverse"),
+        ("normalize",),
+    ]

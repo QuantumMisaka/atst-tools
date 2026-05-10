@@ -20,6 +20,8 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 ## Reports
 
 - [2026-05-10 review](reports/REVIEW_2026-05-10_2000.md)
+- [2026-05-11 enhancement completion report](reports/REVIEW_ENHANCEMENTS_2026-05-11.md)
+- [2026-05-11 examples regression report](reports/EXAMPLES_REGRESSION_2026-05-11.md)
 - [Refactor acceptance report](reports/REFACTORING_ACCEPTANCE_REPORT.md)
 - [2.0.0-rc acceptance notes](reports/ACCEPTANCE_2.0.0rc_CN.md)
 - [Feature status matrix](reports/FEATURE_STATUS_MATRIX.md)

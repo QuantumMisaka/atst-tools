@@ -1,0 +1,36 @@
+calculation:
+  type: vibration
+  init_structure: inputs/h2.stru
+  indices: [0, 1]
+  delta: 0.01
+  nfree: 2
+  name: vib
+  thermochemistry:
+    model: ideal_gas
+    temperature: 298.15
+    pressure: 101325.0
+    geometry: linear
+    symmetrynumber: 2
+    spin: 0
+    ignore_imag_modes: true
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: vib_run
+    parameters:
+      calculation: scf
+      basis_type: lcao
+      ks_solver: cusolver
+      ecutwfc: 100
+      scf_thr: 1e-6
+      cal_force: 1
+      pseudo_dir: ../data
+      orbital_dir: ../data
+      pseudopotentials:
+        H: H_ONCV_PBE-1.0.upf
+      basissets:
+        H: H_gga_6au_100Ry_2s1p.orb

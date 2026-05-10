@@ -1,0 +1,94 @@
+"""Intrinsic reaction coordinate workflow based on Sella."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict
+
+from ase.io import read, write
+from ase.io.trajectory import Trajectory
+
+from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.io import read_structure
+from atst_tools.utils.restart_helpers import get_last_frame
+
+
+class IRCWorkflow:
+    """Run forward, reverse, or combined IRC calculations from a TS structure."""
+
+    def __init__(self, config: Dict[str, Any], calc_name: str, calc_config: Dict[str, Any]):
+        self.config = config
+        self.calc_name = calc_name
+        self.calc_config = calc_config
+        self.init_structure = calc_config.get("init_structure")
+        self.traj_file = calc_config.get("trajectory", "irc_log.traj")
+        self.normalized_traj_file = calc_config.get(
+            "normalized_trajectory", f"norm_{Path(self.traj_file).name}"
+        )
+        self.direction = calc_config.get("direction", "both")
+        self.restart = calc_config.get("restart", False)
+
+    def _set_calculator(self, atoms):
+        directory = self.calc_config.get("directory", "irc_run")
+        if "abacus" in self.config:
+            directory = self.config["abacus"].get("directory", directory)
+        atoms.calc = CalculatorFactory.get_calculator(self.calc_name, self.config, directory=directory)
+        return atoms
+
+    def _directions(self) -> list[str]:
+        if self.direction == "both":
+            return ["forward", "reverse"]
+        if self.direction in {"forward", "reverse"}:
+            return [self.direction]
+        raise ValueError("IRC direction must be 'both', 'forward', or 'reverse'")
+
+    def _normalize_trajectory(self) -> None:
+        if self.direction != "both":
+            return
+        frames = read(self.traj_file, index=":")
+        normalized = []
+        ene_last = -float("inf")
+        for atoms in frames[::-1]:
+            energy = atoms.get_potential_energy()
+            if energy > ene_last:
+                normalized.append(atoms)
+                ene_last = energy
+            else:
+                break
+        ene_last = float("inf")
+        for atoms in frames:
+            energy = atoms.get_potential_energy()
+            if energy < ene_last:
+                normalized.append(atoms)
+                ene_last = energy
+            else:
+                break
+        write(self.normalized_traj_file, normalized, format="traj")
+
+    def run(self):
+        """Execute the configured IRC calculation."""
+        try:
+            from sella import IRC
+        except ImportError as exc:
+            raise ImportError("sella is required for calculation.type=irc. Install it with `pip install sella`.") from exc
+
+        atoms = get_last_frame(self.traj_file) if self.restart else read_structure(self.init_structure)
+        atoms = self._set_calculator(atoms)
+        traj_mode = "a" if self.restart else "w"
+        irc_traj = Trajectory(self.traj_file, traj_mode, atoms)
+        irc = IRC(
+            atoms,
+            trajectory=irc_traj,
+            dx=self.calc_config.get("dx", 0.1),
+            eta=self.calc_config.get("eta", 0.0001),
+            gamma=self.calc_config.get("gamma", 0.1),
+            irctol=self.calc_config.get("irctol", 0.01),
+            keep_going=self.calc_config.get("keep_going", False),
+        )
+        for direction in self._directions():
+            irc.run(
+                self.calc_config.get("fmax", 0.05),
+                steps=self.calc_config.get("max_steps", 1000),
+                direction=direction,
+            )
+        self._normalize_trajectory()

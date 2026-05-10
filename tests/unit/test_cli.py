@@ -1,9 +1,10 @@
 from pathlib import Path
+import json
 
 import numpy as np
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
-from ase.io import write
+from ase.io import read, write
 
 
 def _atoms(energy=0.0, x=0.0):
@@ -100,6 +101,7 @@ def test_atst_run_list_types_prints_supported_types(capsys):
     output = capsys.readouterr().out
     assert "neb" in output
     assert "vibration" in output
+    assert "irc" in output
 
 
 def test_atst_run_show_template_prints_yaml(capsys):
@@ -111,6 +113,16 @@ def test_atst_run_show_template_prints_yaml(capsys):
     assert "calculation:" in output
     assert "type: neb" in output
     assert "calculator:" in output
+
+
+def test_atst_run_show_irc_template_prints_yaml(capsys):
+    from atst_tools.scripts import cli
+
+    cli.main(["run", "--show-template", "irc", "--calculator", "abacus"])
+
+    output = capsys.readouterr().out
+    assert "type: irc" in output
+    assert "direction: both" in output
 
 
 def test_neb_make_delegates_to_generate(monkeypatch):
@@ -185,6 +197,44 @@ def test_dimer_make_from_neb_writes_ts_and_vector(tmp_path, monkeypatch):
     assert np.isclose(np.linalg.norm(vector), 0.01)
 
 
+def test_dimer_make_from_neb_accepts_output_traj(tmp_path, monkeypatch):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    images = [_atoms(0.0, 0.0), _atoms(2.0, 0.5), _atoms(0.5, 2.0)]
+    write("neb.traj", images)
+
+    cli.main(["dimer", "make-from-neb", "neb.traj", "--output-traj", "ts_guess.traj"])
+
+    assert Path("ts_guess.traj").exists()
+
+
+def test_relax_post_writes_selected_frame(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("relax.traj", [_atoms(0.0), _atoms(1.0)])
+
+    cli.main(["relax", "post", "relax.traj", "--output-format", "traj", "--output", "restart.traj"])
+
+    assert Path("restart.traj").exists()
+    assert read("restart.traj").get_potential_energy() == 1.0
+    output = capsys.readouterr().out
+    assert "Energy:" in output
+    assert "Max force:" in output
+
+
+def test_relax_post_help_mentions_ts_restart(capsys):
+    from atst_tools.scripts import cli
+
+    try:
+        cli.main(["relax", "post", "--help"])
+    except SystemExit:
+        pass
+
+    assert "TS relax / Single-End Methods restart" in capsys.readouterr().out
+
+
 def test_vibration_post_writes_results(monkeypatch, tmp_path):
     from atst_tools.scripts import cli
 
@@ -224,4 +274,32 @@ def test_vibration_post_writes_results(monkeypatch, tmp_path):
 
     cli.main(["vibration", "post", "config.yaml"])
 
-    assert Path("vibration_results.json").exists()
+    results = json.loads(Path("vibration_results.json").read_text(encoding="utf-8"))
+    assert results["thermo"]["model"] == "harmonic"
+    assert results["thermo"]["zpe"] == 0.15
+
+
+def test_vibration_post_rejects_invalid_cache(monkeypatch, tmp_path):
+    from atst_tools.scripts import cli
+
+    config = {
+        "calculation": {
+            "type": "vibration",
+            "init_structure": "ts.traj",
+            "name": "vib",
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    monkeypatch.chdir(tmp_path)
+    Path("vib").mkdir()
+    Path("vib/cache.0x+.json").touch()
+    monkeypatch.setattr(cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(cli.ConfigLoader, "validate", lambda config: True)
+
+    try:
+        cli.main(["vibration", "post", "config.yaml"])
+    except RuntimeError as exc:
+        assert "Invalid vibration cache" in str(exc)
+    else:
+        raise AssertionError("expected invalid cache to raise")

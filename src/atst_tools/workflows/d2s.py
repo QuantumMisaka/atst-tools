@@ -7,7 +7,7 @@ from copy import deepcopy
 from typing import Any, Dict
 
 import numpy as np
-from ase.io import read, write
+from ase.io import write
 from ase.mep.neb import DyNEB
 from ase.optimize import FIRE, QuasiNewton
 
@@ -16,6 +16,7 @@ from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 
 
 class D2SWorkflow:
@@ -59,7 +60,7 @@ class D2SWorkflow:
         max_steps = self.calc_config.get("endpoint_max_steps", 200)
 
         if self.restart and os.path.exists("IS_opt.traj"):
-            init_atoms = read("IS_opt.traj", index=-1)
+            init_atoms = get_last_frame("IS_opt.traj")
         else:
             init_atoms.calc = self._get_calc("IS_OPT")
             opt_is = QuasiNewton(init_atoms, logfile="opt_is.log")
@@ -67,7 +68,7 @@ class D2SWorkflow:
             write("IS_opt.traj", init_atoms)
 
         if self.restart and os.path.exists("FS_opt.traj"):
-            final_atoms = read("FS_opt.traj", index=-1)
+            final_atoms = get_last_frame("FS_opt.traj")
         else:
             final_atoms.calc = self._get_calc("FS_OPT")
             opt_fs = QuasiNewton(final_atoms, logfile="opt_fs.log")
@@ -79,8 +80,7 @@ class D2SWorkflow:
     def run_rough_neb(self, init_atoms, final_atoms):
         print("=== Step 2: Running Rough NEB ===")
         if self.restart and os.path.exists("neb_rough.traj"):
-            all_images = read("neb_rough.traj", index=":")
-            return all_images[-(self.neb_config.get("n_images", 8) + 2):]
+            return get_last_neb_band("neb_rough.traj", self.neb_config.get("n_images", 8) + 2)
 
         n_images = self.neb_config.get("n_images", 8)
         fmax = self.neb_config.get("fmax", 0.8)

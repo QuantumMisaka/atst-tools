@@ -2,10 +2,11 @@
 # part of ATST-Tools
 
 import os
-from ase.io import read, write
+from ase.io import write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.restart_helpers import get_last_frame
 
 class RelaxWorkflow:
     """
@@ -70,25 +71,20 @@ class RelaxWorkflow:
         
         # 1. Read Structure
         input_structure = self.init_structure
-        if self.restart and os.path.exists(self.traj_file):
-            input_structure = self.traj_file
-
-        if not os.path.exists(input_structure):
+        if self.restart:
+            atoms = get_last_frame(self.traj_file)
+        elif not os.path.exists(input_structure):
              # Try traj
              if os.path.exists('init.traj'):
                  input_structure = 'init.traj'
              else:
                  raise FileNotFoundError(f"Initial structure {input_structure} not found")
-
-        try:
-            # Try reading as abacus format first if suffix matches or generic
-            if self.restart and input_structure == self.traj_file:
-                atoms = read(input_structure, index=-1)
-            else:
+        else:
+            try:
                 atoms = read_structure(input_structure)
-        except Exception as e:
-            print(f"Error reading structure: {e}")
-            raise
+            except Exception as e:
+                print(f"Error reading structure: {e}")
+                raise
 
         # 2. Setup Calculator
         # Extract directory from config or use default

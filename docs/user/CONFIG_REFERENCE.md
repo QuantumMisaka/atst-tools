@@ -1,7 +1,7 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.0.0-rc  
-**Last Updated**: 2026-05-10  
+**Last Updated**: 2026-05-11
 **Status**: Release Candidate
 
 This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
@@ -12,7 +12,7 @@ This document provides a comprehensive reference for the `config.yaml` file used
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
   # ... task specific parameters ...
 
 calculator:
@@ -37,7 +37,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`, `irc`. |
 | `fmax` | float | `0.05` | Maximum force convergence criterion (eV/Å). |
 | `optimizer` | string | `FIRE` | Optimization algorithm: `FIRE`, `BFGS`, `QuasiNewton`, etc. |
 | `trajectory` | string | `None` | Path to save the optimization trajectory (e.g., `opt.traj`). |
@@ -108,6 +108,35 @@ The `calculation` section defines the type of task and its parameters.
 | `temperature` | float | `300.0` | Temperature for thermodynamic analysis (K). |
 | `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
 
+Thermochemistry is controlled by an optional nested block:
+
+```yaml
+calculation:
+  type: vibration
+  init_structure: inputs/ts_opt.stru
+  thermochemistry:
+    model: harmonic        # harmonic or ideal_gas
+    temperature: 300.0
+    ignore_imag_modes: true
+```
+
+`model: harmonic` uses ASE `HarmonicThermo` and reports ZPE, entropy, internal energy, and Helmholtz free energy. This is the default for surfaces, adsorbates, TS local modes, and solid-like approximations.
+
+For isolated small molecules, use `model: ideal_gas`:
+
+```yaml
+thermochemistry:
+  model: ideal_gas
+  temperature: 298.15
+  pressure: 101325.0
+  geometry: linear          # monatomic, linear, or nonlinear
+  symmetrynumber: 2
+  spin: 0
+  ignore_imag_modes: true
+```
+
+This uses ASE `IdealGasThermo` and includes translational, rotational, and vibrational degrees of freedom in the reported Gibbs free energy.
+
 ### 2.8 D2S (Double-Ended to Single-Ended)
 **Type**: `d2s`
 
@@ -119,6 +148,25 @@ The `calculation` section defines the type of task and its parameters.
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
+
+### 2.9 IRC
+**Type**: `irc`
+
+IRC follows the legacy main-branch `sella_IRC.py` behavior through YAML. It starts from a TS structure, runs Sella IRC forward, reverse, or both directions, and writes a normalized trajectory for the combined mode.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `init_structure` | string | **Required** | TS structure used as the IRC starting point. |
+| `trajectory` | string | `irc_log.traj` | IRC trajectory. Restart appends from the last frame. |
+| `normalized_trajectory` | string | `norm_<trajectory>` | Output for normalized forward/reverse trajectory when `direction: both`. |
+| `direction` | string | `both` | `both`, `forward`, or `reverse`. |
+| `fmax` | float | `0.05` | IRC convergence criterion. |
+| `max_steps` | int | `1000` | Steps per IRC direction. |
+| `dx` | float | `0.1` | IRC step size. |
+| `eta` | float | `0.0001` | Sella IRC parameter. |
+| `gamma` | float | `0.1` | Sella IRC parameter. |
+| `irctol` | float | `0.01` | IRC tolerance. |
+| `keep_going` | bool | `false` | Forwarded to `sella.IRC`. |
 
 ---
 

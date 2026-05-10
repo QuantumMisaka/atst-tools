@@ -7,6 +7,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 
 *   `data/`: Centralized repository for Pseudopotentials (`.upf`) and Numerical Orbitals (`.orb`).
 *   `<case>/inputs/`: Curated input structures and vectors referenced by `config*.yaml`.
+*   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS scratch files are ignored unless they are explicitly curated inputs.
 
 ### 1. Basic Examples (Li Diffusion)
 *   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
@@ -21,7 +22,12 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `03_autoneb_Cy-Pt/`: **Cyclohexane on Pt-doped Graphene**. Demonstrates the **AutoNEB** workflow for complex paths.
 *   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer search.
 
-### 4. Classic Transition State Search (CO on Pt(111))
+### 4. Lightweight Commands and Auxiliary Workflows
+*   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, `atst dimer`, `atst relax post`, and `atst vibration post`.
+*   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, and `reverse`.
+*   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
+
+### 5. Classic Transition State Search (CO on Pt(111))
 *   `04_dimer_CO-Pt/`: **CO on Pt(111)**. A classic benchmark system for the **Dimer** method.
 
 ## Usage
@@ -47,3 +53,6 @@ The examples are organized by chemical system and method to demonstrate the vers
 | `06_relax_H2-Au` | H2 on Au(111) | H, Au | Relax |
 | `07_vibration_H2-Au` | H2 on Au(111) (TS) | H, Au | Vibration |
 | `08_d2s_Cy-Pt` | Cyclohexane on Pt@Graphene | C, H, Pt | D2S |
+| `09_lightweight_cli` | Minimal local fixtures | H | Lightweight CLI |
+| `10_irc_H2` | H2 TS fixture | H | IRC |
+| `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |

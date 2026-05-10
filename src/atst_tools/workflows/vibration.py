@@ -1,14 +1,14 @@
-# Vibration Workflow
-# part of ATST-Tools
+"""Vibration workflow."""
 
 import os
 import json
 from pathlib import Path
 import numpy as np
 from ase.vibrations import Vibrations
-from ase.thermochemistry import HarmonicThermo
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.restart_helpers import clean_cache_files
+from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
 class VibrationWorkflow:
     """
@@ -50,11 +50,15 @@ class VibrationWorkflow:
         vib_path = Path(self.name)
         if not vib_path.exists():
             return
-        cache_files = list(vib_path.glob("cache*.json"))
         if self.restart:
+            status = clean_cache_files(vib_path, keep_good=True)
+            if status["invalid"]:
+                print(
+                    "Removed invalid vibration cache file(s): "
+                    + ", ".join(str(path) for path in status["invalid"])
+                )
             return
-        for cache_file in cache_files:
-            cache_file.unlink()
+        clean_cache_files(vib_path, keep_good=False)
 
     def run(self):
         """
@@ -109,38 +113,23 @@ class VibrationWorkflow:
         
         print(f"Zero Point Energy: {zpe:.4f} eV")
 
-        # 8. Harmonic Thermodynamic Analysis
-        print(f"=== Starting Harmonic Thermodynamic Analysis at T={self.temp} K ===")
-        # Filter real, positive energies for thermo analysis
-        # energies are in eV. 
-        real_vib_energies = np.array([energy for energy in energies if energy.imag == 0 and energy.real > 0], dtype=float)
-        
-        if len(real_vib_energies) == 0:
-             print("Warning: No valid real vibrational modes found for thermodynamic analysis.")
-             entropy = 0.0
-             free_energy = 0.0
-             internal_energy = 0.0
+        thermo = compute_vibration_thermochemistry(atoms, energies, self.calc_config, zpe)
+        model = thermo["model"]
+        print(f"=== Starting {model} Thermodynamic Analysis at T={thermo['temperature']} K ===")
+        print(f"Entropy (S): {thermo.get('entropy', 0.0):.6e} eV/K")
+        if model == "ideal_gas":
+            print(f"Gibbs Free Energy (G): {thermo.get('gibbs_free_energy', 0.0):.6f} eV")
         else:
-             thermo = HarmonicThermo(real_vib_energies)
-             entropy = thermo.get_entropy(self.temp)
-             internal_energy = thermo.get_internal_energy(self.temp)
-             free_energy = thermo.get_helmholtz_energy(self.temp)
-             
-             print(f"Entropy (S): {entropy:.6e} eV/K")
-             print(f"Internal Energy (U): {internal_energy:.6f} eV")
-             print(f"Helmholtz Free Energy (F): {free_energy:.6f} eV")
+            print(f"Internal Energy (U): {thermo.get('internal_energy', 0.0):.6f} eV")
+            print(f"Helmholtz Free Energy (F): {thermo.get('helmholtz_free_energy', 0.0):.6f} eV")
 
         # Save results to JSON for easy parsing
         results = {
             'frequencies': frequencies.real.tolist(),
             'imaginary_frequencies': frequencies.imag.tolist(),
             'zpe': zpe,
-            'thermo': {
-                'temperature': self.temp,
-                'entropy': entropy,
-                'internal_energy': internal_energy,
-                'free_energy': free_energy
-            }
+            'indices': self.indices,
+            'thermo': thermo,
         }
         with open('vibration_results.json', 'w') as f:
             json.dump(results, f, indent=4)
