@@ -54,6 +54,63 @@ def test_d2s_workflow_uses_unified_constructor(monkeypatch):
     assert calls == [(1, "dp")]
 
 
+def test_d2s_vibration_is_disabled_by_default(monkeypatch):
+    from atst_tools.workflows import d2s
+
+    calls = []
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {"type": "d2s", "method": "dimer"},
+    )
+    monkeypatch.setattr(d2s, "Vibrations", lambda *args, **kwargs: calls.append(args))
+
+    workflow.run_vibration([_atoms(0.0), _atoms(1.0), _atoms(0.0)], _atoms(1.0), None)
+
+    assert calls == []
+
+
+def test_d2s_vibration_auto_indices_writes_results(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    class FakeVibrations:
+        def __init__(self, atoms, indices=None, delta=None, nfree=None, name=None):
+            self.indices = indices
+
+        def run(self):
+            return None
+
+        def summary(self):
+            return None
+
+        def get_energies(self):
+            return np.array([0.1])
+
+        def get_frequencies(self):
+            return np.array([100.0])
+
+        def get_zero_point_energy(self):
+            return 0.05
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(d2s, "Vibrations", FakeVibrations)
+    monkeypatch.setattr(d2s, "get_displacement_analysis", lambda chain, thr=0.10: (1, [0], np.array([1.0])))
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "vibration": {"enabled": True, "indices": "auto", "results_file": "d2s_vib.json"},
+        },
+    )
+    workflow.run_vibration([_atoms(0.0), _atoms(1.0), _atoms(0.0)], _atoms(1.0), None)
+
+    assert (tmp_path / "d2s_vib.json").exists()
+
+
 def test_relax_workflow_runs_with_mocked_io_and_optimizer(monkeypatch, tmp_path):
     from atst_tools.workflows import relax
 

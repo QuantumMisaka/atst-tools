@@ -12,6 +12,9 @@ from atst_tools.utils.restart_helpers import (
     clean_cache_files,
     get_last_frame,
     get_last_neb_band,
+    read_autoneb_final_chain,
+    select_last_neb_chain,
+    select_post_neb_chain,
 )
 
 
@@ -45,6 +48,32 @@ def test_get_last_neb_band_returns_last_complete_band(tmp_path):
     band = get_last_neb_band(traj, 3)
 
     assert [atoms.get_potential_energy() for atoms in band] == [3.0, 4.0, 5.0]
+
+
+def test_select_last_neb_chain_can_be_non_strict():
+    images = [_atoms(float(i)) for i in range(5)]
+
+    band = select_last_neb_chain(images, 3, strict=False)
+
+    assert [atoms.get_potential_energy() for atoms in band] == [2.0, 3.0, 4.0]
+
+
+def test_select_post_neb_chain_uses_n_max():
+    images = [_atoms(float(i)) for i in range(6)]
+
+    band = select_post_neb_chain(images, n_max=1, strict=True)
+
+    assert [atoms.get_potential_energy() for atoms in band] == [3.0, 4.0, 5.0]
+
+
+def test_read_autoneb_final_chain_sorts_numbered_files(tmp_path):
+    write(tmp_path / "run_autoneb002.traj", _atoms(2.0))
+    write(tmp_path / "run_autoneb000.traj", _atoms(0.0))
+    write(tmp_path / "run_autoneb001.traj", _atoms(1.0))
+
+    chain = read_autoneb_final_chain(tmp_path / "run_autoneb")
+
+    assert [atoms.get_potential_energy() for atoms in chain] == [0.0, 1.0, 2.0]
 
 
 def test_cache_helpers_detect_and_clean_bad_json(tmp_path):

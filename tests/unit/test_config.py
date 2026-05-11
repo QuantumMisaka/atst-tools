@@ -75,6 +75,22 @@ def test_validate_requires_workflow_inputs():
         )
 
 
+def test_validate_accepts_neb_make_input():
+    assert ConfigLoader.validate(
+        {
+            "calculation": {
+                "type": "neb",
+                "make": {
+                    "init_structure": "init.stru",
+                    "final_structure": "final.stru",
+                    "n_images": 5,
+                },
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    ) is True
+
+
 def test_validate_requires_matching_calculator_section():
     with pytest.raises(ValueError, match="calculator.abacus"):
         ConfigLoader.validate(

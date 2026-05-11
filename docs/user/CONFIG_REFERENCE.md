@@ -49,11 +49,31 @@ The `calculation` section defines the type of task and its parameters.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `init_chain` | string | **Required** | Path to the initial chain file (e.g., `init_neb_chain.traj`). |
+| `init_chain` | string | One of `init_chain` / `make` | Path to the initial chain file (e.g., `init_neb_chain.traj`). |
 | `climb` | bool | `True` | Enable Climbing Image NEB (CI-NEB). |
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
+
+`init_chain` and `make` are mutually exclusive. Use `init_chain` when the chain already exists; use nested `make` when `atst run` should generate the chain immediately before launching NEB:
+
+```yaml
+calculation:
+  type: neb
+  make:
+    init_structure: inputs/init.stru
+    final_structure: inputs/final.stru
+    n_images: 5
+    method: IDPP
+    output: inputs/init_neb_chain.traj
+    ts_guess: null
+    fix: null       # optional HEIGHT:DIR or {height: 0.25, dir: 2}
+    magmom: null    # optional Fe:2.5,O:1.0 or {Fe: 2.5, O: 1.0}
+    no_align: false
+  fmax: 0.05
+```
+
+The refactored interpolation path uses the in-repository `Fast_IDPPSolver` plus atom-index alignment. `sort_tol` / pymatgen autosort is intentionally dropped.
 
 ### 2.3 AutoNEB
 **Type**: `autoneb`
@@ -148,6 +168,27 @@ This uses ASE `IdealGasThermo` and includes translational, rotational, and vibra
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
+
+Optional vibration can be enabled after the single-ended Dimer/Sella step:
+
+```yaml
+calculation:
+  type: d2s
+  vibration:
+    enabled: false
+    indices: auto        # auto, all, or explicit list such as [0, 1, 2]
+    threshold: 0.10
+    delta: 0.01
+    nfree: 2
+    name: d2s_vib
+    results_file: d2s_vibration_results.json
+    thermochemistry:
+      model: harmonic
+      temperature: 300.0
+      ignore_imag_modes: true
+```
+
+`indices: auto` uses the rough NEB displacement analysis to select the main moving atoms. `indices: all` passes `None` to ASE `Vibrations`.
 
 ### 2.9 IRC
 **Type**: `irc`

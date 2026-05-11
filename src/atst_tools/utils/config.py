@@ -8,7 +8,7 @@ VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
 _REQUIRED_CALCULATION_FIELDS = {
-    "neb": ("init_chain",),
+    "neb": (),
     "autoneb": ("init_chain",),
     "dimer": ("init_structure",),
     "sella": ("init_structure",),
@@ -97,6 +97,24 @@ class ConfigLoader:
                 f"Missing required field(s) for calculation.type={calc_type}: "
                 f"{', '.join(missing_fields)}"
             )
+
+        if calc_type == "neb":
+            has_init_chain = "init_chain" in calculation
+            has_make = "make" in calculation
+            if has_init_chain == has_make:
+                raise ValueError("calculation.type=neb requires exactly one of 'init_chain' or 'make'")
+            if has_make and not isinstance(calculation["make"], dict):
+                raise ValueError("'calculation.make' must be a mapping")
+            if has_make:
+                missing_make = [
+                    field for field in ("init_structure", "final_structure", "n_images")
+                    if field not in calculation["make"]
+                ]
+                if missing_make:
+                    raise ValueError(
+                        "Missing required field(s) for calculation.make: "
+                        + ", ".join(missing_make)
+                    )
 
         if calc_type == "irc" and calculation.get("direction", "both") not in {"both", "forward", "reverse"}:
             raise ValueError("calculation.direction for irc must be 'both', 'forward', or 'reverse'")

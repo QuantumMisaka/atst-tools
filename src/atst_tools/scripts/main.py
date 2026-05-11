@@ -22,6 +22,7 @@ from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
+from atst_tools.utils.idpp import generate
 
 LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +72,13 @@ calculator:
 calculation:
   type: neb
   init_chain: inputs/init_neb_chain.traj
+  # Alternative:
+  # make:
+  #   init_structure: inputs/init.stru
+  #   final_structure: inputs/final.stru
+  #   n_images: 5
+  #   method: IDPP
+  #   output: inputs/init_neb_chain.traj
   fmax: 0.05
   max_steps: 100
   climb: true
@@ -120,6 +128,18 @@ calculation:
   dimer:
     fmax: 0.05
     max_steps: 100
+  vibration:
+    enabled: false
+    indices: auto
+    threshold: 0.10
+    delta: 0.01
+    nfree: 2
+    name: d2s_vib
+    results_file: d2s_vibration_results.json
+    thermochemistry:
+      model: harmonic
+      temperature: 300.0
+      ignore_imag_modes: true
 """,
         "relax": """\
 calculation:
@@ -183,6 +203,29 @@ def get_optimizer(opt_name):
         LOGGER.warning("Unknown optimizer %s, defaulting to FIRE", opt_name)
         return FIRE
 
+
+def _parse_make_fix(value):
+    if value is None:
+        return None, None
+    if isinstance(value, dict):
+        return value.get("height"), value.get("dir", value.get("direction"))
+    height, direction = str(value).split(":", 1)
+    return float(height), int(direction)
+
+
+def _parse_make_mag(value):
+    if value is None:
+        return None, None
+    if isinstance(value, dict):
+        return list(value.keys()), [float(v) for v in value.values()]
+    elements = []
+    moments = []
+    for item in str(value).split(","):
+        element, moment = item.split(":", 1)
+        elements.append(element)
+        moments.append(float(moment))
+    return elements, moments
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -195,11 +238,37 @@ def run_neb(config, calc_name, calc_config):
     LOGGER.info("Starting NEB calculation")
     
     # Load Initial Chain
-    init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
     traj_file = calc_config.get('trajectory', 'neb.traj')
     restart = calc_config.get('restart', False)
+    has_init_chain = 'init_chain' in calc_config
+    has_make = 'make' in calc_config
+    if has_init_chain == has_make:
+        raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
+
+    if has_make:
+        make_config = calc_config.get('make') or {}
+        init_chain_file = make_config.get('output', 'init_neb_chain.traj')
+        fix_height, fix_dir = _parse_make_fix(make_config.get('fix'))
+        mag_ele, mag_num = _parse_make_mag(make_config.get('magmom', make_config.get('mag')))
+        if not restart:
+            generate(
+                method=make_config.get('method', 'IDPP'),
+                n_images=make_config['n_images'],
+                is_file=make_config['init_structure'],
+                fs_file=make_config['final_structure'],
+                output_file=init_chain_file,
+                format=make_config.get('format'),
+                fix_height=fix_height,
+                fix_dir=fix_dir,
+                mag_ele=mag_ele,
+                mag_num=mag_num,
+                no_align=make_config.get('no_align', False),
+                ts_file=make_config.get('ts_guess'),
+            )
+    else:
+        init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
     if restart:
-        n_images = len(read(init_chain_file, index=':'))
+        n_images = make_config['n_images'] + 2 if has_make else len(read(init_chain_file, index=':'))
         init_chain = get_last_neb_band(traj_file, n_images)
     else:
         init_chain = read(init_chain_file, index=':')

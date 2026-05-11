@@ -3,20 +3,24 @@
 from __future__ import annotations
 
 import os
+import json
 from copy import deepcopy
 from typing import Any, Dict
 
 import numpy as np
-from ase.io import write
+from ase.io import read, write
 from ase.mep.neb import DyNEB
 from ase.optimize import FIRE, QuasiNewton
+from ase.vibrations import Vibrations
 
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
+from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
+from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
 
 class D2SWorkflow:
@@ -127,7 +131,7 @@ class D2SWorkflow:
             dimer_traj = dimer_config.get("trajectory", "dimer.traj")
             if self.restart and os.path.exists(dimer_traj):
                 print(f"=== Dimer trajectory exists ({dimer_traj}); skipping single-ended step ===")
-                return
+                return dimer_traj
             dimer = AbacusDimer(
                 ts_guess,
                 self.config,
@@ -145,13 +149,13 @@ class D2SWorkflow:
                 fmax=dimer_config.get("fmax", 0.05),
                 max_steps=dimer_config.get("max_steps"),
             )
-            return
+            return dimer_traj
 
         sella_config = self._single_config_with_directory("SELLA")
         sella_traj = sella_config.get("trajectory", "sella.traj")
         if self.restart and os.path.exists(sella_traj):
             print(f"=== Sella trajectory exists ({sella_traj}); skipping single-ended step ===")
-            return
+            return sella_traj
         sella = AbacusSella(
             ts_guess,
             self.config,
@@ -162,6 +166,60 @@ class D2SWorkflow:
             fmax=sella_config.get("fmax", 0.05),
         )
         sella.run()
+        return sella_traj
+
+    def _vibration_indices(self, neb_chain, vib_config):
+        indices = vib_config.get("indices", "auto")
+        if indices in (None, "auto"):
+            _, selected, _ = get_displacement_analysis(
+                neb_chain,
+                thr=vib_config.get("threshold", 0.10),
+            )
+            return selected
+        if indices == "all":
+            return None
+        return indices
+
+    def run_vibration(self, neb_chain, ts_guess, single_traj):
+        """Run the optional D2S vibration stage."""
+        vib_config = self.calc_config.get("vibration", {})
+        if not vib_config.get("enabled", False):
+            return
+
+        print("=== Step 5: Running Optional Vibration Analysis ===")
+        if single_traj and os.path.exists(single_traj):
+            atoms = read(single_traj, index=-1)
+        else:
+            atoms = ts_guess.copy()
+
+        atoms.calc = self._get_calc(vib_config.get("directory", "VIBRATION"))
+        indices = self._vibration_indices(neb_chain, vib_config)
+        name = vib_config.get("name", "d2s_vib")
+        vib = Vibrations(
+            atoms,
+            indices=indices,
+            delta=vib_config.get("delta", 0.01),
+            nfree=vib_config.get("nfree", 2),
+            name=name,
+        )
+        vib.run()
+        vib.summary()
+
+        energies = vib.get_energies()
+        frequencies = vib.get_frequencies()
+        zpe = vib.get_zero_point_energy()
+        thermo = compute_vibration_thermochemistry(atoms, energies, vib_config, zpe)
+        results = {
+            "frequencies": frequencies.real.tolist(),
+            "imaginary_frequencies": frequencies.imag.tolist(),
+            "zpe": float(zpe),
+            "indices": indices,
+            "thermo": thermo,
+        }
+        output = vib_config.get("results_file", "d2s_vibration_results.json")
+        with open(output, "w", encoding="utf-8") as handle:
+            json.dump(results, handle, indent=4)
+        print(f"Wrote {output}")
 
     def run(self):
         init_file = self.calc_config.get("init_file")
@@ -181,5 +239,6 @@ class D2SWorkflow:
         ts_guess = neb_chain[max_idx].copy()
         print(f"  Highest energy image index: {max_idx}")
 
-        self.run_single_ended(neb_chain, max_idx, ts_guess)
+        single_traj = self.run_single_ended(neb_chain, max_idx, ts_guess)
+        self.run_vibration(neb_chain, ts_guess, single_traj)
         print("=== D2S Workflow Finished ===")

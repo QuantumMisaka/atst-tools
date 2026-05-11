@@ -16,7 +16,12 @@ from atst_tools.utils.config import ConfigLoader, VALID_CALCULATION_TYPES
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.post import NEBPost
-from atst_tools.utils.restart_helpers import check_cache_files
+from atst_tools.utils.restart_helpers import (
+    check_cache_files,
+    read_autoneb_final_chain,
+    select_last_neb_chain,
+    select_post_neb_chain,
+)
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
 
@@ -54,19 +59,63 @@ def _add_neb_parser(subparsers):
     make.add_argument("--method", default="IDPP", choices=("IDPP", "linear"), help="Interpolation method")
     make.add_argument("--format", default=None, help="Input file format")
     make.add_argument("--no-align", action="store_true", help="Skip atom index alignment")
+    make.add_argument("--fix", help="Fix atoms below HEIGHT along DIR, e.g. 0.25:2")
+    make.add_argument("--mag", help="Set magnetic moments, e.g. Fe:2.5,O:1.0")
+    make.add_argument("--from-chain", help="Reuse the last N_IMAGES+2 frames from an existing chain")
+    make.add_argument("--ts", help="Transition-state guess for segmented interpolation")
     make.set_defaults(func=_neb_make_command)
 
     post = neb_subparsers.add_parser("post", help="Analyze an NEB trajectory")
-    post.add_argument("traj_file", help="NEB trajectory file")
+    post.add_argument("traj_file", nargs="?", help="NEB trajectory file")
     post.add_argument("--n-max", type=int, default=0, help="Number of intermediate images")
     post.add_argument("--plot", action="store_true", help="Plot NEB bands")
+    post.add_argument("--plot-all", action="store_true", help="Plot all bands in the input trajectory")
     post.add_argument("--view", action="store_true", help="View NEB bands in ASE GUI")
     post.add_argument("--vib-analysis", action="store_true", help="Suggest vibration atom indices")
     post.add_argument("--vib-thr", type=float, default=0.10, help="Vibration displacement threshold")
+    post.add_argument("--autoneb-prefix", help="Read AutoNEB per-image files matching PREFIX*.traj/extxyz")
+    post.add_argument("--autoneb-files", nargs="+", help="Read explicit AutoNEB per-image files")
+    post.add_argument("--output-prefix", default="TS_get", help="Prefix for extracted TS structure")
+    post.add_argument("--write-latest", help="Write selected latest band to PREFIX.traj and PREFIX.extxyz")
+    post.add_argument("--write-neb-init-chain", help="Write selected final chain for ordinary NEB refinement")
+    post.add_argument("--strict-band", action="store_true", help="Require trajectory length to be whole NEB bands")
     post.set_defaults(func=_neb_post_command)
 
 
+def _parse_fix(value):
+    if value is None:
+        return None, None
+    try:
+        height, direction = value.split(":", 1)
+        return float(height), int(direction)
+    except ValueError as exc:
+        raise SystemExit("--fix must use HEIGHT:DIR, e.g. 0.25:2") from exc
+
+
+def _parse_mag(value):
+    if value is None:
+        return None, None
+    elements = []
+    moments = []
+    for item in value.split(","):
+        try:
+            element, moment = item.split(":", 1)
+            elements.append(element)
+            moments.append(float(moment))
+        except ValueError as exc:
+            raise SystemExit("--mag must use ELEMENT:MOMENT[,ELEMENT:MOMENT...]") from exc
+    return elements, moments
+
+
 def _neb_make_command(args):
+    if args.from_chain:
+        images = read(args.from_chain, index=":")
+        write(args.output, select_last_neb_chain(images, args.n_images + 2, strict=False))
+        print(f"Wrote {args.output}")
+        return
+
+    fix_height, fix_dir = _parse_fix(args.fix)
+    mag_ele, mag_num = _parse_mag(args.mag)
     return generate(
         method=args.method,
         n_images=args.n_images,
@@ -74,19 +123,36 @@ def _neb_make_command(args):
         fs_file=args.final_file,
         output_file=args.output,
         format=args.format,
+        fix_height=fix_height,
+        fix_dir=fix_dir,
+        mag_ele=mag_ele,
+        mag_num=mag_num,
         no_align=args.no_align,
+        ts_file=args.ts,
     )
 
 
 def _neb_post_command(args):
-    images = read(args.traj_file, index=":")
-    post = NEBPost(images, n_max=args.n_max)
+    if args.autoneb_prefix and args.autoneb_files:
+        raise SystemExit("Use only one of --autoneb-prefix or --autoneb-files")
+    if args.autoneb_prefix:
+        images = read_autoneb_final_chain(args.autoneb_prefix)
+    elif args.autoneb_files:
+        images = read_autoneb_final_chain(args.autoneb_files)
+    else:
+        if not args.traj_file:
+            raise SystemExit("atst neb post requires TRAJ unless AutoNEB input is provided")
+        images = read(args.traj_file, index=":")
+
+    strict = args.strict_band or bool(args.write_neb_init_chain)
+    selected = select_post_neb_chain(images, n_max=args.n_max, strict=strict)
+    post = NEBPost(selected, n_max=0)
 
     print("=== NEB Barrier Analysis ===")
     post.get_barrier()
 
     print("=== Extracting TS Structure ===")
-    post.get_TS_stru()
+    post.get_TS_stru(name=args.output_prefix)
 
     if args.vib_analysis:
         print("=== Vibration Displacement Analysis ===")
@@ -102,9 +168,21 @@ def _neb_post_command(args):
         print("=== Plotting NEB Bands ===")
         post.plot_neb_bands()
 
+    if args.plot_all:
+        print("=== Plotting All NEB Bands ===")
+        NEBPost(images, n_max=0).plot_all_bands()
+
+    if args.write_latest:
+        post.write_latest_bands(args.write_latest)
+        print(f"Wrote {args.write_latest}.traj and {args.write_latest}.extxyz")
+
+    if args.write_neb_init_chain:
+        write(args.write_neb_init_chain, post.neb_chain)
+        print(f"Wrote {args.write_neb_init_chain}")
+
     if args.view:
         print("=== Viewing NEB Bands ===")
-        post.view_neb_bands()
+        post.view_neb_bands(args.traj_file or args.write_neb_init_chain or "neb.traj")
 
 
 def _add_dimer_parser(subparsers):
@@ -244,6 +322,55 @@ def _vibration_post_command(args):
     print(f"Wrote {args.output}")
 
 
+def _add_traj_parser(subparsers):
+    parser = subparsers.add_parser("traj", help="Trajectory collection and conversion tools")
+    traj_subparsers = parser.add_subparsers(dest="traj_command", required=True)
+
+    collect = traj_subparsers.add_parser("collect", help="Collect structures into a multi-frame trajectory")
+    collect.add_argument("structures", nargs="+", help="Input structure files")
+    collect.add_argument("-o", "--output", default="collection.traj", help="Output trajectory")
+    collect.add_argument("--no-calc", action="store_true", help="Drop attached calculators before writing")
+    collect.set_defaults(func=_traj_collect_command)
+
+    transform = traj_subparsers.add_parser("transform", help="Transform trajectory frames to another format")
+    transform.add_argument("traj_file", help="Input trajectory")
+    transform.add_argument("--format", choices=("traj", "extxyz", "stru", "cif"), default="extxyz")
+    transform.add_argument("--neb", action="store_true", help="Select the latest NEB band before writing")
+    transform.add_argument("--n-max", type=int, default=0, help="Number of intermediate NEB images")
+    transform.add_argument("--output-prefix", default="frame", help="Output prefix or directory")
+    transform.set_defaults(func=_traj_transform_command)
+
+
+def _traj_collect_command(args):
+    frames = []
+    for structure in sorted(args.structures):
+        atoms = read(structure)
+        if args.no_calc:
+            atoms.calc = None
+        frames.append(atoms)
+    write(args.output, frames)
+    print(f"Wrote {args.output} ({len(frames)} frame(s))")
+
+
+def _traj_transform_command(args):
+    frames = read(args.traj_file, index=":")
+    if args.neb:
+        frames = select_post_neb_chain(frames, n_max=args.n_max, strict=args.n_max > 0)
+
+    if args.format in {"traj", "extxyz"}:
+        output = f"{args.output_prefix}.{args.format}"
+        write(output, frames, format=args.format)
+        print(f"Wrote {output}")
+        return
+
+    output_dir = Path(args.output_prefix)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for index, atoms in enumerate(frames):
+        output = output_dir / f"{index:04d}.{args.format}"
+        write(str(output), atoms, format=args.format)
+    print(f"Wrote {len(frames)} file(s) under {output_dir}")
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="atst",
@@ -256,6 +383,7 @@ def build_parser():
     _add_dimer_parser(subparsers)
     _add_relax_parser(subparsers)
     _add_vibration_parser(subparsers)
+    _add_traj_parser(subparsers)
     return parser
 
 

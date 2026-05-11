@@ -18,11 +18,29 @@ atst run --show-template irc --calculator abacus
 ## NEB Tools
 
 ```bash
-atst neb make INIT FINAL N_IMAGES -o inputs/init_neb_chain.traj
-atst neb post neb.traj --plot --vib-analysis
+atst neb make INIT FINAL N_IMAGES -o inputs/init_neb_chain.traj --method IDPP
+atst neb make INIT FINAL N_IMAGES --ts TS_GUESS -o inputs/init_neb_chain.traj
+atst neb make INIT FINAL N_IMAGES --from-chain old_neb.traj -o inputs/init_neb_chain.traj
+atst neb post neb.traj --n-max 5 --plot --vib-analysis
+atst neb post neb.traj --n-max 5 --write-latest neb_latest
+atst neb post --autoneb-prefix run_autoneb --write-neb-init-chain init_neb_chain.traj
 ```
 
 `atst neb make` performs structure interpolation only. `atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices.
+`atst neb make` supports `--fix HEIGHT:DIR`, `--mag ELEMENT:MOMENT[,ELEMENT:MOMENT...]`, `--from-chain`, `--ts`, and `--no-align`. `sort_tol` and pymatgen autosort are intentionally not part of the refactored CLI.
+
+`atst neb post` can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
+
+## Trajectory Tools
+
+```bash
+atst traj collect inputs/*.cif -o collection.traj
+atst traj collect frames/*.stru -o collection.traj --no-calc
+atst traj transform collection.traj --format extxyz --output-prefix collection
+atst traj transform neb.traj --neb --n-max 5 --format cif --output-prefix latest_band
+```
+
+`collect` builds a deterministic multi-frame trajectory from sorted input paths. `transform` converts trajectories to `traj`, `extxyz`, or per-frame `stru`/`cif` files. With `--neb`, it reuses the shared latest-band selector used by NEB restart and post-processing.
 
 ## Dimer Tools
 

@@ -139,7 +139,26 @@ def test_atst_run_show_template_prints_yaml(capsys):
     output = capsys.readouterr().out
     assert "calculation:" in output
     assert "type: neb" in output
+    assert "make:" in output
     assert "calculator:" in output
+
+
+def test_atst_run_neb_make_and_init_chain_are_exclusive(monkeypatch):
+    from atst_tools.scripts import cli
+
+    config = {
+        "calculation": {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "make": {"init_structure": "i.traj", "final_structure": "f.traj", "n_images": 1},
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    monkeypatch.setattr(cli.run_cli.ConfigLoader, "load", lambda path: config)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        cli.main(["run", "config.yaml"])
 
 
 def test_atst_run_show_irc_template_prints_yaml(capsys):
@@ -168,9 +187,26 @@ def test_neb_make_delegates_to_generate(monkeypatch):
             "fs_file": "final.stru",
             "output_file": "chain.traj",
             "format": None,
+            "fix_height": None,
+            "fix_dir": None,
+            "mag_ele": None,
+            "mag_num": None,
             "no_align": False,
+            "ts_file": None,
         }
     ]
+
+
+def test_neb_make_from_chain_writes_last_band(tmp_path, monkeypatch):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("guess.traj", [_atoms(float(i), float(i)) for i in range(5)])
+
+    cli.main(["neb", "make", "init.stru", "final.stru", "1", "--from-chain", "guess.traj", "-o", "chain.traj"])
+
+    frames = read("chain.traj", index=":")
+    assert [atoms.get_potential_energy() for atoms in frames] == [2.0, 3.0, 4.0]
 
 
 def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
@@ -186,14 +222,17 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
         def get_barrier(self):
             calls.append(("barrier",))
 
-        def get_TS_stru(self):
-            calls.append(("ts",))
+        def get_TS_stru(self, name="TS_get"):
+            calls.append(("ts", name))
 
         def plot_neb_bands(self):
             calls.append(("plot",))
 
-        def view_neb_bands(self):
-            calls.append(("view",))
+        def write_latest_bands(self, outname="neb_latest"):
+            calls.append(("latest", outname))
+
+        def view_neb_bands(self, traj_file="neb.traj"):
+            calls.append(("view", traj_file))
 
     monkeypatch.setattr(cli, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0), _atoms(0.2)])
     monkeypatch.setattr(cli, "NEBPost", FakeNEBPost)
@@ -205,8 +244,47 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
 
     cli.main(["neb", "post", "neb.traj", "--n-max", "1", "--plot", "--vib-analysis"])
 
-    assert calls == [("init", 1), ("barrier",), ("ts",), ("plot",)]
+    assert calls == [("init", 0), ("barrier",), ("ts", "TS_get"), ("plot",)]
     assert "Suggested Vibration Indices" in capsys.readouterr().out
+
+
+def test_neb_post_writes_latest_and_init_chain(tmp_path, monkeypatch):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("neb.traj", [_atoms(0.0), _atoms(1.0), _atoms(0.2), _atoms(0.1), _atoms(2.0), _atoms(0.3)])
+    monkeypatch.setattr(cli.NEBPost, "get_barrier", lambda self: None)
+    monkeypatch.setattr(cli.NEBPost, "get_TS_stru", lambda self, name="TS_get": None)
+
+    cli.main([
+        "neb",
+        "post",
+        "neb.traj",
+        "--n-max",
+        "1",
+        "--write-latest",
+        "neb_latest",
+        "--write-neb-init-chain",
+        "restart.traj",
+    ])
+
+    assert Path("neb_latest.traj").exists()
+    assert Path("neb_latest.extxyz").exists()
+    assert len(read("restart.traj", index=":")) == 3
+
+
+def test_traj_collect_and_transform_roundtrip(tmp_path, monkeypatch):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("a.traj", _atoms(0.0))
+    write("b.traj", _atoms(1.0))
+
+    cli.main(["traj", "collect", "b.traj", "a.traj", "-o", "collection.traj"])
+    cli.main(["traj", "transform", "collection.traj", "--format", "extxyz", "--output-prefix", "converted"])
+
+    assert [atoms.get_potential_energy() for atoms in read("collection.traj", index=":")] == [0.0, 1.0]
+    assert Path("converted.extxyz").exists()
 
 
 def test_dimer_make_from_neb_writes_ts_and_vector(tmp_path, monkeypatch):

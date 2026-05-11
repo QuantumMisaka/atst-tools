@@ -2,11 +2,12 @@
 # part of ATST-Tools
 
 from ase.mep.neb import NEBTools
-from ase.io import read, write
+from ase.io import write
 from ase.calculators.singlepoint import SinglePointCalculator
-import sys, os
 import numpy as np
-from typing import List, Union
+from typing import List
+
+from atst_tools.utils.restart_helpers import select_post_neb_chain
 
 class NEBPost:
     """Post-Processing of NEB result from Atoms object"""
@@ -39,10 +40,10 @@ class NEBPost:
             except Exception:
                 # Fallback if NEBTools fails to guess (e.g. for simple list of images)
                 self.n_images = len(self.all_image)
-            self.neb_chain = images[ - self.n_images:]
+            self.neb_chain = select_post_neb_chain(images, n_max=0)
         elif (n_max > 0) and (isinstance(n_max, int)):
             self.n_images = n_max + 2
-            self.neb_chain = images[ - self.n_images:]
+            self.neb_chain = select_post_neb_chain(images, n_max=n_max)
         else:
             raise ValueError("n_max must be a non-negative integer")
 
@@ -116,6 +117,8 @@ class NEBPost:
         write(f"{outname}.extxyz", self.neb_chain, format="extxyz")
         return
     
-    def view_neb_bands(self):
+    def view_neb_bands(self, traj_file="neb.traj"):
         """view neb chain"""
-        os.system(f'ase gui neb.traj@-{self.n_images}:')
+        import os
+
+        os.system(f'ase gui {traj_file}@-{self.n_images}:')

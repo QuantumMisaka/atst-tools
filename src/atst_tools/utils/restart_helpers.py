@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Iterable
+import re
+from typing import Iterable, Sequence
 
 from ase.io import read
+from ase.mep.neb import NEBTools
 
 
 def get_last_frame(traj_file: str | Path):
@@ -34,17 +36,87 @@ def get_last_neb_band(traj_file: str | Path, expected_n_images: int):
     except Exception as exc:
         raise ValueError(f"Could not read restart NEB trajectory: {path}") from exc
 
+    return select_last_neb_chain(images, expected_n_images, strict=True)
+
+
+def select_last_neb_chain(images: Sequence, expected_n_images: int, strict: bool = True):
+    """Return the last NEB band with a known total band size.
+
+    Args:
+        images: Full trajectory frames.
+        expected_n_images: Total images per NEB band, including endpoints.
+        strict: Require the trajectory length to be an exact multiple of the band
+            size. Restart paths should keep this enabled.
+
+    Returns:
+        list: Last selected NEB band.
+
+    Raises:
+        ValueError: If the band size is invalid or a complete band cannot be
+            selected.
+    """
+    if expected_n_images <= 0:
+        raise ValueError("expected_n_images must be positive")
     if len(images) < expected_n_images:
         raise ValueError(
-            f"Restart NEB trajectory {path} contains {len(images)} frame(s), "
-            f"fewer than expected band size {expected_n_images}."
+            f"NEB trajectory contains {len(images)} frame(s), fewer than expected "
+            f"band size {expected_n_images}."
         )
-    if len(images) % expected_n_images != 0:
+    if strict and len(images) % expected_n_images != 0:
         raise ValueError(
-            f"Restart NEB trajectory {path} contains {len(images)} frame(s), "
-            f"not a whole number of bands with {expected_n_images} images."
+            f"NEB trajectory contains {len(images)} frame(s), not a whole number "
+            f"of bands with {expected_n_images} images."
         )
-    return images[-expected_n_images:]
+    return list(images[-expected_n_images:])
+
+
+def select_post_neb_chain(images: Sequence, n_max: int = 0, strict: bool = False):
+    """Select the final NEB band for analysis or export.
+
+    Args:
+        images: Full trajectory frames.
+        n_max: Number of intermediate images. A value of 0 keeps the historical
+            loose post-processing behavior and returns all frames.
+        strict: Require a complete number of bands when ``n_max`` is provided.
+
+    Returns:
+        list: Selected final chain.
+    """
+    if n_max < 0:
+        raise ValueError("n_max must be a non-negative integer")
+    if n_max == 0:
+        try:
+            n_images = NEBTools(list(images))._guess_nimages()
+        except Exception:
+            return list(images)
+        return list(images[-n_images:])
+    return select_last_neb_chain(images, n_max + 2, strict=strict)
+
+
+def _autoneb_sort_key(path: Path):
+    numbers = [int(match) for match in re.findall(r"\d+", path.stem)]
+    return (numbers[-1] if numbers else -1, path.name)
+
+
+def read_autoneb_final_chain(prefix_or_files: str | Path | Sequence[str | Path]):
+    """Read an AutoNEB final chain from a prefix or explicit trajectory files.
+
+    Explicit file lists are sorted by the final integer in each file stem, then
+    by file name. Prefix input matches ``PREFIX*.traj`` and ``PREFIX*.extxyz``.
+    Each file contributes its last frame, which matches AutoNEB per-image output.
+    """
+    if isinstance(prefix_or_files, (str, Path)):
+        prefix = Path(prefix_or_files)
+        parent = prefix.parent if str(prefix.parent) != "" else Path(".")
+        files = sorted(
+            list(parent.glob(f"{prefix.name}*.traj")) + list(parent.glob(f"{prefix.name}*.extxyz")),
+            key=_autoneb_sort_key,
+        )
+    else:
+        files = sorted((Path(path) for path in prefix_or_files), key=_autoneb_sort_key)
+    if not files:
+        raise FileNotFoundError("No AutoNEB trajectory files matched")
+    return [read(str(path), index=-1) for path in files]
 
 
 def check_cache_files(vib_dir: str | Path) -> dict[str, list[Path]]:
