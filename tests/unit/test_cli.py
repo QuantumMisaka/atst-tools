@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io import read, write
 
@@ -12,6 +13,16 @@ def _atoms(energy=0.0, x=0.0):
     atoms = Atoms("H", positions=[[x, 0.0, 0.0]])
     atoms.calc = SinglePointCalculator(atoms, energy=energy, forces=np.zeros((1, 3)))
     return atoms
+
+
+class DummyCalc(Calculator):
+    implemented_properties = ["energy", "forces", "stress"]
+
+    def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        self.results["energy"] = 4.0
+        self.results["forces"] = np.ones((len(atoms), 3)) * 0.1
+        self.results["stress"] = np.zeros(6)
 
 
 def test_only_git_style_console_script_is_exposed():
@@ -159,6 +170,41 @@ def test_atst_run_neb_make_and_init_chain_are_exclusive(monkeypatch):
 
     with pytest.raises(ValueError, match="exactly one"):
         cli.main(["run", "config.yaml"])
+
+
+def test_run_neb_repairs_placeholder_endpoints_before_neb_construction(tmp_path, monkeypatch):
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.utils.neb_endpoints import ENDPOINT_PLACEHOLDER, mark_endpoint_result
+
+    monkeypatch.chdir(tmp_path)
+    chain = [_atoms(0.0, 0.0), _atoms(1.0, 1.0), _atoms(0.0, 2.0)]
+    mark_endpoint_result(chain[0], ENDPOINT_PLACEHOLDER)
+    mark_endpoint_result(chain[-1], ENDPOINT_PLACEHOLDER)
+    write("chain.traj", chain)
+    captured = {}
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            captured["energies"] = [images[0].get_potential_energy(), images[-1].get_potential_energy()]
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.setattr(run_cli.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(run_cli, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(run_cli, "get_optimizer", lambda name: FakeOptimizer)
+
+    config = {
+        "calculation": {"type": "neb", "init_chain": "chain.traj", "parallel": False},
+        "calculator": {"name": "abacus", "abacus": {"directory": "run_neb", "parameters": {}}},
+    }
+    run_cli.run_neb(config, "abacus", config["calculation"])
+
+    assert captured["energies"] == [4.0, 4.0]
 
 
 def test_atst_run_show_irc_template_prints_yaml(capsys):

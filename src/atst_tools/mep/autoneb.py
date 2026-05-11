@@ -11,6 +11,7 @@ from ase.optimize import FIRE, BFGS
 
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
 
 class AbacusAutoNEB(AutoNEB):
     """
@@ -192,6 +193,14 @@ class AutoNEBRunner:
         init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
         self.init_chain = read(init_chain_file, index=':')
 
+    def _base_directory(self):
+        base_dir = self.calc_config.get('directory', 'autoneb_run')
+        if 'calculator' in self.config:
+            base_dir = self.config.get('calculator', {}).get(self.calc_name, {}).get('directory', base_dir)
+        if 'abacus' in self.config:
+            base_dir = self.config['abacus'].get('directory', base_dir)
+        return base_dir
+
     def attach_calculators(self, images):
         """
         Callback to attach calculators to a list of images.
@@ -201,10 +210,7 @@ class AutoNEBRunner:
         """
         for i, image in enumerate(images):
              if self.parallel:
-                 base_dir = self.calc_config.get('directory', 'autoneb_run')
-                 if 'abacus' in self.config:
-                      base_dir = self.config['abacus'].get('directory', base_dir)
-                      
+                 base_dir = self._base_directory()
                  image_dir = f"{base_dir}-rank{world.rank}"
                  
                  image.calc = CalculatorFactory.get_calculator(
@@ -213,9 +219,7 @@ class AutoNEBRunner:
                     directory=image_dir
                  )
              else:
-                 base_dir = self.calc_config.get('directory', 'autoneb_run')
-                 if 'abacus' in self.config:
-                      base_dir = self.config['abacus'].get('directory', base_dir)
+                 base_dir = self._base_directory()
                  
                  image.calc = CalculatorFactory.get_calculator(
                     self.calc_name, 
@@ -249,6 +253,19 @@ class AutoNEBRunner:
             iter_path = Path(self.iter_folder)
             if iter_path.exists():
                 shutil.rmtree(iter_path)
+
+        base_dir = self._base_directory()
+        ensure_neb_endpoint_results(
+            self.init_chain,
+            lambda directory: CalculatorFactory.get_calculator(
+                self.calc_name,
+                self.config,
+                directory=f"{base_dir}/{directory}",
+            ),
+            policy=endpoint_policy(self.calc_config, default="auto"),
+            directories=("endpoint_initial", "endpoint_final"),
+            context="AutoNEB",
+        )
         
         autoneb = AbacusAutoNEB(
             attach_calculators=self.attach_calculators,

@@ -19,6 +19,13 @@ from atst_tools.mep.sella import AbacusSella
 from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.neb_endpoints import (
+    ENDPOINT_OPTIMIZED,
+    endpoint_policy,
+    ensure_neb_endpoint_results,
+    freeze_current_results,
+    has_endpoint_results,
+)
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
@@ -58,26 +65,69 @@ class D2SWorkflow:
             directory=directory,
         )
 
+    def _endpoint_optimization_config(self) -> Dict[str, Any]:
+        config = dict(self.calc_config.get("endpoint_optimization", {}))
+        config.setdefault("enabled", True)
+        config.setdefault("skip_if_has_results", True)
+        config.setdefault("fmax", self.calc_config.get("endpoint_fmax", 0.05))
+        config.setdefault("max_steps", self.calc_config.get("endpoint_max_steps", 200))
+        return config
+
+    def _optimize_one_endpoint(self, atoms, calc_dir: str, traj_file: str, logfile: str, fmax: float, max_steps: int):
+        atoms.calc = self._get_calc(calc_dir)
+        opt = QuasiNewton(atoms, logfile=logfile)
+        opt.run(fmax=fmax, steps=max_steps)
+        freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
+        write(traj_file, atoms)
+        return atoms
+
     def optimize_endpoints(self, init_atoms, final_atoms):
+        endpoint_config = self._endpoint_optimization_config()
+        fmax = endpoint_config["fmax"]
+        max_steps = endpoint_config["max_steps"]
+
+        if not endpoint_config.get("enabled", True):
+            print("=== Step 1: Endpoint optimization disabled; validating endpoint results ===")
+            endpoints = [init_atoms, final_atoms]
+            ensure_neb_endpoint_results(
+                endpoints,
+                lambda directory: self._get_calc(directory),
+                policy=endpoint_policy(self.calc_config, default="auto"),
+                directories=("IS_SP", "FS_SP"),
+                context="D2S",
+            )
+            return endpoints[0], endpoints[-1]
+
         print("=== Step 1: Optimizing Endpoints ===")
-        fmax = self.calc_config.get("endpoint_fmax", 0.05)
-        max_steps = self.calc_config.get("endpoint_max_steps", 200)
+        skip_if_has_results = endpoint_config.get("skip_if_has_results", True)
 
         if self.restart and os.path.exists("IS_opt.traj"):
             init_atoms = get_last_frame("IS_opt.traj")
+        elif skip_if_has_results and has_endpoint_results(init_atoms):
+            print("=== Initial endpoint already has energy/force results; skipping endpoint optimization ===")
         else:
-            init_atoms.calc = self._get_calc("IS_OPT")
-            opt_is = QuasiNewton(init_atoms, logfile="opt_is.log")
-            opt_is.run(fmax=fmax, steps=max_steps)
-            write("IS_opt.traj", init_atoms)
+            init_atoms = self._optimize_one_endpoint(
+                init_atoms,
+                "IS_OPT",
+                "IS_opt.traj",
+                "opt_is.log",
+                fmax,
+                max_steps,
+            )
 
         if self.restart and os.path.exists("FS_opt.traj"):
             final_atoms = get_last_frame("FS_opt.traj")
+        elif skip_if_has_results and has_endpoint_results(final_atoms):
+            print("=== Final endpoint already has energy/force results; skipping endpoint optimization ===")
         else:
-            final_atoms.calc = self._get_calc("FS_OPT")
-            opt_fs = QuasiNewton(final_atoms, logfile="opt_fs.log")
-            opt_fs.run(fmax=fmax, steps=max_steps)
-            write("FS_opt.traj", final_atoms)
+            final_atoms = self._optimize_one_endpoint(
+                final_atoms,
+                "FS_OPT",
+                "FS_opt.traj",
+                "opt_fs.log",
+                fmax,
+                max_steps,
+            )
 
         return init_atoms, final_atoms
 
@@ -95,8 +145,13 @@ class D2SWorkflow:
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
         images = solver.run()
 
-        images[0].calc = self._get_calc("NEB/endpoint_initial")
-        images[-1].calc = self._get_calc("NEB/endpoint_final")
+        ensure_neb_endpoint_results(
+            images,
+            lambda directory: self._get_calc(f"NEB/{directory}"),
+            policy=endpoint_policy(self.calc_config, default="auto"),
+            directories=("endpoint_initial", "endpoint_final"),
+            context="D2S rough DyNEB",
+        )
         for index, image in enumerate(images[1:-1], start=1):
             image.calc = self._get_calc(f"NEB/image_{index:03d}")
 

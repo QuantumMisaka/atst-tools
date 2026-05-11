@@ -3,6 +3,7 @@ import pytest
 import sys
 import types
 from ase import Atoms
+from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
 
 
@@ -10,6 +11,20 @@ def _atoms(energy=0.0):
     atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     atoms.calc = SinglePointCalculator(atoms, energy=energy, forces=np.zeros((1, 3)))
     return atoms
+
+
+class DummyCalc(Calculator):
+    implemented_properties = ["energy", "forces", "stress"]
+
+    def __init__(self, energy=3.0):
+        super().__init__()
+        self.energy = energy
+
+    def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        self.results["energy"] = self.energy
+        self.results["forces"] = np.zeros((len(atoms), 3))
+        self.results["stress"] = np.zeros(6)
 
 
 def _install_fake_sella(monkeypatch, fake_irc, failure_cls=None):
@@ -109,6 +124,90 @@ def test_d2s_vibration_auto_indices_writes_results(monkeypatch, tmp_path):
     workflow.run_vibration([_atoms(0.0), _atoms(1.0), _atoms(0.0)], _atoms(1.0), None)
 
     assert (tmp_path / "d2s_vib.json").exists()
+
+
+def test_d2s_endpoint_optimization_skips_valid_inputs(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeOptimizer:
+        def __init__(self, atoms, logfile=None):
+            calls.append(("init", logfile))
+
+        def run(self, fmax=None, steps=None):
+            calls.append(("run", fmax, steps))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "QuasiNewton", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {"type": "d2s", "method": "dimer", "endpoint_optimization": {"enabled": True}},
+    )
+    init_atoms, final_atoms = workflow.optimize_endpoints(_atoms(1.0), _atoms(2.0))
+
+    assert init_atoms.get_potential_energy() == 1.0
+    assert final_atoms.get_potential_energy() == 2.0
+    assert calls == []
+
+
+def test_d2s_endpoint_optimization_runs_for_missing_results(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeOptimizer:
+        def __init__(self, atoms, logfile=None):
+            self.atoms = atoms
+            calls.append(("init", logfile))
+
+        def run(self, fmax=None, steps=None):
+            calls.append(("run", fmax, steps))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "QuasiNewton", FakeOptimizer)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(3.0))
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "endpoint_optimization": {"enabled": True, "fmax": 0.2, "max_steps": 4},
+        },
+    )
+    init_atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
+    final_atoms = Atoms("H", positions=[[1.0, 0.0, 0.0]])
+
+    init_atoms, final_atoms = workflow.optimize_endpoints(init_atoms, final_atoms)
+
+    assert init_atoms.get_potential_energy() == 3.0
+    assert final_atoms.get_potential_energy() == 3.0
+    assert calls == [("init", "opt_is.log"), ("run", 0.2, 4), ("init", "opt_fs.log"), ("run", 0.2, 4)]
+
+
+def test_d2s_endpoint_optimization_disabled_never_rejects_missing_results(tmp_path):
+    from atst_tools.workflows import d2s
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "endpoint_optimization": {"enabled": False},
+            "endpoint_singlepoint": "never",
+        },
+    )
+
+    with pytest.raises(ValueError, match="lacks meaningful"):
+        workflow.optimize_endpoints(
+            Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+            Atoms("H", positions=[[1.0, 0.0, 0.0]]),
+        )
 
 
 def test_relax_workflow_runs_with_mocked_io_and_optimizer(monkeypatch, tmp_path):

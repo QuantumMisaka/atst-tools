@@ -19,3 +19,8 @@ atst vibration post vibration_post.yaml --output vibration_results.json
 
 `atst relax post` is also the recommended way to extract a restart structure
 from TS relax trajectories produced by Dimer or Sella.
+
+When `atst neb make` starts from pure structures, the endpoint energies and
+forces in the generated chain are placeholders. `atst run` automatically
+performs endpoint single-point calculations before NEB/AutoNEB starts, so use
+the generated chain through the YAML workflow rather than bare ASE NEB.

@@ -91,6 +91,35 @@ def test_validate_accepts_neb_make_input():
     ) is True
 
 
+def test_validate_rejects_invalid_endpoint_singlepoint_policy():
+    with pytest.raises(ValueError, match="endpoint_singlepoint"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "neb",
+                    "init_chain": "init_neb_chain.traj",
+                    "endpoint_singlepoint": "maybe",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_rejects_non_mapping_d2s_endpoint_optimization():
+    with pytest.raises(ValueError, match="endpoint_optimization"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "d2s",
+                    "init_file": "init.stru",
+                    "final_file": "final.stru",
+                    "endpoint_optimization": False,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_requires_matching_calculator_section():
     with pytest.raises(ValueError, match="calculator.abacus"):
         ConfigLoader.validate(

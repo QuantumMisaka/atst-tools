@@ -54,6 +54,7 @@ The `calculation` section defines the type of task and its parameters.
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
+| `endpoint_singlepoint` | string | `auto` | Endpoint result policy: `auto`, `always`, or `never`. |
 
 `init_chain` and `make` are mutually exclusive. Use `init_chain` when the chain already exists; use nested `make` when `atst run` should generate the chain immediately before launching NEB:
 
@@ -75,6 +76,17 @@ calculation:
 
 The refactored interpolation path uses the in-repository `Fast_IDPPSolver` plus atom-index alignment. `sort_tol` / pymatgen autosort is intentionally dropped.
 
+ASE NEB/DyNEB does not optimize endpoint images, but tangent and barrier analysis use endpoint energies. If a chain was made from pure structures, `atst neb make` writes placeholder endpoint results. `atst run` repairs these by default with endpoint single-point calculations before constructing NEB:
+
+```yaml
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  endpoint_singlepoint: auto  # auto, always, or never
+```
+
+`auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
+
 ### 2.3 AutoNEB
 **Type**: `autoneb`
 
@@ -86,6 +98,7 @@ The refactored interpolation path uses the in-repository `Fast_IDPPSolver` plus 
 | `n_max` | int | `10` | Maximum number of images in the band. |
 | `maxsteps` | int | `100` | Maximum optimization steps per iteration. |
 | `iter_folder` | string | `AutoNEB_iter` | Folder to store iteration results. |
+| `endpoint_singlepoint` | string | `auto` | Same endpoint result policy as ordinary NEB. |
 
 ### 2.4 Dimer Method
 **Type**: `dimer`
@@ -168,6 +181,22 @@ This uses ASE `IdealGasThermo` and includes translational, rotational, and vibra
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
+| `endpoint_optimization` | dict | Enabled by default | Endpoint optimization policy before rough DyNEB. |
+
+D2S optimizes endpoints by default, then builds the rough DyNEB chain. If input endpoints already carry energy/force results, this stage is skipped by default:
+
+```yaml
+calculation:
+  type: d2s
+  endpoint_optimization:
+    enabled: true
+    skip_if_has_results: true
+    fmax: 0.05
+    max_steps: 200
+  endpoint_singlepoint: auto
+```
+
+Set `endpoint_optimization.enabled: false` only when the supplied endpoints already have meaningful results or when `endpoint_singlepoint: auto/always` should perform endpoint single-point calculations instead. `endpoint_singlepoint: never` rejects missing/placeholder endpoint results.
 
 Optional vibration can be enabled after the single-ended Dimer/Sella step:
 

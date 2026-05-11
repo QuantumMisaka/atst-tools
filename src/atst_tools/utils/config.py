@@ -119,6 +119,14 @@ class ConfigLoader:
         if calc_type == "irc" and calculation.get("direction", "both") not in {"both", "forward", "reverse"}:
             raise ValueError("calculation.direction for irc must be 'both', 'forward', or 'reverse'")
 
+        if calculation.get("endpoint_singlepoint", "auto") not in {"auto", "always", "never"}:
+            raise ValueError("calculation.endpoint_singlepoint must be 'auto', 'always', or 'never'")
+
+        if calc_type == "d2s" and "endpoint_optimization" in calculation:
+            endpoint_optimization = calculation["endpoint_optimization"]
+            if not isinstance(endpoint_optimization, dict):
+                raise ValueError("'calculation.endpoint_optimization' must be a mapping")
+
         if calc_type == "vibration" and "thermochemistry" in calculation:
             thermochemistry = calculation["thermochemistry"]
             if not isinstance(thermochemistry, dict):

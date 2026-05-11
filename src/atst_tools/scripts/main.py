@@ -21,6 +21,7 @@ from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.idpp import generate
 
@@ -83,6 +84,7 @@ calculation:
   max_steps: 100
   climb: true
   parallel: true
+  endpoint_singlepoint: auto
 """,
         "autoneb": """\
 calculation:
@@ -94,6 +96,7 @@ calculation:
   fmax: [0.20, 0.05]
   maxsteps: 100
   parallel: true
+  endpoint_singlepoint: auto
 """,
         "dimer": """\
 calculation:
@@ -120,7 +123,12 @@ calculation:
   method: dimer
   init_file: inputs/init.stru
   final_file: inputs/final.stru
-  endpoint_max_steps: 100
+  endpoint_optimization:
+    enabled: true
+    skip_if_has_results: true
+    fmax: 0.05
+    max_steps: 100
+  endpoint_singlepoint: auto
   neb:
     n_images: 8
     fmax: 0.20
@@ -226,6 +234,13 @@ def _parse_make_mag(value):
         moments.append(float(moment))
     return elements, moments
 
+
+def _abacus_base_directory(config, default):
+    base_dir = config.get('calculator', {}).get('abacus', {}).get('directory', default)
+    if 'abacus' in config:
+        base_dir = config['abacus'].get('directory', base_dir)
+    return base_dir
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -287,6 +302,20 @@ def run_neb(config, calc_name, calc_config):
         LOGGER.warning(
             "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
         )
+
+    base_dir = _abacus_base_directory(config, 'run_atst')
+    policy = endpoint_policy(calc_config, default="auto")
+    ensure_neb_endpoint_results(
+        init_chain,
+        lambda directory: CalculatorFactory.get_calculator(
+            calc_name,
+            config,
+            directory=f"{base_dir}/{directory}",
+        ),
+        policy=policy,
+        directories=("endpoint_initial", "endpoint_final"),
+        context="NEB",
+    )
     
     # Initialize NEB
     neb = AbacusNEB(init_chain, 
@@ -300,10 +329,6 @@ def run_neb(config, calc_name, calc_config):
         if effective_parallel:
             if world.rank == i % world.size:
                 # Determine directory logic
-                base_dir = config.get('calculator', {}).get('abacus', {}).get('directory', 'run_atst')
-                if 'abacus' in config:
-                     base_dir = config['abacus'].get('directory', 'run_atst')
-                
                 image_dir = f"{base_dir}-rank{world.rank}"
                 
                 image.calc = CalculatorFactory.get_calculator(
@@ -312,10 +337,6 @@ def run_neb(config, calc_name, calc_config):
                     directory=image_dir
                 )
         else:
-             base_dir = config.get('calculator', {}).get('abacus', {}).get('directory', 'run_atst')
-             if 'abacus' in config:
-                 base_dir = config['abacus'].get('directory', 'run_atst')
-                 
              image.calc = CalculatorFactory.get_calculator(
                     calc_name, 
                     config, 
