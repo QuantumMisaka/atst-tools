@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import traceback
 from typing import Any, Dict
 
 from ase.io import read, write
@@ -11,6 +12,10 @@ from ase.io.trajectory import Trajectory
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
+
+
+class IRCBoundaryError(RuntimeError):
+    """Known Sella IRC boundary that ATST-Tools reports as a controlled error."""
 
 
 class IRCWorkflow:
@@ -65,10 +70,54 @@ class IRCWorkflow:
                 break
         write(self.normalized_traj_file, normalized, format="traj")
 
+    def _trajectory_frame_count(self) -> int:
+        path = Path(self.traj_file)
+        if not path.exists():
+            return 0
+        try:
+            return len(read(path, index=":"))
+        except Exception:
+            return -1
+
+    def _boundary_message(self, direction: str, cause: BaseException) -> str:
+        frame_count = self._trajectory_frame_count()
+        if frame_count < 0:
+            frame_text = "unknown"
+        else:
+            frame_text = str(frame_count)
+        return "\n".join(
+            [
+                "IRC calculation stopped at the current supported boundary.",
+                "",
+                "Sella IRC could not continue after an inner-loop or flat-endpoint condition.",
+                f"Direction: {direction}",
+                f"Trajectory: {self.traj_file} (frames written: {frame_text})",
+                f"Original error: {type(cause).__name__}: {cause}",
+                "",
+                "Current boundary:",
+                "- ATST-Tools delegates IRC integration to Sella and does not yet provide automatic endpoint recovery.",
+                "- A partially written trajectory can be inspected, but this run is not considered complete.",
+                "- For direction=both, normalized_trajectory is only written after both directions complete.",
+                "",
+                "Suggested actions:",
+                "- Inspect the partial IRC trajectory before using it scientifically.",
+                "- Try a smaller calculation.dx or run direction=forward and direction=reverse as separate jobs.",
+                "- Treat this as a failed IRC regression until a full rerun completes without this message.",
+            ]
+        )
+
+    @staticmethod
+    def _is_sella_restricted_step_assertion(exc: AssertionError) -> bool:
+        for frame in traceback.extract_tb(exc.__traceback__):
+            if frame.filename.endswith("sella/optimize/restricted_step.py") and frame.name == "get_s":
+                return True
+        return False
+
     def run(self):
         """Execute the configured IRC calculation."""
         try:
             from sella import IRC
+            from sella.optimize.irc import IRCInnerLoopConvergenceFailure
         except ImportError as exc:
             raise ImportError("sella is required for calculation.type=irc. Install it with `pip install sella`.") from exc
 
@@ -86,9 +135,16 @@ class IRCWorkflow:
             keep_going=self.calc_config.get("keep_going", False),
         )
         for direction in self._directions():
-            irc.run(
-                self.calc_config.get("fmax", 0.05),
-                steps=self.calc_config.get("max_steps", 1000),
-                direction=direction,
-            )
+            try:
+                irc.run(
+                    self.calc_config.get("fmax", 0.05),
+                    steps=self.calc_config.get("max_steps", 1000),
+                    direction=direction,
+                )
+            except IRCInnerLoopConvergenceFailure as exc:
+                raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
+            except AssertionError as exc:
+                if self._is_sella_restricted_step_assertion(exc):
+                    raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
+                raise
         self._normalize_trajectory()

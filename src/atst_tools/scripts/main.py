@@ -19,7 +19,7 @@ from atst_tools.mep.sella import AbacusSella
 from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
-from atst_tools.workflows.irc import IRCWorkflow
+from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 
@@ -471,7 +471,10 @@ def run_from_args(args):
         workflow.run()
     elif calc_type == 'irc':
         workflow = IRCWorkflow(config, calc_name, calc_config)
-        workflow.run()
+        try:
+            workflow.run()
+        except IRCBoundaryError as exc:
+            raise SystemExit(str(exc)) from None
     else:
         raise ValueError(f"Unknown calculation type: {calc_type}")
 

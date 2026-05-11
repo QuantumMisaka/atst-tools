@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 
 import numpy as np
+import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io import read, write
@@ -47,6 +48,32 @@ def test_atst_run_dispatches_d2s(monkeypatch):
     cli.main(["run", "config.yaml"])
 
     assert calls == [("init", "abacus", "d2s"), ("run",)]
+
+
+def test_atst_run_reports_irc_boundary_without_traceback(monkeypatch):
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    class FakeIRCWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            return None
+
+        def run(self):
+            raise run_cli.IRCBoundaryError("IRC calculation stopped at the current supported boundary.")
+
+    config = {
+        "calculation": {"type": "irc", "init_structure": "ts.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli.ConfigLoader, "validate", lambda config: True)
+    monkeypatch.setattr(run_cli, "IRCWorkflow", FakeIRCWorkflow)
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert str(excinfo.value) == "IRC calculation stopped at the current supported boundary."
 
 
 def test_atst_run_restart_overrides_config(monkeypatch):

@@ -1,5 +1,7 @@
 import numpy as np
+import pytest
 import sys
+import types
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -8,6 +10,20 @@ def _atoms(energy=0.0):
     atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     atoms.calc = SinglePointCalculator(atoms, energy=energy, forces=np.zeros((1, 3)))
     return atoms
+
+
+def _install_fake_sella(monkeypatch, fake_irc, failure_cls=None):
+    if failure_cls is None:
+        failure_cls = type("IRCInnerLoopConvergenceFailure", (RuntimeError,), {})
+    sella_module = types.ModuleType("sella")
+    sella_module.IRC = fake_irc
+    optimize_module = types.ModuleType("sella.optimize")
+    irc_module = types.ModuleType("sella.optimize.irc")
+    irc_module.IRCInnerLoopConvergenceFailure = failure_cls
+    monkeypatch.setitem(sys.modules, "sella", sella_module)
+    monkeypatch.setitem(sys.modules, "sella.optimize", optimize_module)
+    monkeypatch.setitem(sys.modules, "sella.optimize.irc", irc_module)
+    return failure_cls
 
 
 def test_d2s_workflow_uses_unified_constructor(monkeypatch):
@@ -174,7 +190,7 @@ def test_irc_workflow_runs_forward_and_reverse(monkeypatch, tmp_path):
     monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
     monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
     monkeypatch.setattr(irc.IRCWorkflow, "_normalize_trajectory", lambda self: calls.append(("normalize",)))
-    monkeypatch.setitem(sys.modules, "sella", type("SellaModule", (), {"IRC": FakeIRC})())
+    _install_fake_sella(monkeypatch, FakeIRC)
 
     workflow = irc.IRCWorkflow(
         {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
@@ -198,3 +214,65 @@ def test_irc_workflow_runs_forward_and_reverse(monkeypatch, tmp_path):
         ("run", 0.03, 7, "reverse"),
         ("normalize",),
     ]
+
+
+def test_irc_workflow_reports_sella_inner_loop_boundary(monkeypatch, tmp_path):
+    from atst_tools.workflows import irc
+
+    class FakeInnerLoopFailure(RuntimeError):
+        pass
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            self.atoms = atoms
+            self.trajectory = trajectory
+
+        def run(self, fmax, steps=None, direction=None):
+            self.trajectory.write(self.atoms)
+            raise FakeInnerLoopFailure("inner loop did not converge")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    _install_fake_sella(monkeypatch, FakeIRC, FakeInnerLoopFailure)
+
+    workflow = irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "irc", "init_structure": "ts.traj", "trajectory": "irc.traj", "direction": "forward"},
+    )
+
+    with pytest.raises(irc.IRCBoundaryError) as excinfo:
+        workflow.run()
+
+    message = str(excinfo.value)
+    assert "current supported boundary" in message
+    assert "Direction: forward" in message
+    assert "Trajectory: irc.traj (frames written: 1)" in message
+    assert "Original error: FakeInnerLoopFailure: inner loop did not converge" in message
+    assert "does not yet provide automatic endpoint recovery" in message
+
+
+def test_irc_workflow_does_not_hide_unrelated_assertions(monkeypatch, tmp_path):
+    from atst_tools.workflows import irc
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax, steps=None, direction=None):
+            raise AssertionError("programmer bug")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    _install_fake_sella(monkeypatch, FakeIRC)
+
+    workflow = irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "irc", "init_structure": "ts.traj", "trajectory": "irc.traj", "direction": "forward"},
+    )
+
+    with pytest.raises(AssertionError, match="programmer bug"):
+        workflow.run()
