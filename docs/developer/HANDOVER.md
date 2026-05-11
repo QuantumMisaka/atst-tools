@@ -1,8 +1,8 @@
 # 文档系统交接与维护
 
 ## 1. 维护职责
-- **路线与计划**：架构负责人（REFACTORING_GUIDE.md, REFACTORING_PLAN_DETAILED.md）
-- **用户向导与示例**：工作流维护者（ATST_Tools_Documentation_CN.md）
+- **路线与计划**：架构负责人（`REFACTORING_GUIDE.md`、`plans/ML_CALCULATOR_PLAN.md`）
+- **用户向导与示例**：工作流维护者（`../user/USER_GUIDE_CN.md`、`../../examples/README.md`）
 - **发布说明与归档**：版本管理员（releases/RC_RELEASE_NOTES_<version>.md）
 
 ## 2. 例行流程
