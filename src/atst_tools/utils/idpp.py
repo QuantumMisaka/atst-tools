@@ -7,6 +7,11 @@ from ase import Atoms
 from ase.io import read, write
 from ase.constraints import FixAtoms
 from ase.calculators.singlepoint import SinglePointCalculator
+from atst_tools.utils.neb_endpoints import (
+    ENDPOINT_PLACEHOLDER,
+    ENDPOINT_PROVIDED,
+    mark_endpoint_result,
+)
 
 # Scipy Imports
 from scipy.optimize import linear_sum_assignment, minimize
@@ -229,11 +234,51 @@ def set_magmom_for_Atoms(atoms: Atoms, mag_ele: list=[], mag_num: list=[]):
 # NEB Initial Guess Path Generation
 # ==========================================
 
+def _apply_image_metadata(
+    ase_path,
+    is_atom,
+    fs_atom,
+    is_e,
+    is_f,
+    fs_e,
+    fs_f,
+    is_status,
+    fs_status,
+    fix_height,
+    fix_dir,
+    mag_ele,
+    mag_num,
+):
+    ase_path[0].calc = SinglePointCalculator(ase_path[0].copy(), energy=is_e, forces=is_f)
+    ase_path[-1].calc = SinglePointCalculator(ase_path[-1].copy(), energy=fs_e, forces=fs_f)
+    mark_endpoint_result(ase_path[0], is_status)
+    mark_endpoint_result(ase_path[-1], fs_status)
+
+    if fix_height is not None:
+        for image in ase_path[1:-1]:
+            set_fix_for_Atoms(image, fix_height, fix_dir)
+
+    if mag_ele is not None:
+        for image in ase_path[1:-1]:
+            set_magmom_for_Atoms(image, mag_ele, mag_num)
+    return ase_path
+
+
+def _interpolate(method: str, start: Atoms, end: Atoms, n_images: int, tol: float):
+    if method == 'IDPP':
+        solver = Fast_IDPPSolver.from_endpoints(start, end, n_images)
+        return solver.run(tol=tol)
+    if method == 'linear':
+        return robust_interpolate(start, end, n_images)
+    raise ValueError(f'{method} not supported')
+
+
 def generate(method:str, n_images:int, is_file:str, fs_file:str, 
              output_file:str, format:str,
              fix_height: float=None, fix_dir: int=None,
              mag_ele: list=None, mag_num: list=None,
-             no_align: bool=False, tol: float=0.05):
+             no_align: bool=False, tol: float=0.05,
+             ts_file: str=None):
 
     # 1. Read files
     print(f'Reading files: {is_file} and {fs_file}')
@@ -247,6 +292,9 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
     except:
         is_e = 0.0
         is_f = np.zeros((len(is_atom), 3))
+        is_status = ENDPOINT_PLACEHOLDER
+    else:
+        is_status = ENDPOINT_PROVIDED
         
     try:
         fs_e = fs_atom.get_potential_energy()
@@ -254,6 +302,9 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
     except:
         fs_e = 0.0
         fs_f = np.zeros((len(fs_atom), 3))
+        fs_status = ENDPOINT_PLACEHOLDER
+    else:
+        fs_status = ENDPOINT_PROVIDED
 
     # 2. Atom Index Alignment
     if not no_align:
@@ -269,26 +320,36 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
     # 3. Generate Path
     print(f'Generating path, number of images: {n_images}')
     print(f'Optimizing path using {method} method')
-    
-    if method == 'IDPP':
-        solver = Fast_IDPPSolver.from_endpoints(is_atom, fs_atom, n_images)
-        ase_path = solver.run(tol=tol)
-    elif method == 'linear':
-        ase_path = robust_interpolate(is_atom, fs_atom, n_images)
+
+    if ts_file is not None:
+        print(f'Using TS guess for segmented interpolation: {ts_file}')
+        ts_atom = read(ts_file, format=format)
+        if not no_align:
+            ts_atom = align_atom_indices(is_atom, ts_atom)
+        left_count = n_images // 2
+        right_count = n_images - left_count
+        left_path = _interpolate(method, is_atom, ts_atom, left_count, tol)
+        right_path = _interpolate(method, ts_atom, fs_atom, right_count, tol)
+        ase_path = left_path[:-1] + right_path
     else:
-        raise ValueError(f'{method} not supported')
+        ase_path = _interpolate(method, is_atom, fs_atom, n_images, tol)
     
     # 4. Post-processing: Add Calculator, Fix, Magmom
-    ase_path[0].calc = SinglePointCalculator(ase_path[0].copy(), energy=is_e, forces=is_f)
-    ase_path[-1].calc = SinglePointCalculator(ase_path[-1].copy(), energy=fs_e, forces=fs_f)
-
-    if fix_height is not None:
-        for image in ase_path[1:-1]:
-            set_fix_for_Atoms(image, fix_height, fix_dir)
-    
-    if mag_ele is not None:
-        for image in ase_path[1:-1]:
-            set_magmom_for_Atoms(image, mag_ele, mag_num)
+    _apply_image_metadata(
+        ase_path,
+        is_atom,
+        fs_atom,
+        is_e,
+        is_f,
+        fs_e,
+        fs_f,
+        is_status,
+        fs_status,
+        fix_height,
+        fix_dir,
+        mag_ele,
+        mag_num,
+    )
 
     # 5. Write Output
     print(f'Writing path: {output_file}, Number of images: {len(ase_path)}')

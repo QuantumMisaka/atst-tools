@@ -1,0 +1,17 @@
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  climb: true
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

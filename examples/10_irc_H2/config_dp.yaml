@@ -1,0 +1,18 @@
+calculation:
+  type: irc
+  init_structure: inputs/ts.stru
+  trajectory: irc_log.traj
+  normalized_trajectory: norm_irc_log.traj
+  direction: both
+  fmax: 0.05
+  max_steps: 1000
+  dx: 0.1
+  eta: 0.002
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

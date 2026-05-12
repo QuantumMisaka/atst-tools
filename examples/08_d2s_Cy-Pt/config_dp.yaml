@@ -1,0 +1,25 @@
+calculation:
+  type: d2s
+  method: dimer # Options: dimer, sella
+  init_file: inputs/init.stru
+  final_file: inputs/final.stru
+
+  # Rough NEB Phase
+  neb:
+    n_images: 8
+    fmax: 0.8
+    climb: true
+    algorism: improvedtangent
+
+  # Single-Ended Search Phase
+  dimer: # Only used if method=dimer
+    fmax: 0.05
+    # separation: 0.01
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

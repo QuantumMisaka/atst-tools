@@ -1,0 +1,15 @@
+calculation:
+  type: vibration
+  init_structure: inputs/ts.xyz
+  indices: [0, 1]
+  name: vib
+  thermochemistry:
+    model: harmonic
+    temperature: 300.0
+    ignore_imag_modes: true
+
+calculator:
+  name: abacus
+  abacus:
+    parameters:
+      ks_solver: cusolver

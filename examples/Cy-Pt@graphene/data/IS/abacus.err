@@ -1,2 +1,0 @@
-WARNING: Total thread number on this node mismatches with hardware availability. This may cause poor performance.
-Info: Local MPI proc number: 16,OpenMP thread number: 4,Total thread number: 64,Local thread limit: 128

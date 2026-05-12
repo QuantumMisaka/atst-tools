@@ -1,0 +1,14 @@
+calculation:
+  type: relax
+  init_structure: inputs/init.stru
+  fmax: 0.05
+  optimizer: FIRE
+  trajectory: relax.traj
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

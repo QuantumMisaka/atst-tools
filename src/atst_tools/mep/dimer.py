@@ -1,30 +1,55 @@
 # AbacusDimer implementation
 # part of ATST-Tools
 
-import os
 import numpy as np
-from ase.io import Trajectory
 from ase.mep import DimerControl, MinModeAtoms, MinModeTranslate
-from ase.calculators.abacus import AbacusProfile, Abacus
 from typing import List, Union
 
+from atst_tools.calculators.factory import CalculatorFactory
+
 class AbacusDimer:
-    """Customize Dimer calculation workflow by using ABACUS"""
+    """
+    Customize Dimer calculation workflow by using ABACUS.
     
-    def __init__(self, init_Atoms, parameters, abacus='abacus',
-                 mpi=1, omp=1, directory='ABACUS', 
+    This class manages the setup and execution of the Dimer method for finding
+    saddle points (Transition States) using ABACUS as the force calculator.
+
+    Attributes:
+        init_Atoms (Atoms): Initial structure (guess for TS).
+        config (dict): Global configuration.
+        calc_name (str): Calculator name.
+        calc_config (dict): Calculation-specific configuration.
+        traj_file (str): Output trajectory file.
+        init_eigenmode_method (str): Method to initialize eigenmode ('displacement' or 'gauss').
+        displacement_vector (np.ndarray): Displacement vector for initialization.
+        dimer_separation (float): Separation between dimer images.
+        max_num_rot (int): Maximum number of rotations per step.
+    """
+    
+    def __init__(self, init_Atoms, config, calc_name, calc_config,
                  traj_file='run_dimer.traj',
                  init_eigenmode_method='displacement',
                  displacement_vector: np.ndarray = None,
                  dimer_separation=0.01,
                  max_num_rot=3):
-        """Initialize Dimer method by using ASE-ABACUS"""
+        """
+        Initialize Dimer method by using ASE-ABACUS.
+
+        Args:
+            init_Atoms (Atoms): Initial Atoms object.
+            config (dict): Global configuration dictionary.
+            calc_name (str): Name of the calculator.
+            calc_config (dict): Calculation configuration dictionary.
+            traj_file (str): Path to output trajectory file.
+            init_eigenmode_method (str): 'displacement' or 'gauss'.
+            displacement_vector (np.ndarray, optional): Vector for initial displacement.
+            dimer_separation (float): Finite difference separation.
+            max_num_rot (int): Max rotations.
+        """
         self.init_Atoms = init_Atoms
-        self.parameters = parameters
-        self.abacus = abacus
-        self.mpi = mpi
-        self.omp = omp
-        self.directory = directory
+        self.config = config
+        self.calc_name = calc_name
+        self.calc_config = calc_config
         self.traj_file = traj_file
         self.init_eigenmode_method = init_eigenmode_method
         self.displacement_vector = displacement_vector
@@ -32,22 +57,29 @@ class AbacusDimer:
         self.max_num_rot = max_num_rot
         
     def set_calculator(self):
-        """Set Abacus calculators"""
-        os.environ['OMP_NUM_THREADS'] = f'{self.omp}'
-        # Use mpirun if mpi > 1
-        if self.mpi > 1:
-            command = f"mpirun -np {self.mpi} {self.abacus}"
-        else:
-            command = self.abacus
-            
-        profile = AbacusProfile(command=command)
-        out_directory = self.directory
-        calc = Abacus(profile=profile, directory=out_directory,
-                        **self.parameters)
-        return calc
+        """
+        Set calculators using Factory.
+
+        Returns:
+            Calculator: Configured calculator instance.
+        """
+        directory = self.calc_config.get('directory', 'dimer_run')
+        if 'abacus' in self.config:
+             directory = self.config['abacus'].get('directory', directory)
+        
+        return CalculatorFactory.get_calculator(
+            self.calc_name, 
+            self.config, 
+            directory=directory
+        )
     
     def set_d_mask_by_displacement(self):
-        """set mask by displacement"""
+        """
+        Set mask by displacement vector where displacement is [0,0,0].
+
+        Returns:
+            list: Boolean mask list.
+        """
         print("=== Set mask by displacement vector where displacement is [0,0,0] ===")
         if self.displacement_vector is None:
             raise ValueError("Displacement vector is None")
@@ -56,7 +88,12 @@ class AbacusDimer:
         return d_mask
     
     def set_d_mask_by_constraint(self):
-        """set mask by constraint of Atoms"""
+        """
+        Set mask by constraint of Atoms.
+
+        Returns:
+            list: Boolean mask list based on constraints.
+        """
         print("=== Set mask by constraint read from init Atoms ===")
         dimer_init = self.init_Atoms
         d_mask = [True] * len(dimer_init)
@@ -78,7 +115,15 @@ class AbacusDimer:
             return d_mask
     
     def set_d_mask_by_specified(self, moving_atoms_ind: list):
-        """set mask be choosing moving atoms, the others are masked"""
+        """
+        Set mask by choosing moving atoms, the others are masked.
+
+        Args:
+            moving_atoms_ind (list): List of indices of atoms allowed to move.
+
+        Returns:
+            list: Boolean mask list.
+        """
         print(f"=== Set mask by specifing moving atoms {moving_atoms_ind} ===")
         dimer_init = self.init_Atoms
         d_mask = [False] * len(dimer_init)
@@ -86,11 +131,18 @@ class AbacusDimer:
             d_mask[ind] = True
         return d_mask
         
-    def run(self, fmax=0.05, properties=["energy", "forces", "stress"], moving_atoms_ind: list = None):
-        """run dimer calculation workflow"""
+    def run(self, fmax=0.05, properties=["energy", "forces", "stress"], moving_atoms_ind: list = None,
+            max_steps: int = None):
+        """
+        Run dimer calculation workflow.
+
+        Args:
+            fmax (float): Force convergence criterion.
+            properties (list): Properties to calculate.
+            moving_atoms_ind (list, optional): List of moving atom indices.
+        """
         dimer_init = self.init_Atoms
         dimer_init.calc = self.set_calculator()
-        dimer_traj = Trajectory(self.traj_file, 'w', dimer_init, properties=properties)
         
         if self.init_eigenmode_method == "displacement":
             if moving_atoms_ind:
@@ -103,8 +155,8 @@ class AbacusDimer:
                                     displacement_method="vector", 
                                     mask=d_mask,
                                     dimer_separation=self.dimer_separation,
-                                    max_num_rot=self.max_num_rot,
                                     )
+            
             d_atoms = MinModeAtoms(dimer_init, d_control)
             d_atoms.displace(displacement_vector=self.displacement_vector)
             
@@ -115,11 +167,14 @@ class AbacusDimer:
                                     initial_eigenmode_method=self.init_eigenmode_method, 
                                     mask=d_mask,
                                     dimer_separation=self.dimer_separation,
-                                    max_num_rot=self.max_num_rot,
                                     )
             d_atoms = MinModeAtoms(dimer_init, d_control)
         else:
             raise ValueError("init_eigenmode_method must be displacement or gauss")
             
-        dimer_relax = MinModeTranslate(d_atoms, trajectory=dimer_traj)
-        dimer_relax.run(fmax=fmax)
+        # MinModeTranslate is the optimizer
+        dimer_relax = MinModeTranslate(d_atoms, trajectory=self.traj_file)
+        if max_steps is None:
+            dimer_relax.run(fmax=fmax)
+        else:
+            dimer_relax.run(fmax=fmax, steps=max_steps)

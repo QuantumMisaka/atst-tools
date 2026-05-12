@@ -1,0 +1,67 @@
+calculation:
+  type: d2s
+  method: dimer # Options: dimer, sella
+  init_file: inputs/init.stru
+  final_file: inputs/final.stru
+  endpoint_optimization:
+    max_steps: 1
+
+  # Rough NEB Phase
+  neb:
+    n_images: 10
+    fmax: 1.00
+    climb: true
+    algorism: improvedtangent
+    max_steps: 1
+
+  # Single-Ended Search Phase
+  dimer: # Only used if method=dimer
+    fmax: 0.05
+    max_steps: 1
+    # separation: 0.01
+  
+  sella:
+    fmax: 0.05
+    eta: 0.002
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_d2s
+    kpts: [2, 1, 2]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        vdw_method: d3_bj
+        nspin: 2
+        symmetry: 0
+        scf_thr: 1e-06
+        scf_nmax: 300
+        smearing_method: gauss
+        smearing_sigma: 0.001
+        mixing_type: broyden
+        mixing_ndim: 20
+        cal_force: 1
+        cal_stress: 1
+        out_stru: 1
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        efield_pos_max: 0.0
+        efield_pos_dec: 0.1
+        efield_amp: 0.0
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           C: C_ONCV_PBE-1.0.upf
+           Pt: Pt_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           C: C_gga_7au_100Ry_2s2p1d.orb
+           Pt: Pt_gga_7au_100Ry_4s2p2d1f.orb

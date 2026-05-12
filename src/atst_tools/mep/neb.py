@@ -3,21 +3,44 @@
 
 import threading
 import numpy as np
-from ase.mep.neb import NEB, NEBTools
+from ase.mep.neb import NEB, NEBState as _NEBState
 from ase.parallel import world
 from ase.io import Trajectory
 from ase.optimize import FIRE
 
 class AbacusNEB(NEB):
     """
-    Customized NEB class for ABACUS that handles:
-    1. Stress tensor retrieval and broadcasting (for variable cell NEB - future proofing)
-    2. Parallel execution improvements
+    Customized NEB class for ABACUS that handles stress tensor retrieval and broadcasting.
+    
+    This class extends ASE's NEB to support:
+    1.  Collection and broadcasting of stress tensors (for future variable-cell NEB support).
+    2.  Improved parallel execution handling for ATST-Tools environment.
+    3.  Retrieval of "real" forces (without constraints) for analysis.
+
+    Attributes:
+        stresses (np.ndarray): Array storing stress tensors for images.
+        real_forces (np.ndarray): Array storing unconstrained forces.
+        energies (np.ndarray): Array storing potential energies.
     """
     def __init__(self, images, k=0.1, climb=False, parallel=False,
                  remove_rotation_and_translation=False, world=None,
                  method='aseneb', allow_shared_calculator=False,
                  precon=None, **kwargs):
+        """
+        Initialize AbacusNEB.
+
+        Args:
+            images (list): List of Atoms objects (images).
+            k (float or list): Spring constant(s) in eV/Angstrom.
+            climb (bool): Whether to use climbing image NEB.
+            parallel (bool): Whether to parallelize force calculations over MPI.
+            remove_rotation_and_translation (bool): Whether to minimize rotation/translation.
+            world: MPI communicator.
+            method (str): Tangent method ('aseneb', 'improvedtangent', etc.).
+            allow_shared_calculator (bool): Allow shared calculator instance.
+            precon: Preconditioner object or configuration.
+            **kwargs: Additional arguments passed to ASE NEB.
+        """
         super().__init__(images, k=k, climb=climb, parallel=parallel,
                          remove_rotation_and_translation=remove_rotation_and_translation,
                          world=world, method=method,
@@ -27,7 +50,15 @@ class AbacusNEB(NEB):
         self.stresses = None 
 
     def get_forces(self):
-        """Evaluate and return the forces."""
+        """
+        Evaluate and return the NEB forces.
+
+        This method overrides ASE's get_forces to inject stress collection and
+        broadcast additional data (real_forces, stress) across MPI ranks.
+
+        Returns:
+            np.ndarray: The projected NEB forces (flattened).
+        """
         images = self.images
         
         # ... (Standard ASE checks for shared calculators) ...
@@ -117,16 +148,7 @@ class AbacusNEB(NEB):
         self.real_forces = real_forces
         self.stresses = stresses 
 
-        # ... (Standard ASE NEB force projection logic) ...
-        # For brevity, we are calling super().get_forces() logic here via copy-paste 
-        # or simplified re-implementation is needed because we can't easily inject 
-        # the stress gathering into the parent method. 
-        # Given the complexity, we will rely on the fact that we populated self.stresses above
-        # and now we proceed to calculate NEB forces.
-        
-        # RE-IMPLEMENTATION of NEB Force Projection (Simplified for clarity)
-        # Ideally, we should reuse code, but ASE's NEB is monolithic.
-        
+        # RE-IMPLEMENTATION of NEB Force Projection
         state = _NEBState(self, images, energies)
         self.imax = state.imax
         self.emax = state.emax
@@ -157,7 +179,15 @@ class AbacusNEB(NEB):
         return precon_forces.reshape((-1, 3))
 
     def iterimages(self):
-        """Allows trajectory to convert NEB into several images, including stress info"""
+        """
+        Yield images with calculated properties frozen attached.
+
+        Allows Trajectory to write images with the correct energy, forces, and stress
+        that were calculated during the last get_forces() call.
+
+        Yields:
+            Atoms: Image with attached SinglePointCalculator.
+        """
         for i, atoms in enumerate(self.images):
             if i == 0 or i == self.nimages - 1:
                 yield atoms
@@ -170,51 +200,3 @@ class AbacusNEB(NEB):
                     stress=self.stresses[i-1] if self.stresses is not None else None
                 )
                 yield atoms
-
-# Helper classes needed for the Re-implementation of get_forces
-# Since they are private in ASE, we might need to rely on the fact that 
-# our AbacusNEB inherits from NEB, so we have access to self.neb_method etc.
-# However, NEBState is not easily importable if it's not exposed.
-# In newer ASE versions, it might be available. 
-# For safety, we define a minimal wrapper or import it if possible.
-
-from ase.mep.neb import NEBState as _NEBState
-
-class AbacusNEBRunner:
-    """
-    Workflow runner for Abacus NEB
-    """
-    def __init__(self, init_chain, calculator_factory, 
-                 k=0.1, algorism="improvedtangent", 
-                 dyneb=False, parallel=True):
-        self.init_chain = init_chain
-        self.calculator_factory = calculator_factory
-        self.k = k
-        self.algorism = algorism
-        self.dyneb = dyneb
-        self.parallel = parallel
-
-    def run(self, fmax=0.05, climb=True, outfile="neb.traj"):
-        # 1. Attach Calculators
-        for i, image in enumerate(self.init_chain[1:-1]):
-            # Parallel distribution logic
-            if self.parallel:
-                if world.rank == i % world.size:
-                    image.calc = self.calculator_factory()
-            else:
-                image.calc = self.calculator_factory()
-        
-        # 2. Setup NEB
-        if self.dyneb and not self.parallel:
-            from ase.mep import DyNEB
-            neb = DyNEB(self.init_chain, climb=climb, fmax=fmax,
-                        method=self.algorism, k=self.k)
-        else:
-            neb = AbacusNEB(self.init_chain, climb=climb, method=self.algorism, 
-                            k=self.k, parallel=self.parallel)
-
-        # 3. Run Optimization
-        traj = Trajectory(outfile, 'w', neb)
-        opt = FIRE(neb, trajectory=traj)
-        opt.run(fmax)
-        return neb

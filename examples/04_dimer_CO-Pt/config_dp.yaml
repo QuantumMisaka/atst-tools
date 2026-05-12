@@ -1,0 +1,15 @@
+calculation:
+  type: dimer
+  init_structure: inputs/dimer_init.traj
+  fmax: 0.05
+  trajectory: dimer.traj
+  init_eigenmode_method: displacement
+  displacement_vector: inputs/displacement_vector.npy
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true
