@@ -1,72 +1,57 @@
 # ATST-Tools
 
-ATST-Tools is a pip-installable CLI + YAML toolkit for ASE-based atomistic
-workflows. Its current 2.0.0 target is to provide a governed, extensible
-replacement for the legacy script collection, with ABACUS and DeePMD-kit
-calculators exposed through the same `atst run CONFIG.yaml` interface.
-
-## Project Status
-
-- **Current release target**: 2.0.0.
-- **Functional baseline**: transition-state, relaxation, vibration, IRC, and
-  lightweight trajectory utilities have been refactored from the legacy main
-  branch into a package layout.
-- **Primary calculator backend**: ABACUS through `abacuslite`; ATST-Tools first
-  tries an installed `abacuslite` package and then falls back to the vendored
-  snapshot under `src/atst_tools/external/ASE_interface/abacuslite`.
-- **Machine-learning potential backend**: DeePMD-kit through its Python ASE
-  calculator interface, including optional multi-head model selection.
-- **Configuration governance**: user-facing workflow inputs are defined by the
-  Pydantic schema in `src/atst_tools/utils/config_schema.py`, and generated
-  into user documentation.
-
-## Version Governance
-
-The package version has a single source of truth:
-`pyproject.toml` -> `[project].version`.
-
-Runtime entry points read the governed package version through
-`atst_tools.package_version()`: source-tree runs read `pyproject.toml`, while
-installed-package runs use distribution metadata generated from the same field.
-`atst --version` and Python imports therefore do not carry a separate
-hard-coded package version. The YAML `config_version` is a separate
-schema-compatibility marker and is currently `2.0.0`.
-
-For the 2.0.0 line, PyPI uses the PEP 440 package version `2.0.0`, while
-human-facing docs and YAML schema references use `2.0.0`.
-
-## Built-in Workflows
-
-The main execution entry point is:
+ATST-Tools is a pip-installable **ASE transition-state workflow toolkit** for
+ABACUS and DeePMD-kit calculators. It turns the project's legacy script
+collection into one governed command-line interface:
 
 ```bash
 atst run CONFIG.yaml
 ```
 
-Supported `calculation.type` values include:
+Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, D2S, relaxation,
+vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
 
-- `neb`: NEB and DyNEB path optimization with endpoint single-point governance.
-- `autoneb`: AutoNEB path refinement and final-chain export support.
-- `d2s`: rough NEB plus Dimer/Sella single-ended transition-state search.
-- `dimer`: ASE Dimer transition-state search.
-- `sella`: Sella transition-state search.
-- `relax`: structure optimization.
-- `vibration`: ASE vibration and thermochemistry post-processing.
-- `irc`: Sella-based intrinsic reaction coordinate tracing.
+## At A Glance
 
-Lightweight helpers live under:
+| Area | Current 2.0.0 status |
+| :--- | :--- |
+| Package | Installable Python package with the `atst` console command. |
+| Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
+| Lightweight tools | `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
+| Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
+| Configuration | Pydantic-governed YAML schema with generated user documentation. |
+| Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
+| Release | `2.0.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.0.md). |
+
+## What You Can Run
+
+| `calculation.type` | Workflow | Notes |
+| :--- | :--- | :--- |
+| `neb` | NEB / DyNEB | Endpoint single-point governance is enabled by default. |
+| `autoneb` | AutoNEB | Adaptive image insertion plus final-chain post-processing. |
+| `d2s` | Double-ended to single-ended TS search | Rough NEB followed by Dimer or Sella. |
+| `dimer` | ASE Dimer | Single-ended transition-state search. |
+| `sella` | Sella saddle search | Uses the external `sella` package. |
+| `relax` | Structure optimization | ASE optimizer based relaxation. |
+| `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
+| `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
+
+Local pre/post-processing commands are intentionally lightweight. They do not
+construct calculators or submit expensive calculations:
 
 ```bash
-atst neb ...
-atst dimer ...
-atst relax ...
-atst vibration ...
-atst traj ...
+atst neb make ...
+atst neb post ...
+atst traj collect ...
+atst traj transform ...
+atst dimer make-from-neb ...
+atst relax post ...
+atst vibration post ...
 ```
 
-## Install
+## Installation
 
-For development:
+### Development Install
 
 ```bash
 git clone https://github.com/deepmodeling/atst-tools.git
@@ -74,21 +59,33 @@ cd atst-tools
 pip install -e .
 ```
 
-For a distributable artifact:
+### Wheel Install
+
+Build a local release artifact:
 
 ```bash
 python -m build
 pip install dist/atst_tools-2.0.0-py3-none-any.whl
 ```
 
+ATST-Tools itself installs the Python workflow layer. Real calculations also
+need the selected calculator runtime:
+
+- **ABACUS**: an executable ABACUS installation plus pseudopotential/orbital
+  files referenced by YAML.
+- **DP / DeePMD-kit**: a working DeePMD-kit Python installation and a model file
+  outside git-tracked paths.
+
 ## Quick Start
+
+Run a small relaxation example:
 
 ```bash
 cd examples/06_relax_H2-Au
 atst run config.yaml
 ```
 
-Validate a config without starting a calculation:
+Validate an input without launching the calculation:
 
 ```bash
 atst run --dry-run examples/06_relax_H2-Au/config.yaml
@@ -98,20 +95,155 @@ Print a schema-governed template:
 
 ```bash
 atst run --show-template neb --calculator abacus
+atst run --show-template neb --calculator dp
 ```
 
-## Documentation
+List available workflow types:
 
-Start from [docs/index.md](docs/index.md).
+```bash
+atst run --list-types
+```
 
-Key entry points:
+## Minimal YAML Shape
 
-- [User guide](docs/user/USER_GUIDE_CN.md)
-- [Configuration reference](docs/user/CONFIG_REFERENCE.md)
-- [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md)
+Every production workflow uses the same top-level structure:
+
+```yaml
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  fmax: 0.05
+  max_steps: 100
+  climb: true
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_neb
+    kpts: [2, 2, 2]
+    parameters:
+      calculation: scf
+      ecutwfc: 100
+      basis_type: lcao
+```
+
+The governed schema defines defaults, types, and descriptions for user-facing
+inputs. See [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md) for the
+generated reference and [configuration reference](docs/user/CONFIG_REFERENCE.md)
+for hand-written guidance.
+
+## Calculator Backends
+
+### ABACUS
+
+ABACUS is integrated through `abacuslite`. ATST-Tools first tries an installed
+`abacuslite` package and then falls back to the vendored snapshot under
+`src/atst_tools/external/ASE_interface/abacuslite`.
+
+Typical example files use:
+
+```yaml
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    pseudo_dir: ../data
+    orbital_dir: ../data
+```
+
+### DeePMD-kit / DP
+
+DP support uses the official ASE calculator entry point,
+`deepmd.calculator.DP`. DeePMD-kit detects the model backend from the model
+file. Multi-head DPA/DPA3 models are configured through `calculator.dp.head`.
+
+```yaml
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true
+```
+
+The 2.0.0 DP validation used DPA-3.1-3M with the `Omat24` head. Model files and
+runtime outputs are intentionally not tracked by git.
+
+## Examples
+
+The [examples directory](examples/README.md) is the fastest way to learn the
+project:
+
+| Directory | Workflow focus |
+| :--- | :--- |
+| `examples/01_neb_Li-Si` | Quick NEB smoke case. |
+| `examples/02_neb_H2-Au` | Surface NEB example. |
+| `examples/03_autoneb_Cy-Pt` | AutoNEB workflow. |
+| `examples/04_dimer_CO-Pt` | Dimer transition-state search. |
+| `examples/05_sella_H2-Au` | Sella saddle search. |
+| `examples/06_relax_H2-Au` | Geometry relaxation. |
+| `examples/07_vibration_H2-Au` | Surface vibration analysis. |
+| `examples/08_d2s_Cy-Pt` | Rough NEB plus single-ended TS search. |
+| `examples/09_lightweight_cli` | Local helper command examples. |
+| `examples/10_irc_H2` | IRC YAML examples. |
+| `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
+
+Each calculation example uses `config.yaml` for ABACUS and, where available,
+`config_dp.yaml` for DP.
+
+## For Developers
+
+The main extension points are deliberately small:
+
+| Task | Start here |
+| :--- | :--- |
+| Add or change YAML inputs | `src/atst_tools/utils/config_schema.py` |
+| Regenerate YAML docs | `python -m atst_tools.utils.config_docs` |
+| Add a calculator backend | `src/atst_tools/calculators/` |
+| Add an `atst run` workflow | `src/atst_tools/scripts/main.py` and `src/atst_tools/workflows/` |
+| Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command modules |
+| Add examples | `examples/<case>/config.yaml` and curated `inputs/` |
+
+Developer documentation:
+
+- [Documentation index](docs/index.md)
 - [YAML input governance](docs/developer/YAML_INPUT_GOVERNANCE.md)
-- [2.0.0 release notes](docs/releases/RELEASE_NOTES_2.0.0.md)
+- [Documentation standards](docs/developer/DOCUMENTATION_STANDARDS.md)
+- [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md)
+- [DP validation report](docs/reports/DP_VALIDATION_2.0.0.md)
+- [IRC integration review](docs/reports/IRC_INTEGRATION_REVIEW.md)
+
+## Version Governance
+
+The package version has one source of truth:
+
+```text
+pyproject.toml -> [project].version
+```
+
+Runtime entry points read that governed package version through
+`atst_tools.package_version()`. Source-tree runs read `pyproject.toml`, while
+installed-package runs use distribution metadata generated from the same field.
+The YAML `config_version` is a separate schema-compatibility marker and is also
+`2.0.0` for this release line.
+
+## Project Boundary
+
+ATST-Tools owns workflow orchestration, YAML validation, calculator construction,
+trajectory naming, restart handling, examples, and documentation. Numerical
+engines remain external:
+
+- ABACUS owns first-principles electronic-structure calculations.
+- DeePMD-kit owns DP model loading and inference.
+- ASE owns the core optimizer and transition-state method implementations.
+- Sella owns its saddle-search and IRC algorithms.
 
 ## License
 
-LGPL-v3 License
+LGPL-v3 License.
