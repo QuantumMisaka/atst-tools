@@ -1,5 +1,10 @@
 # ATST-Tools
 
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](pyproject.toml)
+[![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
+
 ATST-Tools is a pip-installable **ASE transition-state workflow toolkit** for
 ABACUS and DeePMD-kit calculators. It turns the project's legacy script
 collection into one governed command-line interface:
@@ -196,6 +201,21 @@ project:
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
+
+## Validation
+
+The 2.0.0 README badges reflect the current governed project state:
+
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.0`.
+- Unit test coverage badge: measured with
+  `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
+  `coverage report --omit='src/atst_tools/external/*'`.
+- Current first-party unit test coverage: `66%`.
+- Full source-tree coverage including the vendored `abacuslite` snapshot:
+  `43%`.
+
+The vendored `src/atst_tools/external/ASE_interface` tree is kept for ABACUS
+backend reproducibility and is not treated as first-party ATST-Tools coverage.
 
 ## For Developers
 
