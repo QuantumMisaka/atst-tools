@@ -10,6 +10,7 @@ from ase.io import read, write
 from ase.io.trajectory import Trajectory
 
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
 
@@ -24,17 +25,18 @@ class IRCWorkflow:
     def __init__(self, config: Dict[str, Any], calc_name: str, calc_config: Dict[str, Any]):
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config
-        self.init_structure = calc_config.get("init_structure")
-        self.traj_file = calc_config.get("trajectory", "irc_log.traj")
+        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        calc_config = self.calc_config
+        self.init_structure = calc_config["init_structure"]
+        self.traj_file = calc_config["trajectory"]
         self.normalized_traj_file = calc_config.get(
             "normalized_trajectory", f"norm_{Path(self.traj_file).name}"
         )
-        self.direction = calc_config.get("direction", "both")
-        self.restart = calc_config.get("restart", False)
+        self.direction = calc_config["direction"]
+        self.restart = calc_config["restart"]
 
     def _set_calculator(self, atoms):
-        directory = self.calc_config.get("directory", "irc_run")
+        directory = self.calc_config["directory"]
         if "abacus" in self.config:
             directory = self.config["abacus"].get("directory", directory)
         atoms.calc = CalculatorFactory.get_calculator(self.calc_name, self.config, directory=directory)
@@ -128,17 +130,17 @@ class IRCWorkflow:
         irc = IRC(
             atoms,
             trajectory=irc_traj,
-            dx=self.calc_config.get("dx", 0.1),
-            eta=self.calc_config.get("eta", 0.0001),
-            gamma=self.calc_config.get("gamma", 0.1),
-            irctol=self.calc_config.get("irctol", 0.01),
-            keep_going=self.calc_config.get("keep_going", False),
+            dx=self.calc_config["dx"],
+            eta=self.calc_config["eta"],
+            gamma=self.calc_config["gamma"],
+            irctol=self.calc_config["irctol"],
+            keep_going=self.calc_config["keep_going"],
         )
         for direction in self._directions():
             try:
                 irc.run(
-                    self.calc_config.get("fmax", 0.05),
-                    steps=self.calc_config.get("max_steps", 1000),
+                    self.calc_config["fmax"],
+                    steps=self.calc_config["max_steps"],
                     direction=direction,
                 )
             except IRCInnerLoopConvergenceFailure as exc:

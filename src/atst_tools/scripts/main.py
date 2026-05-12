@@ -11,7 +11,9 @@ from textwrap import dedent
 
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.mep.autoneb import AutoNEBRunner
 from atst_tools.mep.dimer import AbacusDimer
@@ -41,7 +43,11 @@ def _template(calculation_type, calculator_name):
 calculator:
   name: dp
   dp:
-    model: /path/to/model.pb
+    model: /path/to/model.pb-or-pt
+    # Required for multi-head DPA/DPA3 models.
+    head: null
+    omp: 4
+    share_calculator: true
 """
     else:
         calculator = """\
@@ -166,7 +172,6 @@ calculation:
   delta: 0.01
   nfree: 2
   name: vib_calc
-  temperature: 300.0
   thermochemistry:
     model: harmonic
     temperature: 300.0
@@ -241,6 +246,19 @@ def _abacus_base_directory(config, default):
         base_dir = config['abacus'].get('directory', base_dir)
     return base_dir
 
+
+def _get_workflow_calculator(calc_name, config, shared=None, **kwargs):
+    if is_dp_calculator(calc_name) and shared is not None:
+        kwargs["shared"] = shared
+    return CalculatorFactory.get_calculator(calc_name, config, **kwargs)
+
+
+def _normalized_calculation(config, calc_config):
+    """Return a schema-normalized calculation section for direct helper calls."""
+    if "config_version" in config:
+        return calc_config
+    return apply_calculation_defaults(calc_config)
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -251,23 +269,24 @@ def run_neb(config, calc_name, calc_config):
         calc_config (dict): Calculation-specific configuration.
     """
     LOGGER.info("Starting NEB calculation")
+    calc_config = _normalized_calculation(config, calc_config)
     
     # Load Initial Chain
-    traj_file = calc_config.get('trajectory', 'neb.traj')
-    restart = calc_config.get('restart', False)
-    has_init_chain = 'init_chain' in calc_config
-    has_make = 'make' in calc_config
+    traj_file = calc_config['trajectory']
+    restart = calc_config['restart']
+    has_init_chain = bool(calc_config.get('init_chain'))
+    has_make = bool(calc_config.get('make'))
     if has_init_chain == has_make:
         raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
 
     if has_make:
         make_config = calc_config.get('make') or {}
-        init_chain_file = make_config.get('output', 'init_neb_chain.traj')
+        init_chain_file = make_config['output']
         fix_height, fix_dir = _parse_make_fix(make_config.get('fix'))
-        mag_ele, mag_num = _parse_make_mag(make_config.get('magmom', make_config.get('mag')))
+        mag_ele, mag_num = _parse_make_mag(make_config.get('magmom'))
         if not restart:
             generate(
-                method=make_config.get('method', 'IDPP'),
+                method=make_config['method'],
                 n_images=make_config['n_images'],
                 is_file=make_config['init_structure'],
                 fs_file=make_config['final_structure'],
@@ -277,11 +296,11 @@ def run_neb(config, calc_name, calc_config):
                 fix_dir=fix_dir,
                 mag_ele=mag_ele,
                 mag_num=mag_num,
-                no_align=make_config.get('no_align', False),
+                no_align=make_config['no_align'],
                 ts_file=make_config.get('ts_guess'),
             )
     else:
-        init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
+        init_chain_file = calc_config['init_chain']
     if restart:
         n_images = make_config['n_images'] + 2 if has_make else len(read(init_chain_file, index=':'))
         init_chain = get_last_neb_band(traj_file, n_images)
@@ -289,13 +308,13 @@ def run_neb(config, calc_name, calc_config):
         init_chain = read(init_chain_file, index=':')
     
     # NEB Parameters
-    climb = calc_config.get('climb', True)
-    fmax = calc_config.get('fmax', 0.05)
-    k = calc_config.get('k', 0.1)
-    algorism = calc_config.get('algorism', 'improvedtangent')
-    parallel = calc_config.get('parallel', True)
-    max_steps = calc_config.get('max_steps', 100)
-    opt_name = calc_config.get('optimizer', 'FIRE')
+    climb = calc_config['climb']
+    fmax = calc_config['fmax']
+    k = calc_config['k']
+    algorism = calc_config['algorism']
+    parallel = calc_config['parallel']
+    max_steps = calc_config['max_steps']
+    opt_name = calc_config['optimizer']
     from ase.parallel import world
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
@@ -307,7 +326,7 @@ def run_neb(config, calc_name, calc_config):
     policy = endpoint_policy(calc_config, default="auto")
     ensure_neb_endpoint_results(
         init_chain,
-        lambda directory: CalculatorFactory.get_calculator(
+        lambda directory: _get_workflow_calculator(
             calc_name,
             config,
             directory=f"{base_dir}/{directory}",
@@ -316,28 +335,41 @@ def run_neb(config, calc_name, calc_config):
         directories=("endpoint_initial", "endpoint_final"),
         context="NEB",
     )
+    allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
     
     # Initialize NEB
     neb = AbacusNEB(init_chain, 
                     parallel=effective_parallel,
                     method=algorism, 
                     k=k,
-                    climb=climb)
+                    climb=climb,
+                    allow_shared_calculator=allow_shared)
     
     # Attach Calculators
+    shared_calc = None
+    if allow_shared:
+        shared_calc = _get_workflow_calculator(
+            calc_name,
+            config,
+            shared=True,
+            directory=f"{base_dir}/shared",
+        )
     for i, image in enumerate(init_chain[1:-1]):
         if effective_parallel:
             if world.rank == i % world.size:
                 # Determine directory logic
                 image_dir = f"{base_dir}-rank{world.rank}"
                 
-                image.calc = CalculatorFactory.get_calculator(
+                image.calc = _get_workflow_calculator(
                     calc_name, 
                     config, 
+                    shared=False,
                     directory=image_dir
                 )
+        elif shared_calc is not None:
+             image.calc = shared_calc
         else:
-             image.calc = CalculatorFactory.get_calculator(
+             image.calc = _get_workflow_calculator(
                     calc_name, 
                     config, 
                     directory=f"{base_dir}/image_{i + 1:03d}"
@@ -358,6 +390,7 @@ def run_autoneb(config, calc_name, calc_config):
         calc_name (str): Name of the calculator.
         calc_config (dict): Calculation-specific configuration.
     """
+    calc_config = _normalized_calculation(config, calc_config)
     runner = AutoNEBRunner(config, calc_name, calc_config)
     runner.run()
 
@@ -371,11 +404,12 @@ def run_dimer(config, calc_name, calc_config):
         calc_config (dict): Calculation-specific configuration.
     """
     LOGGER.info("Starting Dimer calculation")
+    calc_config = _normalized_calculation(config, calc_config)
     
     # 1. Load Initial Structure
     # Dimer needs a single structure (Transition State guess)
-    init_structure = calc_config.get('init_structure', 'dimer_init.stru')
-    traj_file = calc_config.get('trajectory', 'dimer.traj')
+    init_structure = calc_config['init_structure']
+    traj_file = calc_config['trajectory']
     if calc_config.get('restart'):
         atoms = get_last_frame(traj_file)
     else:
@@ -386,11 +420,11 @@ def run_dimer(config, calc_name, calc_config):
         atoms = read_structure(init_structure)
     
     # 2. Parameters
-    fmax = calc_config.get('fmax', 0.05)
+    fmax = calc_config['fmax']
     
     # Displacement
     # User can provide displacement vector or method
-    method = calc_config.get('init_eigenmode_method', 'displacement')
+    method = calc_config['init_eigenmode_method']
     displacement_vector = calc_config.get('displacement_vector', None)
     
     if method == 'displacement' and isinstance(displacement_vector, str):
@@ -415,7 +449,9 @@ def run_dimer(config, calc_name, calc_config):
         calc_config=calc_config,
         traj_file=traj_file,
         init_eigenmode_method=method,
-        displacement_vector=displacement_vector
+        displacement_vector=displacement_vector,
+        dimer_separation=calc_config['dimer_separation'],
+        max_num_rot=calc_config['max_num_rot'],
     )
     
     dimer.run(fmax=fmax, max_steps=calc_config.get('max_steps'))
@@ -431,10 +467,11 @@ def run_sella(config, calc_name, calc_config):
         calc_config (dict): Calculation-specific configuration.
     """
     LOGGER.info("Starting Sella calculation")
+    calc_config = _normalized_calculation(config, calc_config)
     
     # 1. Load Initial Structure (TS guess)
-    init_structure = calc_config.get('init_structure', 'sella_init.stru')
-    traj_file = calc_config.get('trajectory', 'sella.traj')
+    init_structure = calc_config['init_structure']
+    traj_file = calc_config['trajectory']
     if calc_config.get('restart'):
         atoms = get_last_frame(traj_file)
     else:
@@ -445,8 +482,8 @@ def run_sella(config, calc_name, calc_config):
         atoms = read_structure(init_structure)
     
     # 2. Parameters
-    fmax = calc_config.get('fmax', 0.05)
-    eta = calc_config.get('eta', 0.005) # Sella eta parameter
+    fmax = calc_config['fmax']
+    eta = calc_config['eta']
     
     # 3. Run
     sella_run = AbacusSella(
@@ -456,7 +493,8 @@ def run_sella(config, calc_name, calc_config):
         calc_config=calc_config,
         traj_file=traj_file,
         sella_eta=eta,
-        fmax=fmax
+        fmax=fmax,
+        order=calc_config['order'],
     )
     
     sella_run.run()
@@ -514,7 +552,7 @@ def run_from_args(args):
     config = ConfigLoader.load(args.config)
     if getattr(args, "restart", False):
         config.setdefault("calculation", {})["restart"] = True
-    ConfigLoader.validate(config)
+    config = ConfigLoader.normalize(config)
     if getattr(args, "dry_run", False):
         calc_type = config["calculation"]["type"]
         calc_name = config.get("calculator", {}).get("name", "abacus")

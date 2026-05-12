@@ -48,7 +48,7 @@ def test_atst_run_dispatches_d2s(monkeypatch):
             calls.append(("run",))
 
     config = {
-        "calculation": {"type": "d2s"},
+        "calculation": {"type": "d2s", "init_file": "init.stru", "final_file": "final.stru"},
         "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
     }
 
@@ -412,7 +412,7 @@ def test_vibration_post_writes_results(monkeypatch, tmp_path):
         "calculation": {
             "type": "vibration",
             "init_structure": "ts.traj",
-            "temperature": 300.0,
+            "thermochemistry": {"temperature": 300.0},
         },
         "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
     }

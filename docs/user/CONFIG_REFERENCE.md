@@ -1,16 +1,19 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.0.0-rc  
-**Last Updated**: 2026-05-11
+**Last Updated**: 2026-05-12
 **Status**: Release Candidate
 
 This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
+
+YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the input before dispatching workflows, so optional variables get schema defaults before runtime. The generated non-calculator variable table is maintained in `docs/user/YAML_INPUT_VARIABLES.md`.
 
 ---
 
 ## 1. Top-Level Structure
 
 ```yaml
+config_version: "2.0.0"  # Optional. Defaults to the current schema version.
 calculation:
   type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
   # ... task specific parameters ...
@@ -38,11 +41,9 @@ The `calculation` section defines the type of task and its parameters.
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`, `irc`. |
-| `fmax` | float | `0.05` | Maximum force convergence criterion (eV/Å). |
-| `optimizer` | string | `FIRE` | Optimization algorithm: `FIRE`, `BFGS`, `QuasiNewton`, etc. |
-| `trajectory` | string | `None` | Path to save the optimization trajectory (e.g., `opt.traj`). |
-| `parallel` | bool | `False` | Enable parallel execution (e.g., for NEB images). |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
+
+Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
 
 ### 2.2 Nudged Elastic Band (NEB)
 **Type**: `neb`
@@ -54,6 +55,10 @@ The `calculation` section defines the type of task and its parameters.
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
+| `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
+| `optimizer` | string | `FIRE` | ASE optimizer. |
+| `max_steps` | int | `100` | Maximum optimizer steps. |
+| `fmax` | float | `0.05` | Force convergence threshold. |
 | `endpoint_singlepoint` | string | `auto` | Endpoint result policy: `auto`, `always`, or `never`. |
 
 `init_chain` and `make` are mutually exclusive. Use `init_chain` when the chain already exists; use nested `make` when `atst run` should generate the chain immediately before launching NEB:
@@ -92,12 +97,16 @@ calculation:
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `prefix` | string | `autoneb` | Prefix for output files and directories. |
+| `prefix` | string | `run_autoneb` | Prefix for output files and directories. |
 | `init_chain` | string | **Required** | Path to the initial guess chain. |
-| `n_simul` | int | `1` | Number of images to optimize simultaneously. |
+| `n_simul` | int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
 | `n_max` | int | `10` | Maximum number of images in the band. |
 | `maxsteps` | int | `100` | Maximum optimization steps per iteration. |
 | `iter_folder` | string | `AutoNEB_iter` | Folder to store iteration results. |
+| `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
+| `optimizer` | string | `FIRE` | `FIRE` or `BFGS`. |
+| `climb` | bool | `true` | Enable climbing image refinement. |
+| `fmax` | float/list[float] | `0.05` | Force threshold or AutoNEB threshold schedule. |
 | `endpoint_singlepoint` | string | `auto` | Same endpoint result policy as ordinary NEB. |
 
 ### 2.4 Dimer Method
@@ -109,6 +118,11 @@ calculation:
 | `init_eigenmode_method` | string | `displacement` | Method to initialize eigenmode: `displacement`. |
 | `displacement_vector` | string | `None` | Path to numpy file containing displacement vector (e.g., `vector.npy`). |
 | `trajectory` | string | `dimer.traj` | Dimer trajectory. Restart uses the last frame when available. |
+| `fmax` | float | `0.05` | Force convergence threshold. |
+| `max_steps` | int/null | `null` | Maximum optimizer steps; null lets ASE run until convergence. |
+| `dimer_separation` | float | `0.01` | Dimer finite-difference separation. |
+| `max_num_rot` | int | `3` | Maximum dimer rotations per step. |
+| `directory` | string | `dimer_run` | Calculator working directory. |
 
 ### 2.5 Sella (Saddle Point Finder)
 **Type**: `sella`
@@ -116,9 +130,12 @@ calculation:
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Path to the initial structure. |
-| `eta` | float | `0.002` | Sella parameter (step size control). |
+| `eta` | float | `0.005` | Sella parameter (step size control). |
 | `order` | int | `1` | Saddle point order (1 for TS). |
 | `trajectory` | string | `sella.traj` | Sella trajectory. Restart uses the last frame when available. |
+| `fmax` | float | `0.05` | Force convergence threshold. |
+| `max_steps` | int/null | `null` | Maximum optimizer steps; null lets Sella run until convergence. |
+| `directory` | string | `sella_run` | Calculator working directory. |
 
 ### 2.6 Structure Relaxation (Relax)
 **Type**: `relax`
@@ -126,7 +143,12 @@ calculation:
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Path to the initial structure file. |
+| `fmax` | float | `0.05` | Force convergence threshold. |
+| `max_steps` | int | `200` | Maximum optimizer steps. |
+| `optimizer` | string | `FIRE` | ASE optimizer name. |
 | `trajectory` | string | `relax.traj` | Relaxation trajectory. Restart uses the last frame when available. |
+| `logfile` | string | `relax.log` | Optimizer log file. |
+| `directory` | string | `relax_run` | Calculator working directory. |
 
 ### 2.7 Vibration Analysis
 **Type**: `vibration`
@@ -138,8 +160,8 @@ calculation:
 | `nfree` | int | `2` | Number of displacements per degree of freedom (2 or 4). |
 | `indices` | list[int] | `None` | List of atom indices to vibrate. If None, all atoms are vibrated. |
 | `name` | string | `vib` | Name prefix for vibration files. |
-| `temperature` | float | `300.0` | Temperature for thermodynamic analysis (K). |
 | `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
+| `directory` | string | `vib_run` | Calculator working directory. |
 
 Thermochemistry is controlled by an optional nested block:
 
@@ -237,6 +259,7 @@ IRC follows the legacy main-branch `sella_IRC.py` behavior through YAML. It star
 | `gamma` | float | `0.1` | Sella IRC parameter. |
 | `irctol` | float | `0.01` | IRC tolerance. |
 | `keep_going` | bool | `false` | Forwarded to `sella.IRC`. |
+| `directory` | string | `irc_run` | Calculator working directory. |
 
 ---
 
@@ -266,19 +289,36 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 ### 3.2 Deep Potential (DP)
 **Name**: `dp`
 
-DP support is planned and validated after the ABACUS-first 2.0.0 acceptance path.
-The intended implementation is documented in `../developer/plans/ML_CALCULATOR_PLAN.md`.
+DP support uses the unified deepmd-kit ASE interface, `deepmd.calculator.DP`.
+deepmd-kit detects the model backend from the model file; ATST-Tools does not
+provide a separate backend selector. Multi-head DPA/DPA3 models should set
+`head`.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `model` | string | **Required** | Absolute path to the frozen model file (`.pb` or `.pt`). |
-| `type_map` | list[string] | `None` | Optional element type map passed to deepmd-kit. |
-| `omp` | int | `1` | Planned OpenMP thread count for DP evaluation. |
-| `share_calculator` | bool | `true` | Planned calculator reuse policy for workflows where ASE permits sharing. |
+| `model` | string | **Required** | Path to the frozen model file (`.pb`, `.pt`, etc.). |
+| `head` | string/null | `None` | Model head for multi-head DPA/DPA3 models. |
+| `type_map` | list[string] | `None` | Element order converted to deepmd-kit `type_dict`. Mutually exclusive with `type_dict`. |
+| `type_dict` | dict[string,int] | `None` | Explicit deepmd-kit element-to-type-index mapping. |
+| `omp` | int | unset | OpenMP thread count for DP evaluation (`OMP_NUM_THREADS`). |
+| `share_calculator` | bool | `true` | Reuse one DP calculator where ASE permits shared calculators, especially serial NEB/DyNEB/AutoNEB. |
 
 ---
 
-## 4. Example Configuration
+## 4. Schema Governance
+
+The YAML schema is the source of truth for variable types, defaults, and descriptions. When adding a new workflow or calculator option:
+
+1. Add the field to `src/atst_tools/utils/config_schema.py`.
+2. Provide a type, default when safe, and `Field(description=...)`.
+3. Add validation for enums, positive numeric values, and mutually exclusive inputs.
+4. Regenerate `docs/user/YAML_INPUT_VARIABLES.md` with `python -m atst_tools.utils.config_docs`.
+5. Update this reference and one example YAML when the option is user-facing.
+6. Add or update unit tests around `ConfigLoader.normalize()` / `validate()`.
+
+Unknown `calculation` and DP calculator fields are rejected by default. ABACUS INPUT variables should go under `calculator.abacus.parameters`, which is intentionally pass-through.
+
+## 5. Example Configuration
 
 See `examples/` directory for full working examples of each calculation type.
 
@@ -292,5 +332,7 @@ calculation:
 calculator:
   name: dp
   dp:
-    model: /path/to/graph.pb
+    model: /path/to/model.pb-or-pt
+    head: null
+    share_calculator: true
 ```

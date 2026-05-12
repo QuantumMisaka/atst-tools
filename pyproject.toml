@@ -13,6 +13,7 @@ dependencies = [
     "numpy",
     "scipy",
     "matplotlib",
+    "pydantic>=2,<3",
     "ruamel.yaml",
     "seekpath",
     "sella",

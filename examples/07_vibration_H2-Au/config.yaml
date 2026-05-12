@@ -5,7 +5,8 @@ calculation:
   delta: 0.01
   nfree: 2
   name: vib_calc
-  temperature: 300.0
+  thermochemistry:
+    temperature: 300.0
 
 calculator:
   name: abacus

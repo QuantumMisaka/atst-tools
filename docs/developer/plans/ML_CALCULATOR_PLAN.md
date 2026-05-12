@@ -1,6 +1,6 @@
 # Machine-Learning Calculator Implementation Plan
 
-**Status**: Planned after ABACUS 2.0.0 acceptance  
+**Status**: Implemented in CLI/workflow architecture; real DP workflow regression pending
 **Primary baseline**: `main` branch `ase-dp/*.py` scripts  
 **Target interface**: `atst run config.yaml`
 
@@ -49,7 +49,8 @@ calculation:
 calculator:
   name: dp
   dp:
-    model: /path/to/frozen_model.pb
+    model: /path/to/frozen_model.pb-or-pt
+    head: Domains_SemiCond
     type_map: [H, C, O, Pt]
     omp: 4
     share_calculator: true
@@ -62,40 +63,46 @@ Required fields:
 
 Optional fields:
 
-- `type_map`: forwarded to `deepmd.calculator.DP`
+- `head`: forwarded to `deepmd.calculator.DP` for DPA/DPA3 multi-head models
+- `type_map`: converted to deepmd-kit `type_dict`
+- `type_dict`: direct expert override for deepmd-kit type indices; mutually exclusive with `type_map`
 - `omp`: sets `OMP_NUM_THREADS` before calculator construction
 - `share_calculator`: enables reuse for workflows where ASE allows shared
   calculators, matching the intent of the main-branch scripts to avoid repeated
   model loading
 
+Backend selection is intentionally not exposed in ATST-Tools.  The unified
+`deepmd.calculator.DP` interface delegates model loading to deepmd-kit
+`DeepPot`, which detects the backend from the model file.
+
 ## Implementation Tasks
 
-1. Split the DP adapter out of `factory.py` into `src/atst_tools/calculators/dp.py`.
-2. Preserve the current factory behavior:
+1. [x] Split the DP adapter out of `factory.py` into `src/atst_tools/calculators/dp.py`.
+2. [x] Preserve the current factory behavior:
    - import `deepmd.calculator.DP` lazily;
    - raise a clear installation error when deepmd-kit is unavailable;
    - cache calculators by absolute model path when sharing is enabled.
-3. Extend DP parameters:
+3. [x] Extend DP parameters:
+   - `head`;
    - `type_map`;
+   - `type_dict`;
    - `omp`;
    - `share_calculator`;
-   - future `backend` selector if `deepmd_pt.utils.ase_calc.DPCalculator` must
-     be supported for a specific model family.
-4. Audit workflow sharing:
+4. [x] Audit workflow sharing:
    - NEB/D2S can share calculators only when ASE accepts
      `allow_shared_calculator=True`;
    - ABACUS must keep per-image directories and must not share calculators;
    - Dimer, Sella, Relax, and Vibration can construct one calculator per active
      structure.
-5. Convert the existing `examples/*/config_dp.yaml` files from absolute local
+5. [x] Convert the existing `examples/*/config_dp.yaml` files from absolute local
    model paths to documented placeholders or a small test fixture path outside
    git-tracked heavy assets.
-6. Add unit tests for:
+6. [x] Add unit tests for:
    - DP config validation;
    - lazy import error;
    - `type_map`, `omp`, and `share_calculator` handling;
    - factory cache identity and cache bypass.
-7. Add integration validation on SAI after ABACUS acceptance:
+7. [ ] Add integration validation on SAI after ABACUS acceptance:
    - use the `atst-dev` environment with deepmd-kit installed;
    - run `relax`, `neb`, `dimer`, `sella`, `vibration`, and `d2s` smoke cases;
    - record the results in the acceptance report.
@@ -117,6 +124,6 @@ Optional fields:
 
 - `atst run --dry-run examples/*/config_dp.yaml` passes for all DP examples.
 - Unit tests cover the DP adapter without requiring deepmd-kit.
-- At least one DP smoke case runs on SAI before DP support is marked complete.
+- At least one DP smoke case runs on SAI before DP support is marked complete for production science.
 - Documentation states clearly that ABACUS is the primary backend for 2.0.0 and
   DP is supported after its own validation stage.

@@ -1,3 +1,4 @@
+import os
 import sys
 import types
 
@@ -68,6 +69,124 @@ def test_dp_factory_uses_deepmd_calculator(monkeypatch):
     calc = factory.CalculatorFactory.get_calculator("dp", config)
 
     assert calc.kwargs["model"] == "model.pb"
+
+
+def test_dp_factory_passes_head_and_type_dict(monkeypatch):
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    factory.DeepPotentialFactory._instances.clear()
+
+    config = {
+        "calculator": {
+            "name": "dp",
+            "dp": {
+                "model": "model.pt",
+                "head": "Domains_SemiCond",
+                "type_map": ["H", "Li", "Si"],
+            },
+        }
+    }
+    calc = factory.CalculatorFactory.get_calculator("dp", config)
+
+    assert calc.kwargs["model"] == "model.pt"
+    assert calc.kwargs["head"] == "Domains_SemiCond"
+    assert calc.kwargs["type_dict"] == {"H": 0, "Li": 1, "Si": 2}
+    assert "type_map" not in calc.kwargs
+
+
+def test_dp_factory_rejects_type_map_and_type_dict_conflict(monkeypatch):
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    factory.DeepPotentialFactory._instances.clear()
+
+    config = {
+        "calculator": {
+            "name": "dp",
+            "dp": {
+                "model": "model.pt",
+                "type_map": ["H"],
+                "type_dict": {"H": 0},
+            },
+        }
+    }
+
+    with pytest.raises(ValueError, match="type_map.*type_dict"):
+        factory.CalculatorFactory.get_calculator("dp", config)
+
+
+def test_dp_factory_sets_omp_threads(monkeypatch):
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    factory.DeepPotentialFactory._instances.clear()
+
+    config = {"calculator": {"name": "dp", "dp": {"model": "model.pt", "omp": 4}}}
+    factory.CalculatorFactory.get_calculator("dp", config)
+
+    assert os.environ["OMP_NUM_THREADS"] == "4"
+
+
+def test_dp_factory_cache_key_includes_head(monkeypatch):
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    factory.DeepPotentialFactory._instances.clear()
+
+    first = {"calculator": {"name": "dp", "dp": {"model": "model.pt", "head": "A"}}}
+    second = {"calculator": {"name": "dp", "dp": {"model": "model.pt", "head": "B"}}}
+
+    calc_a1 = factory.CalculatorFactory.get_calculator("dp", first)
+    calc_a2 = factory.CalculatorFactory.get_calculator("dp", first)
+    calc_b = factory.CalculatorFactory.get_calculator("dp", second)
+
+    assert calc_a1 is calc_a2
+    assert calc_a1 is not calc_b
+
+
+def test_dp_factory_respects_share_calculator_false(monkeypatch):
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    factory.DeepPotentialFactory._instances.clear()
+
+    config = {
+        "calculator": {
+            "name": "dp",
+            "dp": {"model": "model.pt", "share_calculator": False},
+        }
+    }
+    calc_a = factory.CalculatorFactory.get_calculator("dp", config)
+    calc_b = factory.CalculatorFactory.get_calculator("dp", config)
+
+    assert calc_a is not calc_b
 
 
 def test_invalid_calculator_name_raises():

@@ -10,6 +10,7 @@ from typing import Any, Dict
 from ase.calculators.calculator import Calculator
 
 from atst_tools.calculators.abacuslite_backend import Abacus, AbacusProfile, BACKEND_SOURCE
+from atst_tools.calculators.dp import DeepPotentialFactory
 
 
 _ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters"}
@@ -108,42 +109,6 @@ class AbacusFactory:
             omp_num_threads=omp,
         )
         return Abacus(directory=directory, profile=profile, **parameters)
-
-
-class DeepPotentialFactory:
-    """Factory for creating DeepMD ASE calculators with optional sharing."""
-
-    _instances: Dict[str, Calculator] = {}
-
-    @staticmethod
-    def get_calculator(
-        config: Dict[str, Any],
-        shared: bool = True,
-        **kwargs: Any,
-    ) -> Calculator:
-        try:
-            from deepmd.calculator import DP
-        except ImportError as exc:
-            raise ImportError(
-                "deepmd-kit is not installed. Install it to use the DP calculator."
-            ) from exc
-
-        dp_params = dict(config.get("calculator", {}).get("dp", {}))
-        if not dp_params and "parameters" in config:
-            dp_params = dict(config["parameters"])
-        dp_params.update(kwargs)
-
-        model_file = dp_params.get("model", "frozen_model.pb")
-        type_map = dp_params.get("type_map")
-        model_key = os.path.abspath(model_file)
-
-        if shared and model_key in DeepPotentialFactory._instances:
-            return DeepPotentialFactory._instances[model_key]
-
-        calc = DP(model=model_file, type_map=type_map)
-        if shared:
-            DeepPotentialFactory._instances[model_key] = calc
-        return calc
 
 
 class CalculatorFactory:

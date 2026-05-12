@@ -26,7 +26,8 @@ class AbacusSella:
     def __init__(self, init_Atoms, config, calc_name, calc_config,
                  traj_file='run_sella.traj',
                  sella_eta=0.005,
-                 fmax=0.05):
+                 fmax=0.05,
+                 order=1):
         """
         Initialize Sella method by using ASE-ABACUS.
 
@@ -38,6 +39,7 @@ class AbacusSella:
             traj_file (str): Path to output trajectory file.
             sella_eta (float): Sella eta parameter.
             fmax (float): Force convergence criterion.
+            order (int): Saddle-point order.
         """
         self.init_Atoms = init_Atoms
         self.config = config
@@ -46,6 +48,7 @@ class AbacusSella:
         self.traj_file = traj_file
         self.sella_eta = sella_eta
         self.fmax = fmax
+        self.order = order
         self.max_steps = calc_config.get('max_steps')
         
     def set_calculator(self):
@@ -92,6 +95,7 @@ class AbacusSella:
             ts_atoms,
             trajectory=traj,
             eta = self.sella_eta,
+            order=self.order,
         )
         
         if self.max_steps is None:

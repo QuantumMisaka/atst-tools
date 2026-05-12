@@ -5,6 +5,7 @@ import os
 from ase.io import write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
 
@@ -35,14 +36,15 @@ class RelaxWorkflow:
         """
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config
-        self.fmax = calc_config.get('fmax', 0.05)
-        self.max_steps = calc_config.get('max_steps', 200)
-        self.optimizer_name = calc_config.get('optimizer', 'FIRE')
-        self.traj_file = calc_config.get('trajectory', 'relax.traj')
-        self.logfile = calc_config.get('logfile', 'relax.log')
-        self.init_structure = calc_config.get('init_structure', 'init.stru')
-        self.restart = calc_config.get('restart', False)
+        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        calc_config = self.calc_config
+        self.fmax = calc_config['fmax']
+        self.max_steps = calc_config['max_steps']
+        self.optimizer_name = calc_config['optimizer']
+        self.traj_file = calc_config['trajectory']
+        self.logfile = calc_config['logfile']
+        self.init_structure = calc_config['init_structure']
+        self.restart = calc_config['restart']
 
     def _get_optimizer(self):
         """
@@ -88,7 +90,7 @@ class RelaxWorkflow:
 
         # 2. Setup Calculator
         # Extract directory from config or use default
-        directory = self.calc_config.get('directory', 'relax_run')
+        directory = self.calc_config['directory']
         if 'abacus' in self.config:
              # Fallback to old config location if present
              directory = self.config['abacus'].get('directory', directory)

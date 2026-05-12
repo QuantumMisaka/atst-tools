@@ -284,22 +284,22 @@ def _add_vibration_parser(subparsers):
 
 def _vibration_post_command(args):
     config = ConfigLoader.load(args.config)
-    ConfigLoader.validate(config)
+    config = ConfigLoader.normalize(config)
     calc_config = config["calculation"]
-    cache_status = check_cache_files(calc_config.get("name", "vib"))
+    cache_status = check_cache_files(calc_config["name"])
     if cache_status["invalid"]:
         bad_files = ", ".join(str(path) for path in cache_status["invalid"])
         raise RuntimeError(
             "Invalid vibration cache file(s) detected. Remove them or rerun with "
             f"`atst run --restart {args.config}` before post-processing: {bad_files}"
         )
-    atoms = read_structure(calc_config.get("init_structure", "vib_init.stru"))
+    atoms = read_structure(calc_config["init_structure"])
     vib = Vibrations(
         atoms,
         indices=calc_config.get("indices"),
-        delta=calc_config.get("delta", 0.01),
-        nfree=calc_config.get("nfree", 2),
-        name=calc_config.get("name", "vib"),
+        delta=calc_config["delta"],
+        nfree=calc_config["nfree"],
+        name=calc_config["name"],
     )
 
     vib.summary()

@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 from ase.thermochemistry import HarmonicThermo, IdealGasThermo
 
+from atst_tools.utils.config_schema import ThermochemistryConfig
+
 
 def _real_positive_energies(vib_energies, ignore_imag_modes: bool) -> np.ndarray:
     energies = np.asarray(vib_energies)
@@ -25,10 +27,10 @@ def compute_vibration_thermochemistry(
     zpe: float,
 ) -> dict[str, Any]:
     """Compute harmonic or ideal-gas thermochemistry from vibration energies."""
-    thermo_config = dict(calc_config.get("thermochemistry", {}))
-    model = thermo_config.get("model", "harmonic")
-    temperature = float(thermo_config.get("temperature", calc_config.get("temperature", 300.0)))
-    ignore_imag_modes = bool(thermo_config.get("ignore_imag_modes", True))
+    thermo_config = ThermochemistryConfig.model_validate(calc_config.get("thermochemistry", {})).model_dump()
+    model = thermo_config["model"]
+    temperature = float(thermo_config["temperature"])
+    ignore_imag_modes = bool(thermo_config["ignore_imag_modes"])
     energies = _real_positive_energies(vib_energies, ignore_imag_modes)
 
     result: dict[str, Any] = {
@@ -65,11 +67,11 @@ def compute_vibration_thermochemistry(
         return result
 
     if model == "ideal_gas":
-        pressure = float(thermo_config.get("pressure", 101325.0))
-        geometry = thermo_config.get("geometry", "nonlinear")
-        symmetrynumber = int(thermo_config.get("symmetrynumber", 1))
-        spin = float(thermo_config.get("spin", 0))
-        potentialenergy = float(thermo_config.get("potentialenergy", 0.0))
+        pressure = float(thermo_config["pressure"])
+        geometry = thermo_config["geometry"]
+        symmetrynumber = int(thermo_config["symmetrynumber"])
+        spin = float(thermo_config["spin"])
+        potentialenergy = float(thermo_config["potentialenergy"])
         thermo = IdealGasThermo(
             energies,
             geometry=geometry,

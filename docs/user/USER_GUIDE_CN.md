@@ -88,6 +88,8 @@ calculator:
   name: dp
   dp:
     model: frozen_model.pb
+    head: null  # DPA/DPA3 multi-head 模型按需设置
+    share_calculator: true
 ```
 运行:
 ```bash
@@ -95,6 +97,8 @@ atst run config_relax.yaml
 ```
 
 ### 3.3 配置 Schema（字段说明）
+`atst run` 会通过 Pydantic schema 校验并补齐 YAML 默认值。除结构输入、NEB 初始链/生成输入、DP model 等必须由用户指定的变量外，常用算法变量都有默认值。完整字段表见 `docs/user/CONFIG_REFERENCE.md`。
+
 - calculation
   - type: neb|autoneb|dimer|sella|relax|vibration|d2s
   - init_chain|init_structure: 初始路径或结构文件
@@ -102,7 +106,7 @@ atst run config_relax.yaml
 - calculator
   - name: abacus|dp
   - abacus: command|mpi|omp|directory|parameters（pseudopotentials|basissets|xc|ecutwfc 等）
-  - dp: model|type_map
+  - dp: model|head|type_map|type_dict|omp|share_calculator
 
 ### 3.4 示例索引 (Example Index)
 - **NEB (Li-Si)**: `examples/01_neb_Li-Si/config.yaml`

@@ -4,9 +4,13 @@ calculation:
   delta: 0.01
   nfree: 2
   name: vib_calc
-  temperature: 300.0
+  thermochemistry:
+    temperature: 300.0
 
 calculator:
   name: dp
   dp:
-    model: /home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools/temp_repos/dp_model/DPA-3.1-3M.pt
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Domains_SSE_PBE
+    omp: 4
+    share_calculator: true

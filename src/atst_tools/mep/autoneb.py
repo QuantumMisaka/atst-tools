@@ -11,6 +11,8 @@ from ase.optimize import FIRE, BFGS
 
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
 
 class AbacusAutoNEB(AutoNEB):
@@ -31,7 +33,7 @@ class AbacusAutoNEB(AutoNEB):
     """
     
     def __init__(self, attach_calculators, prefix, n_simul, n_max,
-                 iter_folder='AutoNEB_iter', **kwargs):
+                 iter_folder='AutoNEB_iter', allow_shared_calculator=False, **kwargs):
         """
         Initialize AbacusAutoNEB.
 
@@ -43,6 +45,7 @@ class AbacusAutoNEB(AutoNEB):
             iter_folder (str): Directory to store iteration history.
             **kwargs: Additional arguments for AutoNEB.
         """
+        self.allow_shared_calculator = allow_shared_calculator
         super().__init__(attach_calculators, prefix, n_simul, n_max, 
                          iter_folder=iter_folder, **kwargs)
 
@@ -89,7 +92,8 @@ class AbacusAutoNEB(AutoNEB):
                         method=self.method,
                         parallel=self.parallel,
                         remove_rotation_and_translation=self.remove_rotation_and_translation,
-                        climb=climb)
+                        climb=climb,
+                        allow_shared_calculator=self.allow_shared_calculator)
 
         # 4. Run Optimization
         logpath = (self.iter_folder
@@ -171,35 +175,48 @@ class AutoNEBRunner:
         """
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config
-        self.prefix = calc_config.get('prefix', 'run_autoneb')
-        self.n_simul = calc_config.get('n_simul', world.size)
-        self.n_max = calc_config.get('n_max', 10)
-        self.algorism = calc_config.get('algorism', 'improvedtangent')
-        requested_parallel = calc_config.get('parallel', True)
+        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        calc_config = self.calc_config
+        self.prefix = calc_config['prefix']
+        self.n_simul = calc_config.get('n_simul') or world.size
+        self.n_max = calc_config['n_max']
+        self.algorism = calc_config['algorism']
+        requested_parallel = calc_config['parallel']
         self.parallel = requested_parallel and world.size > 1
         if requested_parallel and not self.parallel:
             print("Notice: image-level AutoNEB parallelism requires MPI-launched atst run; running images serially.")
-        self.fmax = calc_config.get('fmax', 0.05)
+        self.fmax = calc_config['fmax']
         if isinstance(self.fmax, (list, tuple)):
             self.fmax = self.fmax[-1]
-        self.maxsteps = calc_config.get('maxsteps', 100)
-        self.optimizer_name = calc_config.get('optimizer', 'FIRE')
-        self.climb = calc_config.get('climb', True)
-        self.iter_folder = calc_config.get('iter_folder', 'AutoNEB_iter')
-        self.restart = calc_config.get('restart', False)
+        self.maxsteps = calc_config['maxsteps']
+        self.optimizer_name = calc_config['optimizer']
+        self.climb = calc_config['climb']
+        self.iter_folder = calc_config['iter_folder']
+        self.restart = calc_config['restart']
+        self.allow_shared_calculator = should_share_calculator(
+            self.calc_name,
+            self.config,
+            parallel=self.parallel,
+        )
+        self._shared_calc = None
         
         # Initial chain
-        init_chain_file = calc_config.get('init_chain', 'init_neb_chain.traj')
+        init_chain_file = calc_config['init_chain']
         self.init_chain = read(init_chain_file, index=':')
 
     def _base_directory(self):
-        base_dir = self.calc_config.get('directory', 'autoneb_run')
+        base_dir = self.calc_config['directory']
         if 'calculator' in self.config:
             base_dir = self.config.get('calculator', {}).get(self.calc_name, {}).get('directory', base_dir)
         if 'abacus' in self.config:
             base_dir = self.config['abacus'].get('directory', base_dir)
         return base_dir
+
+    def _get_calculator(self, directory, shared=None):
+        kwargs = {"directory": directory}
+        if is_dp_calculator(self.calc_name) and shared is not None:
+            kwargs["shared"] = shared
+        return CalculatorFactory.get_calculator(self.calc_name, self.config, **kwargs)
 
     def attach_calculators(self, images):
         """
@@ -208,24 +225,26 @@ class AutoNEBRunner:
         Args:
             images (list): List of Atoms objects to attach calculators to.
         """
+        if self.allow_shared_calculator:
+            if self._shared_calc is None:
+                self._shared_calc = self._get_calculator(
+                    f"{self._base_directory()}/shared",
+                    shared=True,
+                )
+            for image in images:
+                image.calc = self._shared_calc
+            return
+
         for i, image in enumerate(images):
              if self.parallel:
                  base_dir = self._base_directory()
                  image_dir = f"{base_dir}-rank{world.rank}"
                  
-                 image.calc = CalculatorFactory.get_calculator(
-                    self.calc_name, 
-                    self.config, 
-                    directory=image_dir
-                 )
+                 image.calc = self._get_calculator(image_dir, shared=False)
              else:
                  base_dir = self._base_directory()
                  
-                 image.calc = CalculatorFactory.get_calculator(
-                    self.calc_name, 
-                    self.config, 
-                    directory=base_dir
-                 )
+                 image.calc = self._get_calculator(base_dir)
 
     def _get_optimizer(self):
         """
@@ -257,11 +276,7 @@ class AutoNEBRunner:
         base_dir = self._base_directory()
         ensure_neb_endpoint_results(
             self.init_chain,
-            lambda directory: CalculatorFactory.get_calculator(
-                self.calc_name,
-                self.config,
-                directory=f"{base_dir}/{directory}",
-            ),
+            lambda directory: self._get_calculator(f"{base_dir}/{directory}"),
             policy=endpoint_policy(self.calc_config, default="auto"),
             directories=("endpoint_initial", "endpoint_final"),
             context="AutoNEB",
@@ -280,6 +295,7 @@ class AutoNEBRunner:
             fmax=self.fmax,
             maxsteps=self.maxsteps,
             climb=self.climb,
+            allow_shared_calculator=self.allow_shared_calculator,
         )
         
         # Write initial files if they don't exist

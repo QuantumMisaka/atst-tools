@@ -3,20 +3,12 @@
 from pathlib import Path
 from typing import Dict, Any
 
-
-VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc")
-VALID_CALCULATORS = ("abacus", "dp", "deepmd")
-
-_REQUIRED_CALCULATION_FIELDS = {
-    "neb": (),
-    "autoneb": ("init_chain",),
-    "dimer": ("init_structure",),
-    "sella": ("init_structure",),
-    "d2s": ("init_file", "final_file"),
-    "relax": ("init_structure",),
-    "vibration": ("init_structure",),
-    "irc": ("init_structure",),
-}
+from atst_tools.utils.config_schema import (
+    VALID_CALCULATION_TYPES,
+    VALID_CALCULATORS,
+    normalize_config,
+    parse_config,
+)
 
 
 class ConfigLoader:
@@ -47,18 +39,42 @@ class ConfigLoader:
             # Prefer ruamel.yaml for better parsing, fallback to PyYAML
             try:
                 from ruamel.yaml import YAML
+                from ruamel.yaml.error import YAMLError
+
                 yaml_loader = YAML(typ='safe', pure=True)
-                config = yaml_loader.load(f)
+                try:
+                    config = yaml_loader.load(f)
+                except YAMLError as exc:
+                    raise ValueError(f"Failed to parse YAML configuration {config_file}: {exc}") from exc
             except ImportError:
                 import yaml
-                config = yaml.safe_load(f)
+                try:
+                    config = yaml.safe_load(f)
+                except yaml.YAMLError as exc:
+                    raise ValueError(f"Failed to parse YAML configuration {config_file}: {exc}") from exc
                 
         return config
 
     @staticmethod
+    def normalize(config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate a configuration and populate schema defaults.
+
+        Args:
+            config (dict): Raw configuration dictionary.
+
+        Returns:
+            dict: Normalized configuration dictionary with default values.
+
+        Raises:
+            ValueError: If validation fails.
+        """
+        return normalize_config(config)
+
+    @staticmethod
     def validate(config: Dict[str, Any]) -> bool:
         """
-        Validate configuration structure (Basic check).
+        Validate configuration structure and values.
 
         Args:
             config (dict): Configuration dictionary to validate.
@@ -69,97 +85,5 @@ class ConfigLoader:
         Raises:
             ValueError: If validation fails (missing sections or invalid types).
         """
-        if not isinstance(config, dict):
-            raise ValueError("Configuration must be a YAML mapping")
-
-        # 1. Check for required calculation section
-        if 'calculation' not in config:
-            raise ValueError("Missing required section 'calculation' in configuration")
-
-        calculation = config['calculation']
-        if not isinstance(calculation, dict):
-            raise ValueError("'calculation' must be a mapping")
-
-        # 2. Validate calculation type and required workflow inputs.
-        calc_type = calculation.get('type')
-        if calc_type not in VALID_CALCULATION_TYPES:
-            raise ValueError(
-                f"Unsupported calculation type: {calc_type}. "
-                f"Supported: {list(VALID_CALCULATION_TYPES)}"
-            )
-
-        missing_fields = [
-            field for field in _REQUIRED_CALCULATION_FIELDS[calc_type]
-            if field not in calculation
-        ]
-        if missing_fields:
-            raise ValueError(
-                f"Missing required field(s) for calculation.type={calc_type}: "
-                f"{', '.join(missing_fields)}"
-            )
-
-        if calc_type == "neb":
-            has_init_chain = "init_chain" in calculation
-            has_make = "make" in calculation
-            if has_init_chain == has_make:
-                raise ValueError("calculation.type=neb requires exactly one of 'init_chain' or 'make'")
-            if has_make and not isinstance(calculation["make"], dict):
-                raise ValueError("'calculation.make' must be a mapping")
-            if has_make:
-                missing_make = [
-                    field for field in ("init_structure", "final_structure", "n_images")
-                    if field not in calculation["make"]
-                ]
-                if missing_make:
-                    raise ValueError(
-                        "Missing required field(s) for calculation.make: "
-                        + ", ".join(missing_make)
-                    )
-
-        if calc_type == "irc" and calculation.get("direction", "both") not in {"both", "forward", "reverse"}:
-            raise ValueError("calculation.direction for irc must be 'both', 'forward', or 'reverse'")
-
-        if calculation.get("endpoint_singlepoint", "auto") not in {"auto", "always", "never"}:
-            raise ValueError("calculation.endpoint_singlepoint must be 'auto', 'always', or 'never'")
-
-        if calc_type == "d2s" and "endpoint_optimization" in calculation:
-            endpoint_optimization = calculation["endpoint_optimization"]
-            if not isinstance(endpoint_optimization, dict):
-                raise ValueError("'calculation.endpoint_optimization' must be a mapping")
-
-        if calc_type == "vibration" and "thermochemistry" in calculation:
-            thermochemistry = calculation["thermochemistry"]
-            if not isinstance(thermochemistry, dict):
-                raise ValueError("'calculation.thermochemistry' must be a mapping")
-            model = thermochemistry.get("model", "harmonic")
-            if model not in {"harmonic", "ideal_gas"}:
-                raise ValueError("vibration thermochemistry.model must be 'harmonic' or 'ideal_gas'")
-
-        # 3. Validate calculator configuration. The root-level 'abacus' layout is
-        # retained only as a migration path; new YAML should use calculator.name.
-        if 'calculator' in config:
-            calculator = config['calculator']
-            if not isinstance(calculator, dict):
-                raise ValueError("'calculator' must be a mapping")
-            calc_name = calculator.get('name')
-            if calc_name not in VALID_CALCULATORS:
-                raise ValueError(
-                    f"Unsupported calculator name: {calc_name}. "
-                    f"Supported: {list(VALID_CALCULATORS)}"
-                )
-            section = 'dp' if calc_name == 'deepmd' else calc_name
-            if section not in calculator:
-                raise ValueError(
-                    f"Missing calculator.{section} section for calculator.name={calc_name}"
-                )
-            if not isinstance(calculator[section], dict):
-                raise ValueError(f"'calculator.{section}' must be a mapping")
-            if section == "dp" and not calculator[section].get("model"):
-                raise ValueError("Missing required field calculator.dp.model")
-        elif 'abacus' in config:
-            if not isinstance(config['abacus'], dict):
-                raise ValueError("'abacus' must be a mapping")
-        else:
-            raise ValueError("Missing calculator configuration. Use 'calculator.name' and a matching section.")
-
+        parse_config(config)
         return True

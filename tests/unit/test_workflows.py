@@ -69,6 +69,223 @@ def test_d2s_workflow_uses_unified_constructor(monkeypatch):
     assert calls == [(1, "dp")]
 
 
+def test_run_neb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    calls = []
+    neb_kwargs = {}
+    shared_calc = DummyCalc(1.0)
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            neb_kwargs.update(kwargs)
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None):
+            self.neb = neb
+
+        def run(self, fmax=None, steps=None):
+            calls.append(("run", fmax, steps))
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        calls.append(("calc", kwargs.get("shared"), kwargs.get("directory")))
+        return shared_calc if kwargs.get("shared") else DummyCalc(2.0)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", fake_get_calculator)
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {"type": "neb", "init_chain": "chain.traj", "parallel": False, "max_steps": 3},
+    )
+
+    assert neb_kwargs["allow_shared_calculator"] is True
+    assert chain[1].calc is shared_calc
+    assert chain[2].calc is shared_calc
+    assert ("run", 0.05, 3) in calls
+
+
+def test_run_neb_respects_dp_share_calculator_false(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    neb_kwargs = {}
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            neb_kwargs.update(kwargs)
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {
+            "calculator": {
+                "name": "dp",
+                "dp": {"model": "model.pt", "share_calculator": False},
+            }
+        },
+        "dp",
+        {"type": "neb", "init_chain": "chain.traj", "parallel": False},
+    )
+
+    assert neb_kwargs["allow_shared_calculator"] is False
+    assert chain[1].calc is not chain[2].calc
+
+
+def test_autoneb_runner_reuses_shared_dp_calculator(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    shared_calc = DummyCalc(1.0)
+    calls = []
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        calls.append(kwargs)
+        return shared_calc if kwargs.get("shared") else DummyCalc(2.0)
+
+    monkeypatch.setattr(autoneb.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+    runner.attach_calculators(chain[1:-1])
+
+    assert runner.allow_shared_calculator is True
+    assert chain[1].calc is shared_calc
+    assert chain[2].calc is shared_calc
+    assert calls[0]["shared"] is True
+
+
+def test_d2s_rough_dyneb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    shared_calc = DummyCalc(1.0)
+    dyneb_kwargs = {}
+
+    class FakeSolver:
+        def run(self):
+            return chain
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        return shared_calc if kwargs.get("shared") else DummyCalc(2.0)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", fake_get_calculator)
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: dyneb_kwargs.update(kwargs) or object())
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {"type": "d2s", "method": "dimer", "neb": {"n_images": 2}},
+    )
+    workflow.run_rough_neb(chain[0], chain[-1])
+
+    assert dyneb_kwargs["allow_shared_calculator"] is True
+    assert chain[1].calc is shared_calc
+    assert chain[2].calc is shared_calc
+
+
+def test_run_dimer_preserves_dp_calculator_selection(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    calls = []
+
+    class FakeDimer:
+        def __init__(self, init_Atoms, config, calc_name, calc_config, **kwargs):
+            calls.append(
+                (
+                    "init",
+                    calc_name,
+                    config["calculator"]["dp"]["model"],
+                    kwargs["dimer_separation"],
+                    kwargs["max_num_rot"],
+                )
+            )
+
+        def run(self, fmax=None, max_steps=None):
+            calls.append(("run", fmax, max_steps))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main.os.path, "exists", lambda path: path == "init.traj")
+    monkeypatch.setattr(main, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(main, "AbacusDimer", FakeDimer)
+
+    main.run_dimer(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "dimer",
+            "init_structure": "init.traj",
+            "fmax": 0.2,
+            "max_steps": 5,
+            "dimer_separation": 0.03,
+            "max_num_rot": 7,
+        },
+    )
+
+    assert calls == [("init", "dp", "model.pt", 0.03, 7), ("run", 0.2, 5)]
+
+
+def test_run_sella_preserves_dp_calculator_selection(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    calls = []
+
+    class FakeSella:
+        def __init__(self, init_Atoms, config, calc_name, calc_config, **kwargs):
+            calls.append(("init", calc_name, config["calculator"]["dp"]["model"], kwargs["order"]))
+
+        def run(self):
+            calls.append(("run",))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(main, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(main, "AbacusSella", FakeSella)
+
+    main.run_sella(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {"type": "sella", "init_structure": "init.traj", "fmax": 0.2, "max_steps": 5, "order": 2},
+    )
+
+    assert calls == [("init", "dp", "model.pt", 2), ("run",)]
+
+
 def test_d2s_vibration_is_disabled_by_default(monkeypatch):
     from atst_tools.workflows import d2s
 

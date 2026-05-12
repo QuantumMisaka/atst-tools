@@ -14,6 +14,8 @@ def test_all_example_configs_parse_and_validate():
         with config_file.open(encoding="utf-8") as handle:
             config = yaml.load(handle)
         assert ConfigLoader.validate(config) is True, config_file
+        normalized = ConfigLoader.normalize(config)
+        assert "config_version" in normalized, config_file
 
 
 def test_abacus_examples_use_sai_gpu_solver():

@@ -129,6 +129,26 @@ src/atst_tools/
     3.  **完整快照**: 2.0.0-rc 保留整个 `ASE_interface` 目录，包含 `abacuslite/`、上游示例、测试和说明文档，便于后续与上游同步和独立验证。
     4.  **文档记录**: 每次同步需在 `CHANGELOG` 或 Commit Message 中注明上游 Commit ID。
 
+### 4.4 YAML 输入治理规范 (YAML Input Governance)
+
+`config.yaml` 的变量定义由 `src/atst_tools/utils/config_schema.py` 统一治理。`atst run` 必须先调用 `ConfigLoader.normalize()`，再把带默认值的规范化配置传给 workflow；workflow 内不得为用户 YAML 变量另行维护一套硬编码默认值。
+
+新增或修改 YAML 变量时必须遵循以下流程：
+
+1.  **Schema first**: 先在 Pydantic schema 中定义字段，明确类型、默认值和 `Field(description=...)`。
+2.  **Canonical path only**: 每个用户变量只能有一个公开 YAML path；不要新增 alias、重复字段或兼容性旁路。ABACUS INPUT 变量例外，统一放在 `calculator.abacus.parameters` 透传。
+3.  **Required by intent**: 只有必须由用户提供且无安全默认值的变量保持 required，例如结构文件、NEB chain、DP model。
+4.  **Runtime consumption**: 如果变量影响计算行为，workflow/calculator 必须实际读取规范化后的字段；直接构造 workflow 的内部测试路径应通过 `apply_calculation_defaults()` 复用同一套 schema 默认值。
+5.  **Generated variable docs**: 修改 schema 后运行：
+    ```bash
+    python -m atst_tools.utils.config_docs --output docs/user/YAML_INPUT_VARIABLES.md
+    ```
+    该文件是非 calculator YAML 变量表的自动导出结果。
+6.  **User docs and examples**: 同步更新 `docs/user/CONFIG_REFERENCE.md`、必要的用户向导、以及对应 example YAML。
+7.  **Governance tests**: 更新 `tests/unit/test_config.py` 和 `tests/unit/test_config_governance.py`，确保字段说明、默认值、文档导出和冗余变量拒绝逻辑被测试覆盖。
+
+不允许在 workflow 中新增类似 `calc_config.get("new_key", 123)` 的用户变量默认值。运行时动态默认值可以保留，例如 `n_simul: null` 时由 MPI `world.size` 决定。
+
 ---
 
 ## 5. 迁移指南 (Migration Quick Guide)

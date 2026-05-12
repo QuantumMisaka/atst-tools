@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from ase.vibrations import Vibrations
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import clean_cache_files
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
@@ -37,14 +38,14 @@ class VibrationWorkflow:
         """
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config
-        self.delta = calc_config.get('delta', 0.01)
-        self.nfree = calc_config.get('nfree', 2)
-        self.indices = calc_config.get('indices', None) # If None, all atoms
-        self.name = calc_config.get('name', 'vib')
-        self.init_structure = calc_config.get('init_structure', 'vib_init.stru')
-        self.temp = calc_config.get('temperature', 300.0) # Temperature for thermo analysis
-        self.restart = calc_config.get('restart', False)
+        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        calc_config = self.calc_config
+        self.delta = calc_config['delta']
+        self.nfree = calc_config['nfree']
+        self.indices = calc_config.get('indices')
+        self.name = calc_config['name']
+        self.init_structure = calc_config['init_structure']
+        self.restart = calc_config['restart']
 
     def _prepare_cache(self):
         vib_path = Path(self.name)
@@ -80,7 +81,7 @@ class VibrationWorkflow:
             raise
 
         # 2. Setup Calculator
-        directory = self.calc_config.get('directory', 'vib_run')
+        directory = self.calc_config['directory']
         if 'abacus' in self.config:
              directory = self.config['abacus'].get('directory', directory)
         

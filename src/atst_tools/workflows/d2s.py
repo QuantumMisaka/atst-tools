@@ -14,9 +14,11 @@ from ase.optimize import FIRE, QuasiNewton
 from ase.vibrations import Vibrations
 
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
 from atst_tools.utils.analysis import get_displacement_analysis
+from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
@@ -41,12 +43,13 @@ class D2SWorkflow:
     def __init__(self, config: Dict[str, Any], calc_name: str, calc_config: Dict[str, Any]):
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config
-        self.method = calc_config.get("method", "dimer").lower()
-        self.neb_config = calc_config.get("neb", {})
-        self.single_config = calc_config.get(self.method, {})
+        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        calc_config = self.calc_config
+        self.method = calc_config["method"].lower()
+        self.neb_config = calc_config["neb"]
+        self.single_config = calc_config[self.method]
         self.base_directory = self._base_directory()
-        self.restart = calc_config.get("restart", False)
+        self.restart = calc_config["restart"]
 
         if self.method not in {"dimer", "sella"}:
             raise ValueError("D2S method must be 'dimer' or 'sella'")
@@ -54,24 +57,18 @@ class D2SWorkflow:
     def _base_directory(self) -> str:
         if "calculator" in self.config:
             calc_section = self.config.get("calculator", {}).get(self.calc_name, {})
-            return self.calc_config.get("directory", calc_section.get("directory", "run_d2s"))
-        return self.calc_config.get("directory", "run_d2s")
+            return self.calc_config.get("directory", calc_section.get("directory", self.calc_config["directory"]))
+        return self.calc_config["directory"]
 
-    def _get_calc(self, sub_dir: str):
+    def _get_calc(self, sub_dir: str, shared: bool | None = None):
         directory = os.path.join(self.base_directory, sub_dir)
-        return CalculatorFactory.get_calculator(
-            self.calc_name,
-            self.config,
-            directory=directory,
-        )
+        kwargs = {"directory": directory}
+        if is_dp_calculator(self.calc_name) and shared is not None:
+            kwargs["shared"] = shared
+        return CalculatorFactory.get_calculator(self.calc_name, self.config, **kwargs)
 
     def _endpoint_optimization_config(self) -> Dict[str, Any]:
-        config = dict(self.calc_config.get("endpoint_optimization", {}))
-        config.setdefault("enabled", True)
-        config.setdefault("skip_if_has_results", True)
-        config.setdefault("fmax", self.calc_config.get("endpoint_fmax", 0.05))
-        config.setdefault("max_steps", self.calc_config.get("endpoint_max_steps", 200))
-        return config
+        return dict(self.calc_config["endpoint_optimization"])
 
     def _optimize_one_endpoint(self, atoms, calc_dir: str, traj_file: str, logfile: str, fmax: float, max_steps: int):
         atoms.calc = self._get_calc(calc_dir)
@@ -86,7 +83,7 @@ class D2SWorkflow:
         fmax = endpoint_config["fmax"]
         max_steps = endpoint_config["max_steps"]
 
-        if not endpoint_config.get("enabled", True):
+        if not endpoint_config["enabled"]:
             print("=== Step 1: Endpoint optimization disabled; validating endpoint results ===")
             endpoints = [init_atoms, final_atoms]
             ensure_neb_endpoint_results(
@@ -99,7 +96,7 @@ class D2SWorkflow:
             return endpoints[0], endpoints[-1]
 
         print("=== Step 1: Optimizing Endpoints ===")
-        skip_if_has_results = endpoint_config.get("skip_if_has_results", True)
+        skip_if_has_results = endpoint_config["skip_if_has_results"]
 
         if self.restart and os.path.exists("IS_opt.traj"):
             init_atoms = get_last_frame("IS_opt.traj")
@@ -134,13 +131,13 @@ class D2SWorkflow:
     def run_rough_neb(self, init_atoms, final_atoms):
         print("=== Step 2: Running Rough NEB ===")
         if self.restart and os.path.exists("neb_rough.traj"):
-            return get_last_neb_band("neb_rough.traj", self.neb_config.get("n_images", 8) + 2)
+            return get_last_neb_band("neb_rough.traj", self.neb_config["n_images"] + 2)
 
-        n_images = self.neb_config.get("n_images", 8)
-        fmax = self.neb_config.get("fmax", 0.8)
-        algorism = self.neb_config.get("algorism", "improvedtangent")
-        climb = self.neb_config.get("climb", True)
-        max_steps = self.neb_config.get("max_steps", 200)
+        n_images = self.neb_config["n_images"]
+        fmax = self.neb_config["fmax"]
+        algorism = self.neb_config["algorism"]
+        climb = self.neb_config["climb"]
+        max_steps = self.neb_config["max_steps"]
 
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
         images = solver.run()
@@ -152,8 +149,10 @@ class D2SWorkflow:
             directories=("endpoint_initial", "endpoint_final"),
             context="D2S rough DyNEB",
         )
+        allow_shared = should_share_calculator(self.calc_name, self.config, parallel=False)
+        shared_calc = self._get_calc("NEB/shared", shared=True) if allow_shared else None
         for index, image in enumerate(images[1:-1], start=1):
-            image.calc = self._get_calc(f"NEB/image_{index:03d}")
+            image.calc = shared_calc or self._get_calc(f"NEB/image_{index:03d}")
 
         neb = DyNEB(
             images,
@@ -162,7 +161,7 @@ class D2SWorkflow:
             fmax=fmax,
             method=algorism,
             parallel=False,
-            allow_shared_calculator=self.calc_name in {"dp", "deepmd"},
+            allow_shared_calculator=allow_shared,
         )
         opt = FIRE(neb, trajectory="neb_rough.traj")
         opt.run(fmax=fmax, steps=max_steps)
@@ -183,7 +182,7 @@ class D2SWorkflow:
             norm = np.linalg.norm(vec)
             disp_vec = None if norm < 1e-3 else vec / norm * 0.01
             dimer_config = self._single_config_with_directory("DIMER")
-            dimer_traj = dimer_config.get("trajectory", "dimer.traj")
+            dimer_traj = dimer_config["trajectory"]
             if self.restart and os.path.exists(dimer_traj):
                 print(f"=== Dimer trajectory exists ({dimer_traj}); skipping single-ended step ===")
                 return dimer_traj
@@ -193,21 +192,19 @@ class D2SWorkflow:
                 self.calc_name,
                 dimer_config,
                 traj_file=dimer_traj,
-                init_eigenmode_method=dimer_config.get(
-                    "init_eigenmode_method", "displacement"
-                ),
+                init_eigenmode_method=dimer_config["init_eigenmode_method"],
                 displacement_vector=disp_vec,
-                dimer_separation=dimer_config.get("dimer_separation", 0.01),
-                max_num_rot=dimer_config.get("max_num_rot", 3),
+                dimer_separation=dimer_config["dimer_separation"],
+                max_num_rot=dimer_config["max_num_rot"],
             )
             dimer.run(
-                fmax=dimer_config.get("fmax", 0.05),
+                fmax=dimer_config["fmax"],
                 max_steps=dimer_config.get("max_steps"),
             )
             return dimer_traj
 
         sella_config = self._single_config_with_directory("SELLA")
-        sella_traj = sella_config.get("trajectory", "sella.traj")
+        sella_traj = sella_config["trajectory"]
         if self.restart and os.path.exists(sella_traj):
             print(f"=== Sella trajectory exists ({sella_traj}); skipping single-ended step ===")
             return sella_traj
@@ -217,18 +214,18 @@ class D2SWorkflow:
             self.calc_name,
             sella_config,
             traj_file=sella_traj,
-            sella_eta=sella_config.get("eta", 0.005),
-            fmax=sella_config.get("fmax", 0.05),
+            sella_eta=sella_config["eta"],
+            fmax=sella_config["fmax"],
         )
         sella.run()
         return sella_traj
 
     def _vibration_indices(self, neb_chain, vib_config):
-        indices = vib_config.get("indices", "auto")
+        indices = vib_config["indices"]
         if indices in (None, "auto"):
             _, selected, _ = get_displacement_analysis(
                 neb_chain,
-                thr=vib_config.get("threshold", 0.10),
+                thr=vib_config["threshold"],
             )
             return selected
         if indices == "all":
@@ -237,8 +234,8 @@ class D2SWorkflow:
 
     def run_vibration(self, neb_chain, ts_guess, single_traj):
         """Run the optional D2S vibration stage."""
-        vib_config = self.calc_config.get("vibration", {})
-        if not vib_config.get("enabled", False):
+        vib_config = self.calc_config["vibration"]
+        if not vib_config["enabled"]:
             return
 
         print("=== Step 5: Running Optional Vibration Analysis ===")
@@ -247,14 +244,14 @@ class D2SWorkflow:
         else:
             atoms = ts_guess.copy()
 
-        atoms.calc = self._get_calc(vib_config.get("directory", "VIBRATION"))
+        atoms.calc = self._get_calc(vib_config["directory"])
         indices = self._vibration_indices(neb_chain, vib_config)
-        name = vib_config.get("name", "d2s_vib")
+        name = vib_config["name"]
         vib = Vibrations(
             atoms,
             indices=indices,
-            delta=vib_config.get("delta", 0.01),
-            nfree=vib_config.get("nfree", 2),
+            delta=vib_config["delta"],
+            nfree=vib_config["nfree"],
             name=name,
         )
         vib.run()
@@ -271,16 +268,14 @@ class D2SWorkflow:
             "indices": indices,
             "thermo": thermo,
         }
-        output = vib_config.get("results_file", "d2s_vibration_results.json")
+        output = vib_config["results_file"]
         with open(output, "w", encoding="utf-8") as handle:
             json.dump(results, handle, indent=4)
         print(f"Wrote {output}")
 
     def run(self):
-        init_file = self.calc_config.get("init_file")
-        final_file = self.calc_config.get("final_file")
-        if not init_file or not final_file:
-            raise ValueError("D2S workflow requires 'init_file' and 'final_file'")
+        init_file = self.calc_config["init_file"]
+        final_file = self.calc_config["final_file"]
 
         init_atoms = read_structure(init_file)
         final_atoms = read_structure(final_file)

@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import pytest
+from ruamel.yaml import YAML
 
 from atst_tools.utils.config import ConfigLoader
+from atst_tools.utils.config_schema import json_schema
 
 
 def test_load_reads_yaml(tmp_path: Path):
@@ -140,6 +142,23 @@ def test_validate_requires_dp_model():
         )
 
 
+def test_validate_rejects_dp_type_map_and_type_dict_conflict():
+    with pytest.raises(ValueError, match="type_map.*type_dict"):
+        ConfigLoader.validate(
+            {
+                "calculation": {"type": "relax", "init_structure": "init.stru"},
+                "calculator": {
+                    "name": "dp",
+                    "dp": {
+                        "model": "model.pt",
+                        "type_map": ["H"],
+                        "type_dict": {"H": 0},
+                    },
+                },
+            }
+        )
+
+
 def test_validate_rejects_invalid_irc_direction():
     with pytest.raises(ValueError, match="direction"):
         ConfigLoader.validate(
@@ -166,3 +185,110 @@ def test_validate_rejects_invalid_vibration_thermochemistry_model():
                 "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
             }
         )
+
+
+def test_validate_rejects_redundant_yaml_aliases():
+    base_calculator = {"name": "abacus", "abacus": {"parameters": {}}}
+    invalid_configs = [
+        {
+            "calculation": {
+                "type": "d2s",
+                "init_file": "init.stru",
+                "final_file": "final.stru",
+                "endpoint_max_steps": 1,
+            },
+            "calculator": base_calculator,
+        },
+        {
+            "calculation": {
+                "type": "neb",
+                "make": {
+                    "init_structure": "init.stru",
+                    "final_structure": "final.stru",
+                    "n_images": 5,
+                    "mag": {"Fe": 2.0},
+                },
+            },
+            "calculator": base_calculator,
+        },
+        {
+            "calculation": {
+                "type": "vibration",
+                "init_structure": "ts_opt.stru",
+                "temperature": 300.0,
+            },
+            "calculator": base_calculator,
+        },
+    ]
+
+    for config in invalid_configs:
+        with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+            ConfigLoader.validate(config)
+
+
+def test_normalize_populates_defaults_for_relax_dp():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "relax", "init_structure": "init.stru"},
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        }
+    )
+
+    assert config["config_version"] == "2.0.0"
+    assert config["calculation"]["fmax"] == 0.05
+    assert config["calculation"]["max_steps"] == 200
+    assert config["calculation"]["trajectory"] == "relax.traj"
+    assert config["calculator"]["dp"]["share_calculator"] is True
+
+
+def test_normalize_legacy_root_abacus_section():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "relax", "init_structure": "init.stru"},
+            "abacus": {"parameters": {"calculation": "scf"}},
+        }
+    )
+
+    assert config["calculator"]["name"] == "abacus"
+    assert config["calculator"]["abacus"]["parameters"]["calculation"] == "scf"
+
+
+def test_validate_rejects_invalid_numeric_range():
+    with pytest.raises(ValueError, match="fmax"):
+        ConfigLoader.validate(
+            {
+                "calculation": {"type": "relax", "init_structure": "init.stru", "fmax": -0.1},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_rejects_unknown_calculation_field():
+    with pytest.raises(ValueError, match="unknown_field"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "relax",
+                    "init_structure": "init.stru",
+                    "unknown_field": True,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_run_templates_validate_against_schema():
+    from atst_tools.scripts.main import _template
+
+    yaml = YAML(typ="safe")
+    for calc_type in ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc"):
+        for calculator in ("abacus", "dp"):
+            config = yaml.load(_template(calc_type, calculator))
+            assert ConfigLoader.validate(config) is True
+
+
+def test_json_schema_can_be_generated():
+    schema = json_schema()
+
+    assert schema["type"] == "object"
+    assert "calculation" in schema["properties"]
