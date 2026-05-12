@@ -1,7 +1,7 @@
-# ATST-Tools 2.0.0-rc0 发布说明
+# ATST-Tools 2.0.0-rc 发布说明
 
-**版本**: 2.0.0-rc0
-**日期**: 2026-05-11
+**版本**: 2.0.0-rc
+**日期**: 2026-05-12
 **范围**: `refactor/unify-structure` 分支 RC 收敛结论
 
 ## 概述
@@ -22,6 +22,11 @@
   - `src/atst_tools/utils/`：共享工具
 
 ### 新增功能
+- **YAML 配置统一管理接口**：基于 Pydantic schema 的集中式配置治理，支持类型校验、默认值填充、文档自动生成
+  - `src/atst_tools/utils/config_schema.py`：定义所有 YAML 字段类型、默认值和说明
+  - `src/atst_tools/utils/config.py`：`ConfigLoader` 提供 `load()`/`normalize()`/`validate()` 接口
+  - `docs/user/YAML_INPUT_VARIABLES.md`：由 schema 自动生成的完整变量文档
+  - `--dry-run` 模式在运行前完成配置校验和规范化
 - **D2S 工作流**：从双端粗搜索到单端精搜索的完整集成流程
 - **Relax 工作流**：结构优化，支持 BFGS/FIRE/LBFGS 优化器
 - **Vibration 工作流**：振动频率分析，支持 Harmonic 与理想气体热化学
@@ -47,7 +52,7 @@
   - 开发文档：重构指南、架构说明、文档标准
   - 报告：功能矩阵、验收报告、回归报告
 - **标准化示例**：examples/ 目录重构为统一结构，包含 Li 扩散、H₂ 解离、环己烷脱氢等系统
-- **证据链保留**：所有验收报告与回归结果归档在 `docs/reports/` 和 `docs/archive/`
+- **证据链保留**：当前验收报告与回归结果保留在 `docs/reports/`
 
 ### 测试与质量
 - **单元测试覆盖**：新增 70+ 单元测试，覆盖 CLI、配置、工厂、工作流、工具函数
@@ -72,7 +77,7 @@
 
 - `docs/reports/FEATURE_STATUS_MATRIX.md`
 - `docs/reports/REFACTORING_ACCEPTANCE_REPORT.md`
-- `docs/developer/plans/ML_CALCULATOR_PLAN.md`
+- `docs/reports/YAML_CONFIGURATION_REVIEW.md`
 
 ## 验收回归
 
@@ -96,7 +101,6 @@
 来源报告：
 
 - `docs/reports/EXAMPLES_REGRESSION_2026-05-11.md`
-- `docs/archive/reports/ACCEPTANCE_2.0.0rc_CN.md`
 
 ## 兼容迁移
 
@@ -108,8 +112,6 @@
 来源报告：
 
 - `docs/reports/REFACTORING_ACCEPTANCE_REPORT.md`
-- `docs/archive/reports/ACCEPTANCE_2.0.0rc_CN.md`
-- `docs/developer/plans/ML_CALCULATOR_PLAN.md`
 
 ## 文档治理结论
 
@@ -125,6 +127,7 @@
 
 ✅ **所有核心功能已完成并通过 SAI 实算验证**
 ✅ **统一 CLI/YAML 入口已就绪**
+✅ **YAML 配置统一管理接口已实现（Pydantic schema + ConfigLoader）**
 ✅ **单元测试覆盖充足（70+ 测试通过）**
 ✅ **文档体系完整，发布说明已更新**
 ✅ **ABACUS 后端从 ase-abacus 迁移到 abacuslite**
@@ -132,4 +135,4 @@
 ✅ **D2S 工作流已集成**
 ✅ **文档治理已完成**
 
-**结论：具备发布 2.0.0-rc0 的条件**
+**结论：具备发布 2.0.0-rc 的条件**

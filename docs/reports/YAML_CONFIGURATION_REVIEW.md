@@ -96,7 +96,7 @@ calculator:
 - 文件输入项保持 required，如 `init_structure`、`init_chain`、`init_file/final_file`。
 - DP `model` 保持 required，避免误运行错误模型。
 - ABACUS `parameters` 保持透传，不对 ABACUS INPUT 做过度封装。
-- `config_version` 默认 `"2.0.0"`，用于后续兼容治理。
+- `config_version` 默认 `"2.0.0-rc"`，用于后续兼容治理。
 
 ---
 

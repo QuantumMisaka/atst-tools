@@ -8,7 +8,7 @@ from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 
-CONFIG_VERSION = "2.0.0"
+CONFIG_VERSION = "2.0.0-rc"
 VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 

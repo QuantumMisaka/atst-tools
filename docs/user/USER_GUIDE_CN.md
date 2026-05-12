@@ -138,7 +138,7 @@ src/atst_tools/
 
 ## 5. 开发指南 (Development)
 
-请参考 [重构指南](../developer/REFACTORING_GUIDE.md) 和 [ML 计算器规划](../developer/plans/ML_CALCULATOR_PLAN.md) 了解架构设计与后续扩展方向。
+请参考 [YAML 输入治理规范](../developer/YAML_INPUT_GOVERNANCE.md) 和 [文档架构](../developer/DOCS_ARCHITECTURE.md) 了解架构设计与后续扩展方向。
 更多关于文档编写与维护规范，请参阅 [文档架构](../developer/DOCS_ARCHITECTURE.md)。
 
 ### 测试

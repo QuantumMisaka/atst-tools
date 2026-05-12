@@ -11,11 +11,10 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 
 ## Developers
 
-- [Refactoring guide](developer/REFACTORING_GUIDE.md)
 - [Documentation architecture](developer/DOCS_ARCHITECTURE.md)
 - [Documentation standards](developer/DOCUMENTATION_STANDARDS.md)
+- [YAML input governance](developer/YAML_INPUT_GOVERNANCE.md)
 - [Handover notes](developer/HANDOVER.md)
-- [ML calculator plan](developer/plans/ML_CALCULATOR_PLAN.md)
 
 ## Reports
 
@@ -28,13 +27,6 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 ## Releases
 
 - [2.0.0-rc release notes](releases/RC_RELEASE_NOTES_2.0.0-rc.md)
-
-## Historical Archive
-
-- [Legacy evaluation](archive/LEGACY_EVALUATION.md)
-- [Code review archive](archive/CODE_REVIEW_20260227.md)
-- [Developer archives](archive/developer/)
-- [Report archives](archive/reports/)
 
 ## ABACUS Backend Policy
 

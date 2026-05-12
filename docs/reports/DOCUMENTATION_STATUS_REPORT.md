@@ -14,11 +14,10 @@
 
 | 文档 | 处置 | 判据与理由 |
 | :--- | :--- | :--- |
-| `developer/REFACTORING_GUIDE.md` | 保留 | 作为当前架构与开发规范基线，仍有效。 |
+| `developer/YAML_INPUT_GOVERNANCE.md` | 保留 | 作为当前 YAML 输入治理与新增 `atst run` 功能点的开发规范入口。 |
 | `developer/DOCS_ARCHITECTURE.md` | 保留 | 文档信息架构说明，属于长期维护元文档。 |
 | `developer/DOCUMENTATION_STANDARDS.md` | 保留 | 文档编写与维护标准，长期有效。 |
 | `developer/HANDOVER.md` | 保留并改写 | 原文存在失效引用与过时职责描述，需与当前索引同步。 |
-| `developer/plans/ML_CALCULATOR_PLAN.md` | 保留 | 属于 ABACUS 验收后仍有效的后续计划，且被用户配置文档引用。 |
 | `developer/plans/CLI_DEV.md` | 归档 | 阶段性改造计划，已由实现与发布文档吸收。 |
 | `developer/plans/ITERATION_1_PLAN.md` | 归档 | 时间窗口已结束，属历史冲刺计划。 |
 | `developer/plans/DEVELOPMENT_PLAN_2026.md` | 归档 | 草案级长期规划，内容与现状偏差大。 |
@@ -50,16 +49,7 @@
 
 ## 5. 应归档文档清单
 
-归档目标结构：`docs/archive/developer/` 与 `docs/archive/reports/`
-
-- `developer/plans/CLI_DEV.md` -> `archive/developer/CLI_DEV.md`
-- `developer/plans/ITERATION_1_PLAN.md` -> `archive/developer/ITERATION_1_PLAN.md`
-- `developer/plans/DEVELOPMENT_PLAN_2026.md` -> `archive/developer/DEVELOPMENT_PLAN_2026.md`
-- `developer/plans/REFACTORING_PLAN_DETAILED.md` -> `archive/developer/REFACTORING_PLAN_DETAILED.md`
-- `reports/REVIEW_2026-05-10_2000.md` -> `archive/reports/REVIEW_2026-05-10_2000.md`
-- `reports/REVIEW_CLI_202605102252.md` -> `archive/reports/REVIEW_CLI_202605102252.md`
-- `reports/NEB_CLI_USAGE.md` -> `archive/reports/NEB_CLI_USAGE.md`
-- `reports/ACCEPTANCE_2.0.0rc_CN.md` -> `archive/reports/ACCEPTANCE_2.0.0rc_CN.md`
+归档文档只作为历史记录保存在归档目录，不从活跃用户、开发者、报告或发布文档回链。
 
 ## 6. 一致性复核
 

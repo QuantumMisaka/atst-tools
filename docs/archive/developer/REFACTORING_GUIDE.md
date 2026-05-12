@@ -2,42 +2,47 @@
 
 **版本**: 1.2
 **日期**: 2026-02-27
-**状态**: 🚀 **RC 发布候选 (Release Candidate)**
+**状态**: 已归档；重构任务已完成
+
+> 本文档记录 ATST-Tools 从科研脚本集合重构为正式 Python package 的历史路线与完成状态。后续活跃开发规范请参考 `docs/developer/` 下的专题文档；YAML 输入治理规范已迁移到 `docs/developer/YAML_INPUT_GOVERNANCE.md`。
 
 ---
 
-## 1. 重构背景与愿景 (Background & Vision)
+## 1. 项目概述 (Project Overview)
 
-本项目（ATST-Tools）正处于从“科研脚本集合”向“现代 Python 工程项目”转型的关键阶段。我们的目标是构建一个基于 **ASE (Atomic Simulation Environment)** 的、高内聚低耦合的分子模拟工具库，**重点聚焦于过渡态计算相关功能**，同时支持 **ABACUS** 和 **Deep Potential (DP)** 等多种计算器。
+ATST-Tools 是一个基于 **ASE (Atomic Simulation Environment)** 的、高内聚低耦合的分子模拟工具库，**重点聚焦于过渡态计算相关功能**，同时支持 **ABACUS** 和 **Deep Potential (DP)** 等多种计算器。
 
 **核心哲学 (Zen of Python)**:
-- **Explicit is better than implicit**: 统一通过 `config.yaml` 显式定义工作流，而非隐藏在脚本硬编码中。
-- **Simple is better than complex**: 对用户屏蔽底层的 MPI/并行处理细节，提供简洁的 CLI 入口。
-- **There should be one-- and preferably only one --obvious way to do it**: 消除 `legacy` 目录下的重复脚本，确保 `atst run` 是唯一的执行入口。
+*   **Explicit is better than implicit**: 统一通过 `config.yaml` 显式定义工作流，而非隐藏在脚本硬编码中。
+*   **Simple is better than complex**: 对用户屏蔽底层的 MPI/并行处理细节，提供简洁的 CLI 入口。
+*   **There should be one-- and preferably only one --obvious way to do it**: 确保 `atst run` 是唯一的执行入口。
+
+**版本**: 2.0.0-rc
 
 ---
 
 ## 2. 现状评估 (Current Status Assessment)
 
-### 2.1 架构断层 (The "Limbo" State)
-项目目前呈现“新旧共存”的分裂状态：
+### 2.1 重构完成 (Refactoring Complete)
+项目已完成从“科研脚本集合”到“现代 Python 包”的完整重构：
 *   **新架构 (`src/atst_tools`)**: 
-    *   ✅ **优势**: 模块化设计 (`mep`, `workflows`, `calculators`)，统一入口 (`atst run`)。
-    *   ❌ **缺陷**: **强耦合 ABACUS**，导致无法扩展支持 DP；功能覆盖率仅约 60%。
-*   **旧脚本 (`dimer/`, `neb/`, `ase-dp/` 等)**:
-    *   ✅ **优势**: 功能完整，包含 DP 支持及振动分析等辅助工具。
-    *   ❌ **缺陷**: 代码大量重复，参数硬编码，维护成本极高，严重污染项目根目录。
+    *   ✅ **模块化设计**: `mep/`, `workflows/`, `calculators/`, `utils/`, `scripts/` 清晰分离。
+    *   ✅ **统一入口**: `atst run config.yaml` 作为唯一执行入口，支持所有工作流。
+    *   ✅ **计算器解耦**: `CalculatorFactory` 支持 ABACUS/DP 无缝切换。
+    *   ✅ **功能覆盖率**: NEB/AutoNEB/Dimer/Sella/D2S/Relax/Vibration/IRC 全部实现。
+*   **旧脚本**: 已全部删除，根目录保持整洁。
 
-### 2.2 关键功能缺失 (Critical Gaps)
-对比旧脚本，新架构目前存在以下严重缺失：
-1.  **Deep Potential (DP) 支持**: `src` 中完全缺失 DP 适配器，导致无法复现 `ase-dp/` 中的功能。
-2.  **振动分析 (Vibration)**: `vibration/vib_analysis.py` 尚未迁移，用户无法在新工作流中进行振动频率分析。
-3.  **结构优化 (Relax)**: `relax/relax_run.py` 尚未迁移，基础的几何优化功能缺失。
+### 2.2 功能完整性 (Feature Completeness)
+✅ 所有核心功能已实现并通过 SAI 实算回归验证：
+1.  **Deep Potential (DP)**: 完整支持，`share_calculator` 显存优化已实现。
+2.  **振动分析 (Vibration)**: 支持 Harmonic 和理想气体模型的热化学分析。
+3.  **结构优化 (Relax)**: 支持 BFGS/FIRE/LBFGS 优化器。
+4.  **D2S 工作流**: 从粗搜索到精搜索的完整流程已实现。
 
-### 2.3 技术债务 (Technical Debt)
-1.  **根目录污染**: `dimer`, `neb`, `sella` 等文件夹与 `src` 并存，易导致 import 混淆。
-2.  **配置结构缺陷**: `config.yaml` 将 ABACUS 参数直接平铺，缺乏 `calculator` 层的抽象，难以兼容其他计算器。
-3.  **测试缺失**: 重构前未建立测试体系，导致重构过程缺乏回归保障。
+### 2.3 技术质量 (Technical Quality)
+1.  **根目录整洁**: 仅保留必要文件，所有功能集中在 `src/atst_tools/`。
+2.  **配置统一管理**: 基于 Pydantic schema 的 `config.yaml` 结构，支持类型校验和文档自动生成。
+3.  **测试覆盖**: 70+ 单元测试覆盖 CLI、配置、工厂、工作流、工具函数。
 
 ### 2.4 ASE 接口集成现状 (Current ASE Integration)
 
@@ -101,12 +106,13 @@ src/atst_tools/
 │   ├── __init__.py
 │   ├── base.py        # 抽象基类
 │   ├── factory.py     # 工厂入口
-│   ├── abacus.py
-│   └── dp.py
-├── mep/               # 核心算法 (NEB, Dimer, Sella)
-├── workflows/         # 高级工作流 (D2S, AutoNEB, Vib, Relax)
-├── utils/             # 通用工具 (IO, Config, Plot)
-└── scripts/           # CLI 入口 (仅包含参数解析与调度)
+│   ├── abacuslite_backend.py  # ABACUS 后端
+│   └── dp.py          # DeepMD 后端
+├── mep/               # 核心算法 (NEB, AutoNEB, Dimer, Sella)
+├── workflows/         # 高级工作流 (D2S, IRC, Relax, Vibration)
+├── utils/             # 通用工具 (IO, Config, IDPP, Thermochemistry, etc.)
+├── scripts/           # CLI 入口 (main.py, cli.py)
+└── external/          # vendored 依赖 (abacuslite ASE_interface)
 ```
 
 ### 4.2 开发规范
@@ -128,26 +134,6 @@ src/atst_tools/
     2.  **保持上游形态**: `ASE_interface` 本身带 `pyproject.toml`，可单独 `pip install .`；ATST-Tools 只消费该 backend。
     3.  **完整快照**: 2.0.0-rc 保留整个 `ASE_interface` 目录，包含 `abacuslite/`、上游示例、测试和说明文档，便于后续与上游同步和独立验证。
     4.  **文档记录**: 每次同步需在 `CHANGELOG` 或 Commit Message 中注明上游 Commit ID。
-
-### 4.4 YAML 输入治理规范 (YAML Input Governance)
-
-`config.yaml` 的变量定义由 `src/atst_tools/utils/config_schema.py` 统一治理。`atst run` 必须先调用 `ConfigLoader.normalize()`，再把带默认值的规范化配置传给 workflow；workflow 内不得为用户 YAML 变量另行维护一套硬编码默认值。
-
-新增或修改 YAML 变量时必须遵循以下流程：
-
-1.  **Schema first**: 先在 Pydantic schema 中定义字段，明确类型、默认值和 `Field(description=...)`。
-2.  **Canonical path only**: 每个用户变量只能有一个公开 YAML path；不要新增 alias、重复字段或兼容性旁路。ABACUS INPUT 变量例外，统一放在 `calculator.abacus.parameters` 透传。
-3.  **Required by intent**: 只有必须由用户提供且无安全默认值的变量保持 required，例如结构文件、NEB chain、DP model。
-4.  **Runtime consumption**: 如果变量影响计算行为，workflow/calculator 必须实际读取规范化后的字段；直接构造 workflow 的内部测试路径应通过 `apply_calculation_defaults()` 复用同一套 schema 默认值。
-5.  **Generated variable docs**: 修改 schema 后运行：
-    ```bash
-    python -m atst_tools.utils.config_docs --output docs/user/YAML_INPUT_VARIABLES.md
-    ```
-    该文件是非 calculator YAML 变量表的自动导出结果。
-6.  **User docs and examples**: 同步更新 `docs/user/CONFIG_REFERENCE.md`、必要的用户向导、以及对应 example YAML。
-7.  **Governance tests**: 更新 `tests/unit/test_config.py` 和 `tests/unit/test_config_governance.py`，确保字段说明、默认值、文档导出和冗余变量拒绝逻辑被测试覆盖。
-
-不允许在 workflow 中新增类似 `calc_config.get("new_key", 123)` 的用户变量默认值。运行时动态默认值可以保留，例如 `n_simul: null` 时由 MPI `world.size` 决定。
 
 ---
 

@@ -6,7 +6,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 
 | YAML path | Level | Type | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| config_version | top-level | `str` | `'2.0.0'` | Configuration schema version. |
+| config_version | top-level | `str` | `'2.0.0-rc'` | Configuration schema version. |
 | calculation.neb.type | calculation.type=neb | `'neb'` | `required` | Select the ordinary NEB or DyNEB workflow. |
 | calculation.neb.init_chain | calculation.type=neb | `str \| NoneType` | `null` | Initial NEB chain trajectory. |
 | calculation.neb.make | calculation.type=neb | `dict` | `null` | Nested chain generation configuration. |

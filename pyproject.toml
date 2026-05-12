@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atst-tools"
-version = "2.0.0"
+version = "2.0.0rc0"
 description = "Advanced ASE Transition State Tools for ABACUS and Deep-Potential"
 readme = "README.md"
 requires-python = ">=3.9"

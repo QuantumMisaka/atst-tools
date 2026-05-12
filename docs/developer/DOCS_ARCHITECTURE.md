@@ -12,7 +12,7 @@ docs/
 │   ├── DOCS_ARCHITECTURE.md
 │   ├── DOCUMENTATION_STANDARDS.md
 │   ├── HANDOVER.md
-│   ├── REFACTORING_GUIDE.md
+│   ├── YAML_INPUT_GOVERNANCE.md
 │   └── plans/
 ├── reports/                            # 审查、验收、状态报告
 ├── releases/                           # 发布说明
@@ -31,4 +31,5 @@ docs/
 - **用户向导**：[USER_GUIDE_CN.md](../user/USER_GUIDE_CN.md)
 - **状态追踪**：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
 - **开发规范**：[DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
+- **YAML 输入治理**：[YAML_INPUT_GOVERNANCE.md](YAML_INPUT_GOVERNANCE.md)
 - **发布说明**：[RC_RELEASE_NOTES_2.0.0-rc.md](../releases/RC_RELEASE_NOTES_2.0.0-rc.md)

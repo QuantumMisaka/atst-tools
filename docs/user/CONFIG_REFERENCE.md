@@ -13,7 +13,7 @@ YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/conf
 ## 1. Top-Level Structure
 
 ```yaml
-config_version: "2.0.0"  # Optional. Defaults to the current schema version.
+config_version: "2.0.0-rc"  # Optional. Defaults to the current schema version.
 calculation:
   type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
   # ... task specific parameters ...
