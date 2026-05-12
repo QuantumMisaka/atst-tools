@@ -42,7 +42,7 @@ calculator:
 
 ---
 
-### 2. DP (Deep Potential) Calculator 支持情况（✅ CLI/Workflow 架构支持，实算回归待补）
+### 2. DP (Deep Potential) Calculator 支持情况（✅ CLI/Workflow 架构与实算验证完成）
 
 | 项 | 状态 | 说明 |
 | :--- | :--- | :--- |
@@ -54,7 +54,7 @@ calculator:
 | 单元测试 | ✅ | 覆盖 lazy import、head/type 映射、OMP、cache、NEB/DyNEB/AutoNEB 共享策略 |
 | 文档标注 | ✅ | CONFIG_REFERENCE.md 和 ML_CALCULATOR_PLAN.md 已更新 |
 | DP 特定参数 | ✅ | `omp`、`share_calculator` 已实现 |
-| SAI 实算验证 | ❌ | Refactor 验收报告只验证了 ABACUS，DP 未单独验证 |
+| SAI 实算验证 | ✅ | 2.0.0 使用 DPA-3.1-3M.pt / `Omat24` head 覆盖现有 `atst run` workflow 示例 |
 
 **当前实现**：
 ```python
@@ -69,8 +69,8 @@ DP(model=model_file, head=head, type_dict=type_dict)
 
 **文档状态**：
 - `CONFIG_REFERENCE.md` §3.2：记录当前 DP 参数和 deepmd-kit backend 自动识别边界。
-- `ML_CALCULATOR_PLAN.md`：实现项已勾选，真实 DP 工作流回归仍待补。
-- `REFACTORING_ACCEPTANCE_REPORT.md`：仍保留 ABACUS-first 验收结论，DP 实算验收需单独补充。
+- `ML_CALCULATOR_PLAN.md`：实现项已勾选，DP 工作流回归结论已补齐。
+- `DP_VALIDATION_2.0.0.md`：记录 2.0.0 DP 实算验证、AutoNEB 修复和 IRC/Sella 边界。
 
 ---
 
@@ -107,7 +107,7 @@ class CalculatorFactory:
 
 | 优先级 | 问题 | 说明 |
 | :--- | :--- | :--- |
-| 低 | DP SAI 实算验证缺失 | 可以在 ABACUS 验证通过后补充 DP 冒烟验证 |
+| 低 | 长时生产级 DP 回归 | 2.0.0 已完成示例级 SAI GPU 验证；更大体系和更长步数可作为后续 benchmark 扩展 |
 
 ---
 
@@ -116,4 +116,4 @@ class CalculatorFactory:
 | Calculator | 状态 |
 | :--- | :--- |
 | ABACUS | ✅ 完整可用，SAI 验证通过，文档完整 |
-| DP | ✅ CLI/Workflow 架构支持完成；仍需真实 DP 模型的 SAI 工作流回归后标记为实算完成 |
+| DP | ✅ CLI/Workflow 架构支持完成，DPA-3.1-3M.pt / `Omat24` 示例级 SAI 工作流回归通过 |

@@ -234,7 +234,7 @@ def test_normalize_populates_defaults_for_relax_dp():
         }
     )
 
-    assert config["config_version"] == "2.0.0-rc"
+    assert config["config_version"] == "2.0.0"
     assert config["calculation"]["fmax"] == 0.05
     assert config["calculation"]["max_steps"] == 200
     assert config["calculation"]["trajectory"] == "relax.traj"

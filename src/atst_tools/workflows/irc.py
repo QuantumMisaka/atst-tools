@@ -115,6 +115,13 @@ class IRCWorkflow:
                 return True
         return False
 
+    @staticmethod
+    def _is_sella_runtime_boundary(exc: RuntimeError) -> bool:
+        for frame in traceback.extract_tb(exc.__traceback__):
+            if "/sella/" in frame.filename or frame.filename.startswith("sella/"):
+                return True
+        return False
+
     def run(self):
         """Execute the configured IRC calculation."""
         try:
@@ -147,6 +154,10 @@ class IRCWorkflow:
                 raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
             except AssertionError as exc:
                 if self._is_sella_restricted_step_assertion(exc):
+                    raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
+                raise
+            except RuntimeError as exc:
+                if self._is_sella_runtime_boundary(exc):
                     raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
                 raise
         self._normalize_trajectory()

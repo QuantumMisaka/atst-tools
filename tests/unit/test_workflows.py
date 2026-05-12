@@ -649,3 +649,40 @@ def test_irc_workflow_does_not_hide_unrelated_assertions(monkeypatch, tmp_path):
 
     with pytest.raises(AssertionError, match="programmer bug"):
         workflow.run()
+
+
+def test_irc_workflow_reports_sella_runtime_boundary(monkeypatch, tmp_path):
+    from atst_tools.workflows import irc
+
+    namespace = {}
+    exec(
+        compile(
+            "def raise_sella_runtime():\n    raise RuntimeError('MGS failed')\n",
+            "/site-packages/sella/eigensolvers.py",
+            "exec",
+        ),
+        namespace,
+    )
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax, steps=None, direction=None):
+            namespace["raise_sella_runtime"]()
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    _install_fake_sella(monkeypatch, FakeIRC)
+
+    workflow = irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "irc", "init_structure": "ts.traj", "trajectory": "irc.traj", "direction": "forward"},
+    )
+
+    with pytest.raises(irc.IRCBoundaryError) as excinfo:
+        workflow.run()
+
+    assert "Original error: RuntimeError: MGS failed" in str(excinfo.value)

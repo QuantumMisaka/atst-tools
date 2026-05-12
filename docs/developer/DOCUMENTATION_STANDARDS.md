@@ -2,7 +2,7 @@
 
 ## 1. 命名规则
 - **统一使用明确语义**：`<DOMAIN>_<TYPE>.md`，例如 `REFACTORING_GUIDE.md`（重构领域 + 指南类型）。
-- **发布归档**：`docs/releases/RC_RELEASE_NOTES_<version>.md`，例如 `RC_RELEASE_NOTES_2.0.0-rc.md`。
+- **发布归档**：`docs/releases/RELEASE_NOTES_<version>.md`，例如 `RELEASE_NOTES_2.0.0.md`。
 - **状态报告**：`DOCUMENTATION_STATUS_REPORT.md`（状态对齐报告，单一入口）。
 
 ## 2. 元数据（文首）

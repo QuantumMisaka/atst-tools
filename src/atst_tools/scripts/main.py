@@ -6,9 +6,9 @@ import numpy as np
 from ase.io import read
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
-from importlib.metadata import PackageNotFoundError, version
 from textwrap import dedent
 
+from atst_tools import package_version
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
@@ -31,10 +31,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _package_version():
-    try:
-        return version("atst-tools")
-    except PackageNotFoundError:
-        return "unknown"
+    return package_version()
 
 
 def _template(calculation_type, calculator_name):

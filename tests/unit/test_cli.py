@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import re
 
 import numpy as np
 import pytest
@@ -32,6 +33,22 @@ def test_only_git_style_console_script_is_exposed():
     assert "atst-run" not in text
     assert "atst-neb-make" not in text
     assert "atst-neb-post" not in text
+
+
+def test_atst_version_uses_governed_package_version(capsys):
+    from atst_tools import package_version
+    from atst_tools.scripts import cli
+
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+    expected = re.search(r'^version = "([^"]+)"$', pyproject, re.MULTILINE).group(1)
+
+    assert package_version() == expected
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--version"])
+
+    assert excinfo.value.code == 0
+    assert capsys.readouterr().out.strip() == f"atst {package_version()}"
 
 
 def test_atst_run_dispatches_d2s(monkeypatch):

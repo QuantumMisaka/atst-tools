@@ -7,7 +7,9 @@ The examples are organized by chemical system and method to demonstrate the vers
 
 *   `data/`: Centralized repository for Pseudopotentials (`.upf`) and Numerical Orbitals (`.orb`).
 *   `<case>/inputs/`: Curated input structures and vectors referenced by `config*.yaml`.
-*   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS scratch files are ignored unless they are explicitly curated inputs.
+*   `config.yaml`: ABACUS-backed example configuration.
+*   `config_dp.yaml`: DP-backed example configuration when available. These use `../../temp_repos/dp_model/DPA-3.1-3M.pt` with `head: Omat24` for local validation; the model file is intentionally outside git.
+*   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS/DP scratch files are ignored unless they are explicitly curated inputs.
 
 ### 1. Basic Examples (Li Diffusion)
 *   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
@@ -39,6 +41,13 @@ The examples are organized by chemical system and method to demonstrate the vers
     ```bash
     cd 01_neb_Li-Si
     atst run config.yaml
+    ```
+
+    To run the DP variant, make sure `temp_repos/dp_model/DPA-3.1-3M.pt` exists
+    and deepmd-kit is available, then run:
+
+    ```bash
+    atst run config_dp.yaml
     ```
 
 ## Chemical Systems Summary

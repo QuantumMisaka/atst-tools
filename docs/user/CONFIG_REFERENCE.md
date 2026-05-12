@@ -1,6 +1,6 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.0.0-rc  
+**Version**: 2.0.0
 **Last Updated**: 2026-05-12
 **Status**: Release Candidate
 
@@ -13,7 +13,7 @@ YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/conf
 ## 1. Top-Level Structure
 
 ```yaml
-config_version: "2.0.0-rc"  # Optional. Defaults to the current schema version.
+config_version: "2.0.0"  # Optional. Defaults to the current schema version.
 calculation:
   type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
   # ... task specific parameters ...
@@ -294,12 +294,16 @@ deepmd-kit detects the model backend from the model file; ATST-Tools does not
 provide a separate backend selector. Multi-head DPA/DPA3 models should set
 `head`.
 
+> **Note**: In most cases, you only need to provide the `model` parameter.
+> `type_map` and `type_dict` are optional and only needed for special cases
+> where manual override of type mapping is required.
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `model` | string | **Required** | Path to the frozen model file (`.pb`, `.pt`, etc.). |
 | `head` | string/null | `None` | Model head for multi-head DPA/DPA3 models. |
-| `type_map` | list[string] | `None` | Element order converted to deepmd-kit `type_dict`. Mutually exclusive with `type_dict`. |
-| `type_dict` | dict[string,int] | `None` | Explicit deepmd-kit element-to-type-index mapping. |
+| `type_map` | list[string] | `None` | **Optional**: Element order converted to deepmd-kit `type_dict`. Mutually exclusive with `type_dict`. |
+| `type_dict` | dict[string,int] | `None` | **Optional**: Explicit deepmd-kit element-to-type-index mapping. |
 | `omp` | int | unset | OpenMP thread count for DP evaluation (`OMP_NUM_THREADS`). |
 | `share_calculator` | bool | `true` | Reuse one DP calculator where ASE permits shared calculators, especially serial NEB/DyNEB/AutoNEB. |
 

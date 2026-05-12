@@ -87,7 +87,7 @@ def test_dp_factory_passes_head_and_type_dict(monkeypatch):
             "name": "dp",
             "dp": {
                 "model": "model.pt",
-                "head": "Domains_SemiCond",
+                "head": "Omat24",
                 "type_map": ["H", "Li", "Si"],
             },
         }
@@ -95,7 +95,7 @@ def test_dp_factory_passes_head_and_type_dict(monkeypatch):
     calc = factory.CalculatorFactory.get_calculator("dp", config)
 
     assert calc.kwargs["model"] == "model.pt"
-    assert calc.kwargs["head"] == "Domains_SemiCond"
+    assert calc.kwargs["head"] == "Omat24"
     assert calc.kwargs["type_dict"] == {"H": 0, "Li": 1, "Si": 2}
     assert "type_map" not in calc.kwargs
 

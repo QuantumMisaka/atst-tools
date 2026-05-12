@@ -1,7 +1,7 @@
 # 文档治理审查报告（audit-document-governance）
 
-**日期**: 2026-05-11  
-**范围**: `docs/index.md`、`docs/developer/**`、`docs/reports/**`、`docs/releases/RC_RELEASE_NOTES_2.0.0-rc.md`
+**日期**: 2026-05-12
+**范围**: `docs/index.md`、`docs/developer/**`、`docs/reports/**`、`docs/releases/RELEASE_NOTES_2.0.0.md`
 
 ## 1. 核心结论
 
@@ -29,7 +29,8 @@
 | :--- | :--- | :--- |
 | `reports/FEATURE_STATUS_MATRIX.md` | 保留 | 版本能力矩阵，属于发布判断基线事实。 |
 | `reports/REFACTORING_ACCEPTANCE_REPORT.md` | 保留 | 端到端验收证据链核心文档。 |
-| `reports/EXAMPLES_REGRESSION_2026-05-11.md` | 保留 | SAI 实算回归证据与已知问题（IRC）来源。 |
+| `reports/EXAMPLES_REGRESSION_2026-05-11.md` | 保留 | SAI ABACUS 实算回归证据与 IRC 历史问题来源。 |
+| `reports/DP_VALIDATION_2.0.0.md` | 保留 | 2.0.0 DP/DPA 实算验证、AutoNEB 修复与 Sella IRC 边界证据。 |
 | `reports/REVIEW_ENHANCEMENTS_2026-05-11.md` | 保留 | 本轮增强实现与验证摘要，仍具追踪价值。 |
 | `reports/DOCUMENTATION_STATUS_REPORT.md` | 保留并改写 | 作为文档治理单一入口，承载本次审查结论。 |
 | `reports/ACCEPTANCE_2.0.0rc_CN.md` | 提炼到发布说明后归档 | 内容与发布结论高度重叠，保留历史证据即可。 |
@@ -39,11 +40,11 @@
 
 ## 4. 写入发布说明内容清单
 
-以下内容已提炼并写入 `releases/RC_RELEASE_NOTES_2.0.0-rc.md` 固定章节：
+以下内容已提炼并写入 `releases/RELEASE_NOTES_2.0.0.md` 固定章节：
 
 - 功能状态：来自 `FEATURE_STATUS_MATRIX.md` 与 `REFACTORING_ACCEPTANCE_REPORT.md`。
-- 验收回归：来自 `REFACTORING_ACCEPTANCE_REPORT.md` 与 `EXAMPLES_REGRESSION_2026-05-11.md`。
-- 已知限制：来自 `EXAMPLES_REGRESSION_2026-05-11.md`（IRC 可靠性）与 RC 验收报告。
+- 验收回归：来自 `REFACTORING_ACCEPTANCE_REPORT.md`、`EXAMPLES_REGRESSION_2026-05-11.md` 与 `DP_VALIDATION_2.0.0.md`。
+- 已知限制：来自 `EXAMPLES_REGRESSION_2026-05-11.md`、`DP_VALIDATION_2.0.0.md`（Sella IRC 边界）与 RC 验收报告。
 - 兼容迁移：来自 `REFACTORING_ACCEPTANCE_REPORT.md` 的 legacy 兼容与 CLI/YAML 迁移事实。
 - 文档治理结论：来自本报告的分类、归档与导航收敛决议。
 
@@ -53,6 +54,6 @@
 
 ## 6. 一致性复核
 
-- `reports` 中“功能支持范围”与 `releases` 中“功能状态”一致：RC 支持 NEB/AutoNEB/Dimer/Sella/D2S/Relax/Vibration，MD 未支持。
-- `reports` 中“回归结论”与 `releases` 中“验收回归”一致：除 IRC 外其余核心示例在 SAI ABACUS 实算通过。
+- `reports` 中“功能支持范围”与 `releases` 中“功能状态”一致：2.0.0 支持 NEB/AutoNEB/Dimer/Sella/D2S/Relax/Vibration/IRC，MD 未支持。
+- `reports` 中“回归结论”与 `releases` 中“验收回归”一致：ABACUS 核心示例有既有 SAI 验证；DP 示例级 SAI GPU 验证已补齐；IRC 的当前边界来自 Sella 内部算法并由 ATST-Tools 受控报告。
 - `developer` 中架构与规范描述与当前代码组织及 CLI 入口一致。

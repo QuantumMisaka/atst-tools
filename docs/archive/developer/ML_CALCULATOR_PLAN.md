@@ -1,6 +1,6 @@
 # Machine-Learning Calculator Implementation Plan
 
-**Status**: Implemented in CLI/workflow architecture; real DP workflow regression pending
+**Status**: Implemented in CLI/workflow architecture; real DP workflow regression completed for 2.0.0 examples
 **Primary baseline**: `main` branch `ase-dp/*.py` scripts  
 **Target interface**: `atst run config.yaml`
 
@@ -124,6 +124,8 @@ Backend selection is intentionally not exposed in ATST-Tools.  The unified
 
 - `atst run --dry-run examples/*/config_dp.yaml` passes for all DP examples.
 - Unit tests cover the DP adapter without requiring deepmd-kit.
-- At least one DP smoke case runs on SAI before DP support is marked complete for production science.
-- Documentation states clearly that ABACUS is the primary backend for 2.0.0 and
-  DP is supported after its own validation stage.
+- DP example workflows run on SAI with DPA-3.1-3M.pt / `Omat24` before DP
+  support is marked complete for 2.0.0.
+- Documentation states clearly that ABACUS and DP are both supported calculator
+  backends in 2.0.0, with DP validation details recorded in
+  `docs/reports/DP_VALIDATION_2.0.0.md`.

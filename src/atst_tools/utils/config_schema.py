@@ -8,7 +8,7 @@ from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 
-CONFIG_VERSION = "2.0.0-rc"
+CONFIG_VERSION = "2.0.0"
 VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
@@ -384,8 +384,20 @@ class DPConfig(StrictConfig):
 
     model: str = Field(description="Path to the DeepMD-kit model file.")
     head: str | None = Field(default=None, description="Model head for multi-head DPA/DPA3 models.")
-    type_map: list[str] | None = Field(default=None, description="Element order converted to deepmd-kit type_dict.")
-    type_dict: Dict[str, int] | None = Field(default=None, description="Explicit element to type-index mapping.")
+    type_map: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional: Element order converted to deepmd-kit type_dict. "
+            "In most cases not needed, the model already contains type information."
+        ),
+    )
+    type_dict: Dict[str, int] | None = Field(
+        default=None,
+        description=(
+            "Optional: Explicit element to type-index mapping. "
+            "In most cases not needed, the model already contains type information."
+        ),
+    )
     omp: int | None = Field(default=None, gt=0, description="Optional OMP_NUM_THREADS value.")
     share_calculator: bool = Field(default=True, description="Share DP calculators where ASE permits it.")
 

@@ -3,6 +3,8 @@ dev/
 temp_*/
 temp_repos/
 *.egg-info/
+build/
+dist/
 __pycache__/
 *.py[cod]
 .pytest_cache/

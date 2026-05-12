@@ -3,7 +3,7 @@
 ## 1. 维护职责
 - **路线与计划**：架构负责人（`YAML_INPUT_GOVERNANCE.md`）
 - **用户向导与示例**：工作流维护者（`../user/USER_GUIDE_CN.md`、`../../examples/README.md`）
-- **发布说明与归档**：版本管理员（releases/RC_RELEASE_NOTES_<version>.md）
+- **发布说明与归档**：版本管理员（releases/RELEASE_NOTES_<version>.md）
 
 ## 2. 例行流程
 - **每次功能变更 PR**：更新相关文档及 `DOCUMENTATION_STATUS_REPORT.md`。

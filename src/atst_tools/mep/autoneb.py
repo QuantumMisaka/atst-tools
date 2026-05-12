@@ -65,6 +65,8 @@ class AbacusAutoNEB(AutoNEB):
         """
         closelater = exitstack.enter_context
         self.iteration += 1
+        if self.world.rank == 0:
+            self.iter_folder.mkdir(parents=True, exist_ok=True)
 
         # 1. Backup unused images
         if self.world.rank == 0:
