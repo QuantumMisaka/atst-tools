@@ -1,5 +1,10 @@
 # 文档系统交接与维护
 
+**版本**: 2.0.0
+**日期**: 2026-05-15
+**状态**: 维护
+**责任人**: ATST-Tools maintainers
+
 ## 1. 维护职责
 - **路线与计划**：架构负责人（`YAML_INPUT_GOVERNANCE.md`）
 - **用户向导与示例**：工作流维护者（`../user/USER_GUIDE_CN.md`、`../../examples/README.md`）

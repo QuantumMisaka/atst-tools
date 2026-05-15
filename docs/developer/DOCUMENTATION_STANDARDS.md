@@ -1,5 +1,10 @@
 # 文档编写与维护规范
 
+**版本**: 2.0.0
+**日期**: 2026-05-15
+**状态**: 维护
+**责任人**: ATST-Tools maintainers
+
 ## 1. 命名规则
 - **统一使用明确语义**：`<DOMAIN>_<TYPE>.md`，例如 `REFACTORING_GUIDE.md`（重构领域 + 指南类型）。
 - **发布归档**：`docs/releases/RELEASE_NOTES_<version>.md`，例如 `RELEASE_NOTES_2.0.0.md`。

@@ -15,6 +15,39 @@ atst run --show-template irc --calculator abacus
 
 `atst run` executes YAML-driven workflows. `--restart` temporarily sets `calculation.restart: true` without editing the YAML file.
 
+## Configuration Tools
+
+```bash
+atst config validate config.yaml
+atst config validate config.yaml --print-normalized
+atst config validate config.yaml --output used_config.yaml
+```
+
+`atst config validate` validates the same schema used by `atst run`. With
+`--print-normalized` or `--output`, it emits the configuration after schema
+defaults have been applied. This is the recommended way to confirm the exact
+workflow settings before launching expensive ABACUS or DP calculations.
+
+## ABACUS Tools
+
+```bash
+atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
+atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input --force
+atst abacus collect run_neb --output abacus_results.json
+atst abacus collect run_neb --output abacus_results.json --structure final.extxyz
+```
+
+`atst abacus prepare` reads `calculator.abacus` from an ATST YAML file and
+writes `INPUT`, `KPT`, and `STRU` with the active `abacuslite` writer. It does
+not run ABACUS.
+
+`atst abacus collect` scans an ABACUS run directory, records the presence of
+`INPUT`, `KPT`, `STRU`, and `running*.log` files, then writes a JSON summary. If
+the output directory has the files required by the active `abacuslite` reader,
+it also parses the last frame and can write it through ASE with `--structure`.
+The command copies parse inputs into a temporary directory before calling the
+reader so original ABACUS outputs are not modified.
+
 ## NEB Tools
 
 ```bash
@@ -75,4 +108,4 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 
 ## Workflow CLI Boundary
 
-`neb make/post`, `dimer make-from-neb`, `relax post`, and `vibration post` are lightweight commands. They do not create calculators or submit jobs. Dimer, Sella, D2S, Relax, Vibration, and IRC calculations remain YAML workflows through `atst run`.
+`config validate`, `abacus prepare/collect`, `neb make/post`, `dimer make-from-neb`, `relax post`, and `vibration post` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, D2S, Relax, Vibration, and IRC calculations remain YAML workflows through `atst run`.

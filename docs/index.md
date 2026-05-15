@@ -6,8 +6,10 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 
 - [CLI reference](user/CLI_REFERENCE.md)
 - [Configuration reference](user/CONFIG_REFERENCE.md)
+- [ABACUSLite wrapper guide](user/ABACUSLITE_WRAPPER_GUIDE.md)
 - [Chinese user guide](user/USER_GUIDE_CN.md)
 - [Examples overview](../examples/README.md)
+- [Maintained atst-cli skill](skills/atst-cli/SKILL.md)
 
 ## Developers
 
@@ -19,12 +21,11 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 ## Reports
 
 - [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md)
+- [2026-05-15 refactor stage review](reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md)
+- [2026-05-15 user experience reinforcement report](reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md)
 - [Feature status matrix](reports/FEATURE_STATUS_MATRIX.md)
 - [Sella IRC integration review](reports/IRC_INTEGRATION_REVIEW.md)
 - [DP validation report for 2.0.0](reports/DP_VALIDATION_2.0.0.md)
-- [Refactor acceptance report](archive/reports/REFACTORING_ACCEPTANCE_REPORT.md)
-- [2026-05-11 examples regression report](archive/reports/EXAMPLES_REGRESSION_2026-05-11.md)
-- [2026-05-11 enhancement completion report](archive/reports/REVIEW_ENHANCEMENTS_2026-05-11.md)
 
 ## Releases
 

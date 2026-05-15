@@ -24,3 +24,14 @@ When `atst neb make` starts from pure structures, the endpoint energies and
 forces in the generated chain are placeholders. `atst run` automatically
 performs endpoint single-point calculations before NEB/AutoNEB starts, so use
 the generated chain through the YAML workflow rather than bare ASE NEB.
+
+Configuration and ABACUS helper commands are also lightweight:
+
+```bash
+atst config validate ../06_relax_H2-Au/config.yaml --print-normalized
+atst abacus prepare ../06_relax_H2-Au/config.yaml --structure ../06_relax_H2-Au/inputs/init.stru --output-dir abacus_input
+atst abacus collect abacus_input --output abacus_results.json
+```
+
+`atst abacus prepare` writes `INPUT`, `KPT`, and `STRU`; `collect` writes a
+JSON file summary. Neither command launches ABACUS.

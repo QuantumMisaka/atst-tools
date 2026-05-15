@@ -1,12 +1,12 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.0.0
-**Last Updated**: 2026-05-12
-**Status**: Release Candidate
+**Last Updated**: 2026-05-15
+**Status**: Maintained
 
 This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
 
-YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the input before dispatching workflows, so optional variables get schema defaults before runtime. The generated non-calculator variable table is maintained in `docs/user/YAML_INPUT_VARIABLES.md`.
+YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the input before dispatching workflows, so optional variables get schema defaults before runtime. Use `atst config validate --print-normalized` to inspect the exact defaults that will be applied. The generated non-calculator variable table is maintained in `docs/user/YAML_INPUT_VARIABLES.md`.
 
 ---
 
@@ -27,6 +27,8 @@ Useful CLI checks:
 
 ```bash
 atst run --dry-run config.yaml
+atst config validate config.yaml --print-normalized
+atst config validate config.yaml --output used_config.yaml
 atst run --list-types
 atst run --show-template neb --calculator abacus
 ```
@@ -285,6 +287,16 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 | `pseudo_dir` | string | `.` | Directory containing pseudopotential files. |
 | `orbital_dir` | string | `.` | Directory containing basis set files. |
 | `parameters` | dict | `{}` | Key-value pairs for ABACUS `INPUT` file (e.g., `ecutwfc`, `scf_thr`). |
+
+The same `calculator.abacus` block can be used for local input preparation:
+
+```bash
+atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
+```
+
+This writes `INPUT`, `KPT`, and `STRU` through the active `abacuslite` writer.
+It is a pre-processing helper only; run submission and resource management stay
+outside ATST-Tools.
 
 ### 3.2 Deep Potential (DP)
 **Name**: `dp`

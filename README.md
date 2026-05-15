@@ -22,7 +22,7 @@ vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
 | :--- | :--- |
 | Package | Installable Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
-| Lightweight tools | `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
+| Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
@@ -52,6 +52,9 @@ atst traj transform ...
 atst dimer make-from-neb ...
 atst relax post ...
 atst vibration post ...
+atst config validate ...
+atst abacus prepare ...
+atst abacus collect ...
 ```
 
 ## Installation
@@ -94,6 +97,7 @@ Validate an input without launching the calculation:
 
 ```bash
 atst run --dry-run examples/06_relax_H2-Au/config.yaml
+atst config validate examples/06_relax_H2-Au/config.yaml --print-normalized
 ```
 
 Print a schema-governed template:
@@ -160,6 +164,18 @@ calculator:
     pseudo_dir: ../data
     orbital_dir: ../data
 ```
+
+ATST-Tools is a layered `abacuslite` wrapper. Calculator-backed workflows such
+as NEB, D2S, Dimer, Sella, Relax, Vibration, and IRC still run through
+`atst run CONFIG.yaml`; local ABACUS helpers support safe input preparation and
+result collection:
+
+```bash
+atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
+atst abacus collect run_neb --output abacus_results.json
+```
+
+These helper commands do not run ABACUS and do not submit Slurm jobs.
 
 ### DeePMD-kit / DP
 
@@ -235,6 +251,10 @@ Developer documentation:
 - [Documentation index](docs/index.md)
 - [YAML input governance](docs/developer/YAML_INPUT_GOVERNANCE.md)
 - [Documentation standards](docs/developer/DOCUMENTATION_STANDARDS.md)
+- [ABACUS wrapper guide](docs/user/ABACUSLITE_WRAPPER_GUIDE.md)
+- [Maintained atst-cli skill](docs/skills/atst-cli/SKILL.md)
+- [Refactor stage review](docs/reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md)
+- [User experience reinforcement report](docs/reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md)
 - [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md)
 - [DP validation report](docs/reports/DP_VALIDATION_2.0.0.md)
 - [IRC integration review](docs/reports/IRC_INTEGRATION_REVIEW.md)
@@ -256,8 +276,8 @@ The YAML `config_version` is a separate schema-compatibility marker and is also
 ## Project Boundary
 
 ATST-Tools owns workflow orchestration, YAML validation, calculator construction,
-trajectory naming, restart handling, examples, and documentation. Numerical
-engines remain external:
+trajectory naming, restart handling, ABACUS input/output helpers, examples, and
+documentation. Numerical engines remain external:
 
 - ABACUS owns first-principles electronic-structure calculations.
 - DeePMD-kit owns DP model loading and inference.
