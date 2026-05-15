@@ -234,6 +234,90 @@ def test_atst_run_show_irc_template_prints_yaml(capsys):
     assert "direction: both" in output
 
 
+def test_config_validate_prints_normalized_yaml(tmp_path, capsys):
+    from atst_tools.scripts import cli
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        """
+calculation:
+  type: relax
+  init_structure: init.stru
+calculator:
+  name: abacus
+  abacus:
+    parameters:
+      calculation: scf
+""",
+        encoding="utf-8",
+    )
+
+    cli.main(["config", "validate", str(config_file), "--print-normalized"])
+
+    output = capsys.readouterr().out
+    assert "config_version: 2.0.0" in output
+    assert "trajectory: relax.traj" in output
+
+
+def test_abacus_prepare_writes_input_kpt_and_stru(tmp_path, capsys):
+    from atst_tools.scripts import cli
+
+    structure = Atoms("H", positions=[[0.0, 0.0, 0.0]], cell=[8.0, 8.0, 8.0], pbc=True)
+    structure_file = tmp_path / "h.xyz"
+    write(structure_file, structure)
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        """
+calculation:
+  type: relax
+  init_structure: h.xyz
+calculator:
+  name: abacus
+  abacus:
+    kpts: [1, 1, 1]
+    parameters:
+      calculation: scf
+      basis_type: lcao
+      pseudo_dir: ./data
+      orbital_dir: ./data
+      pseudopotentials:
+        H: H.upf
+      basissets:
+        H: H.orb
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "abacus_input"
+
+    cli.main(["abacus", "prepare", str(config_file), "--structure", str(structure_file), "--output-dir", str(output_dir)])
+
+    assert (output_dir / "INPUT").read_text(encoding="utf-8").startswith("INPUT_PARAMETERS")
+    assert "calculation scf" in (output_dir / "INPUT").read_text(encoding="utf-8")
+    assert "K_POINTS" in (output_dir / "KPT").read_text(encoding="utf-8")
+    assert "ATOMIC_SPECIES" in (output_dir / "STRU").read_text(encoding="utf-8")
+    assert "Wrote ABACUS input files" in capsys.readouterr().out
+
+
+def test_abacus_collect_writes_read_only_summary(tmp_path):
+    from atst_tools.scripts import cli
+
+    run_dir = tmp_path / "run"
+    out_dir = run_dir / "OUT.ABACUS"
+    out_dir.mkdir(parents=True)
+    (run_dir / "INPUT").write_text("INPUT_PARAMETERS\ncalculation scf\n", encoding="utf-8")
+    (run_dir / "KPT").write_text("K_POINTS\n", encoding="utf-8")
+    (run_dir / "STRU").write_text("ATOMIC_SPECIES\n", encoding="utf-8")
+    (out_dir / "running_scf.log").write_text("mock log\n", encoding="utf-8")
+    output = tmp_path / "summary.json"
+
+    cli.main(["abacus", "collect", str(run_dir), "--output", str(output)])
+
+    summary = json.loads(output.read_text(encoding="utf-8"))
+    assert summary["parsed"] is False
+    assert summary["files"]["INPUT"] is True
+    assert summary["logs"] == ["OUT.ABACUS/running_scf.log"]
+
+
 def test_neb_make_delegates_to_generate(monkeypatch):
     from atst_tools.scripts import cli
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from textwrap import dedent
 
 import numpy as np
 from ase.io import read, write
@@ -12,6 +13,7 @@ from ase.vibrations import Vibrations
 
 from atst_tools.scripts import main as run_cli
 from atst_tools.utils.analysis import get_displacement_analysis
+from atst_tools.utils.abacus_io import collect_abacus_output, prepare_abacus_input
 from atst_tools.utils.config import ConfigLoader, VALID_CALCULATION_TYPES
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.io import read_structure
@@ -30,6 +32,15 @@ def _add_run_parser(subparsers):
         "run",
         help="Run a YAML-driven workflow",
         description="Run an ATST-Tools workflow from a YAML configuration.",
+        epilog=dedent(
+            """\
+            Examples:
+              atst run config.yaml
+              atst run --dry-run config.yaml
+              atst run --show-template neb --calculator abacus
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("config", nargs="?", help="Path to configuration file (YAML)")
     parser.add_argument("--dry-run", action="store_true", help="Validate YAML and exit")
@@ -45,6 +56,124 @@ def _run_command(args):
     if not args.config and not args.list_types and not args.show_template:
         raise SystemExit("atst run requires CONFIG unless --list-types or --show-template is used")
     return run_cli.run_from_args(args)
+
+
+def _write_yaml(data, output=None):
+    from ruamel.yaml import YAML
+
+    yaml = YAML()
+    yaml.default_flow_style = False
+    if output:
+        with Path(output).open("w", encoding="utf-8") as handle:
+            yaml.dump(data, handle)
+    else:
+        import sys
+
+        yaml.dump(data, sys.stdout)
+
+
+def _add_config_parser(subparsers):
+    parser = subparsers.add_parser("config", help="Configuration validation and inspection tools")
+    config_subparsers = parser.add_subparsers(dest="config_command", required=True)
+
+    validate = config_subparsers.add_parser(
+        "validate",
+        help="Validate an ATST YAML configuration",
+        description="Validate an ATST YAML file and optionally print the schema-normalized configuration.",
+        epilog=dedent(
+            """\
+            Examples:
+              atst config validate config.yaml
+              atst config validate config.yaml --print-normalized
+              atst config validate config.yaml --output used_config.yaml
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    validate.add_argument("config", help="Path to configuration file (YAML)")
+    validate.add_argument("--print-normalized", action="store_true", help="Print normalized YAML to stdout")
+    validate.add_argument("--output", help="Write normalized YAML to this path")
+    validate.set_defaults(func=_config_validate_command)
+
+
+def _config_validate_command(args):
+    config = ConfigLoader.normalize(ConfigLoader.load(args.config))
+    if args.output:
+        _write_yaml(config, args.output)
+        print(f"Wrote normalized config to {args.output}")
+    if args.print_normalized:
+        _write_yaml(config)
+    if not args.output and not args.print_normalized:
+        print("Configuration is valid")
+
+
+def _add_abacus_parser(subparsers):
+    parser = subparsers.add_parser(
+        "abacus",
+        help="ABACUS input preparation and output collection helpers",
+        description=(
+            "Prepare ABACUS input files and collect conservative output summaries. "
+            "These helpers do not run ABACUS or submit jobs."
+        ),
+    )
+    abacus_subparsers = parser.add_subparsers(dest="abacus_command", required=True)
+
+    prepare = abacus_subparsers.add_parser(
+        "prepare",
+        help="Write INPUT, KPT, and STRU from an ATST config",
+        epilog=dedent(
+            """\
+            Example:
+              atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    prepare.add_argument("config", help="ATST YAML configuration using calculator.name: abacus")
+    prepare.add_argument("--structure", required=True, help="Structure file to write into STRU")
+    prepare.add_argument("--output-dir", required=True, help="Directory for INPUT, KPT, and STRU")
+    prepare.add_argument("--force", action="store_true", help="Overwrite existing INPUT/KPT/STRU files")
+    prepare.set_defaults(func=_abacus_prepare_command)
+
+    collect = abacus_subparsers.add_parser(
+        "collect",
+        help="Collect a JSON summary from an ABACUS run directory",
+        epilog=dedent(
+            """\
+            Examples:
+              atst abacus collect run_neb --output abacus_results.json
+              atst abacus collect run_neb --output abacus_results.json --structure final.extxyz
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    collect.add_argument("run_dir", help="ABACUS run directory")
+    collect.add_argument("--output", default="abacus_results.json", help="Output JSON summary")
+    collect.add_argument("--structure", help="Optional output structure for a parsed final frame")
+    collect.set_defaults(func=_abacus_collect_command)
+
+
+def _abacus_prepare_command(args):
+    paths = prepare_abacus_input(
+        args.config,
+        args.structure,
+        args.output_dir,
+        force=args.force,
+    )
+    print("Wrote ABACUS input files:")
+    for name in ("INPUT", "KPT", "STRU"):
+        print(f"  {name}: {paths[name]}")
+
+
+def _abacus_collect_command(args):
+    summary = collect_abacus_output(args.run_dir, args.output, structure=args.structure)
+    print(f"Wrote {args.output}")
+    if summary["parsed"]:
+        print("Parsed final ABACUS frame")
+    elif summary["parse_error"]:
+        print(f"Collected file summary; parser skipped with: {summary['parse_error']}")
+    else:
+        print("Collected file summary; no parseable eig_occ.txt was found")
 
 
 def _add_neb_parser(subparsers):
@@ -375,10 +504,22 @@ def build_parser():
     parser = argparse.ArgumentParser(
         prog="atst",
         description="ATST-Tools: ASE workflows and lightweight helpers",
+        epilog=dedent(
+            """\
+            Examples:
+              atst run config.yaml
+              atst config validate config.yaml --print-normalized
+              atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
+              atst neb post neb.traj --n-max 5 --vib-analysis
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {run_cli._package_version()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_run_parser(subparsers)
+    _add_config_parser(subparsers)
+    _add_abacus_parser(subparsers)
     _add_neb_parser(subparsers)
     _add_dimer_parser(subparsers)
     _add_relax_parser(subparsers)
