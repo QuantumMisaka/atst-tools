@@ -37,7 +37,12 @@ The examples are organized by chemical system and method to demonstrate the vers
 1.  **Environment**: Ensure `atst-tools` is installed and you have access to `abacus` or `deepmd-kit`.
 2.  **Inputs**: Each example keeps runnable inputs under `inputs/`; generated trajectories and ABACUS scratch directories are ignored.
 3.  **Data**: The shared `data/` directory is referenced by relative paths (e.g., `../data`) in `config.yaml`.
-4.  **Run**:
+4.  **Validate first**:
+    ```bash
+    atst config validate 06_relax_H2-Au/config.yaml --print-normalized
+    atst run --dry-run 06_relax_H2-Au/config.yaml
+    ```
+5.  **Run**:
     ```bash
     cd 01_neb_Li-Si
     atst run config.yaml
@@ -49,6 +54,43 @@ The examples are organized by chemical system and method to demonstrate the vers
     ```bash
     atst run config_dp.yaml
     ```
+
+## Suggested Learning Paths
+
+### Local CLI smoke test
+
+This path does not require ABACUS or DP:
+
+```bash
+cd examples/09_lightweight_cli
+atst neb make inputs/init.xyz inputs/final.xyz 3 -o inputs/init_neb_chain.traj --method linear
+atst neb post inputs/neb_result.extxyz --n-max 1 --vib-analysis
+atst relax post inputs/relax_result.extxyz --output-format traj --output restart.traj
+```
+
+### ABACUS workflow path
+
+```bash
+atst config validate examples/01_neb_Li-Si/config.yaml --print-normalized
+atst abacus prepare examples/01_neb_Li-Si/config.yaml \
+  --structure examples/01_neb_Li-Si/inputs/init_neb_chain.traj \
+  --output-dir /tmp/atst-abacus-input
+atst run examples/01_neb_Li-Si/config.yaml
+atst abacus collect examples/01_neb_Li-Si/run_neb --output abacus_results.json
+```
+
+`atst abacus prepare` and `collect` are helper commands. They do not launch
+ABACUS or submit Slurm jobs.
+
+### D2S transition-state path
+
+```bash
+atst config validate examples/08_d2s_Cy-Pt/config.yaml --print-normalized
+atst run examples/08_d2s_Cy-Pt/config.yaml
+```
+
+D2S uses the configured calculator backend through `atst run`: rough NEB first,
+then Dimer or Sella, with optional vibration follow-up.
 
 ## Chemical Systems Summary
 
