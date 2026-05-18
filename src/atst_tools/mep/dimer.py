@@ -2,10 +2,53 @@
 # part of ATST-Tools
 
 import numpy as np
-from ase.mep import DimerControl, MinModeAtoms, MinModeTranslate
+from ase.mep import DimerControl, MinModeAtoms, MinModeTranslate as _ASEMinModeTranslate
+from ase.mep.dimer import norm, normalize
 from typing import List, Union
 
 from atst_tools.calculators.factory import CalculatorFactory
+
+
+class MinModeTranslate(_ASEMinModeTranslate):
+    """ASE Dimer translator with local divergence/NaN-step backport.
+
+    Backport source: development `ase/ase` commits `0072551d6` and
+    `849c29d51`. Remove this subclass when the validated production ASE
+    release includes the same checks in `ase.mep.dimer.MinModeTranslate`.
+    """
+
+    def step(self, f=None):
+        """Perform one minimum-mode translation step."""
+        atoms = self.dimeratoms
+        if f is None:
+            f = atoms.get_forces()
+        r = atoms.get_positions()
+        curv = atoms.get_curvature()
+        f0p = f.copy()
+        r0 = r.copy()
+        direction = f0p.copy()
+        if self.cg_on:
+            direction = self.get_cg_direction(direction)
+        if norm(direction) == np.inf:
+            raise RuntimeError("Dimer calculation diverged")
+        direction = normalize(direction)
+        if curv > 0.0:
+            step = direction * self.max_step
+        else:
+            r0t = r0 + direction * self.trial_step
+            f0tp = self.dimeratoms.get_projected_forces(r0t)
+            force = np.vdot((f0tp + f0p), direction) / 2.0
+            curvature = np.vdot((f0tp - f0p), direction) / self.trial_step
+            step = (-force / curvature + self.trial_step / 2.0) * direction
+            if norm(step) > self.max_step or np.isnan(norm(step)):
+                step = direction * self.max_step
+        self.log(f0p, norm(step))
+
+        atoms.set_positions(r + step)
+
+        self.f0 = f.flat.copy()
+        self.r0 = r.flat.copy()
+
 
 class AbacusDimer:
     """
@@ -83,8 +126,10 @@ class AbacusDimer:
         print("=== Set mask by displacement vector where displacement is [0,0,0] ===")
         if self.displacement_vector is None:
             raise ValueError("Displacement vector is None")
-        d_mask = self.displacement_vector != np.zeros(3)
-        d_mask = d_mask[:,0].tolist()
+        displacement = np.asarray(self.displacement_vector)
+        if displacement.ndim != 2 or displacement.shape[1] != 3:
+            raise ValueError("displacement_vector must have shape (natoms, 3)")
+        d_mask = (np.linalg.norm(displacement, axis=1) > 0.0).tolist()
         return d_mask
     
     def set_d_mask_by_constraint(self):
@@ -155,6 +200,7 @@ class AbacusDimer:
                                     displacement_method="vector", 
                                     mask=d_mask,
                                     dimer_separation=self.dimer_separation,
+                                    max_num_rot=self.max_num_rot,
                                     )
             
             d_atoms = MinModeAtoms(dimer_init, d_control)
@@ -167,6 +213,7 @@ class AbacusDimer:
                                     initial_eigenmode_method=self.init_eigenmode_method, 
                                     mask=d_mask,
                                     dimer_separation=self.dimer_separation,
+                                    max_num_rot=self.max_num_rot,
                                     )
             d_atoms = MinModeAtoms(dimer_init, d_control)
         else:

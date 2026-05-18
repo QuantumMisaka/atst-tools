@@ -39,7 +39,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.parallel | calculation.type=autoneb | `bool` | `True` | Enable image-level parallelism when MPI is available. |
 | calculation.autoneb.optimizer | calculation.type=autoneb | `'FIRE' \| 'BFGS'` | `'FIRE'` | Optimizer used for AutoNEB iterations. |
 | calculation.autoneb.fmax | calculation.type=autoneb | `float \| list[float]` | `0.05` | Force threshold or AutoNEB threshold schedule. |
-| calculation.autoneb.maxsteps | calculation.type=autoneb | `int` | `100` | Maximum optimizer steps per AutoNEB iteration. |
+| calculation.autoneb.maxsteps | calculation.type=autoneb | `int \| list[int]` | `100` | Maximum optimizer steps per AutoNEB iteration or two-stage schedule. |
 | calculation.autoneb.climb | calculation.type=autoneb | `bool` | `True` | Enable climbing image in AutoNEB refinement. |
 | calculation.autoneb.iter_folder | calculation.type=autoneb | `str` | `'AutoNEB_iter'` | Directory for AutoNEB iteration history. |
 | calculation.autoneb.restart | calculation.type=autoneb | `bool` | `False` | Reuse existing AutoNEB image files. |

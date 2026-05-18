@@ -2,9 +2,11 @@ import numpy as np
 import pytest
 import sys
 import types
+from contextlib import ExitStack
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import FixAtoms
 
 
 def _atoms(energy=0.0):
@@ -151,6 +153,31 @@ def test_run_neb_respects_dp_share_calculator_false(monkeypatch, tmp_path):
     assert chain[1].calc is not chain[2].calc
 
 
+def test_abacus_neb_iterimages_preserves_unconstrained_forces():
+    from atst_tools.mep.neb import AbacusNEB
+
+    unconstrained = np.array([[5.0, 0.0, 0.0], [0.0, 2.0, 0.0]])
+    images = []
+    for index, x in enumerate([0.0, 0.5, 1.0]):
+        atoms = Atoms("H2", positions=[[x, 0.0, 0.0], [x, 0.0, 1.0]])
+        atoms.set_constraint(FixAtoms(indices=[0]))
+        atoms.calc = SinglePointCalculator(
+            atoms,
+            energy=float(index),
+            forces=unconstrained + index,
+        )
+        images.append(atoms)
+
+    neb = AbacusNEB(images, method="improvedtangent", allow_shared_calculator=False)
+    neb.get_forces()
+    written_middle = list(neb.iterimages())[1]
+
+    np.testing.assert_allclose(
+        written_middle.get_forces(apply_constraint=False),
+        unconstrained + 1,
+    )
+
+
 def test_autoneb_runner_reuses_shared_dp_calculator(monkeypatch):
     from atst_tools.mep import autoneb
 
@@ -177,6 +204,91 @@ def test_autoneb_runner_reuses_shared_dp_calculator(monkeypatch):
     assert chain[1].calc is shared_calc
     assert chain[2].calc is shared_calc
     assert calls[0]["shared"] is True
+
+
+def test_autoneb_runner_uses_unique_serial_abacus_directories(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    directories = []
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        directories.append(kwargs["directory"])
+        return DummyCalc()
+
+    monkeypatch.setattr(autoneb.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"directory": "autoneb_run", "parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+    runner.attach_calculators(chain[1:-1])
+
+    assert len(directories) == 2
+    assert len(set(directories)) == 2
+    assert all(directory.startswith("autoneb_run/image_") for directory in directories)
+
+
+def test_abacus_autoneb_preserves_ase_fmax_and_maxsteps_schedule(monkeypatch, tmp_path):
+    from atst_tools.mep import autoneb
+
+    images = [_atoms(float(index)) for index in range(4)]
+    run_calls = []
+
+    class FakeOptimizer:
+        def __init__(self, neb, logfile=None):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def attach(self, *args, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            run_calls.append((fmax, steps))
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            self.nimages = len(images)
+            self.natoms = len(images[0])
+            self.parallel = False
+            self.world = autoneb.world
+
+        def get_forces(self):
+            return np.zeros(((self.nimages - 2) * self.natoms, 3))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(autoneb, "store_E_and_F_in_spc", lambda neb: None, raising=False)
+
+    auto = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda atoms: None,
+        prefix="run_autoneb",
+        n_simul=2,
+        n_max=4,
+        optimizer=FakeOptimizer,
+        fmax=[0.2, 0.05],
+        maxsteps=[3, 9],
+        parallel=False,
+    )
+    auto.all_images = images
+    auto.k = [0.1, 0.1, 0.1]
+    auto.iteration = 0
+
+    with ExitStack() as stack:
+        auto._execute_one_neb(stack, n_cur=4, to_run=[0, 1, 2, 3], many_steps=False)
+    with ExitStack() as stack:
+        auto._execute_one_neb(stack, n_cur=4, to_run=[0, 1, 2, 3], many_steps=True)
+
+    assert run_calls == [(0.2, 3), (0.05, 9)]
 
 
 def test_d2s_rough_dyneb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
@@ -258,6 +370,68 @@ def test_run_dimer_preserves_dp_calculator_selection(monkeypatch, tmp_path):
     )
 
     assert calls == [("init", "dp", "model.pt", 0.03, 7), ("run", 0.2, 5)]
+
+
+def test_dimer_displacement_mask_uses_all_vector_components():
+    from atst_tools.mep.dimer import AbacusDimer
+
+    dimer = AbacusDimer(
+        _atoms(),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+        displacement_vector=np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0],
+            ]
+        ),
+    )
+
+    assert dimer.set_d_mask_by_displacement() == [True, True, True, False]
+
+
+def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch):
+    from atst_tools.mep import dimer as dimer_module
+
+    control_kwargs = {}
+
+    class FakeDimerControl:
+        def __init__(self, **kwargs):
+            control_kwargs.update(kwargs)
+
+    class FakeMinModeAtoms:
+        def __init__(self, atoms, control):
+            return None
+
+        def displace(self, displacement_vector=None):
+            return None
+
+    class FakeTranslate:
+        def __init__(self, atoms, trajectory=None):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.setattr(dimer_module, "DimerControl", FakeDimerControl)
+    monkeypatch.setattr(dimer_module, "MinModeAtoms", FakeMinModeAtoms)
+    monkeypatch.setattr(dimer_module, "MinModeTranslate", FakeTranslate)
+    monkeypatch.setattr(dimer_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+
+    dimer = dimer_module.AbacusDimer(
+        _atoms(),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+        displacement_vector=np.array([[0.01, 0.0, 0.0]]),
+        max_num_rot=7,
+    )
+    dimer.run(max_steps=1)
+
+    assert control_kwargs["max_num_rot"] == 7
 
 
 def test_run_sella_preserves_dp_calculator_selection(monkeypatch, tmp_path):

@@ -3,8 +3,9 @@
 
 import os
 import shutil
+import types
 from pathlib import Path
-from ase.mep.autoneb import AutoNEB
+from ase.mep.autoneb import AutoNEB, seriel_writer, store_E_and_F_in_spc
 from ase.io import read, write, Trajectory
 from ase.parallel import world
 from ase.optimize import FIRE, BFGS
@@ -17,12 +18,11 @@ from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_
 
 class AbacusAutoNEB(AutoNEB):
     """
-    Customized AutoNEB for ABACUS/ATST-Tools.
+    ASE-native AutoNEB variant that uses ATST's NEB compatibility class.
     
-    This class overrides the standard AutoNEB execution to:
-    1.  Use `AbacusNEB` instead of standard `NEB` for improved force/stress handling.
-    2.  Implement aggressive file cleanup to manage disk usage during long runs.
-    3.  Support parallel execution with correct directory management.
+    This class keeps ASE 3.28.0 AutoNEB scheduling and result-freezing
+    semantics, while constructing `AbacusNEB` so ATST can carry the local NEB
+    real-force backport until it is available in a production ASE release.
 
     Attributes:
         attach_calculators (callable): Function to attach calculators to images.
@@ -53,8 +53,9 @@ class AbacusAutoNEB(AutoNEB):
                          climb=False, many_steps=False):
         """
         Internal method which executes one NEB optimization.
-        
-        Overrides ASE AutoNEB._execute_one_neb to use AbacusNEB and handle cleanup.
+
+        The control flow mirrors ASE 3.28.0, with `AbacusNEB` substituted for
+        ASE `NEB` and image indices annotated before calculators are attached.
 
         Args:
             exitstack: Context manager stack.
@@ -86,6 +87,8 @@ class AbacusAutoNEB(AutoNEB):
             print('Now starting iteration %d on ' % self.iteration, to_run)
 
         # 2. Attach Calculators
+        for image_index in to_run[1:-1]:
+            self.all_images[image_index].info["_atst_autoneb_index"] = image_index
         self.attach_calculators([self.all_images[i] for i in to_run[1: -1]])
 
         # 3. Instantiate NEB (Using AbacusNEB instead of standard NEB)
@@ -108,54 +111,55 @@ class AbacusAutoNEB(AutoNEB):
             nim = len(to_run) - 2
             n = self.world.size // nim      
             j = 1 + self.world.rank // n    
+            assert nim * n == self.world.size
             
             traj = closelater(Trajectory(
                 '%s%03d.traj' % (self.prefix, j + nneb), 'w',
                 self.all_images[j + nneb],
                 master=(self.world.rank % n == 0),
-                properties=["energy", "forces", "stress"] # Added stress
             ))
             filename_ref = self.iter_trajpath(j + nneb, self.iteration)
             trajhist = closelater(Trajectory(
                 filename_ref, 'w',
                 self.all_images[j + nneb],
                 master=(self.world.rank % n == 0),
-                properties=["energy", "forces", "stress"] # Added stress
             ))
             qn.attach(traj)
             qn.attach(trajhist)
         else:
-            # Serial logic
-            for i in to_run[1: -1]:
-                traj = closelater(Trajectory(
-                    '%s%03d.traj' % (self.prefix, i), 'w',
-                    self.all_images[i],
-                    properties=["energy", "forces", "stress"]
-                ))
-                filename_ref = self.iter_trajpath(i, self.iteration)
+            num = 1
+            for i, j in enumerate(to_run[1: -1]):
+                filename_ref = self.iter_trajpath(j, self.iteration)
                 trajhist = closelater(Trajectory(
-                    filename_ref, 'w',
-                    self.all_images[i],
-                    properties=["energy", "forces", "stress"]
+                    filename_ref, 'w', self.all_images[j]
                 ))
-                qn.attach(traj)
-                qn.attach(trajhist)
+                qn.attach(seriel_writer(trajhist, i, num).write)
+
+                traj = closelater(Trajectory(
+                    '%s%03d.traj' % (self.prefix, j), 'w',
+                    self.all_images[j]
+                ))
+                qn.attach(seriel_writer(traj, i, num).write)
+                num += 1
 
         # 6. Run Optimizer
-        steps = self.maxsteps
-        qn.run(fmax=self.fmax, steps=steps)
+        if isinstance(self.maxsteps, (list, tuple)) and many_steps:
+            steps = self.maxsteps[1]
+        elif isinstance(self.maxsteps, (list, tuple)) and not many_steps:
+            steps = self.maxsteps[0]
+        else:
+            steps = self.maxsteps
 
-        # 7. CLEANUP
-        # Remove calculation directories to save space
-        for ind in to_run[1: -1]:
-            calc = self.all_images[ind].calc
-            if calc and hasattr(calc, 'directory'):
-                calc_dir = calc.directory
-                if os.path.isdir(calc_dir):
-                    try:
-                        shutil.rmtree(calc_dir)
-                    except OSError:
-                        pass # Ignore errors
+        if isinstance(self.fmax, (list, tuple)) and many_steps:
+            fmax = self.fmax[1]
+        elif isinstance(self.fmax, (list, tuple)) and not many_steps:
+            fmax = self.fmax[0]
+        else:
+            fmax = self.fmax
+        qn.run(fmax=fmax, steps=steps)
+
+        neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
+        neb.distribute()
 
 class AutoNEBRunner:
     """
@@ -188,8 +192,6 @@ class AutoNEBRunner:
         if requested_parallel and not self.parallel:
             print("Notice: image-level AutoNEB parallelism requires MPI-launched atst run; running images serially.")
         self.fmax = calc_config['fmax']
-        if isinstance(self.fmax, (list, tuple)):
-            self.fmax = self.fmax[-1]
         self.maxsteps = calc_config['maxsteps']
         self.optimizer_name = calc_config['optimizer']
         self.climb = calc_config['climb']
@@ -245,8 +247,9 @@ class AutoNEBRunner:
                  image.calc = self._get_calculator(image_dir, shared=False)
              else:
                  base_dir = self._base_directory()
-                 
-                 image.calc = self._get_calculator(base_dir)
+                 image_index = image.info.get("_atst_autoneb_index", i)
+                 image_dir = f"{base_dir}/image_{int(image_index):03d}"
+                 image.calc = self._get_calculator(image_dir, shared=False)
 
     def _get_optimizer(self):
         """

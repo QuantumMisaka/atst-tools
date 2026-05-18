@@ -9,7 +9,7 @@ description = "Advanced ASE Transition State Tools for ABACUS and Deep-Potential
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "ase>=3.22.1",
+    "ase>=3.28.0",
     "numpy",
     "scipy",
     "matplotlib",

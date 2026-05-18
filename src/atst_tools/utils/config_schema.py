@@ -81,7 +81,7 @@ class AutoNEBCalculation(StrictConfig):
     parallel: bool = Field(default=True, description="Enable image-level parallelism when MPI is available.")
     optimizer: Literal["FIRE", "BFGS"] = Field(default="FIRE", description="Optimizer used for AutoNEB iterations.")
     fmax: float | list[float] = Field(default=0.05, description="Force threshold or AutoNEB threshold schedule.")
-    maxsteps: int = Field(default=100, gt=0, description="Maximum optimizer steps per AutoNEB iteration.")
+    maxsteps: int | list[int] = Field(default=100, description="Maximum optimizer steps per AutoNEB iteration or two-stage schedule.")
     climb: bool = Field(default=True, description="Enable climbing image in AutoNEB refinement.")
     iter_folder: str = Field(default="AutoNEB_iter", description="Directory for AutoNEB iteration history.")
     restart: bool = Field(default=False, description="Reuse existing AutoNEB image files.")
@@ -94,6 +94,16 @@ class AutoNEBCalculation(StrictConfig):
         values = value if isinstance(value, list) else [value]
         if any(float(item) <= 0 for item in values):
             raise ValueError("calculation.fmax must be positive")
+        return value
+
+    @field_validator("maxsteps")
+    @classmethod
+    def _validate_maxsteps(cls, value: int | list[int]) -> int | list[int]:
+        values = value if isinstance(value, list) else [value]
+        if any(int(item) <= 0 for item in values):
+            raise ValueError("calculation.maxsteps must be positive")
+        if isinstance(value, list) and len(value) != 2:
+            raise ValueError("calculation.maxsteps schedule must contain exactly two values")
         return value
 
 

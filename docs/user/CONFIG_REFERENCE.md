@@ -103,7 +103,7 @@ calculation:
 | `init_chain` | string | **Required** | Path to the initial guess chain. |
 | `n_simul` | int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
 | `n_max` | int | `10` | Maximum number of images in the band. |
-| `maxsteps` | int | `100` | Maximum optimization steps per iteration. |
+| `maxsteps` | int/list[int] | `100` | Maximum optimization steps per iteration; a two-value list follows ASE AutoNEB's normal/climbing-stage schedule. |
 | `iter_folder` | string | `AutoNEB_iter` | Folder to store iteration results. |
 | `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
 | `optimizer` | string | `FIRE` | `FIRE` or `BFGS`. |
