@@ -21,6 +21,7 @@ slurm-*
 *.log
 *.traj
 *.json
+!docs/reports/*.metrics.json
 *.cif
 *.chg
 *.cube

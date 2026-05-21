@@ -26,6 +26,8 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 - [Feature status matrix](reports/FEATURE_STATUS_MATRIX.md)
 - [Sella IRC integration review](reports/IRC_INTEGRATION_REVIEW.md)
 - [DP validation report for 2.0.0](reports/DP_VALIDATION_2.0.0.md)
+- [Examples vs main branch validation on ABACUS LTS 3.10.1](reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md)
+  ([metrics JSON](reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.metrics.json))
 
 ## Releases
 

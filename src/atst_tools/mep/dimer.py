@@ -2,6 +2,7 @@
 # part of ATST-Tools
 
 import numpy as np
+from ase.io import Trajectory
 from ase.mep import DimerControl, MinModeAtoms, MinModeTranslate as _ASEMinModeTranslate
 from ase.mep.dimer import norm, normalize
 from typing import List, Union
@@ -219,9 +220,22 @@ class AbacusDimer:
         else:
             raise ValueError("init_eigenmode_method must be displacement or gauss")
             
-        # MinModeTranslate is the optimizer
-        dimer_relax = MinModeTranslate(d_atoms, trajectory=self.traj_file)
-        if max_steps is None:
-            dimer_relax.run(fmax=fmax)
-        else:
-            dimer_relax.run(fmax=fmax, steps=max_steps)
+        # MinModeTranslate writes MinModeAtoms without calculator results when
+        # given a trajectory path directly. Write the underlying Atoms instead
+        # so the trajectory remains ASE-readable for energy/force analysis.
+        traj = Trajectory(self.traj_file, 'w', dimer_init)
+
+        def write_current_atoms():
+            dimer_init.get_potential_energy()
+            dimer_init.get_forces()
+            traj.write(dimer_init)
+
+        dimer_relax = MinModeTranslate(d_atoms)
+        dimer_relax.attach(write_current_atoms)
+        try:
+            if max_steps is None:
+                dimer_relax.run(fmax=fmax)
+            else:
+                dimer_relax.run(fmax=fmax, steps=max_steps)
+        finally:
+            traj.close()

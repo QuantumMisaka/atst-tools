@@ -14,7 +14,7 @@ from atst_tools.utils.neb_endpoints import (
 )
 
 # Scipy Imports
-from scipy.optimize import linear_sum_assignment, minimize
+from scipy.optimize import linear_sum_assignment
 
 def align_atom_indices(atoms_ref: Atoms, atoms_target: Atoms) -> Atoms:
     """
@@ -113,8 +113,10 @@ def robust_interpolate(start_atoms: Atoms, end_atoms: Atoms, nimages: int) -> Li
 
 class Fast_IDPPSolver:
     """
-    Fast IDPP Solver based on Scipy L-BFGS-B.
-    Removes dependency on pymatgen.
+    IDPP solver compatible with pymatgen's NEB-like path relaxation.
+
+    The implementation removes the runtime dependency on pymatgen while
+    retaining its IDPP update scheme, which is used by the legacy examples.
     """
     def __init__(self, images: List[Atoms], mic: bool = True):
         self.start_atoms = images[0]
@@ -122,6 +124,7 @@ class Fast_IDPPSolver:
         self.nimages = len(images) - 2
         self.natoms = len(self.start_atoms)
         self.cell = self.start_atoms.get_cell()
+        self.images = images
         
         if mic and np.linalg.det(self.cell) > 1e-8:
             self.inv_cell = np.linalg.inv(self.cell)
@@ -130,72 +133,135 @@ class Fast_IDPPSolver:
             self.inv_cell = np.eye(3)
             self.mic = False
 
-        # 1. Pre-calculate target distance matrices
         d_start = self.start_atoms.get_all_distances(mic=self.mic)
         d_end = self.end_atoms.get_all_distances(mic=self.mic)
         
         factors = np.linspace(0, 1, self.nimages + 2)[1:-1]
         self.target_dists = d_start[None, :, :] + factors[:, None, None] * (d_end - d_start)[None, :, :]
 
-        # 2. Pre-calculate weights
-        avg_dists = (d_start[None, :, :] + d_end[None, :, :]) / 2.0 
-        self.weights = 1.0 / (avg_dists**4 + np.eye(self.natoms)[None, :, :] * 1e-12)
-
+        initial_distances = np.array([img.get_all_distances(mic=self.mic) for img in images[1:-1]])
+        avg_dists = (self.target_dists + initial_distances) / 2.0
+        self.weights = 1.0 / (avg_dists**4 + np.eye(self.natoms)[None, :, :] * 1e-8)
+        self.translations = self._build_translations(images)
         self.initial_positions = np.array([img.get_positions() for img in images[1:-1]])
 
-    def _objective_function(self, flat_coords):
-        coords = flat_coords.reshape((self.nimages, self.natoms, 3))
-        
-        if self.mic:
-            scaled_coords = np.dot(coords, self.inv_cell)
-            diff_scaled = scaled_coords[:, :, None, :] - scaled_coords[:, None, :, :]
-            diff_scaled -= np.round(diff_scaled)
-            vectors = np.dot(diff_scaled, self.cell)
+    def _build_translations(self, images: List[Atoms]) -> np.ndarray:
+        translations = np.zeros((self.nimages, self.natoms, self.natoms, 3), dtype=float)
+        if not self.mic:
+            return translations
+        for image_index, image in enumerate(images[1:-1]):
+            frac = image.get_scaled_positions(wrap=False)
+            for i in range(self.natoms):
+                for j in range(i + 1, self.natoms):
+                    shift = self._nearest_image(frac[i], frac[j])
+                    cart_shift = np.dot(shift, self.cell)
+                    translations[image_index, i, j] = cart_shift
+                    translations[image_index, j, i] = -cart_shift
+        return translations
+
+    def _nearest_image(self, frac_i: np.ndarray, frac_j: np.ndarray) -> np.ndarray:
+        best_shift = np.zeros(3, dtype=float)
+        best_distance = np.inf
+        for sx in (-1, 0, 1):
+            for sy in (-1, 0, 1):
+                for sz in (-1, 0, 1):
+                    shift = np.array([sx, sy, sz], dtype=float)
+                    vector = np.dot(frac_j + shift - frac_i, self.cell)
+                    distance = float(np.dot(vector, vector))
+                    if distance < best_distance:
+                        best_distance = distance
+                        best_shift = shift
+        return best_shift
+
+    def _get_funcs_and_forces(self, coords: np.ndarray):
+        funcs = []
+        forces = []
+        eye = np.eye(self.natoms, dtype=float)
+        for image_index in range(self.nimages):
+            image_coords = coords[image_index + 1]
+            vectors = (
+                image_coords[:, np.newaxis, :]
+                - image_coords[np.newaxis, :, :]
+                - self.translations[image_index]
+            )
+            trial_dist = np.linalg.norm(vectors, axis=2)
+            delta = trial_dist - self.target_dists[image_index]
+            aux = delta * self.weights[image_index] / (trial_dist + eye)
+            funcs.append(0.5 * np.sum(delta**2 * self.weights[image_index]))
+            gradients = np.sum(aux[:, :, np.newaxis] * vectors, axis=1)
+            forces.append(-2.0 * gradients)
+        return np.array(funcs), np.array(forces)
+
+    @staticmethod
+    def _unit_vector(vector: np.ndarray) -> np.ndarray:
+        norm = np.linalg.norm(vector)
+        if norm < 1e-15:
+            return np.zeros_like(vector)
+        return vector / norm
+
+    def _get_total_forces(self, coords: np.ndarray, true_forces: np.ndarray, spring_const: float):
+        total_forces = []
+        for image_index in range(1, len(coords) - 1):
+            forward = (coords[image_index + 1] - coords[image_index]).ravel()
+            backward = (coords[image_index] - coords[image_index - 1]).ravel()
+            tangent = self._unit_vector(self._unit_vector(forward) + self._unit_vector(backward))
+            spring_force = spring_const * (np.linalg.norm(forward) - np.linalg.norm(backward)) * tangent
+            flat_force = true_forces[image_index - 1].copy().ravel()
+            total_force = true_forces[image_index - 1] + (
+                spring_force - np.dot(flat_force, tangent) * tangent
+            ).reshape(self.natoms, 3)
+            total_forces.append(total_force)
+        return np.array(total_forces)
+
+    def run(
+        self,
+        maxiter=2000,
+        tol=1e-4,
+        gtol=1e-3,
+        step_size=0.05,
+        max_disp=0.05,
+        spring_const=5.0,
+    ):
+        print(f"  [IDPP] Starting NEB-like optimization ({self.nimages} intermediate images)...")
+        coords = np.array([img.get_positions() for img in self.images])
+        old_funcs = np.zeros(self.nimages, dtype=float)
+        final_funcs = old_funcs.copy()
+        max_force = np.inf
+        converged = False
+
+        for step in range(maxiter):
+            funcs, true_forces = self._get_funcs_and_forces(coords)
+            total_forces = self._get_total_forces(coords, true_forces, spring_const=spring_const)
+
+            disp = step_size * total_forces
+            disp = np.where(np.abs(disp) > max_disp, np.sign(disp) * max_disp, disp)
+            coords[1 : self.nimages + 1] += disp
+
+            max_force = float(np.abs(total_forces).max())
+            residual = float(np.sum(np.abs(old_funcs - funcs)))
+            final_funcs = funcs
+            if residual < tol and max_force < gtol:
+                converged = True
+                break
+            old_funcs = funcs
         else:
-            vectors = coords[:, :, None, :] - coords[:, None, :, :]
+            step = maxiter - 1
+            warnings.warn("IDPP did not fully converge: maximum iteration number reached")
 
-        current_dists = np.linalg.norm(vectors, axis=3)
-        delta_dists = current_dists - self.target_dists
-        energy = 0.5 * np.sum(self.weights * delta_dists**2)
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            prefactor = (self.weights * delta_dists) / (current_dists + 1e-12)
-        
-        gradients = 2.0 * np.einsum('nij,nijk->nik', prefactor, vectors)
-        return energy, gradients.flatten()
-
-    def run(self, maxiter=2000, tol=1e-4):
-        print(f"  [IDPP] Starting L-BFGS-B optimization ({self.nimages} intermediate images)...")
-        x0 = self.initial_positions.flatten()
-        res = minimize(
-            self._objective_function, x0, method='L-BFGS-B', jac=True, 
-            options={'maxiter': maxiter, 'gtol': tol, 'disp': False}
-        )
-        
-        final_grads = res.jac.reshape((self.nimages, self.natoms, 3))
-        fmax = np.max(np.linalg.norm(final_grads, axis=2))
-        
         print("-" * 60)
         print("                 IDPP CONVERGENCE REPORT            ")
         print("-" * 60)
-        print(f"  Status       : {'✅ Converged' if res.success else '❌ Failed'}")
-        print(f"  Message      : {res.message}")
-        print(f"  Iterations   : {res.nit}")
-        print(f"  Final S_IDPP : {res.fun:.6f}")
-        print(f"  Max Force    : {fmax:.6f} (Target: < {tol})")
+        print(f"  Status       : {'Converged' if converged else 'Failed'}")
+        print(f"  Iterations   : {step + 1}")
+        print(f"  Final S_IDPP : {np.sum(final_funcs):.6f}")
+        print(f"  Max Force    : {max_force:.6f} (Target: < {gtol})")
         print("-" * 60)
-
-        if not res.success:
-            warnings.warn(f"IDPP did not fully converge: {res.message}")
-
-        optimized_coords = res.x.reshape((self.nimages, self.natoms, 3))
-        final_images = [self.start_atoms.copy()]
-        for i in range(self.nimages):
-            img = self.start_atoms.copy()
-            img.set_positions(optimized_coords[i])
-            final_images.append(img)
-        final_images.append(self.end_atoms.copy())
         
+        final_images = []
+        for i, image in enumerate(self.images):
+            new_image = image.copy()
+            new_image.set_positions(coords[i])
+            final_images.append(new_image)
         return final_images
 
     @classmethod

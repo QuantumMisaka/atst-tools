@@ -2,12 +2,12 @@ calculation:
   type: neb
   init_chain: inputs/init_neb_chain.traj
   climb: true
-  fmax: 0.80
+  fmax: 0.05
   k: 0.1
   algorism: improvedtangent
   parallel: true
   optimizer: FIRE
-  max_steps: 1
+  max_steps: 200
 
 calculator:
   name: abacus
@@ -23,6 +23,7 @@ calculator:
         basis_type: lcao
         ks_solver: cusolver
         vdw_method: d3_bj
+        dft_functional: pbe
         nspin: 2
         symmetry: 1
         scf_thr: 1e-06
@@ -32,7 +33,13 @@ calculator:
         mixing_type: broyden
         cal_force: 1
         cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
         out_stru: 1
+        out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
         efield_flag: 1
         dip_cor_flag: 1
         efield_dir: 1

@@ -241,6 +241,100 @@ def test_normalize_populates_defaults_for_relax_dp():
     assert config["calculator"]["dp"]["share_calculator"] is True
 
 
+def test_autoneb_optimizer_kwargs_are_governed_and_default_empty():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "autoneb", "init_chain": "chain.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["optimizer_kwargs"] == {}
+
+
+def test_validate_accepts_autoneb_optimizer_kwargs():
+    config = {
+        "calculation": {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05},
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    assert ConfigLoader.validate(config) is True
+
+
+def test_validate_accepts_neb_optimizer_kwargs():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "chain.traj",
+                "optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05},
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        }
+    )
+
+    assert config["calculation"]["optimizer_kwargs"] == {
+        "downhill_check": True,
+        "maxstep": 0.05,
+    }
+
+
+def test_validate_accepts_d2s_neb_optimizer_kwargs():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "d2s",
+                "init_file": "init.traj",
+                "final_file": "final.traj",
+                "neb": {"optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05}},
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        }
+    )
+
+    assert config["calculation"]["neb"]["optimizer_kwargs"] == {
+        "downhill_check": True,
+        "maxstep": 0.05,
+    }
+
+
+def test_validate_accepts_d2s_neb_scale_fmax():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "d2s",
+                "init_file": "init.traj",
+                "final_file": "final.traj",
+                "neb": {"scale_fmax": 1.0},
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        }
+    )
+
+    assert config["calculation"]["neb"]["scale_fmax"] == 1.0
+
+
+def test_validate_accepts_d2s_neb_idpp_controls():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "d2s",
+                "init_file": "init.traj",
+                "final_file": "final.traj",
+                "neb": {"idpp_maxiter": 5000, "idpp_tol": 1e-3},
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        }
+    )
+
+    assert config["calculation"]["neb"]["idpp_maxiter"] == 5000
+    assert config["calculation"]["neb"]["idpp_tol"] == 1e-3
+
+
 def test_normalize_legacy_root_abacus_section():
     config = ConfigLoader.normalize(
         {

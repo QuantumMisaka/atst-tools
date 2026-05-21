@@ -59,6 +59,7 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 | `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
 | `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
 | `optimizer` | string | `FIRE` | ASE optimizer. |
+| `optimizer_kwargs` | dict | `{}` | Extra keyword arguments forwarded to the ASE optimizer constructor. |
 | `max_steps` | int | `100` | Maximum optimizer steps. |
 | `fmax` | float | `0.05` | Force convergence threshold. |
 | `endpoint_singlepoint` | string | `auto` | Endpoint result policy: `auto`, `always`, or `never`. |
@@ -107,6 +108,7 @@ calculation:
 | `iter_folder` | string | `AutoNEB_iter` | Folder to store iteration results. |
 | `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
 | `optimizer` | string | `FIRE` | `FIRE` or `BFGS`. |
+| `optimizer_kwargs` | dict | `{}` | Keyword arguments forwarded to the ASE optimizer constructor; for difficult FIRE AutoNEB runs, consider `downhill_check: true` and a smaller `maxstep`. |
 | `climb` | bool | `true` | Enable climbing image refinement. |
 | `fmax` | float/list[float] | `0.05` | Force threshold or AutoNEB threshold schedule. |
 | `endpoint_singlepoint` | string | `auto` | Same endpoint result policy as ordinary NEB. |
@@ -207,7 +209,7 @@ This uses ASE `IdealGasThermo` and includes translational, rotational, and vibra
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
 | `endpoint_optimization` | dict | Enabled by default | Endpoint optimization policy before rough DyNEB. |
 
-D2S optimizes endpoints by default, then builds the rough DyNEB chain. If input endpoints already carry energy/force results, this stage is skipped by default:
+D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If input endpoints already carry energy/force results, this stage is skipped by default:
 
 ```yaml
 calculation:

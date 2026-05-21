@@ -177,6 +177,12 @@ def _write_stru(job_dir, stru, fname='STRU'):
 
                 f.write('\n')
 
+def species_group_indices(symbols: List[str]) -> List[int]:
+    """Return indices grouped by first-occurrence species order."""
+    species_order = list(dict.fromkeys(symbols))
+    return [i for species in species_order for i, symbol in enumerate(symbols) if symbol == species]
+
+
 def write_stru(stru: Atoms,
                outdir: str,
                pp_file: Optional[Dict[str, str]],
@@ -214,10 +220,12 @@ def write_stru(stru: Atoms,
     assert isinstance(stru, Atoms)
     pp_file = pp_file or {} # can be None, for those non-ESolver_KS cases
 
-    elem = stru.get_chemical_symbols()    
+    elem = stru.get_chemical_symbols()
     # ABACUS requires the atoms ranged species-by-species, therefore
-    # we need to sort the atoms by species
-    ind = np.argsort(elem)
+    # we need to group atoms by species. Preserve the first-occurrence species
+    # order from the ASE Atoms object so generated STRU files stay close to
+    # user-provided/main-branch inputs instead of forcing alphabetical order.
+    ind = species_group_indices(elem)
     coords = stru.get_positions()[ind]
     elem = [elem[i] for i in ind]
 
@@ -226,7 +234,8 @@ def write_stru(stru: Atoms,
     magmoms = [{} if abs(np.linalg.norm(m)) <= 1e-10 
                else {'mag': m[0] if len(m) == 1 else ('Cartesian', m.tolist())}
                for m in magmoms]
-    elem_uniq, nat = np.unique(elem, return_counts=True)
+    elem_uniq = list(dict.fromkeys(elem))
+    nat = np.array([elem.count(e) for e in elem_uniq])
     stru_dict = {
         'coord_type': 'Cartesian',
         'lat': {

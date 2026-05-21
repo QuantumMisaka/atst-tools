@@ -7,42 +7,45 @@ calculation:
   algorism: improvedtangent
   parallel: true
   optimizer: FIRE
-  fmax: [1.00, 0.05]
+  fmax: [0.20, 0.05]
   climb: true
-  maxsteps: 1
+  maxsteps: 10000
   iter_folder: AutoNEB_iter
 
 calculator:
   name: abacus
   abacus:
     command: abacus
-    mpi: 4
-    omp: 1
+    mpi: 16
+    omp: 2
     directory: autoneb_run
     kpts: [2, 1, 2]
     parameters:
         calculation: scf
+        nspin: 2
+        dft_functional: pbe
         ecutwfc: 100
         basis_type: lcao
         ks_solver: cusolver
         vdw_method: d3_bj
-        nspin: 2
         symmetry: 0
         scf_thr: 1e-06
-        scf_nmax: 300
-        smearing_method: gauss
+        scf_nmax: 100
+        smearing_method: gaussian
         smearing_sigma: 0.001
         mixing_type: broyden
-        mixing_ndim: 20
         cal_force: 1
         cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
         out_stru: 1
+        out_chg: -1
+        out_mul: 0
+        out_bandgap: 0
+        out_wfc_lcao: 0
         efield_flag: 1
         dip_cor_flag: 1
         efield_dir: 1
-        efield_pos_max: 0.0
-        efield_pos_dec: 0.1
-        efield_amp: 0.0
         pseudo_dir: ../data
         orbital_dir: ../data
         pseudopotentials:

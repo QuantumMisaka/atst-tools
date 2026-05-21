@@ -137,10 +137,14 @@ class D2SWorkflow:
         fmax = self.neb_config["fmax"]
         algorism = self.neb_config["algorism"]
         climb = self.neb_config["climb"]
+        scale_fmax = self.neb_config["scale_fmax"]
         max_steps = self.neb_config["max_steps"]
 
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
-        images = solver.run()
+        images = solver.run(
+            maxiter=self.neb_config["idpp_maxiter"],
+            tol=self.neb_config["idpp_tol"],
+        )
 
         ensure_neb_endpoint_results(
             images,
@@ -161,9 +165,10 @@ class D2SWorkflow:
             fmax=fmax,
             method=algorism,
             parallel=False,
+            scale_fmax=scale_fmax,
             allow_shared_calculator=allow_shared,
         )
-        opt = FIRE(neb, trajectory="neb_rough.traj")
+        opt = FIRE(neb, trajectory="neb_rough.traj", **self.neb_config.get("optimizer_kwargs", {}))
         opt.run(fmax=fmax, steps=max_steps)
         return images
 

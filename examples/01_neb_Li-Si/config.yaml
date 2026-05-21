@@ -7,7 +7,7 @@ calculation:
   algorism: improvedtangent
   parallel: true
   optimizer: FIRE
-  max_steps: 1
+  max_steps: 200
 
 calculator:
   name: abacus
@@ -24,14 +24,18 @@ calculator:
         ks_solver: cusolver
         dft_functional: pbe
         scf_thr: 1e-06
-        scf_nmax: 300
+        scf_nmax: 100
         smearing_method: gaussian
         smearing_sigma: 0.001
         mixing_type: broyden
         cal_force: 1
         cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
         out_stru: 1
         out_chg: 0
+        out_mul: 0
+        out_wfc_lcao: 0
         out_bandgap: 0
         pseudo_dir: ../data
         orbital_dir: ../data

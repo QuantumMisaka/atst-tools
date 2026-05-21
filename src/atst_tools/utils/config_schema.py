@@ -49,6 +49,10 @@ class NEBCalculation(StrictConfig):
     parallel: bool = Field(default=True, description="Enable image-level parallelism when MPI is available.")
     max_steps: int = Field(default=100, gt=0, description="Maximum optimizer steps.")
     optimizer: str = Field(default="FIRE", description="ASE optimizer name.")
+    optimizer_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments forwarded to the ASE optimizer constructor.",
+    )
     endpoint_singlepoint: Literal["auto", "always", "never"] = Field(
         default="auto",
         description="Endpoint result policy before NEB starts.",
@@ -80,6 +84,10 @@ class AutoNEBCalculation(StrictConfig):
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
     parallel: bool = Field(default=True, description="Enable image-level parallelism when MPI is available.")
     optimizer: Literal["FIRE", "BFGS"] = Field(default="FIRE", description="Optimizer used for AutoNEB iterations.")
+    optimizer_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments forwarded to the ASE optimizer constructor.",
+    )
     fmax: float | list[float] = Field(default=0.05, description="Force threshold or AutoNEB threshold schedule.")
     maxsteps: int | list[int] = Field(default=100, description="Maximum optimizer steps per AutoNEB iteration or two-stage schedule.")
     climb: bool = Field(default=True, description="Enable climbing image in AutoNEB refinement.")
@@ -203,7 +211,14 @@ class D2SNEBConfig(StrictConfig):
     fmax: float = Field(default=0.8, gt=0, description="Rough DyNEB force threshold.")
     algorism: str = Field(default="improvedtangent", description="DyNEB tangent method.")
     climb: bool = Field(default=True, description="Enable climbing image in rough DyNEB.")
+    scale_fmax: float = Field(default=0.0, ge=0, description="DyNEB dynamic-relaxation force scaling.")
+    idpp_maxiter: int = Field(default=2000, gt=0, description="Maximum iterations for the rough-path Fast IDPP optimizer.")
+    idpp_tol: float = Field(default=1e-4, gt=0, description="Gradient tolerance for the rough-path Fast IDPP optimizer.")
     max_steps: int = Field(default=200, gt=0, description="Rough DyNEB maximum steps.")
+    optimizer_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Keyword arguments forwarded to the rough DyNEB FIRE optimizer.",
+    )
 
 
 class D2SDimerConfig(StrictConfig):

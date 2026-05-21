@@ -4,7 +4,11 @@
 import os
 import shutil
 import types
+from functools import partial
+from copy import deepcopy
+from math import exp, log
 from pathlib import Path
+import numpy as np
 from ase.mep.autoneb import AutoNEB, seriel_writer, store_E_and_F_in_spc
 from ase.io import read, write, Trajectory
 from ase.parallel import world
@@ -161,6 +165,179 @@ class AbacusAutoNEB(AutoNEB):
         neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
         neb.distribute()
 
+    def run(self):
+        """Run AutoNEB with legacy-compatible unconstrained interpolation."""
+        n_cur = self.__initialize__()
+        while len(self.all_images) < self.n_simul + 2:
+            if isinstance(self.k, (float, int)):
+                self.k = [self.k] * (len(self.all_images) - 1)
+            if self.world.rank == 0:
+                print("Now adding images for initial run")
+
+            spring_lengths = []
+            for j in range(n_cur - 1):
+                spring_vec = self.all_images[j + 1].get_positions() - self.all_images[j].get_positions()
+                spring_lengths.append(np.linalg.norm(spring_vec))
+            jmax = np.argmax(spring_lengths)
+
+            if self.world.rank == 0:
+                print("Max length between images is at ", jmax)
+
+            n_between = self.n_simul if len(self.all_images) == 2 else 1
+
+            to_interpolate = [self.all_images[jmax]]
+            for _ in range(n_between):
+                to_interpolate += [to_interpolate[0].copy()]
+            to_interpolate += [self.all_images[jmax + 1]]
+
+            neb = AbacusNEB(to_interpolate, allow_shared_calculator=self.allow_shared_calculator)
+            neb.interpolate(method=self.interpolate_method, apply_constraint=False)
+
+            updated = self.all_images[:jmax + 1]
+            updated += to_interpolate[1:-1]
+            updated.extend(self.all_images[jmax + 1:])
+            self.all_images = updated
+
+            k_tmp = self.k[:jmax]
+            k_tmp += [self.k[jmax] * (n_between + 1)] * (n_between + 1)
+            k_tmp.extend(self.k[jmax + 1:])
+            self.k = k_tmp
+
+            n_cur += n_between
+
+        energies = self.get_energies()
+        n_non_valid_energies = len([energy for energy in energies if energy != energy])
+
+        if self.world.rank == 0:
+            print("Start of evaluation of the initial images")
+
+        while n_non_valid_energies != 0:
+            if isinstance(self.k, (float, int)):
+                self.k = [self.k] * (len(self.all_images) - 1)
+
+            to_run, _ = self.which_images_to_run_on()
+            self.execute_one_neb(n_cur, to_run, climb=False)
+
+            energies = self.get_energies()
+            n_non_valid_energies = len([energy for energy in energies if energy != energy])
+
+        if self.world.rank == 0:
+            print("Finished initialisation phase.")
+
+        while n_cur < self.n_max:
+            if isinstance(self.k, (float, int)):
+                self.k = [self.k] * (len(self.all_images) - 1)
+            if self.world.rank == 0:
+                print("****Now adding another image until n_max is reached", f"({n_cur}/{self.n_max})****")
+
+            spring_lengths = []
+            for j in range(n_cur - 1):
+                spring_vec = self.all_images[j + 1].get_positions() - self.all_images[j].get_positions()
+                spring_lengths.append(np.linalg.norm(spring_vec))
+
+            total_vec = self.all_images[0].get_positions() - self.all_images[-1].get_positions()
+            total_length = np.linalg.norm(total_vec)
+            fR = max(spring_lengths) / total_length
+
+            energies = self.get_energies()
+            energy_differences = []
+            emin = min(energies)
+            enorm = max(energies) - emin
+            for j in range(n_cur - 1):
+                delta_e = (energies[j + 1] - energies[j]) * (energies[j + 1] + energies[j] - 2 * emin) / 2 / enorm
+                energy_differences.append(abs(delta_e))
+
+            gR = max(energy_differences) / enorm
+
+            if fR / gR > self.space_energy_ratio:
+                jmax = np.argmax(spring_lengths)
+                reason = "spring length!"
+            else:
+                jmax = np.argmax(energy_differences)
+                reason = "energy difference between neighbours!"
+
+            if self.world.rank == 0:
+                print(f"Adding image between {jmax} and", f"{jmax + 1}. New image point is selected",
+                      "on the basis of the biggest " + reason)
+
+            to_interpolate = [self.all_images[jmax]]
+            to_interpolate += [to_interpolate[0].copy()]
+            to_interpolate += [self.all_images[jmax + 1]]
+
+            neb = AbacusNEB(to_interpolate, allow_shared_calculator=self.allow_shared_calculator)
+            neb.interpolate(method=self.interpolate_method, apply_constraint=False)
+
+            updated = self.all_images[:jmax + 1]
+            updated += to_interpolate[1:-1]
+            updated.extend(self.all_images[jmax + 1:])
+            self.all_images = updated
+
+            k_tmp = self.k[:jmax]
+            k_tmp += [self.k[jmax] * 2] * 2
+            k_tmp.extend(self.k[jmax + 1:])
+            self.k = k_tmp
+
+            n_cur += 1
+            to_run, _ = self.which_images_to_run_on()
+
+            self.execute_one_neb(n_cur, to_run, climb=False)
+
+        if self.world.rank == 0:
+            print("n_max images has been reached")
+
+        if self.climb:
+            if isinstance(self.k, (float, int)):
+                self.k = [self.k] * (len(self.all_images) - 1)
+            if self.world.rank == 0:
+                print("****Now doing the CI-NEB calculation****")
+            to_run, climb_safe = self.which_images_to_run_on()
+
+            assert climb_safe, "climb_safe should be true at this point!"
+            self.execute_one_neb(n_cur, to_run, climb=True, many_steps=True)
+
+        if not self.smooth_curve:
+            return self.all_images
+
+        energies = self.get_energies()
+        peak = self.get_highest_energy_index()
+        k_max = 10
+
+        d1 = np.linalg.norm(self.all_images[peak].get_positions() - self.all_images[0].get_positions())
+        d2 = np.linalg.norm(self.all_images[peak].get_positions() - self.all_images[-1].get_positions())
+        l1 = -d1**2 / log(0.2)
+        l2 = -d2**2 / log(0.2)
+
+        x1 = []
+        x2 = []
+        for i in range(peak):
+            vector = (self.all_images[i].get_positions() + self.all_images[i + 1].get_positions()) / 2
+            vector -= self.all_images[0].get_positions()
+            x1.append(np.linalg.norm(vector))
+
+        for i in range(peak, len(self.all_images) - 1):
+            vector = (self.all_images[i].get_positions() + self.all_images[i + 1].get_positions()) / 2
+            vector -= self.all_images[0].get_positions()
+            x2.append(np.linalg.norm(vector))
+        self.k = [k_max * exp(-((x - d1) ** 2) / l1) for x in x1]
+        self.k += [k_max * exp(-((x - d1) ** 2) / l2) for x in x2]
+
+        if self.world.rank == 0:
+            print("Now moving from top to start")
+        highest_energy_index = self.get_highest_energy_index()
+        nneb = highest_energy_index - self.n_simul - 1
+        while nneb >= 0:
+            self.execute_one_neb(n_cur, range(nneb, nneb + self.n_simul + 2), climb=False)
+            nneb -= 1
+
+        nneb = self.get_highest_energy_index()
+
+        if self.world.rank == 0:
+            print("Now moving from top to end")
+        while nneb <= self.n_max - self.n_simul - 2:
+            self.execute_one_neb(n_cur, range(nneb, nneb + self.n_simul + 2), climb=False)
+            nneb += 1
+        return self.all_images
+
 class AutoNEBRunner:
     """
     Helper class to configure and run AutoNEB workflows from a dictionary configuration.
@@ -194,6 +371,7 @@ class AutoNEBRunner:
         self.fmax = calc_config['fmax']
         self.maxsteps = calc_config['maxsteps']
         self.optimizer_name = calc_config['optimizer']
+        self.optimizer_kwargs = dict(calc_config.get('optimizer_kwargs', {}))
         self.climb = calc_config['climb']
         self.iter_folder = calc_config['iter_folder']
         self.restart = calc_config['restart']
@@ -207,6 +385,19 @@ class AutoNEBRunner:
         # Initial chain
         init_chain_file = calc_config['init_chain']
         self.init_chain = read(init_chain_file, index=':')
+        self._apply_legacy_endpoint_conditions()
+
+    def _apply_legacy_endpoint_conditions(self):
+        """Copy middle-image constraints and magmoms to endpoints as main did."""
+        if len(self.init_chain) < 3:
+            return
+        reference = self.init_chain[len(self.init_chain) // 2]
+        magmoms = reference.get_initial_magnetic_moments()
+        constraints = reference.constraints
+        for endpoint in (self.init_chain[0], self.init_chain[-1]):
+            endpoint.set_initial_magnetic_moments(magmoms)
+            if constraints:
+                endpoint.set_constraint(deepcopy(constraints))
 
     def _base_directory(self):
         base_dir = self.calc_config['directory']
@@ -259,11 +450,14 @@ class AutoNEBRunner:
             class: ASE optimizer class.
         """
         if self.optimizer_name.upper() == 'FIRE':
-            return FIRE
+            optimizer = FIRE
         elif self.optimizer_name.upper() == 'BFGS':
-            return BFGS
+            optimizer = BFGS
         else:
-            return FIRE
+            optimizer = FIRE
+        if self.optimizer_kwargs:
+            return partial(optimizer, **self.optimizer_kwargs)
+        return optimizer
 
     def run(self):
         """

@@ -114,6 +114,44 @@ def test_run_neb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
     assert ("run", 0.05, 3) in calls
 
 
+def test_run_neb_forwards_optimizer_kwargs(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    optimizer_kwargs = {}
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            return None
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            optimizer_kwargs.update(kwargs)
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05},
+        },
+    )
+
+    assert optimizer_kwargs == {"downhill_check": True, "maxstep": 0.05}
+
+
 def test_run_neb_respects_dp_share_calculator_false(monkeypatch, tmp_path):
     from atst_tools.scripts import main
 
@@ -178,6 +216,28 @@ def test_abacus_neb_iterimages_preserves_unconstrained_forces():
     )
 
 
+def test_abacus_neb_matches_ase_neb_single_middle_image_forces():
+    from ase.mep.neb import NEB
+    from atst_tools.mep.neb import AbacusNEB
+
+    def make_images():
+        images = []
+        for index, x in enumerate([0.0, 0.4, 1.0]):
+            atoms = Atoms("H2", positions=[[x, 0.0, 0.0], [x, 0.0, 0.8]])
+            atoms.calc = SinglePointCalculator(
+                atoms,
+                energy=float(index),
+                forces=np.array([[0.1 + index, 0.2, 0.0], [0.0, 0.3, 0.4]]),
+            )
+            images.append(atoms)
+        return images
+
+    ase_neb = NEB(make_images(), method="improvedtangent", allow_shared_calculator=False)
+    abacus_neb = AbacusNEB(make_images(), method="improvedtangent", allow_shared_calculator=False)
+
+    np.testing.assert_allclose(abacus_neb.get_forces(), ase_neb.get_forces())
+
+
 def test_autoneb_runner_reuses_shared_dp_calculator(monkeypatch):
     from atst_tools.mep import autoneb
 
@@ -230,6 +290,62 @@ def test_autoneb_runner_uses_unique_serial_abacus_directories(monkeypatch):
     assert len(directories) == 2
     assert len(set(directories)) == 2
     assert all(directory.startswith("autoneb_run/image_") for directory in directories)
+
+
+def test_autoneb_runner_copies_middle_constraints_to_endpoints(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    chain[2].set_constraint(FixAtoms(indices=[0]))
+    chain[2].set_initial_magnetic_moments([1.5])
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+
+    assert runner.init_chain[0].constraints[0].get_indices().tolist() == [0]
+    assert runner.init_chain[-1].constraints[0].get_indices().tolist() == [0]
+    assert runner.init_chain[0].get_initial_magnetic_moments().tolist() == [1.5]
+    assert runner.init_chain[-1].get_initial_magnetic_moments().tolist() == [1.5]
+
+
+def test_autoneb_runner_passes_optimizer_kwargs_to_optimizer(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    captured = {}
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2)]
+
+    class FakeFIRE:
+        def __init__(self, neb, logfile=None, **kwargs):
+            captured["neb"] = neb
+            captured["logfile"] = logfile
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(autoneb, "FIRE", FakeFIRE)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "optimizer": "FIRE",
+            "optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05},
+        },
+    )
+    optimizer = runner._get_optimizer()
+    optimizer("neb", logfile="run.log")
+
+    assert captured == {
+        "neb": "neb",
+        "logfile": "run.log",
+        "kwargs": {"downhill_check": True, "maxstep": 0.05},
+    }
 
 
 def test_abacus_autoneb_preserves_ase_fmax_and_maxsteps_schedule(monkeypatch, tmp_path):
@@ -291,6 +407,65 @@ def test_abacus_autoneb_preserves_ase_fmax_and_maxsteps_schedule(monkeypatch, tm
     assert run_calls == [(0.2, 3), (0.05, 9)]
 
 
+def test_issue25_serial_autoneb_uses_expected_fmax_schedule(monkeypatch, tmp_path):
+    from atst_tools.mep import autoneb
+
+    images = [_atoms(float(index)) for index in range(3)]
+    run_calls = []
+
+    class FakeOptimizer:
+        def __init__(self, neb, logfile=None):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def attach(self, *args, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            run_calls.append((fmax, steps))
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            self.nimages = len(images)
+            self.natoms = len(images[0])
+            self.parallel = False
+            self.world = autoneb.world
+
+        def get_forces(self):
+            return np.zeros(((self.nimages - 2) * self.natoms, 3))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(autoneb, "store_E_and_F_in_spc", lambda neb: None, raising=False)
+
+    auto = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda atoms: None,
+        prefix="run_autoneb",
+        n_simul=1,
+        n_max=10,
+        optimizer=FakeOptimizer,
+        fmax=[1.0, 0.05],
+        maxsteps=10,
+        parallel=False,
+    )
+    auto.all_images = images
+    auto.k = [0.1, 0.1]
+    auto.iteration = 0
+
+    with ExitStack() as stack:
+        auto._execute_one_neb(stack, n_cur=3, to_run=[0, 1, 2], many_steps=False)
+    with ExitStack() as stack:
+        auto._execute_one_neb(stack, n_cur=3, to_run=[0, 1, 2], many_steps=True)
+
+    assert run_calls == [(1.0, 10), (0.05, 10)]
+
+
 def test_d2s_rough_dyneb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
     from atst_tools.workflows import d2s
 
@@ -299,7 +474,7 @@ def test_d2s_rough_dyneb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
     dyneb_kwargs = {}
 
     class FakeSolver:
-        def run(self):
+        def run(self, **kwargs):
             return chain
 
     class FakeOptimizer:
@@ -329,6 +504,131 @@ def test_d2s_rough_dyneb_reuses_shared_dp_calculator(monkeypatch, tmp_path):
     assert dyneb_kwargs["allow_shared_calculator"] is True
     assert chain[1].calc is shared_calc
     assert chain[2].calc is shared_calc
+
+
+def test_d2s_rough_neb_forwards_optimizer_kwargs(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    optimizer_kwargs = {}
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            return chain
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            optimizer_kwargs.update(kwargs)
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: object())
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "neb": {
+                "n_images": 2,
+                "optimizer_kwargs": {"downhill_check": True, "maxstep": 0.05},
+            },
+        },
+    )
+    workflow.run_rough_neb(chain[0], chain[-1])
+
+    assert optimizer_kwargs == {"downhill_check": True, "maxstep": 0.05}
+
+
+def test_d2s_rough_neb_forwards_scale_fmax(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    dyneb_kwargs = {}
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            return chain
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: dyneb_kwargs.update(kwargs) or object())
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "neb": {
+                "n_images": 2,
+                "scale_fmax": 1.0,
+            },
+        },
+    )
+    workflow.run_rough_neb(chain[0], chain[-1])
+
+    assert dyneb_kwargs["scale_fmax"] == 1.0
+
+
+def test_d2s_rough_neb_forwards_idpp_controls(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    run_kwargs = {}
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            run_kwargs.update(kwargs)
+            return chain
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: object())
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "neb": {
+                "n_images": 2,
+                "idpp_maxiter": 5000,
+                "idpp_tol": 1e-3,
+            },
+        },
+    )
+    workflow.run_rough_neb(chain[0], chain[-1])
+
+    assert run_kwargs == {"maxiter": 5000, "tol": 1e-3}
 
 
 def test_run_dimer_preserves_dp_calculator_selection(monkeypatch, tmp_path):
@@ -413,6 +713,9 @@ def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch):
         def __init__(self, atoms, trajectory=None):
             return None
 
+        def attach(self, observer):
+            return None
+
         def run(self, fmax=None, steps=None):
             return None
 
@@ -432,6 +735,80 @@ def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch):
     dimer.run(max_steps=1)
 
     assert control_kwargs["max_num_rot"] == 7
+
+
+def test_dimer_writes_underlying_atoms_with_calculator_results(monkeypatch, tmp_path):
+    from atst_tools.mep import dimer as dimer_module
+
+    writes = []
+    translate_kwargs = {}
+
+    class FakeDimerControl:
+        def __init__(self, **kwargs):
+            return None
+
+    class FakeMinModeAtoms:
+        def __init__(self, atoms, control):
+            self.atoms = atoms
+
+        def displace(self, displacement_vector=None):
+            return None
+
+    class FakeTranslate:
+        def __init__(self, atoms, trajectory=None):
+            self.atoms = atoms
+            self.observers = []
+            translate_kwargs["trajectory"] = trajectory
+
+        def attach(self, observer):
+            self.observers.append(observer)
+
+        def run(self, fmax=None, steps=None):
+            for observer in self.observers:
+                observer()
+
+    class FakeTrajectory:
+        def __init__(self, filename, mode, atoms):
+            self.atoms = atoms
+            self.filename = filename
+            self.mode = mode
+
+        def write(self, atoms=None):
+            atoms = atoms or self.atoms
+            writes.append(
+                (
+                    self.filename,
+                    self.mode,
+                    atoms.get_potential_energy(),
+                    atoms.get_forces().copy(),
+                )
+            )
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dimer_module, "DimerControl", FakeDimerControl)
+    monkeypatch.setattr(dimer_module, "MinModeAtoms", FakeMinModeAtoms)
+    monkeypatch.setattr(dimer_module, "MinModeTranslate", FakeTranslate)
+    monkeypatch.setattr(dimer_module, "Trajectory", FakeTrajectory)
+    monkeypatch.setattr(dimer_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(2.5))
+
+    traj_file = tmp_path / "dimer.traj"
+    dimer = dimer_module.AbacusDimer(
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+        traj_file=str(traj_file),
+        displacement_vector=np.array([[0.01, 0.0, 0.0]]),
+    )
+    dimer.run(max_steps=1)
+
+    assert translate_kwargs["trajectory"] is None
+    assert len(writes) == 1
+    filename, mode, energy, forces = writes[0]
+    assert (filename, mode, energy) == (str(traj_file), "w", 2.5)
+    np.testing.assert_allclose(forces, np.zeros((1, 3)))
 
 
 def test_run_sella_preserves_dp_calculator_selection(monkeypatch, tmp_path):

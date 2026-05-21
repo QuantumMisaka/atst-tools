@@ -2,7 +2,7 @@ calculation:
   type: sella
   init_structure: inputs/sella_init.stru
   fmax: 0.05
-  max_steps: 1
+  max_steps: 200
   trajectory: sella.traj
   eta: 0.002
 
@@ -21,6 +21,7 @@ calculator:
         ks_solver: cusolver
         vdw_method: d3_bj
         nspin: 2
+        dft_functional: pbe
         symmetry: 1
         scf_thr: 1e-07
         scf_nmax: 300
@@ -30,8 +31,13 @@ calculator:
         mixing_ndim: 20
         cal_force: 1
         cal_stress: 0
+        init_wfc: atomic
+        init_chg: atomic
         out_stru: 1
         out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
         efield_flag: 1
         dip_cor_flag: 1
         efield_dir: 1

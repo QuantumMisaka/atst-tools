@@ -29,6 +29,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.parallel | calculation.type=neb | `bool` | `True` | Enable image-level parallelism when MPI is available. |
 | calculation.neb.max_steps | calculation.type=neb | `int` | `100` | Maximum optimizer steps. |
 | calculation.neb.optimizer | calculation.type=neb | `str` | `'FIRE'` | ASE optimizer name. |
+| calculation.neb.optimizer_kwargs | calculation.type=neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the ASE optimizer constructor. |
 | calculation.neb.endpoint_singlepoint | calculation.type=neb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy before NEB starts. |
 | calculation.autoneb.type | calculation.type=autoneb | `'autoneb'` | `required` | Select the AutoNEB workflow. |
 | calculation.autoneb.init_chain | calculation.type=autoneb | `str` | `required` | Initial NEB chain trajectory. |
@@ -38,6 +39,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.algorism | calculation.type=autoneb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
 | calculation.autoneb.parallel | calculation.type=autoneb | `bool` | `True` | Enable image-level parallelism when MPI is available. |
 | calculation.autoneb.optimizer | calculation.type=autoneb | `'FIRE' \| 'BFGS'` | `'FIRE'` | Optimizer used for AutoNEB iterations. |
+| calculation.autoneb.optimizer_kwargs | calculation.type=autoneb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the ASE optimizer constructor. |
 | calculation.autoneb.fmax | calculation.type=autoneb | `float \| list[float]` | `0.05` | Force threshold or AutoNEB threshold schedule. |
 | calculation.autoneb.maxsteps | calculation.type=autoneb | `int \| list[int]` | `100` | Maximum optimizer steps per AutoNEB iteration or two-stage schedule. |
 | calculation.autoneb.climb | calculation.type=autoneb | `bool` | `True` | Enable climbing image in AutoNEB refinement. |
@@ -82,7 +84,11 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.neb.fmax | calculation.d2s.neb | `float` | `0.8` | Rough DyNEB force threshold. |
 | calculation.d2s.neb.algorism | calculation.d2s.neb | `str` | `'improvedtangent'` | DyNEB tangent method. |
 | calculation.d2s.neb.climb | calculation.d2s.neb | `bool` | `True` | Enable climbing image in rough DyNEB. |
+| calculation.d2s.neb.scale_fmax | calculation.d2s.neb | `float` | `0.0` | DyNEB dynamic-relaxation force scaling. |
+| calculation.d2s.neb.idpp_maxiter | calculation.d2s.neb | `int` | `2000` | Maximum iterations for the rough-path Fast IDPP optimizer. |
+| calculation.d2s.neb.idpp_tol | calculation.d2s.neb | `float` | `0.0001` | Gradient tolerance for the rough-path Fast IDPP optimizer. |
 | calculation.d2s.neb.max_steps | calculation.d2s.neb | `int` | `200` | Rough DyNEB maximum steps. |
+| calculation.d2s.neb.optimizer_kwargs | calculation.d2s.neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the rough DyNEB FIRE optimizer. |
 | calculation.d2s.dimer | calculation.type=d2s | `dict` | `schema defaults` | Dimer refinement configuration. |
 | calculation.d2s.dimer.fmax | calculation.d2s.dimer | `float` | `0.05` | Dimer force threshold. |
 | calculation.d2s.dimer.max_steps | calculation.d2s.dimer | `int \| NoneType` | `null` | Dimer maximum steps. |

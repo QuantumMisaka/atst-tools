@@ -54,6 +54,7 @@ from .io.generalio import (
     read_input,
     read_stru,
     read_kpt,
+    species_group_indices,
     write_input,
     write_stru,
     write_kpt
@@ -103,11 +104,12 @@ class AbacusProfile(BaseProfile):
 
     @staticmethod
     def parse_version(stdout) -> str:
-        # up to the ABACUS version v3.9.0.17, the run of command
-        # `abacus --version` would returns the information organized
-        # in the following way:
-        # ABACUS version v3.9.0.17
-        return re.match(r'ABACUS version (\S+)', stdout).group(1)
+        """Parse ABACUS version output from legacy and banner formats."""
+        for pattern in (r'ABACUS version (\S+)', r'ABACUS\s+(v\S+)'):
+            match = re.search(pattern, stdout)
+            if match is not None:
+                return match.group(1)
+        raise RuntimeError(f'Could not parse ABACUS version from output: {stdout!r}')
 
     def get_calculator_command(self, inputfile) -> List[str]:
         # because ABACUS run in the folder where there are INPUT files, so the
@@ -117,7 +119,14 @@ class AbacusProfile(BaseProfile):
     def version(self) -> str:
         '''get the abacus version information'''
         cmd_ = [*self._split_command, '--version']
-        return AbacusProfile.parse_version(read_stdout(cmd_))
+        stdout = read_stdout(cmd_)
+        try:
+            return AbacusProfile.parse_version(stdout)
+        except RuntimeError:
+            if not stdout.strip() and self._split_command:
+                executable = self._split_command[-1]
+                return AbacusProfile.parse_version(read_stdout([executable, '--version']))
+            raise
 
 class AbacusTemplate(CalculatorTemplate):
     
@@ -240,9 +249,9 @@ class AbacusTemplate(CalculatorTemplate):
 
         # STRU
         _ = file_safe_backup(directory / parameters.get('stru_file', 'STRU'))
-        # reorder the atoms according to the alphabet. Keep the reverse map
-        # so that we will recover the order in function read_results()
-        ind = sorted(range(len(atoms)), key=lambda i: atoms[i].symbol)
+        # group atoms by first-occurrence species order. Keep the reverse map so
+        # that we will recover the order in function read_results()
+        ind = species_group_indices(atoms.get_chemical_symbols())
         self.atomorder = sorted(range(len(atoms)), key=lambda i: ind[i]) # revmap
         # then we write
         _ = write_stru(atoms[ind], 

@@ -1,10 +1,10 @@
 calculation:
   type: d2s
-  method: dimer # Options: dimer, sella
+  method: sella # Options: dimer, sella
   init_file: inputs/init.stru
   final_file: inputs/final.stru
   endpoint_optimization:
-    max_steps: 1
+    max_steps: 200
 
   # Rough NEB Phase
   neb:
@@ -12,16 +12,20 @@ calculation:
     fmax: 1.00
     climb: true
     algorism: improvedtangent
-    max_steps: 1
+    scale_fmax: 1.0
+    idpp_maxiter: 5000
+    idpp_tol: 1e-3
+    max_steps: 100000000
 
   # Single-Ended Search Phase
   dimer: # Only used if method=dimer
     fmax: 0.05
-    max_steps: 1
+    max_steps: 200
     # separation: 0.01
   
   sella:
     fmax: 0.05
+    max_steps: 200
     eta: 0.002
 
 calculator:
@@ -38,23 +42,27 @@ calculator:
         basis_type: lcao
         ks_solver: cusolver
         vdw_method: d3_bj
+        dft_functional: pbe
         nspin: 2
         symmetry: 0
-        scf_thr: 1e-06
+        scf_thr: 1e-07
         scf_nmax: 300
         smearing_method: gauss
         smearing_sigma: 0.001
         mixing_type: broyden
         mixing_ndim: 20
         cal_force: 1
-        cal_stress: 1
+        cal_stress: 0
+        init_wfc: atomic
+        init_chg: atomic
         out_stru: 1
+        out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
         efield_flag: 1
         dip_cor_flag: 1
         efield_dir: 1
-        efield_pos_max: 0.0
-        efield_pos_dec: 0.1
-        efield_amp: 0.0
         pseudo_dir: ../data
         orbital_dir: ../data
         pseudopotentials:

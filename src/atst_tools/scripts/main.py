@@ -98,6 +98,7 @@ calculation:
   n_max: 10
   fmax: [0.20, 0.05]
   maxsteps: 100
+  optimizer_kwargs: {}
   parallel: true
   endpoint_singlepoint: auto
 """,
@@ -374,7 +375,7 @@ def run_neb(config, calc_name, calc_config):
 
     # Run
     optimizer = get_optimizer(opt_name)
-    opt = optimizer(neb, trajectory=traj_file)
+    opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
     opt.run(fmax=fmax, steps=max_steps)
     LOGGER.info("NEB calculation finished")
 

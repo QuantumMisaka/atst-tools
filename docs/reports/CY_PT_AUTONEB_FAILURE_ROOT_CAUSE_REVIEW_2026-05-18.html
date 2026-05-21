@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cy-Pt AutoNEB Failure Root-Cause Review - 2026-05-18</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #52616f;
+      --line: #d8dee6;
+      --accent: #22577a;
+      --accent-2: #2f7d62;
+      --warn: #9a5b13;
+      --bad: #9b2c2c;
+      --code: #f1f4f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.58 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 36px 24px 72px;
+    }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 32px;
+    }
+    h1, h2, h3 { line-height: 1.25; margin: 0 0 14px; }
+    h1 { font-size: 30px; color: var(--accent); }
+    h2 { font-size: 22px; margin-top: 34px; padding-top: 8px; border-top: 1px solid var(--line); }
+    h3 { font-size: 17px; margin-top: 22px; color: var(--accent); }
+    p { margin: 10px 0; }
+    ul, ol { margin: 10px 0 10px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 6px;
+      overflow: auto;
+      padding: 12px 14px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    pre code { border: 0; padding: 0; background: transparent; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #eef3f7; color: #1b3446; }
+    .lead {
+      margin: 18px 0 22px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: #eef5f8;
+    }
+    .verdict {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    .card strong { display: block; color: var(--accent); margin-bottom: 6px; }
+    .ok { color: var(--accent-2); font-weight: 650; }
+    .warn { color: var(--warn); font-weight: 650; }
+    .bad { color: var(--bad); font-weight: 650; }
+    .small { color: var(--muted); font-size: 13px; }
+    .nowrap { white-space: nowrap; }
+    @media (max-width: 780px) {
+      main { padding: 20px 12px 44px; }
+      article { padding: 20px; }
+      .verdict { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+<main>
+<article>
+  <h1>Cy-Pt AutoNEB Failure Root-Cause Review</h1>
+  <p class="small">Date: 2026-05-18. Repository: <code>/home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools</code>. Branch inspected: <code>develop</code>. Case: <code>examples/03_autoneb_Cy-Pt</code>.</p>
+
+  <div class="lead">
+    <p><strong>结论：</strong>当前分支在 SAI <code>atst-dev</code> + ASE 3.28.0 + ABACUS 3.10.1 + abacuslite 执行栈下，不能以 main-like 参数复现 main 分支已提交的 Cy-Pt AutoNEB 收敛结果。关键原因不是单一 AutoNEB 算法错误，而是旧执行栈与新执行栈的组合差异：ABACUS 输入兼容性变化、ABACUS 版本变化、legacy <code>ase-abacus</code>/<code>abacus_autoneb</code> wrapper 与 abacuslite wrapper 行为差异、MPI 启动模型差异，以及当前示例为稳定性 smoke run 主动采用了不同于 main 的 FIRE 稳定化参数。</p>
+  </div>
+
+  <div class="verdict">
+    <div class="card"><strong>main 分支历史结果</strong><span class="ok">成功并收敛</span><br>10 images，forward barrier 1.327886 eV，最高能量 image 5。</div>
+    <div class="card"><strong>当前分支 as-is 示例</strong><span class="ok">能跑完但不复现</span><br>10 images，forward barrier 2.336211 eV，使用 <code>downhill_check</code>、<code>maxstep: 0.05</code>、<code>maxsteps: 1</code>。</div>
+    <div class="card"><strong>当前分支 main-like 参数</strong><span class="bad">失败或失稳</span><br>严格参数因 <code>xc pbe</code> 被 ABACUS 3.10.1 拒绝；去掉 <code>xc</code> 后第一轮 FIRE 失稳。</div>
+  </div>
+
+  <h2>1. 调研方法与证据范围</h2>
+  <p>本报告基于用户指定的 <code>brainstorming</code> skill 做问题拆解：先把“当前分支失败”拆成算法、wrapper、运行环境、输入参数、实算结果五类可验证问题，再用 SAI 用户指南中明确的 4V100、Slurm、<code>atst-dev</code>、ABACUS LTS 3.10.1 环境要求组织实算验证。SAI 侧 ABACUS 测试均按 GPU 节点提交，使用 <code>4V100</code> 分区和 <code>abacus/LTSv3.10.1-sm70-auto</code> 模块。</p>
+  <p>已审查和复核的主要证据包括：</p>
+  <ul>
+    <li>主报告：<code>docs/reports/CY_PT_AUTONEB_MAIN_REPRODUCTION_REVIEW_2026-05-18.md</code>。</li>
+    <li>ASE/NEB 对比报告：<code>docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md</code>。</li>
+    <li>SAI 验证报告：<code>docs/reports/ISSUE_25_AUTONEB_SAI_VALIDATION_2026-05-18.md</code>。</li>
+    <li>当前分支代码：<code>src/atst_tools/mep/autoneb.py</code>、<code>src/atst_tools/mep/neb.py</code>、<code>src/atst_tools/calculators/factory.py</code>、<code>src/atst_tools/calculators/abacuslite_backend.py</code>。</li>
+    <li>main 分支代码：<code>main:examples/Cy-Pt@graphene/autoneb/autoneb_run.py</code>、<code>main:source/abacus_autoneb.py</code>、<code>main:source/my_autoneb.py</code>、<code>main:examples/Cy-Pt@graphene/autoneb/autoneb_submit.sh</code>。</li>
+    <li>legacy interface：<code>temp_repos/ase-abacus/ase/calculators/abacus.py</code>。</li>
+    <li>实算产物：<code>temp_sai_issue25_validation/</code> 与 <code>temp_sai_main_repro_validation/</code>。</li>
+  </ul>
+
+  <h2>2. 现象摘要</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>运行/基线</th>
+        <th>执行栈</th>
+        <th>状态</th>
+        <th>关键结果</th>
+        <th>研判意义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>main committed baseline</td>
+        <td>legacy <code>abacus_autoneb</code> + <code>ase-abacus</code> + ABACUS 3.4.2-era submit script</td>
+        <td><span class="ok">已提交成功结果</span></td>
+        <td>10 images；barrier 1.327886 eV；max final-image force 0.233195 eV/Ang。</td>
+        <td>历史参考结果，但不是当前环境的可直接重放基线。</td>
+      </tr>
+      <tr>
+        <td>当前示例 as-is</td>
+        <td>current ATST + ASE 3.28.0 + abacuslite + ABACUS 3.10.1</td>
+        <td><span class="ok">Slurm 422164 completed 0:0</span></td>
+        <td>10 images；barrier 2.336211 eV；max final-image force 5.097634 eV/Ang。</td>
+        <td>证明当前示例已不再 crash，但参数是稳定化 smoke 设置，不是 main 复现设置。</td>
+      </tr>
+      <tr>
+        <td>strict main-parameter probe</td>
+        <td>current ATST + ABACUS 3.10.1，保留 <code>xc: pbe</code></td>
+        <td><span class="bad">Slurm 423207 failed 1:0</span></td>
+        <td>ABACUS 报 <code>THE PARAMETER NAME 'xc' IS NOT USED!</code>。</td>
+        <td>严格同参数复现不可行，失败发生在 SCF/AutoNEB 前。</td>
+      </tr>
+      <tr>
+        <td>main-like no-<code>xc</code> short probe</td>
+        <td>current ATST + ABACUS 3.10.1，删除非法 <code>xc</code></td>
+        <td><span class="warn">Slurm 423218 cancelled after evidence capture</span></td>
+        <td>iteration 001 step 0 energy/fmax 已不同于 main。</td>
+        <td>最小兼容改动后也不可能轨迹完全复现。</td>
+      </tr>
+      <tr>
+        <td>main-like no-<code>xc</code> extended run</td>
+        <td>current ATST + ABACUS 3.10.1，main-like AutoNEB/FIRE 参数</td>
+        <td><span class="bad">Slurm 423926 cancelled after 01:56:36</span></td>
+        <td>iteration 001 失稳，fmax 从 3.666328 增至 105.380115 eV/Ang。</td>
+        <td>main-like 参数在当前执行栈下不能形成正常 AutoNEB 加图与收敛结果。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. main 分支成功运行的实际设置</h2>
+  <p>main 分支案例位于 <code>examples/Cy-Pt@graphene/autoneb</code>。其 <code>autoneb_run.py</code> 直接构造 legacy <code>AbacusAutoNEB</code>，核心设置如下：</p>
+  <pre><code>mpi = 16
+omp = 4
+neb_optimizer = FIRE
+algorism = "improvedtangent"
+climb = True
+fmax = [0.20, 0.05]
+n_simul = world.size
+n_images = 10
+parameters = {
+    "calculation": "scf",
+    "nspin": 2,
+    "xc": "pbe",
+    "ecutwfc": 100,
+    "ks_solver": "genelpa",
+    "smearing_method": "gaussian",
+    "scf_nmax": 100,
+    "init_wfc": "atomic",
+    "init_chg": "atomic",
+    "out_chg": -1,
+    ...
+}</code></pre>
+  <p>其 Slurm 脚本加载的是旧环境：<code>conda activate gpaw-intel</code>、<code>module load abacus/3.4.2-icx</code>，并通过 <code>mpirun -np $NSIMUL -machinefile slurm.hosts gpaw python autoneb_run.py</code> 启动 Python 本身。因此 <code>n_simul = world.size</code> 是 MPI Python world，而不是普通串行 CLI 里的 YAML 数值。</p>
+
+  <h2>4. 当前分支示例的实际设置</h2>
+  <p>当前分支案例位于 <code>examples/03_autoneb_Cy-Pt/config.yaml</code>。它已转成统一 CLI + YAML 入口，通过 <code>atst run config.yaml</code> 调用 <code>AutoNEBRunner</code>。关键设置为：</p>
+  <pre><code>calculation:
+  type: autoneb
+  n_simul: 4
+  n_max: 10
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+  optimizer_kwargs:
+    downhill_check: true
+    maxstep: 0.05
+  fmax: [1.00, 0.05]
+  climb: true
+  maxsteps: 1
+
+calculator:
+  name: abacus
+  abacus:
+    mpi: 4
+    omp: 1
+    parameters:
+      ks_solver: cusolver
+      scf_nmax: 300
+      smearing_method: gauss
+      pseudopotentials: ...
+      basissets: ...</code></pre>
+  <p>这些参数使当前示例成为“当前执行栈下可稳定完成的 smoke/stability 示例”，而不是历史 main 结果复现输入。特别是 <code>downhill_check: true</code>、<code>maxstep: 0.05</code>、<code>maxsteps: 1</code> 会显著改变 FIRE 每轮子优化的轨迹。</p>
+
+  <h2>5. current branch 与 main branch 代码路径差异</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>层级</th>
+        <th>main branch</th>
+        <th>current branch</th>
+        <th>对失败分析的影响</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>用户入口</td>
+        <td>手写 Python 脚本 <code>autoneb_run.py</code>。</td>
+        <td>统一 CLI <code>atst run config.yaml</code>。</td>
+        <td>当前分支更工程化，但运行模型、默认值、配置解释均不同。</td>
+      </tr>
+      <tr>
+        <td>AutoNEB 包装</td>
+        <td><code>source/abacus_autoneb.py</code> 调用 forked <code>my_autoneb.AutoNEB</code>。</td>
+        <td><code>src/atst_tools/mep/autoneb.py</code> 继承 ASE 3.28.0 <code>AutoNEB</code>，只替换内部 NEB 为 <code>AbacusNEB</code>。</td>
+        <td>当前实现更接近 ASE-native；main 历史结果来自 forked wrapper 的组合行为。</td>
+      </tr>
+      <tr>
+        <td>NEB 实现</td>
+        <td>forked AutoNEB 内部构造 ASE <code>NEB</code>。</td>
+        <td>构造 <code>AbacusNEB</code>，其 <code>get_forces()</code> 同步 ASE 3.28.0 并回移 ASE development 的 unconstrained real-force fix。</td>
+        <td>当前 NEB 算法路径不是主要失败源；它反而修复了 trajectory force 记录风险。</td>
+      </tr>
+      <tr>
+        <td>calculator 附着</td>
+        <td>每个 image 调用 <code>set_calculator()</code>，parallel 时目录为 <code>AutoNEBrun-rank{world.rank}</code>。</td>
+        <td>serial 非共享时目录为 <code>autoneb_run/image_###</code>；MPI parallel 时为 <code>base-rank{rank}</code>。</td>
+        <td>文件隔离策略不同；当前策略避免串行多 image 共享同一 ABACUS scratch。</td>
+      </tr>
+      <tr>
+        <td>结果冻结</td>
+        <td>forked <code>my_autoneb</code> 在每轮后调用 <code>neb.distribute()</code>。</td>
+        <td>当前实现恢复 <code>store_E_and_F_in_spc</code> / <code>neb.distribute()</code> 生命周期。</td>
+        <td>当前已修复此前可能破坏 AutoNEB 重启/加图状态的实现风险。</td>
+      </tr>
+      <tr>
+        <td>FIRE 参数</td>
+        <td>默认 FIRE，无 <code>downhill_check</code>、无显式 <code>maxstep</code>。</td>
+        <td>YAML 可透传 <code>optimizer_kwargs</code>；示例启用 <code>downhill_check</code> 与较小 <code>maxstep</code>。</td>
+        <td>这是当前分支能稳定跑完但不复现 main barrier 的直接参数原因之一。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>6. ase-abacus 与 abacuslite interface 差异</h2>
+  <p>main 分支使用的是 legacy <code>ase-abacus</code> fork，当前分支按项目重构方向使用环境内 <code>abacuslite</code>，失败分析中必须把两者视为不同 calculator interface，而不是同一接口的换名。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>legacy ase-abacus</th>
+        <th>current abacuslite path</th>
+        <th>影响</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>加载方式</td>
+        <td><code>from ase.calculators.abacus import Abacus, AbacusProfile</code>。</td>
+        <td><code>atst_tools.calculators.abacuslite_backend</code> 优先导入环境 <code>abacuslite</code>，否则 fallback 到 vendored snapshot。</td>
+        <td>当前路径符合项目方向，但不能保证 legacy 输入/输出字节级一致。</td>
+      </tr>
+      <tr>
+        <td>资源文件键名</td>
+        <td>惯用 <code>pp</code>、<code>basis</code>、<code>basis_dir</code>。</td>
+        <td>规范键为 <code>pseudopotentials</code>、<code>basissets</code>、<code>orbital_dir</code>；factory 兼容转换 <code>pp</code>/<code>basis</code>/<code>basis_dir</code>。</td>
+        <td>键名可迁移，但写出的 <code>INPUT</code>/<code>STRU</code> 与复制/路径策略可能不同。</td>
+      </tr>
+      <tr>
+        <td>命令构造</td>
+        <td>legacy wrapper 中直接 <code>AbacusProfile(command=f"mpirun -np {mpi} {abacus}")</code>。</td>
+        <td><code>_build_abacus_command()</code> 在 <code>mpi &gt; 1</code> 时给非 MPI launcher 自动加 <code>mpirun -np {mpi}</code>。</td>
+        <td>当前更统一，但与旧 wrapper 的命令、stdout、版本解析路径不同。</td>
+      </tr>
+      <tr>
+        <td>版本解析</td>
+        <td>legacy <code>get_abacus_version()</code> 匹配 <code>Version:</code> 风格。</td>
+        <td>vendored abacuslite 已补丁兼容 ABACUS 3.10.1 banner-version 格式。</td>
+        <td>之前 SAI 验证暴露过 parser 兼容问题；已修复，但证明 wrapper 层确有行为差异。</td>
+      </tr>
+      <tr>
+        <td>ABACUS 参数接受性</td>
+        <td>main 历史环境接受或至少未因 <code>xc pbe</code> 中断。</td>
+        <td>ABACUS 3.10.1 明确拒绝 <code>xc</code> 参数。</td>
+        <td>严格 main 输入在当前执行栈无法启动，直接排除“同参数复现”。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>7. ASE 版本、NEB 与 AutoNEB 算法差异</h2>
+  <p>当前 <code>atst-dev</code> 环境中已实测 <code>ase.__version__ == 3.28.0</code>，<code>NEB</code> 与 <code>AutoNEB</code> 分别来自 <code>.../site-packages/ase/mep/neb.py</code> 与 <code>.../site-packages/ase/mep/autoneb.py</code>。ASE 3.28.0 相比旧版本的重要变化包括：<code>NEB</code>/<code>DyNEB</code> 默认方法从 legacy <code>aseneb</code> 方向迁移到 <code>improvedtangent</code>，并修复 improved tangent 中零范数 tangent guard。当前 YAML 和 main 脚本都显式使用 <code>improvedtangent</code>，所以默认方法差异不是本案例主因。</p>
+  <p>NEB 与 AutoNEB 的角色差别如下：</p>
+  <table>
+    <thead>
+      <tr>
+        <th>算法层</th>
+        <th>职责</th>
+        <th>本案例相关点</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>NEB</td>
+        <td>在固定 image 数量上做投影力优化，计算 tangent、spring force、climbing image force。</td>
+        <td><code>AbacusNEB</code> 当前对齐 ASE 3.28.0，并补回 unconstrained real forces；该层没有显示出导致 main-like 失稳的独立 bug。</td>
+      </tr>
+      <tr>
+        <td>AutoNEB</td>
+        <td>先优化已有 images，再根据空间/能量 gap 动态加图，达到 <code>n_max</code> 后做 CI-NEB/refinement。</td>
+        <td>如果第一轮 NEB 子优化在当前执行栈下已经发散，AutoNEB 根本无法进入正常加图阶段。</td>
+      </tr>
+      <tr>
+        <td>FIRE optimizer</td>
+        <td>根据力和速度更新结构；<code>downhill_check</code> 和 <code>maxstep</code> 控制上坡/大步失稳风险。</td>
+        <td>当前 as-is 示例依靠稳定化 FIRE 参数完成；main-like 参数去掉这些保护后在当前执行栈失稳。</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>因此，本案例的失败更准确地说是“main-like AutoNEB/FIRE 参数在当前 ABACUS+wrapper 数值面上失稳”，不是“当前 ASE AutoNEB 算法实现与 main fork 有一个单点语义错误”。</p>
+
+  <h2>8. ABACUS 输入差异</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>参数</th>
+        <th>main branch</th>
+        <th>current as-is</th>
+        <th>影响判断</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>xc</code></td>
+        <td><code>pbe</code></td>
+        <td>未设置</td>
+        <td><span class="bad">严格复现阻断项。</span> ABACUS 3.10.1 报该参数未使用并停止。</td>
+      </tr>
+      <tr>
+        <td><code>ks_solver</code></td>
+        <td><code>genelpa</code></td>
+        <td><code>cusolver</code></td>
+        <td>当前 SAI GPU + LCAO 建议使用 <code>cusolver</code>；main-like probe 保留 <code>genelpa</code> 仍失稳。</td>
+      </tr>
+      <tr>
+        <td><code>smearing_method</code></td>
+        <td><code>gaussian</code></td>
+        <td><code>gauss</code></td>
+        <td>可能被 ABACUS 解释为相近设置，但不应假设完全等价。</td>
+      </tr>
+      <tr>
+        <td><code>scf_nmax</code></td>
+        <td>100</td>
+        <td>300</td>
+        <td>当前示例更宽松；main-like probe 使用 100。</td>
+      </tr>
+      <tr>
+        <td><code>init_wfc</code>/<code>init_chg</code>/<code>out_chg</code></td>
+        <td>显式设置</td>
+        <td>as-is 未完全保留；main-like probe 保留</td>
+        <td>属于旧执行栈输入解释的一部分，可能影响 SCF 初值和收敛路径。</td>
+      </tr>
+      <tr>
+        <td>PP/ORB 键名</td>
+        <td><code>pp</code>/<code>basis</code>/<code>basis_dir</code></td>
+        <td><code>pseudopotentials</code>/<code>basissets</code>/<code>orbital_dir</code></td>
+        <td>当前 factory 支持 alias 转换，但底层 writer 和目录处理不同。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9. 实算证据详解</h2>
+  <h3>9.1 当前示例 as-is 可以完成</h3>
+  <p>SAI job <code>422164</code> 在 <code>temp_sai_issue25_validation/current_example_run3</code> 完成，stdout 到达 <code>=== AutoNEB Calculation Finished ===</code>。这说明当前分支已解决“该示例无法跑完/直接 crash”的工程稳定性问题。</p>
+  <table>
+    <thead><tr><th>指标</th><th>main baseline</th><th>current as-is</th><th>差异</th></tr></thead>
+    <tbody>
+      <tr><td>image count</td><td>10</td><td>10</td><td>0</td></tr>
+      <tr><td>highest-energy image</td><td>5</td><td>5</td><td>0</td></tr>
+      <tr><td>forward barrier</td><td>1.327886 eV</td><td>2.336211 eV</td><td>+1.008325 eV</td></tr>
+      <tr><td>max final-image force</td><td>0.233195 eV/Ang</td><td>5.097634 eV/Ang</td><td>+4.864439 eV/Ang</td></tr>
+      <tr><td>max RMSD vs main</td><td>n/a</td><td>0.211342 Ang</td><td>n/a</td></tr>
+    </tbody>
+  </table>
+  <p>这个结果不能被解释为“复现 main 成功”，因为 as-is YAML 使用了不同的 <code>fmax</code>、<code>maxsteps</code>、FIRE 稳定化参数与 ABACUS solver 设置。</p>
+
+  <h3>9.2 严格 main 参数在 ABACUS 3.10.1 下直接失败</h3>
+  <p><code>temp_sai_main_repro_validation/main_equiv_probe</code> 保留 <code>xc: pbe</code>、<code>ks_solver: genelpa</code>、<code>fmax: [0.20, 0.05]</code>、无 <code>downhill_check</code>。job <code>423207</code> 6 秒失败，ABACUS 报错：</p>
+  <pre><code>THE PARAMETER NAME 'xc' IS NOT USED!
+Bad parameter, please check the input parameters in file INPUT</code></pre>
+  <p>这条证据很关键：在当前生产 ABACUS 环境中，“完全相同输入参数”的复现实验无法到达 AutoNEB 数值阶段。</p>
+
+  <h3>9.3 去掉非法 <code>xc</code> 后第一步已不同</h3>
+  <p><code>temp_sai_main_repro_validation/main_equiv_probe_no_xc</code> 只删除 ABACUS 3.10.1 不接受的 <code>xc</code>，其余尽量保持 main-like。job <code>423218</code> 捕获第一轮 FIRE 后取消。第一条真实优化记录已经不同：</p>
+  <table>
+    <thead><tr><th>quantity</th><th>main baseline</th><th>compatible no-<code>xc</code> probe</th><th>difference</th></tr></thead>
+    <tbody>
+      <tr><td>iteration 001 step 0 energy</td><td>-11864.578532 eV</td><td>-11864.580888 eV</td><td>-0.002356 eV</td></tr>
+      <tr><td>iteration 001 step 0 fmax</td><td>3.642360 eV/Ang</td><td>3.666328 eV/Ang</td><td>+0.023968 eV/Ang</td></tr>
+    </tbody>
+  </table>
+  <p>如果目标是“与 main 轨迹一致”或“最终能垒小数点后一位一致”，第一步 energy/force 面已经不同意味着后续 FIRE 路径无法被当作同一重放过程。</p>
+
+  <h3>9.4 main-like no-<code>xc</code> 长跑在第一轮失稳</h3>
+  <p><code>temp_sai_main_repro_validation/main_like_no_xc_full</code> 进一步放宽为“除 <code>xc</code> 外保持 main-like”，job <code>423926</code> 运行 01:56:36 后手动停止。它没有形成最终 10-image AutoNEB 路径。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Step</th>
+        <th>main energy/eV</th>
+        <th>main fmax/eV/Ang</th>
+        <th>current no-<code>xc</code> energy/eV</th>
+        <th>current no-<code>xc</code> fmax/eV/Ang</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>-11864.578532</td><td>3.642360</td><td>-11864.580888</td><td>3.666328</td></tr>
+      <tr><td>1</td><td>-11864.782954</td><td>2.870872</td><td>-11864.676929</td><td>3.636056</td></tr>
+      <tr><td>2</td><td>-11865.029191</td><td>2.407401</td><td>-11864.595118</td><td>5.468056</td></tr>
+      <tr><td>3</td><td>-11865.183575</td><td>3.420662</td><td>-11863.848133</td><td>8.958482</td></tr>
+      <tr><td>4</td><td>-11865.149576</td><td>4.842759</td><td>-11862.676794</td><td>11.684594</td></tr>
+      <tr><td>5</td><td>-11865.185455</td><td>3.786428</td><td>-11861.023906</td><td>13.730909</td></tr>
+      <tr><td>10</td><td>-11865.304529</td><td>1.941274</td><td>-11843.857635</td><td>22.169295</td></tr>
+      <tr><td>15</td><td>-11865.405953</td><td>1.863983</td><td>-11803.727789</td><td>75.613744</td></tr>
+      <tr><td>16</td><td>-11865.411933</td><td>1.196430</td><td>-11789.219298</td><td>105.380115</td></tr>
+    </tbody>
+  </table>
+  <p>这不是可接受的数值漂移，而是 FIRE 子优化在当前执行栈下持续上坡并扩大力。此时继续消耗 GPU 无法支持“会自然收敛到 main-like barrier”的判断。</p>
+
+  <h2>10. 关键原因分层研判</h2>
+  <ol>
+    <li><strong>硬阻断：</strong>main 的 <code>xc pbe</code> 在 ABACUS 3.10.1 中非法，严格同输入复现不可运行。</li>
+    <li><strong>数值面已变：</strong>即使只删除 <code>xc</code>，第一轮真实 force evaluation 已与 main 不同，说明 ABACUS 版本、wrapper writer、默认解释或 SCF 路径已经改变。</li>
+    <li><strong>优化稳定性不同：</strong>当前 as-is 能完成依赖 <code>downhill_check</code> 和较小 <code>maxstep</code>；main-like FIRE 设置在当前数值面上失稳。</li>
+    <li><strong>运行模型不同：</strong>main 通过 MPI 启动 Python，<code>world.size</code> 直接决定 <code>n_simul</code>；当前普通 <code>atst run</code> 未 MPI 启动时会降级为串行 image 执行。</li>
+    <li><strong>wrapper 行为不同：</strong>legacy <code>ase-abacus</code> 与 current abacuslite 在参数规范化、输入文件生成、版本解析、目录策略、命令构造上均不同。</li>
+    <li><strong>当前代码并非主要 bug 源：</strong><code>AbacusAutoNEB</code> 当前已恢复 ASE schedule/result-freezing 语义，并修复串行 calculator 目录隔离；该层更像是把执行栈差异暴露出来，而不是制造 main-like 失稳的唯一原因。</li>
+  </ol>
+
+  <h2>11. 对项目下一步开发的建议</h2>
+  <table>
+    <thead><tr><th>优先级</th><th>建议</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>P0</td>
+        <td>不要在当前文档中宣称 <code>examples/03_autoneb_Cy-Pt</code> 可数值复现 main 历史结果。</td>
+        <td>严格输入不能运行；兼容输入已失稳；as-is 结果 barrier 差异约 1.0 eV。</td>
+      </tr>
+      <tr>
+        <td>P0</td>
+        <td>把当前示例定位为“ABACUS 3.10.1 + abacuslite 下的稳定 smoke/功能示例”，并在示例 README 或注释中解释其参数不同于 main。</td>
+        <td>避免用户把稳定化参数输出误读为历史 published/committed barrier 复现。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>保留 <code>downhill_check</code>、<code>maxstep</code>、<code>maxsteps</code> 等 YAML optimizer knobs，并继续测试其真实生效。</td>
+        <td>SAI diagnostic 已证明 <code>downhill_check</code> 会触发 FIRE reset，是当前执行栈稳定运行的关键工具。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>增加一个专门的 “legacy reproduction is not guaranteed” 文档段，列出 ABACUS 版本、wrapper、MPI 启动模型和参数兼容性条件。</td>
+        <td>这类科学计算 workflow 的可复现性依赖完整执行栈，而不只是 YAML 参数。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>如果必须做历史结果复现，应在隔离环境中重建 main stack：legacy <code>ase-abacus</code>、ABACUS 3.4.2、旧 conda env、MPI Python launch、原始 PP/ORB 路径和输入语义。</td>
+        <td>当前 SAI production stack 已经不是同一实验条件。</td>
+      </tr>
+      <tr>
+        <td>P2</td>
+        <td>继续压缩 <code>AbacusNEB</code> fork 面，待上游 ASE release 包含 real-force fix 后删除本地 <code>get_forces()</code> override。</td>
+        <td>减少未来 ASE 内部行为漂移的维护风险。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>12. 最终判断</h2>
+  <p><strong>main branch 能成功运行、收敛并给出合理结果，是 legacy 执行栈整体行为的结果；当前 branch 失败，是因为用 main-like 参数迁移到新的 ASE-native + abacuslite + ABACUS 3.10.1 执行栈后，严格输入首先被 ABACUS 拒绝，最小兼容输入又在第一轮 FIRE 子优化中进入不可恢复失稳。</strong></p>
+  <p>当前分支并非不能运行该案例：as-is 示例已在 SAI job <code>422164</code> 中完成。但它完成的原因正是使用了不同于 main 的稳定化设置。因此，对项目下一步开发最有价值的结论是：把当前示例作为现代执行栈的稳定示例维护，而把 main 历史结果作为 legacy baseline 归档；除非完整重建 legacy stack，否则不要把两者的 barrier 数值设为相同验收目标。</p>
+
+  <h2>13. 复核命令与产物索引</h2>
+  <ul>
+    <li>ASE 版本确认：<code>conda run -n atst-dev python -c "import ase; print(ase.__version__)"</code>，结果为 <code>3.28.0</code>。</li>
+    <li>main baseline metrics：<code>temp_sai_issue25_validation/main_baseline/analysis.json</code>。</li>
+    <li>current as-is metrics：<code>temp_sai_issue25_validation/current_example_run3/analysis.json</code>。</li>
+    <li>strict main-parameter failed probe：<code>temp_sai_main_repro_validation/main_equiv_probe/</code>。</li>
+    <li>compatible no-<code>xc</code> first-step probe：<code>temp_sai_main_repro_validation/main_equiv_probe_no_xc/</code>。</li>
+    <li>main-like no-<code>xc</code> extended unstable run：<code>temp_sai_main_repro_validation/main_like_no_xc_full/</code>。</li>
+    <li>current AutoNEB implementation：<code>src/atst_tools/mep/autoneb.py</code>。</li>
+    <li>current NEB implementation：<code>src/atst_tools/mep/neb.py</code>。</li>
+    <li>current ABACUS factory：<code>src/atst_tools/calculators/factory.py</code>。</li>
+    <li>legacy calculator reference：<code>temp_repos/ase-abacus/ase/calculators/abacus.py</code>。</li>
+  </ul>
+</article>
+</main>
+</body>
+</html>
