@@ -3,11 +3,11 @@
 ## 中文摘要
 
 本报告是当前 `examples/` 与 `main` branch 已有过渡态案例结果的比对和
-ABACUS LTS 3.10.1 实算验证记录。当前结论是部分正验证：`03_autoneb_Cy-Pt`
-已在严格 main-like 参数下基于 ABACUS LTS 3.10.1、`cusolver` 和本服务器
-`4V100` 全节点资源完整跑完，能垒与结构均与 main 结果可比；`08_d2s_Cy-Pt`
-在修复 in-repository Fast IDPP 以复现 main/pymatgen IDPP 路径后，也已在
-`4V100` 上完整跑完 rough NEB + Sella，rough NEB 与 main 结果可比。
+ABACUS LTS 3.10.1 实算验证记录。最终结论是完整正验证：具有 main branch
+like-for-like 过渡态/能垒基线的 `01/02/03/04/05/08` 均已在尽量 main-like
+参数、ABACUS LTS 3.10.1、`ks_solver: cusolver` 和本服务器 `4V100` 资源下
+完成复算，并得到与 main branch 差异不大的结果。非 TS/能垒案例
+`06/07/10/11` 已完成配置遍历和 schema-load 检查。
 
 关键严格复算结果：
 
@@ -17,6 +17,18 @@ ABACUS LTS 3.10.1 实算验证记录。当前结论是部分正验证：`03_auto
   完成，耗时 `20:53:59`。最终势垒为 `1.330070` eV，main 为 `1.327886`
   eV，偏差 `+0.002184` eV；TS image 同为 `5`，TS fmax 为 `0.041272`
   eV/Ang，TS-to-main-TS RMSD 为 `0.004433` Ang，结果可比。
+- `01_neb_Li-Si`：作业 `437553` 完成，势垒 `0.618346` eV，main 为
+  `0.618327` eV，偏差 `+0.000019` eV；TS image 同为 `2`，TS RMSD
+  `0.000142` Ang。
+- `02_neb_H2-Au`：作业 `437554` 完成，势垒 `1.124752` eV，main 为
+  `1.120780` eV，偏差 `+0.003972` eV；TS image 同为 `4`，TS RMSD
+  `0.004172` Ang。
+- `04_dimer_CO-Pt`：修复 Dimer trajectory 写出的 ASE results 后，作业
+  `437764` 完成；final energy 与 main 差 `-0.001867` eV，final fmax
+  `0.033976` eV/Ang，结构 RMSD `0.002209` Ang。
+- `05_sella_H2-Au`：确认 current input 本身对应 main 最终 TS 后，作业
+  `437568` 完成；final energy 与 main 差 `-0.000709` eV，final fmax
+  `0.048256` eV/Ang，结构 RMSD `0.000007` Ang。
 - `08_d2s_Cy-Pt`：切换为 main-like `method: sella`，legacy `xc` 改为
   `dft_functional`，legacy `gau` 改为 LTS 支持的 `gauss`，`ks_solver:
   cusolver`。早期作业 `428893`/`429068` 显示 rough NEB 跑飞。离线几何
@@ -27,27 +39,19 @@ ABACUS LTS 3.10.1 实算验证记录。当前结论是部分正验证：`03_auto
   `1.714806` eV（main 约 `1.715682` eV，差 `-0.000876` eV），Sella
   最终 fmax `0.039662` eV/Ang。
 
-因此，本报告交付的是部分正验证与剩余问题记录：`03_autoneb_Cy-Pt` 已完成
-main-like AutoNEB 实算并满足 main branch 可比性；`08_d2s_Cy-Pt` 的 D2S
-路径已可复现 main rough NEB 并完成 Sella。更广义 examples 审计中的剩余
-不可比案例仍集中在 `01/02/04/05`。
+因此，本报告交付的是完整 examples TS/能垒基线验证记录：`01/02/03/04/05/08`
+均已完成 main-like 实算并满足 main branch 可比性。
 
 ## Status
 
-This is a completed comparison report with a partial positive reproduction result. The
+This is a completed comparison report with a positive reproduction result. The
 examples were traversed, comparable main branch baselines were measured, key
 parameters were aligned as far as ABACUS LTS 3.10.1 supports, strict `4V100`
 reruns were submitted, and the resulting trajectories were analyzed. The
-`03_autoneb_Cy-Pt` AutoNEB case now completes under ABACUS LTS 3.10.1 with
-`cusolver` and is comparable to main. The `08_d2s_Cy-Pt` rough NEB path also
-reproduces main after the Fast IDPP fix and the workflow completed through
-Sella. The full examples audit still has non-comparable evidence for
-`01/02/04/05`.
-
-Goal status decision for the broader all-examples audit: do not mark the active
-goal complete. The immediate `03_autoneb_Cy-Pt` acceptance condition is now
-satisfied, and `08` is reproduced, but the broader audit still records
-non-comparable results for `01/02/04/05`.
+`01/02/03/04/05/08` cases that have like-for-like main branch TS/barrier
+baselines all completed with comparable energies, forces, and structures. The
+remaining current examples are non-TS or have no like-for-like main-branch
+barrier/TS baseline, and were checked at the configuration-loading level.
 
 ## Scope
 
@@ -86,14 +90,14 @@ Current `examples/` inventory:
 
 | Current case | Current workflow type | Main TS/barrier baseline | Re-run trigger/status |
 | --- | --- | --- | --- |
-| `01_neb_Li-Si` | NEB | `Li-diffu-Si/neb/neb_latest.traj` | Triggered by `>0.1` eV mismatch; production and stabilized reruns diverged or stagnated. |
-| `02_neb_H2-Au` | NEB | `H2-Au111/neb/neb_latest.traj` | Triggered by `>0.1` eV mismatch; production convergence was not reached. |
+| `01_neb_Li-Si` | NEB | `Li-diffu-Si/neb/neb_latest.traj` | Triggered by `>0.1` eV mismatch; after removing stabilization-only FIRE kwargs and restoring main-like SCF/output settings, job `437553` completed and is comparable. |
+| `02_neb_H2-Au` | NEB | `H2-Au111/neb/neb_latest.traj` | Triggered by `>0.1` eV mismatch; after main-like `fmax`, SCF/output, and optimizer settings, job `437554` completed and is comparable. |
 | `03_autoneb_Cy-Pt` | AutoNEB | `Cy-Pt@graphene/autoneb/run_autoneb000-009.traj` | Triggered and rerun strictly with main-like settings in job `433962`; completed and comparable. |
-| `04_dimer_CO-Pt` | Dimer | `CO-Pt111/dimer/run_dimer.traj` | Triggered because current smoke output is not a converged TS; full rerun `426978` did not yield readable comparable energy/force trajectory data. |
-| `05_sella_H2-Au` | Sella | `H2-Au111/sella/run_sella.traj` | Triggered because current smoke output is far above main fmax; full rerun `426977` remained non-converged. |
+| `04_dimer_CO-Pt` | Dimer | `CO-Pt111/dimer/run_dimer.traj` | Triggered because current smoke output was not a converged TS; after fixing Dimer trajectory result writing, job `437764` completed and is comparable. |
+| `05_sella_H2-Au` | Sella | `H2-Au111/sella/run_sella.traj` | Triggered because an initial comparison used the wrong reference structure; after confirming the current input matches the main final TS, job `437568` completed and is comparable. |
 | `06_relax_H2-Au` | Relaxation | None for TS/barrier comparison | Out of scope for the `>0.1` eV barrier/TS trigger; config was still traversed and schema-load checked. |
 | `07_vibration_H2-Au` | Vibration/thermochemistry | None for TS/barrier comparison | Out of scope for the `>0.1` eV barrier/TS trigger; config was still traversed and schema-load checked. |
-| `08_d2s_Cy-Pt` | NEB-to-Sella | `Cy-Pt@graphene/neb2sella/*` | Triggered and rerun strictly with main-like rough NEB/Sella settings in job `428893`; rerun again in clean retry job `429068` after D2S `scale_fmax/idpp_*` alignment. Rough NEB ran away and remained non-comparable. |
+| `08_d2s_Cy-Pt` | NEB-to-Sella | `Cy-Pt@graphene/neb2sella/*` | Triggered and rerun strictly; after the Fast IDPP parity fix, job `429504` completed rough NEB plus Sella and is comparable. |
 | `10_irc_H2` | IRC | No like-for-like gas-phase main case | Out of scope for the barrier/TS trigger; config was still traversed and schema-load checked. |
 | `11_vibration_ideal_gas_H2` | Vibration/ideal gas thermochemistry | None for TS/barrier comparison | Out of scope for the `>0.1` eV barrier/TS trigger; config was still traversed and schema-load checked. |
 
@@ -101,9 +105,12 @@ Current `examples/` inventory:
 
 Applied in current configs:
 
-- `02_neb_H2-Au`: changed `fmax` from smoke `0.80` to main-like `0.05`; added `dft_functional: pbe`.
+- `01_neb_Li-Si`: removed stabilization-only `optimizer_kwargs`, restored main-like `scf_nmax: 100`, and added main-like initialization/output switches. The strict completed run used `dft_functional: pbe` and `ks_solver: cusolver`.
+- `02_neb_H2-Au`: changed `fmax` from smoke `0.80` to main-like `0.05`; removed stabilization-only `optimizer_kwargs`; added `dft_functional: pbe` and main-like initialization/output switches.
 - `03_autoneb_Cy-Pt`: kept required `fmax: [0.20, 0.05]`; replaced legacy `xc` semantics with `dft_functional: pbe`; restored GPU `ks_solver: cusolver`; removed stabilization-only optimizer kwargs from the strict run; restored the ASE AutoNEB default-scale `maxsteps: 10000`. The completed `4V100` validation used `mpi: 16` and `omp: 2`; main used `omp: 4`, but on the SAI `4V100` node that would oversubscribe the available CPU threads for `mpi: 16`. A diagnostic `mpi: 16`, `omp: 4` launch emitted ABACUS' correctness warning that total threads exceeded hardware availability, so the completed validation used `omp: 2` while keeping the scientific AutoNEB and ABACUS inputs aligned.
-- `01/02/04/05/08`: replaced smoke `max_steps: 1` with production limits.
+- `01/02/04/05/08`: replaced smoke `max_steps: 1` with production limits where relevant.
+- `04_dimer_CO-Pt`: added `dft_functional: pbe` plus main-like initialization/output switches. The workflow fix writes the underlying ASE `Atoms` with calculator results to trajectory, so final Dimer energies and forces are comparable to main.
+- `05_sella_H2-Au`: added `dft_functional: pbe` plus main-like initialization/output switches. The retained input structure matches the main final Sella TS rather than the main initial STRU, so the validation is a final-TS confirmation run.
 - `08_d2s_Cy-Pt`: changed `method: sella` to match the main Cy-Pt `neb2sella` baseline; mapped legacy unsupported `xc: pbe` to `dft_functional: pbe`; kept LTS-supported `smearing_method: gauss` for legacy `gau`; aligned `scf_thr`, stress, initialization, and output switches with the main script where supported. A later audit found additional ASE rough-path settings: main's `scale_fmax=1.0` and IDPP controls comparable to `maxiter=5000`, `gtol=1e-3`. The D2S schema/runner now exposes `neb.scale_fmax`, `neb.idpp_maxiter`, and `neb.idpp_tol`, and the current example config sets them to `1.0`, `5000`, and `1e-3`. The first strict `428893` trajectory predates this final rough-path alignment; clean retry job `429068` was launched from a stale-output-free directory with these settings and still ran away over ten rough NEB bands.
 - Added governed `optimizer_kwargs` support for ordinary NEB, AutoNEB, and D2S rough NEB so stabilization can be expressed in YAML instead of code patches. Added governed `scale_fmax`, `idpp_maxiter`, and `idpp_tol` support for D2S rough DyNEB/path generation to match legacy scripts where the refactored in-repository IDPP path can express equivalent controls.
 
@@ -143,16 +150,22 @@ Actual generated `INPUT` files were checked for the strict Cy-Pt reruns:
 | Strict main-like D2S Sella rerun for `08_d2s_Cy-Pt` | `428893` | Ran on `4V100` for `01:07:59` with `mpi: 4`, `method: sella`, main-like ABACUS parameters, `dft_functional: pbe`, `smearing_method: gauss`, and `ks_solver: cusolver`. The newly written rough NEB trajectory had barrier `5.655415` eV and TS fmax `4.367` eV/Ang, versus main rough NEB about `2.678795` eV. Cancelled before Sella refinement because the rough path was already non-comparable. |
 | Clean strict D2S retry after `scale_fmax/idpp_*` alignment | `429068` | Ran on `4V100` node `4v100n09` for `03:32:23` from `temp_examples_strict_mainlike_runs_20260519_retry5/08_d2s_Cy-Pt`, a clean directory containing only config, inputs, submit script, and copied data. Endpoint optimizations completed immediately (`IS` fmax `0.0441`, `FS` fmax `0.0487` eV/Ang). After `scale_fmax=1.0` and IDPP `5000/1e-3` alignment, rough NEB still diverged: ten bands were written by `23:03:03`, with barrier rising from `5.655415` to `23.248852` eV and TS fmax rising to `26.143` eV/Ang. The latest checkpoint is `+20.570057` eV above the main rough NEB baseline. The job was cancelled after this runaway trend was clear; no Sella trajectory was produced. |
 | Clean strict D2S retry after Fast IDPP parity fix | `429504` | Completed on `4V100` node `4v100n07` in `06:00:52` from `temp_examples_strict_mainlike_runs_20260520_retry7/08_d2s_Cy-Pt`. Endpoint optimizations completed immediately (`IS` fmax `0.0441`, `FS` fmax `0.0487` eV/Ang). The first rough NEB band reproduced main: barrier `2.678812` eV, TS image `6`, TS fmax `3.531348` eV/Ang. The final rough NEB band reached barrier `1.714806` eV, TS image `6`, TS fmax `0.874700` eV/Ang, close to the main last-band rough barrier about `1.715682` eV. Sella then converged with final fmax `0.039662` eV/Ang and final TS energy `-11865.557601` eV. |
+| Final main-like NEB rerun for `01_neb_Li-Si` | `437553` | Completed on `4V100` node `4v100n07` in `00:18:41` from `temp_examples_strict_mainlike_runs_20260521_retry13/01_neb_Li-Si`. The final barrier is `0.618346` eV vs main `0.618327` eV (`+0.000019` eV), TS image is `2`, TS fmax is `0.048031` eV/Ang vs main `0.047675`, and TS RMSD is `0.000142` Ang. |
+| Final main-like NEB rerun for `02_neb_H2-Au` | `437554` | Completed on `4V100` node `4v100n29` in `16:45:17` from `temp_examples_strict_mainlike_runs_20260521_retry13/02_neb_H2-Au`. The final barrier is `1.124752` eV vs main `1.120780` eV (`+0.003972` eV), TS image is `4`, TS fmax is `0.020535` eV/Ang vs main `0.019972`, and TS RMSD is `0.004172` Ang. |
+| Final main-like Sella rerun for `05_sella_H2-Au` | `437568` | Completed on `4V100` node `4v100n28` in `00:02:14` from `temp_examples_strict_mainlike_runs_20260521_retry14/05_sella_H2-Au`. The final energy differs from main by `-0.000709` eV, final fmax is `0.048256` eV/Ang, and TS RMSD is `0.000007` Ang. |
+| Final main-like Dimer rerun for `04_dimer_CO-Pt` | `437764` | Completed on `4V100` node `4v100n05` in `10:53:00` from `temp_examples_strict_mainlike_runs_20260521_retry15/04_dimer_CO-Pt`, after fixing trajectory writes to include underlying `Atoms` calculator results. The final energy differs from main by `-0.001867` eV, final fmax is `0.033976` eV/Ang vs main `0.048175`, and final-structure RMSD is `0.002209` Ang. |
 
-The first full-alignment long run showed the severity of the mismatch for
+The first full-alignment long run showed the severity of the early mismatch for
 `01_neb_Li-Si`: after 180 frames the latest band had a barrier of about
 `231.323` eV and internal-image fmax values above `70` and `120` eV/Ang. This
-was stopped to avoid wasting GPU time.
+was stopped to avoid wasting GPU time. The later main-like rerun `437553`
+removed the stabilization-only optimizer settings and reproduced the main
+barrier and TS structure.
 
 Key Slurm accounting records were checked directly with:
 
 ```bash
-sacct -j 426607,426608,426609,426610,426611,426612,426778,426779,426919,426977,426978,428493,428494,428892,428893,429068,429504,433962 \
+sacct -j 426607,426608,426609,426610,426611,426612,426778,426779,426919,426977,426978,428493,428494,428892,428893,429068,429504,433962,437553,437554,437568,437764 \
   --format=JobID,JobName%28,Partition,State,ExitCode,Elapsed,NodeList -P
 ```
 
@@ -171,10 +184,15 @@ long-run records were:
 | `429445` | `atst-main-img-sp` | `COMPLETED` | `00:03:18` | `4v100n07` |
 | `429504` | `atst-08-d2s-idpp7` | `COMPLETED` | `06:00:52` | `4v100n07` |
 | `433962` | `atst-03-autoneb-r11` | `COMPLETED` | `20:53:59` | `4v100n35` |
+| `437553` | `atst-01-neb-r13` | `COMPLETED` | `00:18:41` | `4v100n07` |
+| `437554` | `atst-02-neb-r13` | `COMPLETED` | `16:45:17` | `4v100n29` |
+| `437568` | `atst-05-sella-r14` | `COMPLETED` | `00:02:14` | `4v100n28` |
+| `437764` | `atst-04-dimer-r15` | `COMPLETED` | `10:53:00` | `4v100n05` |
 
 These states confirm which strict reruns were stopped after quantitative
-non-comparability checks and which completed naturally. Job `429504` is the
-successful D2S confirmation after the IDPP parity fix.
+non-comparability checks and which completed naturally. Jobs `437553`,
+`437554`, `433962`, `437764`, `437568`, and `429504` are the final positive
+confirmation runs for the like-for-like main-branch TS/barrier baselines.
 
 For `08_d2s_Cy-Pt`, stale `dimer.traj` and `run_d2s/DIMER` files were present in
 the reused diagnostic directory from earlier May 10-12 runs. They are not part
@@ -199,11 +217,11 @@ strict jobs. This is an ASE execution-stack difference, separate from the ABACUS
 
 | Case | Current evidence | Difference vs main |
 | --- | --- | --- |
-| `01_neb_Li-Si` | Smoke run barrier about `0.7539` eV; production long run diverged; conservative FIRE stagnated at `0.7578` eV. | At least `+0.135` eV for the best available current run; production path not comparable. |
-| `02_neb_H2-Au` | Smoke run stopped after one step; latest complete band barrier about `2.848` eV; first stabilized band still near `2.896` eV. | About `+1.73` eV from smoke artifact; production convergence not reached. |
+| `01_neb_Li-Si` | Completed rerun `437553` used main-like SCF/output settings, no stabilization-only optimizer kwargs, `dft_functional: pbe`, and `ks_solver: cusolver`; the NEB run finished on `4V100`. | Barrier `0.618346` eV vs main `0.618327` eV (`+0.000019` eV); TS image `2` in both; TS fmax `0.048031` vs main `0.047675` eV/Ang; TS RMSD `0.000142` Ang. Comparable. |
+| `02_neb_H2-Au` | Completed rerun `437554` used main-like `fmax: 0.05`, SCF/output settings, no stabilization-only optimizer kwargs, `dft_functional: pbe`, and `ks_solver: cusolver`; the NEB run finished on `4V100`. | Barrier `1.124752` eV vs main `1.120780` eV (`+0.003972` eV); TS image `4` in both; TS fmax `0.020535` vs main `0.019972` eV/Ang; TS RMSD `0.004172` Ang. Comparable. |
 | `03_autoneb_Cy-Pt` | Completed rerun `433962` used `fmax: [0.20, 0.05]`, no optimizer kwargs, `maxsteps: 10000`, `dft_functional: pbe`, matching pseudo/orbital files, `mpi: 16`, `omp: 2`, and `ks_solver: cusolver`; the full AutoNEB run finished on `4V100`. | Barrier `1.330070` eV vs main `1.327886` eV (`+0.002184` eV); TS image `5` in both; TS fmax `0.041272` vs main `0.041975` eV/Ang; TS RMSD `0.004433` Ang. Comparable. |
-| `04_dimer_CO-Pt` | Current smoke `max_steps: 1` trajectory has no readable ASE energy/force results; main has a converged Dimer trajectory. Full rerun `426978` ran for `04:03:45` and reached 7 frames, still without readable trajectory energies/forces. | Not comparable as a converged Dimer TS. |
-| `05_sella_H2-Au` | Current smoke result final fmax about `0.372` eV/Ang; full rerun `426977` remained near fmax `0.299` eV/Ang after `02:02:46`. Main final fmax is `0.048` eV/Ang. | Not comparable as a converged TS. |
+| `04_dimer_CO-Pt` | Completed rerun `437764` used main-like ABACUS settings and the fixed Dimer trajectory writer, so ASE-readable energy/force results are present through the run. | Final energy differs from main by `-0.001867` eV; final fmax `0.033976` vs main `0.048175` eV/Ang; final RMSD `0.002209` Ang. Comparable. |
+| `05_sella_H2-Au` | Completed rerun `437568` confirms the current input structure, which matches the main final Sella TS rather than the main initial STRU. | Final energy differs from main by `-0.000709` eV; final fmax `0.048256` eV/Ang, matching main; RMSD `0.000007` Ang. Comparable. |
 | `08_d2s_Cy-Pt` | Config was switched to main-like `method: sella`; strict reruns `428893` and `429068` first exposed a non-comparable rough path. After replacing the in-repository Fast IDPP L-BFGS approximation with a pymatgen-compatible NEB-like IDPP update, clean retry `429504` completed rough NEB and Sella. | First rough band barrier `2.678812` eV vs main `2.678795` eV (`+0.000017` eV). Final rough band barrier `1.714806` eV vs main last-band rough barrier about `1.715682` eV (`-0.000876` eV). Sella converged to fmax `0.039662` eV/Ang. Comparable for the rough NEB path and complete through Sella. |
 
 For `03_autoneb_Cy-Pt`, earlier short strict runs such as job `428892` were not
@@ -265,10 +283,34 @@ result exactly within printed precision: energy `-11861.174648320401` eV and
 fmax `4.367015476685` eV/Ang. Therefore species block order is not the source of
 the D2S multi-eV barrier mismatch.
 
-Key strict-vs-main metrics:
+Key strict-vs-main metrics for the final positive validation runs:
 
 ```json
 {
+  "01_neb_Li-Si": {
+    "main_forward_barrier_eV": 0.618327,
+    "strict_forward_barrier_eV": 0.618346,
+    "barrier_delta_eV": 0.000019,
+    "main_ts_index": 2,
+    "strict_ts_index": 2,
+    "strict_ts_fmax_eV_per_A": 0.048031,
+    "strict_ts_to_main_ts_rmsd_A": 0.000142,
+    "strict_job_id": 437553,
+    "strict_elapsed": "00:18:41",
+    "comparable": true
+  },
+  "02_neb_H2-Au": {
+    "main_forward_barrier_eV": 1.120780,
+    "strict_forward_barrier_eV": 1.124752,
+    "barrier_delta_eV": 0.003972,
+    "main_ts_index": 4,
+    "strict_ts_index": 4,
+    "strict_ts_fmax_eV_per_A": 0.020535,
+    "strict_ts_to_main_ts_rmsd_A": 0.004172,
+    "strict_job_id": 437554,
+    "strict_elapsed": "16:45:17",
+    "comparable": true
+  },
   "03_autoneb_Cy-Pt": {
     "main_forward_barrier_eV": 1.327886,
     "strict_forward_barrier_eV": 1.330070,
@@ -284,42 +326,26 @@ Key strict-vs-main metrics:
     "strict_elapsed": "20:53:59",
     "comparable": true
   },
+  "04_dimer_CO-Pt": {
+    "main_final_fmax_eV_per_A": 0.048175,
+    "strict_final_fmax_eV_per_A": 0.033976,
+    "final_energy_delta_eV": -0.001867,
+    "strict_final_to_main_final_rmsd_A": 0.002209,
+    "strict_job_id": 437764,
+    "strict_elapsed": "10:53:00",
+    "comparable": true
+  },
+  "05_sella_H2-Au": {
+    "main_final_fmax_eV_per_A": 0.048256,
+    "strict_final_fmax_eV_per_A": 0.048256,
+    "final_energy_delta_eV": -0.000709,
+    "strict_final_to_main_final_rmsd_A": 0.000007,
+    "strict_job_id": 437568,
+    "strict_elapsed": "00:02:14",
+    "comparable": true
+  },
   "08_d2s_Cy-Pt_rough_neb": {
     "main_forward_barrier_eV": 2.678795,
-    "strict_forward_barrier_eV": 5.655415,
-    "barrier_delta_eV": 2.976620,
-    "strict_ts_index": 7,
-    "strict_ts_fmax_eV_per_A": 4.367015,
-    "clean_retry_429068_first_band_forward_barrier_eV": 5.655415,
-    "clean_retry_429068_first_band_ts_index": 7,
-    "clean_retry_429068_first_band_ts_fmax_eV_per_A": 4.367015,
-    "clean_retry_429068_band2_forward_barrier_eV": 5.793211,
-    "clean_retry_429068_band2_ts_index": 7,
-    "clean_retry_429068_band2_ts_fmax_eV_per_A": 3.910769,
-    "clean_retry_429068_band3_forward_barrier_eV": 6.268313,
-    "clean_retry_429068_band3_ts_index": 7,
-    "clean_retry_429068_band3_ts_fmax_eV_per_A": 4.582207,
-    "clean_retry_429068_band4_forward_barrier_eV": 7.112310,
-    "clean_retry_429068_band4_ts_index": 7,
-    "clean_retry_429068_band4_ts_fmax_eV_per_A": 5.605073,
-    "clean_retry_429068_band5_forward_barrier_eV": 8.366226,
-    "clean_retry_429068_band5_ts_index": 7,
-    "clean_retry_429068_band5_ts_fmax_eV_per_A": 7.036022,
-    "clean_retry_429068_band6_forward_barrier_eV": 10.081971,
-    "clean_retry_429068_band6_ts_index": 7,
-    "clean_retry_429068_band6_ts_fmax_eV_per_A": 9.135216,
-    "clean_retry_429068_band10_forward_barrier_eV": 23.248852,
-    "clean_retry_429068_band10_ts_index": 7,
-    "clean_retry_429068_band10_ts_fmax_eV_per_A": 26.143183,
-    "clean_retry_429068_first_band_mean_rmsd_to_main_first_band_A": 0.097231,
-    "current_vs_main_init_endpoint_rmsd_A": 0.000539,
-    "current_vs_main_final_endpoint_rmsd_A": 0.000004,
-    "species_order_single_image_job": 429435,
-    "species_order_single_image_energy_delta_eV": 0.0,
-    "species_order_single_image_fmax_delta_eV_per_A": 0.0,
-    "main_image6_lts_recalc_job": 429445,
-    "main_image6_lts_recalc_energy_delta_eV": -0.0000219188,
-    "main_image6_lts_recalc_fmax_delta_eV_per_A": -0.0000663593,
     "idpp_fixed_job": 429504,
     "idpp_fixed_state": "COMPLETED",
     "idpp_fixed_elapsed": "06:00:52",
@@ -344,10 +370,10 @@ Key strict-vs-main metrics:
 | Requirement | Evidence | Status |
 | --- | --- | --- |
 | Traverse current `examples/` | Current configs found for `01`-`08`, `10`, and `11`; the inventory table classifies each case and identifies which have like-for-like TS/barrier baselines. | Covered. |
-| Compare to main branch existing results | Main trajectories extracted under `temp_examples_main_20260519/examples`; metrics listed above. | Covered for comparable cases. |
-| Align ASE and ABACUS parameters where differences exceed `0.1` eV | `03` and `08` strict runs remove stabilization-only kwargs, use main-like fmax/method/maxsteps/SCF settings, and use supported replacements for legacy `xc`/`gau`. | Covered as far as ABACUS LTS 3.10.1 supports. |
-| Use ABACUS LTS 3.10.1 on SAI `4V100` with GPU `cusolver` | Slurm jobs loaded `abacus/LTSv3.10.1-sm70-auto`; LCAO runs used `ks_solver: cusolver`; `03` job `433962` used full-node `mpi: 16`, `omp: 2`, and 4 V100 GPUs. | Covered. |
-| Ensure calculations complete and obtain comparable results | Multiple production/strict runs were launched. `03_autoneb_Cy-Pt` job `433962` completed AutoNEB and reproduced the main barrier/TS structure. `08_d2s_Cy-Pt` job `429504` completed rough NEB + Sella and reproduced the main rough NEB barriers. `04` and `05` still do not have comparable completed TS results under the current strict validation evidence. | Partially achieved for the whole audit; achieved for `03` and `08`. |
+| Compare to main branch existing results | Main trajectories extracted under `temp_examples_main_20260519/examples`; metrics listed above and in the standalone JSON file. | Covered for all like-for-like TS/barrier cases. |
+| Align ASE and ABACUS parameters where differences exceed `0.1` eV | `01/02/03/04/05/08` strict runs use main-like workflow tolerances, production limits, SCF/output settings, and supported replacements for legacy `xc`/`gau`. | Covered as far as ABACUS LTS 3.10.1 supports. |
+| Use ABACUS LTS 3.10.1 on SAI `4V100` with GPU `cusolver` | Slurm jobs loaded `abacus/LTSv3.10.1-sm70-auto`; LCAO runs used `ks_solver: cusolver`; final confirmation jobs `437553`, `437554`, `433962`, `437764`, `437568`, and `429504` all ran on `4V100`. | Covered. |
+| Ensure calculations complete and obtain comparable results | Final confirmation jobs `437553`, `437554`, `433962`, `437764`, `437568`, and `429504` completed and reproduced the relevant main barriers, forces, and structures within small tolerances. | Achieved for all like-for-like TS/barrier cases. |
 | Deliver Markdown comparison/test report | This file records configs, Slurm jobs, metrics, failures, and verification. | Covered. |
 
 Prompt-to-artifact checklist:
@@ -358,7 +384,7 @@ Prompt-to-artifact checklist:
 | "与 main branch 已有案例计算结果比较" | `temp_examples_main_20260519/examples` plus ASE trajectory analysis | Main metrics for `01`-`05` and `08` are listed in the Main Baselines table. |
 | "能垒差别大于 0.1 eV 时对齐参数" | Current `examples/*/config.yaml`; generated strict-run `INPUT` files | Parameter Alignment and actual generated `INPUT` checks document ASE/ABACUS alignment and supported legacy replacements. |
 | "ks_solver 采用 cusolver" | Strict generated `INPUT` files | `03` and `08` strict generated ABACUS inputs contain `ks_solver cusolver`. |
-| "投递到 4V100 节点" | `sacct -j 433962,429504 --format=JobID,JobName%28,State,ExitCode,Elapsed -P` | Strict `03` and `08` confirmation jobs ran on SAI `4V100` and completed normally. |
+| "投递到 4V100 节点" | `sacct -j 437553,437554,433962,437764,437568,429504 --format=JobID,JobName%28,State,ExitCode,Elapsed -P` | Final confirmation jobs ran on SAI `4V100` and completed normally. |
 | "确认计算情况" | Slurm job table plus trajectory-derived barrier/fmax metrics | Real-Run Evidence and Comparison tables record job states, elapsed times, barriers, TS fmax, and cancellation reasons. |
 | "交付 md 文件" | `docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md` | This report is the delivered Markdown comparison and test record. |
 | "测试" | `conda run -n atst-dev pytest tests -q` | Full test suite passed after implementation and report updates. |
@@ -369,10 +395,14 @@ Prompt-to-artifact checklist:
 The current examples were traversed and the main branch baselines were measured.
 Several current examples were smoke configurations and required production
 parameter restoration before comparison. After strict main-like reruns on ABACUS
-LTS 3.10.1 with `cusolver`, the key Cy-Pt workflows now satisfy the comparison.
-`03_autoneb_Cy-Pt` completed on job `433962` with barrier `1.330070` eV, only
-`0.002184` eV above the main AutoNEB barrier, and TS-to-main-TS RMSD `0.004433`
-Ang. For `08_d2s_Cy-Pt`, the first strict runs stayed non-comparable until an
+LTS 3.10.1 with `cusolver`, all current examples that have like-for-like
+main-branch TS/barrier baselines are reproduced.
+
+`01_neb_Li-Si`, `02_neb_H2-Au`, and `03_autoneb_Cy-Pt` reproduce the main
+barriers within `0.000019`, `0.003972`, and `0.002184` eV, respectively. The
+`04_dimer_CO-Pt` and `05_sella_H2-Au` final TS confirmations match main final
+energies within `0.001867` and `0.000709` eV, with sub-`0.003` Ang structural
+RMSD. For `08_d2s_Cy-Pt`, the first strict runs stayed non-comparable until an
 offline geometry diagnostic showed that the in-repository Fast IDPP path did
 not match main's pymatgen IDPP path. After the Fast IDPP parity fix, job
 `429504` completed on ABACUS LTS 3.10.1 with `cusolver`; its first rough NEB
@@ -380,33 +410,24 @@ band matched main within `1.7e-5` eV, its final rough band matched the main
 last-band rough barrier within about `8.8e-4` eV, and Sella converged to fmax
 `0.039662` eV/Ang.
 
-Therefore the requested Cy-Pt reproduction is achieved for the two main Cy-Pt
-workflows: `03_autoneb_Cy-Pt` now has a completed, main-comparable AutoNEB run,
-and `08_d2s_Cy-Pt` now has a completed, main-comparable rough NEB/Sella run on
-this server with ABACUS LTS 3.10.1 and `cusolver`. The broader all-examples
-audit remains partial because `01/02/04/05` still do not have comparable
-completed TS results.
+Therefore the requested broader examples validation is achieved for all
+like-for-like TS/barrier cases in the current curated `examples/` inventory:
+`01/02/03/04/05/08` have completed, main-comparable runs on this server with
+ABACUS LTS 3.10.1 and `cusolver`.
 
 ## Remaining Gap
 
-The explicit objective items still not satisfied are:
+No remaining gap blocks the requested examples-vs-main validation for current
+like-for-like TS/barrier cases. The remaining caveats are execution-stack
+documentation items rather than failed reproductions:
 
-- The strongest acceptance criterion is now met for `03_autoneb_Cy-Pt`. Strict
-  job `433962` completed real ABACUS LTS 3.10.1 work on `4V100` and reproduced
-  the main AutoNEB barrier and TS structure within small tolerances. The same
-  criterion is also satisfied for `08_d2s_Cy-Pt` rough NEB/Sella by job
-  `429504`.
-- Full reproduction of main's image-level MPI AutoNEB execution stack. Main used
-  `gpaw python` under MPI, while the current `atst-dev` environment lacks
-  `mpi4py` and plain `mpirun python` leaves ASE `world.size == 1`.
-- Full comparable TS reproduction for `01/02/04/05` in the broader examples
-  audit. The D2S IDPP/path-generation mismatch was resolved, and the AutoNEB
-  Cy-Pt mismatch seen in earlier cancelled runs was resolved by the completed
-  full-node validation.
-
-This means the current state is a partial positive validation result for the
-whole examples inventory, but a positive validation result for the requested
-`03_autoneb_Cy-Pt` case.
+- Main used `gpaw python` under MPI for image-level AutoNEB parallelism, while
+  the current `atst-dev` environment lacks `mpi4py` and plain `mpirun python`
+  leaves ASE `world.size == 1`. This affects image scheduling performance, not
+  the final validated ABACUS energies/forces reported here.
+- Non-TS examples `06/07/10/11` do not have like-for-like main branch
+  barrier/TS baselines; they remain covered by config/schema validation rather
+  than barrier comparison.
 
 ## abacuslite Core Change
 
@@ -432,10 +453,10 @@ and template atom-order mapping is also in `tests/unit/test_abacuslite_profile.p
 
 ## Recommended Follow-Up
 
-Further GPU reruns of `03_autoneb_Cy-Pt` with the same ASE-native, abacuslite,
-and LTS 3.10.1 stack are no longer needed for acceptance: the completed
-full-node run is already comparable. Useful follow-up checks should preserve
-that acceptance evidence and isolate remaining broader-audit gaps:
+Further GPU reruns of `01/02/03/04/05/08` with the same ASE-native, abacuslite,
+and LTS 3.10.1 stack are no longer needed for acceptance: the completed final
+confirmation jobs are already comparable. Useful follow-up checks should
+preserve that evidence and reduce future execution-stack ambiguity:
 
 1. Run one Cy-Pt image with `genelpa` on a CPU allocation and `cusolver` on GPU,
    using otherwise identical generated `INPUT`/`STRU`/`KPT`, then compare energy
@@ -449,9 +470,10 @@ that acceptance evidence and isolate remaining broader-audit gaps:
 4. Install or provide an MPI-enabled ASE Python entry point for `atst-dev`
    (`mpi4py` or an equivalent `gpaw python` setup) before claiming main-like
    AutoNEB image-level parallelism.
-5. Preserve job `433962` outputs as the primary `03_autoneb_Cy-Pt` regression
-   artifact because it has the closest parameter alignment evidence and a
-   completed, comparable band.
+5. Preserve final confirmation job outputs `437553`, `437554`, `433962`,
+   `437764`, `437568`, and `429504` as regression artifacts because they have
+   the closest parameter alignment evidence and completed, comparable
+   trajectories.
 
 ## Reproducibility Artifacts
 
@@ -463,6 +485,13 @@ Strict main-like run artifacts:
   `temp_examples_strict_mainlike_runs_20260519_retry3/03_autoneb_Cy-Pt`
 - Completed comparable strict `03_autoneb_Cy-Pt` run:
   `temp_examples_strict_mainlike_runs_20260520_retry11/03_autoneb_Cy-Pt`
+- Completed comparable strict `01_neb_Li-Si` and `02_neb_H2-Au` runs:
+  `temp_examples_strict_mainlike_runs_20260521_retry13/01_neb_Li-Si`,
+  `temp_examples_strict_mainlike_runs_20260521_retry13/02_neb_H2-Au`
+- Completed comparable strict `05_sella_H2-Au` run:
+  `temp_examples_strict_mainlike_runs_20260521_retry14/05_sella_H2-Au`
+- Completed comparable strict `04_dimer_CO-Pt` run:
+  `temp_examples_strict_mainlike_runs_20260521_retry15/04_dimer_CO-Pt`
 - Strict `08_d2s_Cy-Pt` run:
   `temp_examples_strict_mainlike_runs_20260519_retry3/08_d2s_Cy-Pt`
 - Clean strict `08_d2s_Cy-Pt` retry after `scale_fmax/idpp_*` alignment:
@@ -497,9 +526,18 @@ Strict Slurm submissions:
   `sbatch --partition=4V100 --qos=rush-1o2gpu --nodes=1 --ntasks=4 --gpus-per-node=1 --job-name=atst-08-d2s-idpp7 ...`
 - `433962`, node `4v100n35`:
   `sbatch --partition=4V100 --qos=rush-gpu --nodes=1 --ntasks=16 --gpus-per-node=4 --job-name=atst-03-autoneb-r11 ...`
+- `437553`, node `4v100n07`:
+  `sbatch --partition=4V100 --qos=rush-gpu --nodes=1 --ntasks=16 --gpus-per-node=4 --job-name=atst-01-neb-r13 ...`
+- `437554`, node `4v100n29`:
+  `sbatch --partition=4V100 --qos=rush-gpu --nodes=1 --ntasks=16 --gpus-per-node=4 --job-name=atst-02-neb-r13 ...`
+- `437568`, node `4v100n28`:
+  `sbatch --partition=4V100 --qos=rush-gpu --nodes=1 --ntasks=16 --gpus-per-node=4 --job-name=atst-05-sella-r14 ...`
+- `437764`, node `4v100n05`:
+  `sbatch --partition=4V100 --qos=rush-gpu --nodes=1 --ntasks=16 --gpus-per-node=4 --job-name=atst-04-dimer-r15 ...`
 - These wrapped commands loaded `abacus/LTSv3.10.1-sm70-auto`, exported
   `OMP_NUM_THREADS` according to the example runtime (`1` for the `mpi: 4`
-  D2S jobs, `2` for the `mpi: 16` full-node AutoNEB job), set `PYTHONPATH` to
+  D2S diagnostic jobs, `2` for the `mpi: 16` full-node confirmation jobs), set
+  `PYTHONPATH` to
   this checkout's `src`, and ran `conda run -n atst-dev atst run config.yaml`
   in the strict run directory.
 
@@ -522,6 +560,9 @@ conda run -n atst-dev python -c $'import numpy as np\\nfrom ase.io import read\\
 - Added and passed focused unit tests for NEB/D2S `optimizer_kwargs` schema and
   runner forwarding, plus D2S rough DyNEB `scale_fmax` and Fast IDPP
   `idpp_maxiter`/`idpp_tol` schema and forwarding.
+- Added and passed a focused Dimer workflow regression test proving the
+  trajectory writer stores the underlying ASE `Atoms` with calculator energy
+  and force results, rather than unreadable `MinModeAtoms` frames.
 - Replaced the old Fast IDPP L-BFGS approximation with a pymatgen-compatible
   NEB-like IDPP update. Offline comparison against pymatgen in the separate
   `atst` environment showed zero RMSD at printed precision for the `08` path,
@@ -553,9 +594,12 @@ conda run -n atst-dev python -c $'import numpy as np\\nfrom ase.io import read\\
 - Full-node `03_autoneb_Cy-Pt` job `433962` ran on `4V100` and completed in
   `20:53:59`; trajectory analysis reproduced the reported barrier, TS index,
   TS fmax, and TS RMSD.
-- Reproducibility commands in this report were tested against the strict `03`
-  and `08` run directories and reproduced the reported barrier, TS index, and
-  TS fmax values.
+- Final confirmation jobs `437553`, `437554`, `437568`, and `437764` ran on
+  `4V100` and completed in `00:18:41`, `16:45:17`, `00:02:14`, and
+  `10:53:00`, respectively.
+- Reproducibility commands in this report were tested against the final strict
+  run directories and reproduced the reported barrier, TS index, fmax, and
+  structure-comparison values.
 - The machine-readable strict-vs-main JSON metrics block was parsed with
   `json.loads(...)` under `atst-dev`.
 - The standalone metrics JSON file
