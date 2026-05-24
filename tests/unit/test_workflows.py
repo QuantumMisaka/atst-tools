@@ -191,6 +191,50 @@ def test_run_neb_respects_dp_share_calculator_false(monkeypatch, tmp_path):
     assert chain[1].calc is not chain[2].calc
 
 
+def test_run_neb_can_use_native_ase_backend(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    calls = []
+
+    class FakeAtstNEB:
+        def __init__(self, images, **kwargs):
+            calls.append(("atst", kwargs))
+
+    class FakeNativeNEB:
+        def __init__(self, images, **kwargs):
+            calls.append(("ase", kwargs))
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeAtstNEB)
+    monkeypatch.setattr(main, "NEB", FakeNativeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "neb_backend": "ase",
+        },
+    )
+
+    assert [name for name, _ in calls] == ["ase"]
+    assert calls[0][1]["method"] == "improvedtangent"
+
+
 def test_abacus_neb_iterimages_preserves_unconstrained_forces():
     from atst_tools.mep.neb import AbacusNEB
 
@@ -290,6 +334,110 @@ def test_autoneb_runner_uses_unique_serial_abacus_directories(monkeypatch):
     assert len(directories) == 2
     assert len(set(directories)) == 2
     assert all(directory.startswith("autoneb_run/image_") for directory in directories)
+
+
+def test_native_autoneb_attachment_uses_global_image_directories(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3), _atoms(0.0)]
+    directories = []
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        directories.append(kwargs["directory"])
+        return DummyCalc()
+
+    monkeypatch.setattr(autoneb.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"directory": "autoneb_run", "parameters": {}}}},
+        "abacus",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "neb_backend": "ase",
+        },
+    )
+    runner.attach_calculators([chain[2], chain[3]])
+
+    assert directories == ["autoneb_run/image_002", "autoneb_run/image_003"]
+
+
+def test_autoneb_runner_can_use_native_ase_backend(monkeypatch, tmp_path):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2)]
+    calls = []
+
+    class FakeAtstAutoNEB:
+        def __init__(self, **kwargs):
+            calls.append(("atst", kwargs))
+
+        def run(self):
+            return None
+
+    class FakeNativeAutoNEB:
+        def __init__(self, **kwargs):
+            calls.append(("ase", kwargs))
+
+        def run(self):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(autoneb, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(autoneb, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(autoneb, "AbacusAutoNEB", FakeAtstAutoNEB)
+    monkeypatch.setattr(autoneb, "AutoNEB", FakeNativeAutoNEB)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "neb_backend": "ase",
+        },
+    )
+    runner.run()
+
+    assert [name for name, _ in calls] == ["ase"]
+    assert calls[0][1]["method"] == "improvedtangent"
+
+
+def test_native_autoneb_does_not_share_dp_calculator(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    calls = []
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        calc = DummyCalc(len(calls))
+        calls.append((kwargs, calc))
+        return calc
+
+    monkeypatch.setattr(autoneb.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "neb_backend": "ase",
+        },
+    )
+    runner.attach_calculators(chain[1:-1])
+
+    assert runner.allow_shared_calculator is False
+    assert chain[1].calc is not chain[2].calc
+    assert [call[0].get("shared") for call in calls] == [False, False]
 
 
 def test_autoneb_runner_copies_middle_constraints_to_endpoints(monkeypatch):

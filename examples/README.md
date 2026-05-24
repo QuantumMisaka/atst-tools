@@ -107,3 +107,24 @@ then Dimer or Sella, with optional vibration follow-up.
 | `09_lightweight_cli` | Minimal local fixtures | H | Lightweight CLI |
 | `10_irc_H2` | H2 TS fixture | H | IRC |
 | `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |
+
+## Reference Results
+
+Reference values are collected in `reference_results.json`. Transition-state
+reference structures are stored as reviewable `.extxyz` files under
+`reference_structures/`. The quantitative values below are from the SAI `4V100`
+validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
+
+| Example | Reference | TS index | Main-comparable value | Structure |
+| :--- | :--- | ---: | :--- | :--- |
+| `01_neb_Li-Si` | NEB barrier | 2 | `0.618346` eV (`+0.000019` eV vs main) | `reference_structures/01_neb_Li-Si_ts.extxyz` |
+| `02_neb_H2-Au` | NEB barrier | 4 | `1.124752` eV (`+0.003972` eV vs main) | `reference_structures/02_neb_H2-Au_ts.extxyz` |
+| `03_autoneb_Cy-Pt` | AutoNEB barrier | 5 | `1.330070` eV (`+0.002184` eV vs main) | `reference_structures/03_autoneb_Cy-Pt_ts.extxyz` |
+| `04_dimer_CO-Pt` | Dimer final TS | n/a | final fmax `0.033976` eV/Ang; energy delta `-0.001867` eV vs main | `reference_structures/04_dimer_CO-Pt_final_ts.extxyz` |
+| `05_sella_H2-Au` | Sella final TS | n/a | final fmax `0.048256` eV/Ang; energy delta `-0.000709` eV vs main | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
+| `08_d2s_Cy-Pt` | D2S first rough barrier + Sella | 6 | first rough barrier `2.678812` eV (`+0.000017` eV vs main); Sella fmax `0.039662` eV/Ang | `reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz` |
+
+`06_relax_H2-Au`, `07_vibration_H2-Au`, `09_lightweight_cli`,
+`10_irc_H2`, and `11_vibration_ideal_gas_H2` do not have like-for-like
+main-branch TS/barrier baselines. They remain listed in `reference_results.json`
+with validation status or auxiliary output references.

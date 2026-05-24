@@ -4,6 +4,7 @@ import argparse
 import logging
 import numpy as np
 from ase.io import read
+from ase.mep.neb import NEB
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
 from textwrap import dedent
@@ -336,7 +337,8 @@ def run_neb(config, calc_name, calc_config):
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
     
     # Initialize NEB
-    neb = AbacusNEB(init_chain, 
+    neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
+    neb = neb_class(init_chain, 
                     parallel=effective_parallel,
                     method=algorism, 
                     k=k,

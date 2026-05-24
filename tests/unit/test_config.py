@@ -283,6 +283,50 @@ def test_validate_accepts_neb_optimizer_kwargs():
     }
 
 
+def test_validate_accepts_neb_backend_selector():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "chain.traj",
+                "neb_backend": "ase",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["neb_backend"] == "ase"
+
+
+def test_validate_accepts_autoneb_backend_selector():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "autoneb",
+                "init_chain": "chain.traj",
+                "neb_backend": "ase",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["neb_backend"] == "ase"
+
+
+def test_validate_rejects_unknown_neb_backend():
+    with pytest.raises(ValueError, match="neb_backend"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "neb",
+                    "init_chain": "chain.traj",
+                    "neb_backend": "custom",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_accepts_d2s_neb_optimizer_kwargs():
     config = ConfigLoader.normalize(
         {

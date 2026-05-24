@@ -370,21 +370,27 @@ class AutoNEBRunner:
             print("Notice: image-level AutoNEB parallelism requires MPI-launched atst run; running images serially.")
         self.fmax = calc_config['fmax']
         self.maxsteps = calc_config['maxsteps']
+        self.neb_backend = calc_config.get("neb_backend", "atst")
         self.optimizer_name = calc_config['optimizer']
         self.optimizer_kwargs = dict(calc_config.get('optimizer_kwargs', {}))
         self.climb = calc_config['climb']
         self.iter_folder = calc_config['iter_folder']
         self.restart = calc_config['restart']
-        self.allow_shared_calculator = should_share_calculator(
-            self.calc_name,
-            self.config,
-            parallel=self.parallel,
+        self.allow_shared_calculator = (
+            self.neb_backend != "ase"
+            and should_share_calculator(
+                self.calc_name,
+                self.config,
+                parallel=self.parallel,
+            )
         )
         self._shared_calc = None
         
         # Initial chain
         init_chain_file = calc_config['init_chain']
         self.init_chain = read(init_chain_file, index=':')
+        self._image_index_by_id = {id(image): index for index, image in enumerate(self.init_chain)}
+        self._active_autoneb = None
         self._apply_legacy_endpoint_conditions()
 
     def _apply_legacy_endpoint_conditions(self):
@@ -413,6 +419,19 @@ class AutoNEBRunner:
             kwargs["shared"] = shared
         return CalculatorFactory.get_calculator(self.calc_name, self.config, **kwargs)
 
+    def _image_index(self, image, fallback: int) -> int:
+        if "_atst_autoneb_index" in image.info:
+            return int(image.info["_atst_autoneb_index"])
+        if id(image) in self._image_index_by_id:
+            return self._image_index_by_id[id(image)]
+        active_images = getattr(self._active_autoneb, "all_images", None)
+        if active_images is not None:
+            for index, candidate in enumerate(active_images):
+                if candidate is image:
+                    self._image_index_by_id[id(image)] = index
+                    return index
+        return fallback
+
     def attach_calculators(self, images):
         """
         Callback to attach calculators to a list of images.
@@ -438,7 +457,7 @@ class AutoNEBRunner:
                  image.calc = self._get_calculator(image_dir, shared=False)
              else:
                  base_dir = self._base_directory()
-                 image_index = image.info.get("_atst_autoneb_index", i)
+                 image_index = self._image_index(image, i)
                  image_dir = f"{base_dir}/image_{int(image_index):03d}"
                  image.calc = self._get_calculator(image_dir, shared=False)
 
@@ -481,26 +500,36 @@ class AutoNEBRunner:
             context="AutoNEB",
         )
         
-        autoneb = AbacusAutoNEB(
-            attach_calculators=self.attach_calculators,
-            prefix=self.prefix,
-            n_simul=self.n_simul,
-            n_max=self.n_max,
-            iter_folder=self.iter_folder,
-            world=world,
-            method=self.algorism,
-            parallel=self.parallel,
-            optimizer=self._get_optimizer(),
-            fmax=self.fmax,
-            maxsteps=self.maxsteps,
-            climb=self.climb,
-            allow_shared_calculator=self.allow_shared_calculator,
-        )
+        autoneb_kwargs = {
+            "attach_calculators": self.attach_calculators,
+            "prefix": self.prefix,
+            "n_simul": self.n_simul,
+            "n_max": self.n_max,
+            "iter_folder": self.iter_folder,
+            "world": world,
+            "method": self.algorism,
+            "parallel": self.parallel,
+            "optimizer": self._get_optimizer(),
+            "fmax": self.fmax,
+            "maxsteps": self.maxsteps,
+            "climb": self.climb,
+        }
+        if self.neb_backend == "ase":
+            autoneb = AutoNEB(**autoneb_kwargs)
+        else:
+            autoneb = AbacusAutoNEB(
+                **autoneb_kwargs,
+                allow_shared_calculator=self.allow_shared_calculator,
+            )
         
         # Write initial files if they don't exist
         for i, atoms in enumerate(self.init_chain):
              filename = f'{self.prefix}{i:03d}.traj'
              write(filename, atoms)
                  
-        autoneb.run()
+        self._active_autoneb = autoneb
+        try:
+            autoneb.run()
+        finally:
+            self._active_autoneb = None
         print("=== AutoNEB Calculation Finished ===")

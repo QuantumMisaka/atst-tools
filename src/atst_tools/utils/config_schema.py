@@ -46,6 +46,10 @@ class NEBCalculation(StrictConfig):
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     k: float | list[float] = Field(default=0.1, description="NEB spring constant(s) in eV/Ang^2.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
+    neb_backend: Literal["atst", "ase"] = Field(
+        default="atst",
+        description="NEB implementation backend: ATST compatibility wrapper or native ASE.",
+    )
     parallel: bool = Field(default=True, description="Enable image-level parallelism when MPI is available.")
     max_steps: int = Field(default=100, gt=0, description="Maximum optimizer steps.")
     optimizer: str = Field(default="FIRE", description="ASE optimizer name.")
@@ -82,6 +86,10 @@ class AutoNEBCalculation(StrictConfig):
     n_simul: int | None = Field(default=None, description="Number of images optimized simultaneously.")
     n_max: int = Field(default=10, gt=1, description="Maximum number of AutoNEB images.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
+    neb_backend: Literal["atst", "ase"] = Field(
+        default="atst",
+        description="AutoNEB implementation backend: ATST compatibility wrapper or native ASE.",
+    )
     parallel: bool = Field(default=True, description="Enable image-level parallelism when MPI is available.")
     optimizer: Literal["FIRE", "BFGS"] = Field(default="FIRE", description="Optimizer used for AutoNEB iterations.")
     optimizer_kwargs: dict[str, Any] = Field(

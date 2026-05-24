@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "source_report": "docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md",
+  "validation_environment": {
+    "abacus_version": "LTS 3.10.1",
+    "gpu_solver": "cusolver",
+    "partition": "4V100",
+    "python_env": "atst-dev"
+  },
+  "cases": {
+    "01_neb_Li-Si": {
+      "reference_type": "barrier",
+      "workflow": "neb",
+      "forward_barrier_eV": 0.618346,
+      "main_forward_barrier_eV": 0.618327,
+      "barrier_delta_eV": 0.000019,
+      "transition_state_index": 2,
+      "transition_state_fmax_eV_per_A": 0.048031,
+      "band_fmax_eV_per_A": 0.771472,
+      "transition_state_rmsd_to_main_A": 0.000142,
+      "transition_state_structure": "examples/reference_structures/01_neb_Li-Si_ts.extxyz",
+      "validation_job_id": 437553,
+      "validation_elapsed": "00:18:41",
+      "validation_node": "4v100n07"
+    },
+    "02_neb_H2-Au": {
+      "reference_type": "barrier",
+      "workflow": "neb",
+      "forward_barrier_eV": 1.124752,
+      "main_forward_barrier_eV": 1.12078,
+      "barrier_delta_eV": 0.003972,
+      "transition_state_index": 4,
+      "transition_state_fmax_eV_per_A": 0.020535,
+      "band_fmax_eV_per_A": 0.453789,
+      "transition_state_rmsd_to_main_A": 0.004172,
+      "transition_state_structure": "examples/reference_structures/02_neb_H2-Au_ts.extxyz",
+      "validation_job_id": 437554,
+      "validation_elapsed": "16:45:17",
+      "validation_node": "4v100n29"
+    },
+    "03_autoneb_Cy-Pt": {
+      "reference_type": "barrier",
+      "workflow": "autoneb",
+      "forward_barrier_eV": 1.33007,
+      "main_forward_barrier_eV": 1.327886,
+      "barrier_delta_eV": 0.002184,
+      "transition_state_index": 5,
+      "transition_state_fmax_eV_per_A": 0.041272,
+      "band_fmax_eV_per_A": 0.234444,
+      "transition_state_rmsd_to_main_A": 0.004433,
+      "transition_state_structure": "examples/reference_structures/03_autoneb_Cy-Pt_ts.extxyz",
+      "validation_job_id": 433962,
+      "validation_elapsed": "20:53:59",
+      "validation_node": "4v100n35"
+    },
+    "04_dimer_CO-Pt": {
+      "reference_type": "single_ended_ts",
+      "workflow": "dimer",
+      "final_energy_eV": -211834.954565,
+      "main_final_energy_eV": -211834.952698,
+      "energy_delta_eV": -0.001867,
+      "transition_state_index": null,
+      "transition_state_fmax_eV_per_A": 0.033976,
+      "transition_state_rmsd_to_main_A": 0.002209,
+      "transition_state_structure": "examples/reference_structures/04_dimer_CO-Pt_final_ts.extxyz",
+      "validation_job_id": 437764,
+      "validation_elapsed": "10:53:00",
+      "validation_node": "4v100n05"
+    },
+    "05_sella_H2-Au": {
+      "reference_type": "single_ended_ts",
+      "workflow": "sella",
+      "final_energy_eV": -239255.122869,
+      "main_final_energy_eV": -239255.12216,
+      "energy_delta_eV": -0.000709,
+      "transition_state_index": null,
+      "transition_state_fmax_eV_per_A": 0.048256,
+      "transition_state_rmsd_to_main_A": 0.000007,
+      "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
+      "validation_job_id": 437568,
+      "validation_elapsed": "00:02:14",
+      "validation_node": "4v100n28"
+    },
+    "06_relax_H2-Au": {
+      "reference_type": "non_ts",
+      "workflow": "relax",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "schema_load_checked; no like-for-like main TS/barrier baseline"
+    },
+    "07_vibration_H2-Au": {
+      "reference_type": "non_ts",
+      "workflow": "vibration",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "reference_output": "vibration_results.json",
+      "validation_status": "schema_load_checked; no like-for-like main TS/barrier baseline"
+    },
+    "08_d2s_Cy-Pt": {
+      "reference_type": "barrier",
+      "workflow": "d2s",
+      "forward_barrier_eV": 2.678812,
+      "main_forward_barrier_eV": 2.678795,
+      "barrier_delta_eV": 0.000017,
+      "transition_state_index": 6,
+      "transition_state_fmax_eV_per_A": 3.531348,
+      "transition_state_structure": "examples/reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz",
+      "last_rough_barrier_eV": 1.714806,
+      "last_rough_barrier_delta_eV": -0.000876,
+      "last_rough_ts_index": 6,
+      "last_rough_ts_fmax_eV_per_A": 0.8747,
+      "sella_final_energy_eV": -11865.557601,
+      "sella_final_fmax_eV_per_A": 0.039662,
+      "sella_final_structure": "examples/reference_structures/08_d2s_Cy-Pt_sella_final_ts.extxyz",
+      "validation_job_id": 429504,
+      "validation_elapsed": "06:00:52",
+      "validation_node": "4v100n07"
+    },
+    "09_lightweight_cli": {
+      "reference_type": "local_cli_fixture",
+      "workflow": "prepost_cli",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "local lightweight fixture; no ABACUS TS/barrier baseline"
+    },
+    "10_irc_H2": {
+      "reference_type": "non_ts",
+      "workflow": "irc",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "schema_load_checked; no like-for-like gas-phase main IRC baseline"
+    },
+    "11_vibration_ideal_gas_H2": {
+      "reference_type": "non_ts",
+      "workflow": "vibration_ideal_gas",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "reference_output": "vibration_results.json",
+      "validation_status": "schema_load_checked; no like-for-like main TS/barrier baseline"
+    }
+  }
+}
