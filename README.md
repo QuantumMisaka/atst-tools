@@ -1,4 +1,10 @@
 # ATST-Tools
+**Legacy version: v1.5.1**
+
+This branch keeps the legacy script-based ATST-Tools implementation for
+reference and reproducibility. Active development has moved to the refactored
+2.x package on the `develop` branch.
+
 Advanced ASE Transition State Tools for ABACUS and Deep-Potential, including:
 - NEB, including CI-NEB, IT-NEB and others.
 - Serial Dynamic NEB (DyNEB) calculation.
@@ -8,7 +14,7 @@ Advanced ASE Transition State Tools for ABACUS and Deep-Potential, including:
 - Double-to-single (D2S) TS workflow: neb2dimer, neb2sella.
 - Vibration analysis and ideal gas thermochemistry analysis.
 
-Version 1.5.0
+Version 1.5.1
 
 Copyright @ QuantumMisaka from TMC-PKU & AISI
 
@@ -278,5 +284,4 @@ Some property should be get via specific way from trajectory files, and some wil
 - In NEB calculation, the Force property for fixed atoms and Stress property will NOT be stored in trajectory file, one should get it by `get_force(apply_constraint=False)`.
 - in Dimer calculation, the Energy, Forces and Stress property will be stored in trajetory file after specified which properties need to be stored. (Sella calculation should be likely) (The most easiest lost information is the stress information)
 - in AutoNEB calculation, all property in processing trajectory will be stored in AutoNEB_iter directory, but in the result `run_autoneb???.traj`, the forces and stress information will be lost.
-
 
