@@ -80,6 +80,51 @@ D2S 工作流调用点为 `src/atst_tools/workflows/d2s.py`。当前 `run_rough_
 
 这使当前 FastIDPP 不再是“另一个 IDPP optimizer”，而是“pymatgen IDPP 更新规则的项目内实现”。
 
+## 当前 atom alignment 方案
+
+pymatgen `IDPPSolver.from_endpoints(..., sort_tol=...)` 中的 `sort_tol` 并不是 IDPP force update 参数，而是传给 `Structure.interpolate(..., autosort_tol=sort_tol)` 的端点 atom index 自动匹配容差。ATST-Tools 当前没有实现 pymatgen autosort，也没有在 CLI/YAML 中暴露 `sort_tol`；项目采用的是 `src/atst_tools/utils/idpp.py` 中的 `align_atom_indices()`。
+
+当前 alignment 的目标是：在不移动任何原子坐标的前提下，仅重排终态或 TS guess 的 atom indices，使其尽量对应初态中的同一元素原子。该函数在 `generate()` 中默认启用，用户可通过 `no_align: true` 或 CLI `--no-align` 禁用。
+
+具体算法流程如下：
+
+1. 输入检查。
+
+   `align_atom_indices(atoms_ref, atoms_target)` 首先要求初态参考结构和待对齐结构原子数相同。如果总原子数不同，直接抛出 `ValueError`。随后为每个 reference atom 准备一个 `new_indices` 数组，用来记录 target 中应该放到该 reference index 位置的 atom index。
+
+2. 判断是否使用 MIC 距离。
+
+   函数读取 `atoms_ref` 的 cell 和 PBC。只有当任意方向开启 PBC 且 cell determinant 大于阈值时，才计算 inverse cell 并启用 MIC；否则按普通 Cartesian 距离计算匹配成本。这个设计避免了非周期分子或退化 cell 下错误使用 MIC。
+
+3. 按元素分组。
+
+   对 reference 结构中的元素集合排序后逐个处理。对每个元素，分别取出 reference 中该元素的 indices，以及 target 中该元素的 indices。如果某个元素的数量不一致，直接抛出 `ValueError`。因此当前 alignment 不允许跨元素匹配，也不会把 H 匹配到 C、Pt 等其他元素上。
+
+4. 构造元素内距离成本矩阵。
+
+   对同一元素的 reference positions 和 target positions 构造 `(n_ref, n_target, 3)` 的位移张量。若启用 MIC，则先把位移转换到 fractional coordinates，执行 `scaled_diff -= np.round(scaled_diff)`，再转回 Cartesian。成本矩阵为每对同元素原子的 squared distance。
+
+5. 使用 Hungarian algorithm 做全局最小匹配。
+
+   对每个元素的 squared-distance cost matrix 调用 `scipy.optimize.linear_sum_assignment()`。这一步不是简单最近邻贪心，而是在该元素分组内寻找总距离平方最小的一一匹配。匹配结果写入 `new_indices`，同时累计 `total_dist_sq` 用于输出诊断。
+
+6. 重排 target，不改变坐标。
+
+   函数返回 `atoms_target[new_indices]`，并把 reference 的 cell 和 PBC 赋给返回结构。重要的是，这一步只重排 target atom indices，不修改任何 atom positions；因此它解决的是“同一物理原子在两个端点中的 index 不一致”问题，而不是几何优化或结构修复问题。
+
+与 pymatgen `sort_tol` 相比，当前方案的关键差异是：
+
+| 维度 | pymatgen `sort_tol` / `autosort_tol` | ATST-Tools `align_atom_indices()` |
+| --- | --- | --- |
+| 匹配触发 | 用户给定距离阈值，`0` 表示不排序 | 默认启用，除非 `no_align` |
+| 匹配方式 | 阈值内唯一候选匹配，候选不唯一会失败 | 每个元素内 Hungarian 全局最小距离匹配 |
+| 用户参数 | 需要选择 `sort_tol`，例如 `0.5 A` | 当前无阈值参数，只提供 `no_align` |
+| 元素处理 | `Structure.interpolate()` 仍强依赖 site/species 对应关系 | 显式按元素分组，元素数量不一致时报错 |
+| 失败保护 | 阈值过小或匹配不唯一时失败/关闭 autosort | 距离很大时仍会给出最小匹配，目前只打印 MSD |
+| 工程定位 | pymatgen legacy 行为 | ASE-native、轻依赖、适配 ATST CLI/YAML |
+
+因此，当前 alignment 是 `sort_tol` 的功能替代，而不是逐字复刻。它更适合 ATST-Tools 的 ASE-native 数据流，也避免了用户手动调 `sort_tol` 的经验成本。但它仍有一个值得后续增强的边界：当前只打印总 `MSD`，缺少最大匹配距离或 RMSD 阈值保护。若未来发现错误端点被强行匹配，应优先考虑增加 alignment quality warning/error，而不是直接恢复 pymatgen autosort。
+
 ## 算法差异表
 
 | 维度 | 旧 FastIDPP | 当前 FastIDPP | 对 08 案例的影响 |
