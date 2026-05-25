@@ -13,8 +13,8 @@ Use this skill for ATST-Tools CLI work in this repository.
 - Prefer the project environment: `conda activate atst-dev`.
 - If the default Python cannot import `ase`, run checks with
   `conda run -n atst-dev <command>`.
-- Do not modify `main`; active refactor work belongs on `refactor/unify-structure`
-  or a derived branch.
+- Do not modify `main` for 2.x work; active CLI/refactor work belongs on
+  `develop` or a derived branch. `main` is the v1.5.x legacy line until merge.
 
 ## First Checks
 
@@ -54,7 +54,7 @@ These do not launch ABACUS or DP:
 atst config validate CONFIG.yaml --print-normalized
 atst abacus prepare CONFIG.yaml --structure STRUCTURE --output-dir DIR
 atst abacus collect RUN_DIR --output abacus_results.json
-atst neb make INIT FINAL N_IMAGES -o init_neb_chain.traj
+atst neb make INIT FINAL N_IMAGES -o init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max N --vib-analysis
 atst dimer make-from-neb neb.traj --n-max N --output-traj dimer_init.traj
 atst relax post relax.traj --output-format traj --output restart.traj
@@ -62,6 +62,8 @@ atst vibration post config.yaml --output vibration_results.json
 atst traj collect frames/*.xyz -o collection.traj --no-calc
 atst traj transform collection.traj --format extxyz --output-prefix collection
 ```
+
+`atst neb make --method` accepts `IDPP` (default) or `linear`.
 
 ## ABACUS Wrapper Boundary
 

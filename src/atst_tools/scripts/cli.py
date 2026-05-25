@@ -185,7 +185,12 @@ def _add_neb_parser(subparsers):
     make.add_argument("final_file", help="Final state file")
     make.add_argument("n_images", type=int, help="Number of intermediate images")
     make.add_argument("-o", "--output", default="init_neb_chain.traj", help="Output trajectory")
-    make.add_argument("--method", default="IDPP", choices=("IDPP", "linear"), help="Interpolation method")
+    make.add_argument(
+        "--method",
+        default="IDPP",
+        choices=("IDPP", "linear"),
+        help="Interpolation method (default: IDPP)",
+    )
     make.add_argument("--format", default=None, help="Input file format")
     make.add_argument("--no-align", action="store_true", help="Skip atom index alignment")
     make.add_argument("--fix", help="Fix atoms below HEIGHT along DIR, e.g. 0.25:2")

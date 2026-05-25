@@ -119,7 +119,7 @@ ATST-Tools 是分层 wrapper：
 这些命令不创建 calculator，不运行 ABACUS/DP：
 
 ```bash
-atst neb make inputs/init.xyz inputs/final.xyz 5 -o inputs/init_neb_chain.traj
+atst neb make inputs/init.xyz inputs/final.xyz 5 -o inputs/init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max 5 --vib-analysis --write-latest neb_latest
 atst dimer make-from-neb neb.traj --n-max 5 --output-traj dimer_init.traj
 atst relax post relax.traj --output-format traj --output restart.traj
@@ -127,6 +127,8 @@ atst vibration post config.yaml --output vibration_results.json
 atst traj collect frames/*.xyz -o collection.traj --no-calc
 atst traj transform collection.traj --format extxyz --output-prefix collection
 ```
+
+`atst neb make --method` 可选 `IDPP`（默认）或 `linear`。
 
 ABACUS 前后处理：
 

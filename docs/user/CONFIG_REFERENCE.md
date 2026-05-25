@@ -83,7 +83,7 @@ calculation:
   fmax: 0.05
 ```
 
-The refactored interpolation path uses the in-repository `Fast_IDPPSolver` plus atom-index alignment. `sort_tol` / pymatgen autosort is intentionally dropped.
+The nested NEB `make.method` value accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository `Fast_IDPPSolver`; `linear` writes the aligned linear interpolation directly. `sort_tol` / pymatgen autosort is intentionally dropped.
 
 ASE NEB/DyNEB does not optimize endpoint images, but tangent and barrier analysis use endpoint energies. If a chain was made from pure structures, `atst neb make` writes placeholder endpoint results. `atst run` repairs these by default with endpoint single-point calculations before constructing NEB:
 

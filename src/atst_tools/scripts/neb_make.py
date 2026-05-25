@@ -23,12 +23,12 @@ def _parse_mag(value):
     return elements, moments
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate Initial NEB Chain (IDPP)")
+    parser = argparse.ArgumentParser(description="Generate Initial NEB Chain (IDPP or linear)")
     parser.add_argument('init_file', help='Initial state file')
     parser.add_argument('final_file', help='Final state file')
     parser.add_argument('n_images', type=int, help='Number of intermediate images')
     parser.add_argument('-o', '--output', default='init_neb_chain.traj', help='Output file')
-    parser.add_argument('--method', default='IDPP', choices=['IDPP', 'linear'], help='Interpolation method')
+    parser.add_argument('--method', default='IDPP', choices=['IDPP', 'linear'], help='Interpolation method (default: IDPP)')
     parser.add_argument('--format', default=None, help='File format (auto-detect if None)')
     parser.add_argument('--no-align', action='store_true', help='Skip atom index alignment')
     parser.add_argument('--fix', help='Fix atoms below HEIGHT along DIR, e.g. 0.25:2')
