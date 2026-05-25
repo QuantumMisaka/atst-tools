@@ -1,8 +1,8 @@
 # ATST-Tools 2.0.0 Release Notes
 
 **Version**: 2.0.0  
-**Date**: 2026-05-12  
-**Branch**: `refactor/unify-structure`
+**Date**: 2026-05-25  
+**Branch**: `develop`
 
 ## Summary
 
@@ -55,6 +55,9 @@ or YAML orchestration failures.
   controlled Sella IRC boundary reported as `IRCBoundaryError`.
 - The 2.0.0 release-ready process builds sdist/wheel artifacts and installs the
   wheel in a clean virtual environment for CLI smoke checks.
+- Final release verification on 2026-05-25 confirmed the local test suite,
+  example YAML dry-runs, compile checks, CLI version, and sdist/wheel build
+  from the `develop` release branch.
 
 ## Supported Workflows
 
