@@ -1,10 +1,12 @@
-"""Tests for the vendored abacuslite profile helpers."""
+"""Tests for abacuslite profile helpers used by ATST-Tools."""
 
 from types import SimpleNamespace
 
 import pytest
 from ase import Atoms
 
+from atst_tools.calculators import abacuslite_backend
+from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
 from atst_tools.external.ASE_interface.abacuslite.core import AbacusProfile, AbacusTemplate
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import read_stru, write_stru
 
@@ -14,31 +16,64 @@ def test_parse_version_accepts_legacy_abacus_version_line():
     assert AbacusProfile.parse_version("ABACUS version v3.9.0.17\n") == "v3.9.0.17"
 
 
-def test_parse_version_accepts_banner_abacus_version_line():
-    """ABACUS LTS 3.10.1 prints the version in the startup banner."""
+def test_atst_parse_version_accepts_banner_abacus_version_line():
+    """ATST's profile adapter supports the ABACUS LTS startup banner."""
     stdout = """
                               ABACUS v3.10.1
 
                Atomic-orbital Based Ab-initio Computation at UStc
 """
-    assert AbacusProfile.parse_version(stdout) == "v3.10.1"
+    assert ATSTAbacusProfile.parse_version(stdout) == "v3.10.1"
 
 
-def test_parse_version_reports_unrecognized_output():
+def test_atst_parse_version_reports_unrecognized_output():
     """Unexpected version output should fail with an actionable message."""
     with pytest.raises(RuntimeError, match="Could not parse ABACUS version"):
-        AbacusProfile.parse_version("unrecognized output")
+        ATSTAbacusProfile.parse_version("unrecognized output")
 
 
-def test_version_falls_back_to_bare_executable_when_mpi_stdout_is_empty(monkeypatch):
-    """MPI launchers may suppress ABACUS --version stdout inside Slurm."""
+def test_atst_version_uses_bare_executable_for_wrapped_run_command(monkeypatch):
+    """Version probing should not run mpirun -np N abacus --version by default."""
     calls = []
 
     def fake_read_stdout(command):
         calls.append(command)
-        if command[:3] == ["mpirun", "-np", "4"]:
-            return ""
-        return "ABACUS version v3.10.1\n"
+        return "ABACUS v3.10.1\n"
+
+    monkeypatch.setattr(abacuslite_backend, "read_stdout", fake_read_stdout)
+
+    profile = ATSTAbacusProfile("mpirun -np 4 abacus")
+
+    assert profile.version() == "v3.10.1"
+    assert calls == [["abacus", "--version"]]
+
+
+def test_atst_version_command_override_is_used_verbatim(monkeypatch):
+    """Site-specific version probe commands can be configured explicitly."""
+    calls = []
+
+    def fake_read_stdout(command):
+        calls.append(command)
+        return "ABACUS version v3.9.0.17\n"
+
+    monkeypatch.setattr(abacuslite_backend, "read_stdout", fake_read_stdout)
+
+    profile = ATSTAbacusProfile(
+        "mpirun -np 4 abacus",
+        version_command="srun --partition debug abacus --version",
+    )
+
+    assert profile.version() == "v3.9.0.17"
+    assert calls == [["srun", "--partition", "debug", "abacus", "--version"]]
+
+
+def test_vendored_abacusprofile_version_keeps_native_probe(monkeypatch):
+    """The vendored abacuslite profile should not contain ATST's fallback policy."""
+    calls = []
+
+    def fake_read_stdout(command):
+        calls.append(command)
+        return "ABACUS version v3.9.0.17\n"
 
     from atst_tools.external.ASE_interface.abacuslite import core
 
@@ -46,11 +81,8 @@ def test_version_falls_back_to_bare_executable_when_mpi_stdout_is_empty(monkeypa
 
     profile = AbacusProfile("mpirun -np 4 abacus")
 
-    assert profile.version() == "v3.10.1"
-    assert calls == [
-        ["mpirun", "-np", "4", "abacus", "--version"],
-        ["abacus", "--version"],
-    ]
+    assert profile.version() == "v3.9.0.17"
+    assert calls == [["mpirun", "-np", "4", "abacus", "--version"]]
 
 
 def test_write_stru_preserves_first_occurrence_species_order(tmp_path):

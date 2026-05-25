@@ -28,3 +28,8 @@ addopts = "-ra -q"
 testpaths = [
     "tests",
 ]
+markers = [
+    "unit: fast local unit tests that do not require external executables",
+    "integration: local integration-style fixture tests that do not submit Slurm jobs",
+    "slurm: opt-in tests that may require ABACUS/DeePMD and a Slurm allocation",
+]

@@ -18,7 +18,7 @@ class FakeAbacus:
 
 
 def test_abacus_factory_flattens_config(monkeypatch):
-    monkeypatch.setattr(factory, "AbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
     monkeypatch.setattr(factory, "Abacus", FakeAbacus)
 
     config = {
@@ -46,11 +46,36 @@ def test_abacus_factory_flattens_config(monkeypatch):
 
     assert calc.kwargs["directory"] == "run"
     assert calc.kwargs["profile"].kwargs["command"] == "mpirun -np 4 abacus"
+    assert calc.kwargs["profile"].kwargs["version_command"] is None
     assert calc.kwargs["profile"].kwargs["omp_num_threads"] == 2
     assert calc.kwargs["pseudopotentials"] == {"H": "H.upf"}
     assert calc.kwargs["basissets"] == {"H": "H.orb"}
     assert calc.kwargs["kpts"]["mode"] == "mp-sampling"
     assert calc.kwargs["ks_solver"] == "cusolver"
+
+
+def test_abacus_factory_uses_explicit_version_command(monkeypatch):
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "abacus",
+                "mpi": 4,
+                "version_command": "abacus --version",
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    profile_kwargs = calc.kwargs["profile"].kwargs
+    assert profile_kwargs["command"] == "mpirun -np 4 abacus"
+    assert profile_kwargs["version_command"] == "abacus --version"
+    assert "version_command" not in calc.kwargs
 
 
 def test_dp_factory_uses_deepmd_calculator(monkeypatch):
@@ -195,7 +220,7 @@ def test_invalid_calculator_name_raises():
 
 
 def test_abacus_backend_source_logs_once(monkeypatch, caplog):
-    monkeypatch.setattr(factory, "AbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
     monkeypatch.setattr(factory, "Abacus", FakeAbacus)
     monkeypatch.setattr(factory, "_ABACUS_BACKEND_LOGGED", False)
     caplog.set_level("INFO")

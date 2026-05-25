@@ -6,11 +6,12 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 
 ### 仓库状态
 
-ATST-Tools 目前处于重构状态，从main branch出发的过渡态计算功能重构基本完成。后续动作：
+ATST-Tools 目前处于重构收尾，2.0预发布状态，从main branch出发的过渡态计算功能重构基本完成。后续动作：
 - 优化 user interface，使用 CLI + YAML inputs 进行工作流交互，并在examples/目录下留下示例交互模式。
-- 对于 abacus 的 ase interfaces，ATST-Tools 将从 ase-abacus 迁移到 abacuslite，基本定位是 abacuslite CLI wrapper。在这一设计下，ATST-Tools将尽可能不重写 ASE 的已有实现，尽可能做到 ASE-native。
-- 适当拓展基于ase的分子动力学计算功能
-- 将原有main branch的Python脚本集重构为一套正式的，可快速pip install拉取的代码仓库
+- 对于 abacus 的 ase interfaces，ATST-Tools 将从 ase-abacus 迁移到 abacuslite，此时 ATST-Tools 的基本定位是 abacuslite CLI wrapper，通过 abacuslite 完成abacus相关设置，并配合 ASE 开展计算任务。在这一设计下，ATST-Tools将尽可能不重写 ASE 的已有实现，尽可能做到 ASE-native。
+- 确认 examples/ 中案例能逐一复现 main branch 已有实现的功能。
+- 形成可快速pip install拉取的代码仓库
+- 适当拓展基于ase的分子动力学计算功能，并为其他的基于ase的模拟功能提供可扩展设计。
 - temp_repos 不同步到git仓库，其中放置开发时可参考代码仓库
 
 ### 开发要求

@@ -61,6 +61,26 @@ from .io.generalio import (
 )
 
 __LEGACYIO__ = True
+def switch_io_backend_version(version: str) -> bool:
+    '''determine if the i/o is in legacy format by the version number,
+    for detailed discussion, see issue #7260
+    '''
+    global __LEGACYIO__
+    m = re.match(r'^v(\d+)\.(\d+)\.(\d+)(\.\d+|\-(alpha|beta|rc)\.\d+)?$', version)
+    assert m, f'Invalid format of version number, please check file version.h'
+    assert int(m.group(1)) >= 3, f'ABACUS v2.x is not supported'
+    if int(m.group(2)) >= 11:
+        __LEGACYIO__ = False
+    elif int(m.group(2)) == 9:
+        if m.group(4) is not None:
+            # it is also possible to divide the version more carefully,
+            # but because 3.9.0.x are all on the develop branch, up to
+            # now, there is no user submit issue to request such a careful
+            # division
+            __LEGACYIO__ = False
+    else:
+        __LEGACYIO__ = True
+    return __LEGACYIO__
 
 class AbacusProfile(BaseProfile):
     '''AbacusProfile for interacting the ASE with ABACUS that installed in
@@ -104,12 +124,11 @@ class AbacusProfile(BaseProfile):
 
     @staticmethod
     def parse_version(stdout) -> str:
-        """Parse ABACUS version output from legacy and banner formats."""
-        for pattern in (r'ABACUS version (\S+)', r'ABACUS\s+(v\S+)'):
-            match = re.search(pattern, stdout)
-            if match is not None:
-                return match.group(1)
-        raise RuntimeError(f'Could not parse ABACUS version from output: {stdout!r}')
+        # up to the ABACUS version v3.9.0.17, the run of command
+        # `abacus --version` would returns the information organized
+        # in the following way:
+        # ABACUS version v3.9.0.17
+        return re.match(r'ABACUS version (\S+)', stdout).group(1)
 
     def get_calculator_command(self, inputfile) -> List[str]:
         # because ABACUS run in the folder where there are INPUT files, so the
@@ -119,14 +138,7 @@ class AbacusProfile(BaseProfile):
     def version(self) -> str:
         '''get the abacus version information'''
         cmd_ = [*self._split_command, '--version']
-        stdout = read_stdout(cmd_)
-        try:
-            return AbacusProfile.parse_version(stdout)
-        except RuntimeError:
-            if not stdout.strip() and self._split_command:
-                executable = self._split_command[-1]
-                return AbacusProfile.parse_version(read_stdout([executable, '--version']))
-            raise
+        return AbacusProfile.parse_version(read_stdout(cmd_))
 
 class AbacusTemplate(CalculatorTemplate):
     
@@ -406,11 +418,9 @@ class Abacus(GenericFileIOCalculator):
         # not recommended :(
         profile = AbacusProfile('abacus') if profile is None else profile
 
-        # does not support ABACUS version series v3.9.0.x and v3.11.0-beta.x
-        version = profile.version()
-        if re.match(r'v3\.9\.0\.\d+', version) or re.match(r'v3\.11\.0-beta\.\d+', version):
-            global __LEGACYIO__
-            __LEGACYIO__ = False
+        # to be compatible with both the legacy and latest format of i/o, the
+        # switch is needed. 
+        _ = switch_io_backend_version(profile.version())
 
         # because ABACUS run job in folders, based on the assumption that
         # there is only one job in the folder. Therefore once there are already

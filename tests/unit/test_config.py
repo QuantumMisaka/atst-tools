@@ -298,6 +298,23 @@ def test_validate_accepts_neb_backend_selector():
     assert config["calculation"]["neb_backend"] == "ase"
 
 
+def test_validate_accepts_abacus_version_command():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "relax", "init_structure": "init.stru"},
+            "calculator": {
+                "name": "abacus",
+                "abacus": {
+                    "version_command": "abacus --version",
+                    "parameters": {},
+                },
+            },
+        }
+    )
+
+    assert config["calculator"]["abacus"]["version_command"] == "abacus --version"
+
+
 def test_validate_accepts_autoneb_backend_selector():
     config = ConfigLoader.normalize(
         {

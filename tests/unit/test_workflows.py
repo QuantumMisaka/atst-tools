@@ -985,6 +985,75 @@ def test_run_sella_preserves_dp_calculator_selection(monkeypatch, tmp_path):
     assert calls == [("init", "dp", "model.pt", 2), ("run",)]
 
 
+def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
+    from atst_tools.mep import sella as sella_module
+
+    calls = []
+
+    class FakeTrajectory:
+        def __init__(self, filename, mode, atoms):
+            calls.append(("trajectory", filename, mode, atoms.get_chemical_symbols()))
+
+    class FakeSella:
+        def __init__(self, atoms, trajectory=None, eta=None, order=None):
+            calls.append(("sella", atoms.calc, trajectory.__class__.__name__, eta, order))
+
+        def run(self, fmax=None, steps=None):
+            calls.append(("run", fmax, steps))
+
+    calc = DummyCalc(1.5)
+    monkeypatch.setattr(sella_module, "Trajectory", FakeTrajectory)
+    monkeypatch.setattr(sella_module, "Sella", FakeSella)
+    monkeypatch.setattr(sella_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: calc)
+
+    ts = Atoms("H", positions=[[0.0, 0.0, 0.0]])
+    workflow = sella_module.AbacusSella(
+        ts,
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "sella_run", "max_steps": 12},
+        traj_file=str(tmp_path / "sella.traj"),
+        sella_eta=0.01,
+        fmax=0.05,
+        order=2,
+    )
+
+    assert workflow.run(fmax=0.03) is ts
+
+    assert calls[0] == ("trajectory", str(tmp_path / "sella.traj"), "w", ["H"])
+    assert calls[1] == ("sella", calc, "FakeTrajectory", 0.01, 2)
+    assert calls[2] == ("run", 0.03, 12)
+
+
+def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch):
+    from atst_tools.mep import sella as sella_module
+
+    seen = {}
+
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        sella_module,
+        "Sella",
+        lambda *args, **kwargs: type("FakeDyn", (), {"run": lambda self, **run_kwargs: None})(),
+    )
+
+    def fake_get_calculator(calc_name, config, directory=None):
+        seen["directory"] = directory
+        return DummyCalc()
+
+    monkeypatch.setattr(sella_module.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    workflow = sella_module.AbacusSella(
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        {"abacus": {"directory": "legacy_sella"}},
+        "abacus",
+        {"directory": "calc_sella"},
+    )
+    workflow.run()
+
+    assert seen["directory"] == "legacy_sella"
+
+
 def test_d2s_vibration_is_disabled_by_default(monkeypatch):
     from atst_tools.workflows import d2s
 

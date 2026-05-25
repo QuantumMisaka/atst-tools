@@ -53,6 +53,8 @@ calculator:
   name: abacus
   abacus:
     command: abacus
+    # Optional full command for version probing; defaults to bare abacus --version.
+    # version_command: abacus --version
     mpi: 4
     omp: 1
     directory: run_atst

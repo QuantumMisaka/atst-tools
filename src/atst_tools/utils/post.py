@@ -114,7 +114,17 @@ class NEBPost:
     def write_latest_bands(self, outname="neb_latest"):
         """write latest neb chain to file"""
         write(f"{outname}.traj", self.neb_chain, format="traj")
-        write(f"{outname}.extxyz", self.neb_chain, format="extxyz")
+        extxyz_chain = []
+        for atoms in self.neb_chain:
+            image = atoms.copy()
+            if image.calc is not None:
+                for key in ("energy", "free_energy", "stress", "dipole", "magmom"):
+                    image.info.pop(key, None)
+                for key in ("forces", "stresses", "charges", "magmoms"):
+                    if key in image.arrays:
+                        del image.arrays[key]
+            extxyz_chain.append(image)
+        write(f"{outname}.extxyz", extxyz_chain, format="extxyz")
         return
     
     def view_neb_bands(self, traj_file="neb.traj"):

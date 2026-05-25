@@ -398,6 +398,10 @@ class AbacusConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     command: str = Field(default="abacus", description="ABACUS execution command.")
+    version_command: str | None = Field(
+        default=None,
+        description="Optional full command used for ABACUS version probing.",
+    )
     mpi: int = Field(default=1, gt=0, description="MPI process count used when command is not already parallel.")
     omp: int = Field(default=1, gt=0, description="OpenMP thread count.")
     directory: str = Field(default=".", description="Calculator working directory.")

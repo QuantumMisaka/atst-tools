@@ -9,11 +9,11 @@ from typing import Any, Dict
 
 from ase.calculators.calculator import Calculator
 
-from atst_tools.calculators.abacuslite_backend import Abacus, AbacusProfile, BACKEND_SOURCE
+from atst_tools.calculators.abacuslite_backend import Abacus, ATSTAbacusProfile, BACKEND_SOURCE
 from atst_tools.calculators.dp import DeepPotentialFactory
 
 
-_ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters"}
+_ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters", "version_command"}
 LOGGER = logging.getLogger(__name__)
 _ABACUS_BACKEND_LOGGED = False
 
@@ -100,13 +100,15 @@ class AbacusFactory:
         omp = int(omp if omp is not None else abacus_config.get("omp", 1))
         directory = directory or abacus_config.get("directory", ".")
         command = _build_abacus_command(abacus_config.get("command", "abacus"), mpi)
+        version_command = abacus_config.get("version_command")
 
         os.environ["OMP_NUM_THREADS"] = str(omp)
-        profile = AbacusProfile(
+        profile = ATSTAbacusProfile(
             command=command,
             pseudo_dir=pseudo_dir,
             orbital_dir=orbital_dir,
             omp_num_threads=omp,
+            version_command=version_command,
         )
         return Abacus(directory=directory, profile=profile, **parameters)
 
