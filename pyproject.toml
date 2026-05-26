@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atst-tools"
+version = "2.0.0"
+description = "Advanced ASE Transition State Tools for ABACUS and Deep-Potential"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "ase>=3.28.0",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pydantic>=2,<3",
+    "ruamel.yaml",
+    "seekpath",
+    "sella",
+]
+
+[project.scripts]
+atst = "atst_tools.scripts.cli:main"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+markers = [
+    "unit: fast local unit tests that do not require external executables",
+    "integration: local integration-style fixture tests that do not submit Slurm jobs",
+    "slurm: opt-in tests that may require ABACUS/DeePMD and a Slurm allocation",
+]

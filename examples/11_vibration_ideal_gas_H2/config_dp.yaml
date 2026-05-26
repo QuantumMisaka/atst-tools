@@ -1,0 +1,23 @@
+calculation:
+  type: vibration
+  init_structure: inputs/h2.stru
+  indices: [0, 1]
+  delta: 0.01
+  nfree: 2
+  name: vib
+  thermochemistry:
+    model: ideal_gas
+    temperature: 298.15
+    pressure: 101325.0
+    geometry: linear
+    symmetrynumber: 2
+    spin: 0
+    ignore_imag_modes: true
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

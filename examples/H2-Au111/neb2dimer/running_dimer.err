@@ -1,2 +1,0 @@
-/lustre/home/2201110432/apps/miniconda3/envs/ase/lib/python3.10/site-packages/pymatgen/analysis/diffusion/neb/pathfinder.py:222: UserWarning: Auto sorting is turned off because it is unable to match the end-point structures!
-  warnings.warn(

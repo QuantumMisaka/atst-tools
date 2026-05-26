@@ -1,0 +1,14 @@
+calculation:
+  type: sella
+  init_structure: inputs/sella_init.stru
+  fmax: 0.05
+  trajectory: sella.traj
+  eta: 0.005
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true
