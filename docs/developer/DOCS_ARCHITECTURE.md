@@ -17,6 +17,7 @@ docs/
 │   ├── DOCS_ARCHITECTURE.md
 │   ├── DOCUMENTATION_STANDARDS.md
 │   ├── HANDOVER.md
+│   ├── PYPI_RELEASE_AUTOMATION.md
 │   └── YAML_INPUT_GOVERNANCE.md
 ├── reports/                            # 审查、验收、状态报告
 ├── releases/                           # 发布说明
@@ -36,5 +37,6 @@ docs/
 - **状态追踪**：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
 - **阶段审查**：[PROJECT_REFACTOR_REVIEW_2026-05-15.md](../reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md)
 - **开发规范**：[DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)
+- **PyPI 发布自动化**：[PYPI_RELEASE_AUTOMATION.md](PYPI_RELEASE_AUTOMATION.md)
 - **YAML 输入治理**：[YAML_INPUT_GOVERNANCE.md](YAML_INPUT_GOVERNANCE.md)
 - **发布说明**：[RELEASE_NOTES_2.0.0.md](../releases/RELEASE_NOTES_2.0.0.md)
