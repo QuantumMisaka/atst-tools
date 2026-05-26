@@ -20,6 +20,12 @@ atst vibration post vibration_post.yaml --output vibration_results.json
 `atst relax post` is also the recommended way to extract a restart structure
 from TS relax trajectories produced by Dimer or Sella.
 
+The `vib/cache.*.json` files are a minimal synthetic ASE vibration cache for
+the H2 post-processing command above. They are included only so
+`atst vibration post` can run locally without launching ABACUS or DP; use the
+validated workflow examples and `reference_results.json` for scientific
+reference values.
+
 When `atst neb make` starts from pure structures, the endpoint energies and
 forces in the generated chain are placeholders. `atst run` automatically
 performs endpoint single-point calculations before NEB/AutoNEB starts, so use

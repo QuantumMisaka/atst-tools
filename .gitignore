@@ -22,6 +22,8 @@ slurm-*
 *.traj
 *.json
 !examples/reference_results.json
+!examples/09_lightweight_cli/vib/
+!examples/09_lightweight_cli/vib/cache.*.json
 !docs/reports/*.metrics.json
 *.cif
 *.chg
@@ -47,3 +49,10 @@ submit_atst_abacus.sbatch
 !examples/data/**
 !tests/data/
 !tests/data/**
+
+# Lightweight CLI examples intentionally generate these local outputs.
+examples/09_lightweight_cli/latest_band.extxyz
+examples/09_lightweight_cli/neb_latest.extxyz
+examples/09_lightweight_cli/displacement_vector.npy
+examples/09_lightweight_cli/inputs/init_neb_chain.traj
+examples/09_lightweight_cli/inputs/init_neb_chain_ts.traj
