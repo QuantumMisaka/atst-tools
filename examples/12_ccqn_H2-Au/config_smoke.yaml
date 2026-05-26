@@ -1,6 +1,6 @@
 calculation:
   type: ccqn
-  init_structure: ../reference_structures/05_sella_H2-Au_final_ts.extxyz
+  init_structure: inputs/ccqn_init.stru
   fmax: 0.05
   max_steps: 2
   trajectory: ccqn_smoke.traj
@@ -12,7 +12,7 @@ calculation:
   cos_phi: 0.5
   trust_radius_uphill: 0.05
   trust_radius_saddle_initial: 0.03
-  accept_initial_converged: true
+  accept_initial_converged: false
   directory: run_ccqn_smoke
 
 calculator:

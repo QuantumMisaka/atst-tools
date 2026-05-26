@@ -70,16 +70,18 @@
     "05_sella_H2-Au": {
       "reference_type": "single_ended_ts",
       "workflow": "sella",
-      "final_energy_eV": -239255.122869,
+      "final_energy_eV": -239255.127237,
       "main_final_energy_eV": -239255.12216,
-      "energy_delta_eV": -0.000709,
+      "energy_delta_eV": -0.005077,
       "transition_state_index": null,
-      "transition_state_fmax_eV_per_A": 0.048256,
-      "transition_state_rmsd_to_main_A": 0.000007,
+      "transition_state_fmax_eV_per_A": 0.035438,
+      "transition_state_rmsd_to_main_A": 0.007952,
+      "initial_rmsd_to_reference_A": 0.000101,
+      "trajectory_frames": 9,
       "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
-      "validation_job_id": 437568,
-      "validation_elapsed": "00:02:14",
-      "validation_node": "4v100n28"
+      "validation_job_id": 454726,
+      "validation_elapsed": "00:36:19",
+      "validation_node": "4v100pxn05"
     },
     "06_relax_H2-Au": {
       "reference_type": "non_ts",
@@ -146,19 +148,22 @@
     "12_ccqn_H2-Au": {
       "reference_type": "single_ended_ts",
       "workflow": "ccqn",
-      "final_energy_eV": -239255.122869,
+      "final_energy_eV": -239255.123188,
       "matched_sella_case": "05_sella_H2-Au",
-      "energy_delta_to_sella_eV": 0.0,
+      "energy_delta_to_sella_eV": 0.004049,
       "transition_state_index": null,
       "forward_barrier_eV": null,
-      "transition_state_fmax_eV_per_A": 0.04826,
-      "fmax_delta_to_sella_eV_per_A": 0.000004,
-      "transition_state_rmsd_to_sella_A": 0.0,
+      "transition_state_fmax_eV_per_A": 0.046243,
+      "fmax_delta_to_sella_eV_per_A": 0.010805,
+      "transition_state_rmsd_to_sella_A": 0.007682,
+      "transition_state_rmsd_to_reference_A": 0.000334,
+      "initial_rmsd_to_reference_A": 0.000101,
+      "trajectory_frames": 14,
       "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
-      "validation_job_id": 454238,
-      "validation_elapsed": "00:01:55",
-      "validation_node": "4v100bkn01",
-      "validation_status": "ABACUS smoke validated through abacuslite; reference example starts from the Sella final TS and accepts the already converged saddle point"
+      "validation_job_id": 454726,
+      "validation_elapsed": "00:36:19",
+      "validation_node": "4v100pxn05",
+      "validation_status": "ABACUS validated through abacuslite from the same perturbed H2/Au TS guess as the Sella example; CCQN uses accept_initial_converged: false and returns to the Sella reference TS within tolerance"
     }
   }
 }

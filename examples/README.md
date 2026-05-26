@@ -123,9 +123,9 @@ validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
 | `02_neb_H2-Au` | NEB barrier | 4 | `1.124752` eV (`+0.003972` eV vs main) | `reference_structures/02_neb_H2-Au_ts.extxyz` |
 | `03_autoneb_Cy-Pt` | AutoNEB barrier | 5 | `1.330070` eV (`+0.002184` eV vs main) | `reference_structures/03_autoneb_Cy-Pt_ts.extxyz` |
 | `04_dimer_CO-Pt` | Dimer final TS | n/a | final fmax `0.033976` eV/Ang; energy delta `-0.001867` eV vs main | `reference_structures/04_dimer_CO-Pt_final_ts.extxyz` |
-| `05_sella_H2-Au` | Sella final TS | n/a | final fmax `0.048256` eV/Ang; energy delta `-0.000709` eV vs main | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
+| `05_sella_H2-Au` | Sella perturbed TS search | n/a | final fmax `0.035438` eV/Ang; RMSD `0.007952` Ang to reference TS | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 | `08_d2s_Cy-Pt` | D2S first rough barrier + Sella | 6 | first rough barrier `2.678812` eV (`+0.000017` eV vs main); Sella fmax `0.039662` eV/Ang | `reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz` |
-| `12_ccqn_H2-Au` | CCQN final TS confirmation | n/a | matches `05_sella_H2-Au`: energy delta `0.000000` eV, RMSD `0.000000` Ang, fmax delta `0.000004` eV/Ang vs Sella | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
+| `12_ccqn_H2-Au` | CCQN perturbed TS search | n/a | matches `05_sella_H2-Au`: energy delta `0.004049` eV, RMSD `0.007682` Ang; RMSD `0.000334` Ang to reference TS | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 
 `06_relax_H2-Au`, `07_vibration_H2-Au`, `09_lightweight_cli`,
 `10_irc_H2`, and `11_vibration_ideal_gas_H2` do not have like-for-like
