@@ -19,10 +19,11 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `05_sella_H2-Au/`: Sella method for the same system.
 *   `06_relax_H2-Au/`: Geometry optimization of the initial state.
 *   `07_vibration_H2-Au/`: Vibrational analysis of the Transition State.
+*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system.
 
 ### 3. Advanced Workflows (Cyclohexane on Pt@Graphene)
 *   `03_autoneb_Cy-Pt/`: **Cyclohexane on Pt-doped Graphene**. Demonstrates the **AutoNEB** workflow for complex paths.
-*   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer search.
+*   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer/CCQN search.
 
 ### 4. Lightweight Commands and Auxiliary Workflows
 *   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, `atst dimer`, `atst relax post`, and `atst vibration post`.
@@ -90,7 +91,7 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 ```
 
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
-then Dimer or Sella, with optional vibration follow-up.
+then Dimer, Sella, or CCQN, with optional vibration follow-up.
 
 ## Chemical Systems Summary
 
@@ -107,6 +108,7 @@ then Dimer or Sella, with optional vibration follow-up.
 | `09_lightweight_cli` | Minimal local fixtures | H | Lightweight CLI |
 | `10_irc_H2` | H2 TS fixture | H | IRC |
 | `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |
+| `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
 
 ## Reference Results
 
@@ -123,6 +125,7 @@ validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
 | `04_dimer_CO-Pt` | Dimer final TS | n/a | final fmax `0.033976` eV/Ang; energy delta `-0.001867` eV vs main | `reference_structures/04_dimer_CO-Pt_final_ts.extxyz` |
 | `05_sella_H2-Au` | Sella final TS | n/a | final fmax `0.048256` eV/Ang; energy delta `-0.000709` eV vs main | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 | `08_d2s_Cy-Pt` | D2S first rough barrier + Sella | 6 | first rough barrier `2.678812` eV (`+0.000017` eV vs main); Sella fmax `0.039662` eV/Ang | `reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz` |
+| `12_ccqn_H2-Au` | CCQN final TS confirmation | n/a | matches `05_sella_H2-Au`: energy delta `0.000000` eV, RMSD `0.000000` Ang, fmax delta `0.000004` eV/Ang vs Sella | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 
 `06_relax_H2-Au`, `07_vibration_H2-Au`, `09_lightweight_cli`,
 `10_irc_H2`, and `11_vibration_ideal_gas_H2` do not have like-for-like

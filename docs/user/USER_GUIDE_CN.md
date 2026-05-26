@@ -56,6 +56,7 @@ atst run config.yaml
 ```bash
 atst run --list-types
 atst run --show-template neb --calculator abacus
+atst run --show-template ccqn --calculator abacus
 atst run --show-template d2s --calculator dp
 ```
 
@@ -67,14 +68,15 @@ atst run --show-template d2s --calculator dp
 | :--- | :--- | :--- |
 | `neb` | NEB / DyNEB 路径优化 | `atst run config.yaml` |
 | `autoneb` | 自动插点 NEB | `atst run config.yaml` |
-| `d2s` | 粗 NEB 到 Dimer/Sella 单端 TS 搜索 | `atst run config.yaml` |
+| `d2s` | 粗 NEB 到 Dimer/Sella/CCQN 单端 TS 搜索 | `atst run config.yaml` |
 | `dimer` | Dimer 单端鞍点搜索 | `atst run config.yaml` |
 | `sella` | Sella 鞍点搜索 | `atst run config.yaml` |
+| `ccqn` | CCQN 单端鞍点搜索 | `atst run config.yaml` |
 | `relax` | 结构优化 | `atst run config.yaml` |
 | `vibration` | 振动频率和热化学校正 | `atst run config.yaml` |
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
 
-D2S 和 IRC 已纳入 2.0.0 schema 与示例，不再是待集成状态。
+D2S、CCQN 和 IRC 已纳入 2.0.0 schema 与示例，不再是待集成状态。
 
 ## 5. ABACUS / abacuslite 集成
 
@@ -107,7 +109,7 @@ calculator:
 ATST-Tools 是分层 wrapper：
 
 - 复杂工作流通过 `atst run CONFIG.yaml` 使用 abacuslite 作为 ASE calculator
-  backend，例如 NEB、D2S、Relax、Vibration、IRC。
+  backend，例如 NEB、D2S、CCQN、Relax、Vibration、IRC。
 - 简单前处理通过 `atst abacus prepare` 生成 `INPUT`、`KPT`、`STRU`。
 - 简单后处理通过 `atst abacus collect` 生成只读 JSON 摘要，并在文件齐全时
   解析最终结构。
@@ -146,6 +148,7 @@ atst abacus collect run_abacus --output abacus_results.json
 - AutoNEB：`examples/03_autoneb_Cy-Pt/config.yaml`
 - Dimer：`examples/04_dimer_CO-Pt/config.yaml`
 - Sella：`examples/05_sella_H2-Au/config.yaml`
+- CCQN：`examples/12_ccqn_H2-Au/config.yaml`
 - Vibration：`examples/07_vibration_H2-Au/config.yaml`
 - D2S：`examples/08_d2s_Cy-Pt/config.yaml`
 - IRC：`examples/10_irc_H2/config.yaml`

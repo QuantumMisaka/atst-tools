@@ -13,8 +13,9 @@ collection into one governed command-line interface:
 atst run CONFIG.yaml
 ```
 
-Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, D2S, relaxation,
-vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
+Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, CCQN, D2S,
+relaxation, vibration, or IRC calculations driven by YAML instead of one-off
+Python scripts.
 
 ## At A Glance
 
@@ -34,9 +35,10 @@ vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
 | :--- | :--- | :--- |
 | `neb` | NEB / DyNEB | Endpoint single-point governance is enabled by default. |
 | `autoneb` | AutoNEB | Adaptive image insertion plus final-chain post-processing. |
-| `d2s` | Double-ended to single-ended TS search | Rough NEB followed by Dimer or Sella. |
+| `d2s` | Double-ended to single-ended TS search | Rough NEB followed by Dimer, Sella, or CCQN. |
 | `dimer` | ASE Dimer | Single-ended transition-state search. |
 | `sella` | Sella saddle search | Uses the external `sella` package. |
+| `ccqn` | CCQN saddle search | Cone-shaped constrained quasi-Newton TS optimization. |
 | `relax` | Structure optimization | ASE optimizer based relaxation. |
 | `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
@@ -166,7 +168,7 @@ calculator:
 ```
 
 ATST-Tools is a layered `abacuslite` wrapper. Calculator-backed workflows such
-as NEB, D2S, Dimer, Sella, Relax, Vibration, and IRC still run through
+as NEB, D2S, Dimer, Sella, CCQN, Relax, Vibration, and IRC still run through
 `atst run CONFIG.yaml`; local ABACUS helpers support safe input preparation and
 result collection:
 
@@ -214,6 +216,7 @@ project:
 | `examples/09_lightweight_cli` | Local helper command examples. |
 | `examples/10_irc_H2` | IRC YAML examples. |
 | `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
+| `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.

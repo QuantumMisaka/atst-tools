@@ -15,7 +15,7 @@ YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/conf
 ```yaml
 config_version: "2.0.0"  # Optional. Defaults to the current schema version.
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc
   # ... task specific parameters ...
 
 calculator:
@@ -42,7 +42,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`, `irc`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -143,7 +143,31 @@ calculation:
 | `max_steps` | int/null | `null` | Maximum optimizer steps; null lets Sella run until convergence. |
 | `directory` | string | `sella_run` | Calculator working directory. |
 
-### 2.6 Structure Relaxation (Relax)
+### 2.6 CCQN (Cone-Shaped Constrained Quasi-Newton)
+**Type**: `ccqn`
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `init_structure` | string | **Required** | Initial transition-state guess. |
+| `e_vector_method` | string | `ic` | Cone-axis method: `ic` from reactive bonds or `interp` from a product-like structure. |
+| `reactive_bonds` | string/list | `None` | Required for `ic`; 1-based pairs such as `"1-2,3-4"` or `[[1, 2], [3, 4]]`. |
+| `product_file` | string/null | `None` | Required for standalone `interp`; product-like structure with matching atom order. |
+| `ic_mode` | string | `democratic` | `democratic` normalizes each bond contribution; `sum` uses raw projected contributions. |
+| `cos_phi` | float | `0.5` | Cosine of the cone half angle. |
+| `trust_radius_uphill` | float | `0.1` | Fixed uphill trust radius. |
+| `trust_radius_saddle_initial` | float | `0.05` | Initial PRFO trust radius after entering the saddle region. |
+| `trajectory` | string | `ccqn.traj` | CCQN trajectory. Restart uses the last frame when available. |
+| `logfile` | string | `ccqn.log` | Optimizer log file. |
+| `final_structure` | string | `ccqn_final.extxyz` | Final optimized structure. |
+| `fmax` | float | `0.05` | Force convergence threshold. CCQN only declares convergence in PRFO mode. |
+| `max_steps` | int/null | `200` | Maximum optimizer steps. |
+| `hessian` | bool | `false` | Use calculator Hessian when available; ABACUS force-only use normally leaves this false. |
+| `accept_initial_converged` | bool | `false` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
+| `directory` | string | `ccqn_run` | Calculator working directory. |
+
+CCQN is a single-ended transition-state optimizer. In `ic` mode, the user supplies chemically meaningful reactive bonds. In `interp` mode, CCQN uses the displacement from the current structure to `product_file` as the cone axis. `accept_initial_converged` is intended for final-TS confirmation examples that start from a separately verified saddle point; keep it false for ordinary searches.
+
+### 2.7 Structure Relaxation (Relax)
 **Type**: `relax`
 
 | Parameter | Type | Default | Description |
@@ -156,7 +180,7 @@ calculation:
 | `logfile` | string | `relax.log` | Optimizer log file. |
 | `directory` | string | `relax_run` | Calculator working directory. |
 
-### 2.7 Vibration Analysis
+### 2.8 Vibration Analysis
 **Type**: `vibration`
 
 | Parameter | Type | Default | Description |
@@ -200,20 +224,21 @@ thermochemistry:
 
 This uses ASE `IdealGasThermo` and includes translational, rotational, and vibrational degrees of freedom in the reported Gibbs free energy.
 
-### 2.8 D2S (Double-Ended to Single-Ended)
+### 2.9 D2S (Double-Ended to Single-Ended)
 **Type**: `d2s`
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `method` | string | `dimer` | Single-ended method: `dimer` or `sella`. |
+| `method` | string | `dimer` | Single-ended method: `dimer`, `sella`, or `ccqn`. |
 | `init_file` | string | **Required** | Initial state structure file. |
 | `final_file` | string | **Required** | Final state structure file. |
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
+| `ccqn` | dict | `{}` | Configuration for CCQN phase (if method=ccqn). |
 | `endpoint_optimization` | dict | Enabled by default | Endpoint optimization policy before rough DyNEB. |
 
-D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If input endpoints already carry energy/force results, this stage is skipped by default:
+D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If `method: ccqn`, the default `ccqn.e_vector_method: interp` uses the highest-energy rough NEB image and its neighboring image as a local product-like reference, so no user reactive-bond input is required. If `ccqn.e_vector_method: ic`, set `ccqn.reactive_bonds`. If input endpoints already carry energy/force results, this stage is skipped by default:
 
 ```yaml
 calculation:
@@ -250,7 +275,7 @@ calculation:
 
 `indices: auto` uses the rough NEB displacement analysis to select the main moving atoms. `indices: all` passes `None` to ASE `Vibrations`.
 
-### 2.9 IRC
+### 2.10 IRC
 **Type**: `irc`
 
 IRC follows the legacy main-branch `sella_IRC.py` behavior through YAML. It starts from a TS structure, runs Sella IRC forward, reverse, or both directions, and writes a normalized trajectory for the combined mode.
