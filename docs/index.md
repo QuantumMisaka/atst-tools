@@ -15,6 +15,7 @@ This is the maintained entry point for ATST-Tools documentation. Files under `.t
 
 - [Documentation architecture](developer/DOCS_ARCHITECTURE.md)
 - [Documentation standards](developer/DOCUMENTATION_STANDARDS.md)
+- [PyPI release automation](developer/PYPI_RELEASE_AUTOMATION.md)
 - [YAML input governance](developer/YAML_INPUT_GOVERNANCE.md)
 - [Handover notes](developer/HANDOVER.md)
 
