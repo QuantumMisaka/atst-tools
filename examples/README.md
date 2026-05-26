@@ -26,7 +26,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer/CCQN search.
 
 ### 4. Lightweight Commands and Auxiliary Workflows
-*   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, `atst dimer`, `atst relax post`, and `atst vibration post`.
+*   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, summary commands, `atst dimer`, `atst relax post`, and `atst vibration post`.
 *   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, and `reverse`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
 
@@ -66,7 +66,9 @@ This path does not require ABACUS or DP:
 cd examples/09_lightweight_cli
 atst neb make inputs/init.xyz inputs/final.xyz 3 -o inputs/init_neb_chain.traj --method linear
 atst neb post inputs/neb_result.extxyz --n-max 1 --vib-analysis
+atst neb summary inputs/neb_result.extxyz --n-max 1 --tail 5
 atst relax post inputs/relax_result.extxyz --output-format traj --output restart.traj
+atst relax summary inputs/relax_result.extxyz --tail 5
 ```
 
 ### ABACUS workflow path

@@ -445,6 +445,87 @@ def test_neb_post_plot_all_handles_equal_endpoint_band(tmp_path, monkeypatch, ca
     assert "Warning: Failed to plot all bands" not in output
 
 
+def test_neb_summary_prints_table_and_writes_json(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("neb.traj", [_atoms(0.0), _atoms(1.0), _atoms(0.0), _atoms(0.0), _atoms(0.4), _atoms(0.1)])
+
+    cli.main(["neb", "summary", "neb.traj", "--n-max", "1", "--output", "summary.json"])
+
+    output = capsys.readouterr().out
+    assert "NEB trajectory summary" in output
+    assert "max_force_image" in output
+    data = json.loads(Path("summary.json").read_text(encoding="utf-8"))
+    assert data["workflow"] == "neb"
+    assert data["latest"]["barrier_eV"] == pytest.approx(0.4)
+
+
+def test_neb_summary_supports_json_stdout(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("neb.traj", [_atoms(0.0), _atoms(1.0), _atoms(0.0)])
+
+    cli.main(["neb", "summary", "neb.traj", "--n-max", "1", "--format", "json"])
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["status"]["complete_steps"] == 1
+
+
+def test_relax_summary_prints_latest_frame(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("relax.traj", [_atoms(-1.0), _atoms(-2.0)])
+
+    cli.main(["relax", "summary", "relax.traj"])
+
+    output = capsys.readouterr().out
+    assert "relax trajectory summary" in output
+    assert "latest_energy_eV" in output
+
+
+def test_dimer_sella_ccqn_summary_share_trajectory_summary(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("ts.traj", [_atoms(-1.0), _atoms(-1.2)])
+
+    for command in ("dimer", "sella", "ccqn"):
+        cli.main([command, "summary", "ts.traj", "--tail", "1"])
+        assert f"{command} trajectory summary" in capsys.readouterr().out
+
+
+def test_vibration_summary_reports_invalid_cache(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("init.traj", _atoms())
+    Path("vib").mkdir()
+    Path("vib/cache.eq.json").write_text("{}", encoding="utf-8")
+    Path("vib/cache.0x+.json").write_text("{bad json", encoding="utf-8")
+    Path("config.yaml").write_text(
+        """
+calculation:
+  type: vibration
+  init_structure: init.traj
+  name: vib
+calculator:
+  name: abacus
+  abacus:
+    parameters: {}
+""",
+        encoding="utf-8",
+    )
+
+    cli.main(["vibration", "summary", "config.yaml"])
+
+    output = capsys.readouterr().out
+    assert "vibration summary" in output
+    assert "invalid_cache_files" in output
+
+
 def test_traj_collect_and_transform_roundtrip(tmp_path, monkeypatch):
     from atst_tools.scripts import cli
 

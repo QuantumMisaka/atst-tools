@@ -123,14 +123,21 @@ ATST-Tools 是分层 wrapper：
 ```bash
 atst neb make inputs/init.xyz inputs/final.xyz 5 -o inputs/init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max 5 --vib-analysis --write-latest neb_latest
+atst neb summary neb.traj --n-max 5 --tail 5
 atst dimer make-from-neb neb.traj --n-max 5 --output-traj dimer_init.traj
+atst dimer summary dimer.traj --tail 5
 atst relax post relax.traj --output-format traj --output restart.traj
+atst relax summary relax.traj --tail 5
 atst vibration post config.yaml --output vibration_results.json
+atst vibration summary config.yaml
+atst d2s summary config.yaml --format json --output d2s_summary.json
 atst traj collect frames/*.xyz -o collection.traj --no-calc
 atst traj transform collection.traj --format extxyz --output-prefix collection
 ```
 
 `atst neb make --method` 可选 `IDPP`（默认）或 `linear`。
+`summary` 子命令只读已有轨迹、cache 或阶段输出，可用于 Slurm 任务监控和最终结果摘要；
+不会创建 calculator，也不会运行 ABACUS/DP。
 
 ABACUS 前后处理：
 
