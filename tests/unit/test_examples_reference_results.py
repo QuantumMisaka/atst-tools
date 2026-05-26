@@ -53,6 +53,16 @@ REFERENCE_CASES = {
         "transition_state_rmsd_to_main_A": 0.000007,
         "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
     },
+    "12_ccqn_H2-Au": {
+        "reference_type": "single_ended_ts",
+        "final_energy_eV": -239255.122869,
+        "matched_sella_case": "05_sella_H2-Au",
+        "energy_delta_to_sella_eV": 0.0,
+        "transition_state_fmax_eV_per_A": 0.048260,
+        "fmax_delta_to_sella_eV_per_A": 0.000004,
+        "transition_state_rmsd_to_sella_A": 0.0,
+        "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
+    },
     "08_d2s_Cy-Pt": {
         "reference_type": "barrier",
         "forward_barrier_eV": 2.678812,
@@ -97,6 +107,25 @@ def test_reference_results_record_ts_artifacts_for_barrier_cases():
         assert case["transition_state_index"] is not None
         assert case["forward_barrier_eV"] > 0
         assert (root / case["transition_state_structure"]).is_file()
+
+
+def test_ccqn_h2_au_reference_matches_sella_result():
+    root = Path(__file__).resolve().parents[2]
+    data = json.loads((root / "examples" / "reference_results.json").read_text(encoding="utf-8"))
+
+    ccqn = data["cases"]["12_ccqn_H2-Au"]
+    sella = data["cases"]["05_sella_H2-Au"]
+
+    assert ccqn["matched_sella_case"] == "05_sella_H2-Au"
+    assert ccqn["final_energy_eV"] == pytest.approx(sella["final_energy_eV"], abs=1e-9)
+    assert ccqn["transition_state_fmax_eV_per_A"] == pytest.approx(
+        sella["transition_state_fmax_eV_per_A"],
+        abs=5e-6,
+    )
+    assert ccqn["fmax_delta_to_sella_eV_per_A"] == pytest.approx(4e-6, abs=1e-6)
+    assert ccqn["energy_delta_to_sella_eV"] == pytest.approx(0.0, abs=1e-9)
+    assert ccqn["transition_state_rmsd_to_sella_A"] == pytest.approx(0.0, abs=1e-9)
+    assert ccqn["transition_state_structure"] == sella["transition_state_structure"]
 
 
 @pytest.mark.integration

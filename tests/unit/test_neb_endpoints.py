@@ -104,8 +104,14 @@ def test_neb_make_marks_pure_structure_endpoints_as_placeholder(tmp_path, monkey
     assert [chain[0].get_potential_energy(), chain[-1].get_potential_energy()] == [0.0, 0.0]
 
 
-def test_li_si_zero_endpoint_regression_changes_barrier():
-    band = read("examples/01_neb_Li-Si/neb.traj", index=":")[-5:]
+def test_zero_endpoint_regression_changes_barrier():
+    band = [
+        _atoms(energy=-10.0, x=0.0),
+        _atoms(energy=-9.6, x=1.0),
+        _atoms(energy=-9.2, x=2.0),
+        _atoms(energy=-9.5, x=3.0),
+        _atoms(energy=-9.8, x=4.0),
+    ]
     real = [atoms.copy() for atoms in band]
     zero = [atoms.copy() for atoms in band]
     for index, atoms in enumerate(real):
@@ -121,7 +127,7 @@ def test_li_si_zero_endpoint_regression_changes_barrier():
     real_barrier = NEBTools(real).get_barrier(fit=False)[0]
     zero_barrier = NEBTools(zero).get_barrier(fit=False)[0]
 
-    assert real_barrier > 0.7
+    assert real_barrier == pytest.approx(0.8)
     assert zero_barrier == 0.0
 
 

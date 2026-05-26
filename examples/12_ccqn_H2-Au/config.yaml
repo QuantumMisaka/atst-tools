@@ -1,0 +1,60 @@
+calculation:
+  type: ccqn
+  init_structure: ../reference_structures/05_sella_H2-Au_final_ts.extxyz
+  fmax: 0.05
+  max_steps: 100
+  trajectory: ccqn.traj
+  logfile: ccqn.log
+  final_structure: ccqn_final.extxyz
+  e_vector_method: ic
+  reactive_bonds: "1-2"
+  ic_mode: democratic
+  cos_phi: 0.5
+  trust_radius_uphill: 0.1
+  trust_radius_saddle_initial: 0.05
+  accept_initial_converged: true
+  directory: run_ccqn
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_ccqn
+    kpts: [3, 1, 3]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        vdw_method: d3_bj
+        nspin: 2
+        dft_functional: pbe
+        symmetry: 1
+        scf_thr: 1e-07
+        scf_nmax: 300
+        smearing_method: mp
+        smearing_sigma: 0.002
+        mixing_type: broyden
+        mixing_ndim: 20
+        cal_force: 1
+        cal_stress: 0
+        init_wfc: atomic
+        init_chg: atomic
+        out_stru: 1
+        out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           Au: Au_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           Au: Au_gga_7au_100Ry_4s2p2d1f.orb

@@ -44,6 +44,7 @@ def test_validate_accepts_supported_calculation_types():
         "autoneb": {"init_chain": "init_neb_chain.traj"},
         "dimer": {"init_structure": "dimer_init.traj"},
         "sella": {"init_structure": "sella_init.stru"},
+        "ccqn": {"init_structure": "ccqn_init.traj", "reactive_bonds": "1-2"},
         "d2s": {"init_file": "init.stru", "final_file": "final.stru"},
         "relax": {"init_structure": "init.stru"},
         "vibration": {"init_structure": "ts_opt.stru"},
@@ -425,6 +426,23 @@ def test_validate_accepts_d2s_neb_idpp_controls():
     assert config["calculation"]["neb"]["idpp_tol"] == 1e-3
 
 
+def test_validate_accepts_d2s_ccqn_method():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "d2s",
+                "method": "ccqn",
+                "init_file": "init.traj",
+                "final_file": "final.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["method"] == "ccqn"
+    assert config["calculation"]["ccqn"]["e_vector_method"] == "interp"
+
+
 def test_normalize_legacy_root_abacus_section():
     config = ConfigLoader.normalize(
         {
@@ -465,7 +483,7 @@ def test_run_templates_validate_against_schema():
     from atst_tools.scripts.main import _template
 
     yaml = YAML(typ="safe")
-    for calc_type in ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc"):
+    for calc_type in ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc"):
         for calculator in ("abacus", "dp"):
             config = yaml.load(_template(calc_type, calculator))
             assert ConfigLoader.validate(config) is True

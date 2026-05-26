@@ -142,6 +142,23 @@
       "transition_state_structure": null,
       "reference_output": "vibration_results.json",
       "validation_status": "schema_load_checked; no like-for-like main TS/barrier baseline"
+    },
+    "12_ccqn_H2-Au": {
+      "reference_type": "single_ended_ts",
+      "workflow": "ccqn",
+      "final_energy_eV": -239255.122869,
+      "matched_sella_case": "05_sella_H2-Au",
+      "energy_delta_to_sella_eV": 0.0,
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_fmax_eV_per_A": 0.04826,
+      "fmax_delta_to_sella_eV_per_A": 0.000004,
+      "transition_state_rmsd_to_sella_A": 0.0,
+      "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
+      "validation_job_id": 454238,
+      "validation_elapsed": "00:01:55",
+      "validation_node": "4v100bkn01",
+      "validation_status": "ABACUS smoke validated through abacuslite; reference example starts from the Sella final TS and accepts the already converged saddle point"
     }
   }
 }

@@ -234,6 +234,17 @@ def test_atst_run_show_irc_template_prints_yaml(capsys):
     assert "direction: both" in output
 
 
+def test_atst_run_show_ccqn_template_prints_yaml(capsys):
+    from atst_tools.scripts import cli
+
+    cli.main(["run", "--show-template", "ccqn", "--calculator", "abacus"])
+
+    output = capsys.readouterr().out
+    assert "type: ccqn" in output
+    assert "e_vector_method: ic" in output
+    assert "reactive_bonds" in output
+
+
 def test_config_validate_prints_normalized_yaml(tmp_path, capsys):
     from atst_tools.scripts import cli
 
