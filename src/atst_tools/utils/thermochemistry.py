@@ -10,12 +10,17 @@ from ase.thermochemistry import HarmonicThermo, IdealGasThermo
 from atst_tools.utils.config_schema import ThermochemistryConfig
 
 
-def _real_positive_energies(vib_energies, ignore_imag_modes: bool) -> np.ndarray:
+def _real_positive_energies(vib_energies, ignore_imag_modes: bool, energy_threshold: float) -> np.ndarray:
     energies = np.asarray(vib_energies)
-    if ignore_imag_modes:
-        return np.array([energy.real for energy in energies if energy.real > 0], dtype=float)
+    imaginary = np.array([getattr(energy, "imag", 0.0) != 0 for energy in energies], dtype=bool)
+    if not ignore_imag_modes and np.any(imaginary):
+        raise ValueError("Imaginary vibrational energies are present.")
     return np.array(
-        [energy.real for energy in energies if getattr(energy, "imag", 0.0) == 0 and energy.real > 0],
+        [
+            energy.real
+            for energy in energies
+            if getattr(energy, "imag", 0.0) == 0 and energy.real > energy_threshold
+        ],
         dtype=float,
     )
 
@@ -31,14 +36,17 @@ def compute_vibration_thermochemistry(
     model = thermo_config["model"]
     temperature = float(thermo_config["temperature"])
     ignore_imag_modes = bool(thermo_config["ignore_imag_modes"])
-    energies = _real_positive_energies(vib_energies, ignore_imag_modes)
+    energy_threshold = float(thermo_config["energy_threshold"])
+    energies = _real_positive_energies(vib_energies, ignore_imag_modes, energy_threshold)
 
     result: dict[str, Any] = {
         "model": model,
         "temperature": temperature,
         "ignore_imag_modes": ignore_imag_modes,
+        "energy_threshold": energy_threshold,
         "n_modes": int(len(np.asarray(vib_energies))),
         "n_valid_modes": int(len(energies)),
+        "n_filtered_modes": int(len(np.asarray(vib_energies)) - len(energies)),
         "zpe": float(zpe),
     }
     if len(energies) == 0:

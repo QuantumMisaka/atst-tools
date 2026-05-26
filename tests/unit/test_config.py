@@ -187,6 +187,35 @@ def test_validate_rejects_invalid_vibration_thermochemistry_model():
         )
 
 
+def test_validate_accepts_vibration_thermochemistry_energy_threshold():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "vibration",
+                "init_structure": "ts_opt.stru",
+                "thermochemistry": {"energy_threshold": 1.0e-6},
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["thermochemistry"]["energy_threshold"] == 1.0e-6
+
+
+def test_validate_rejects_negative_vibration_thermochemistry_energy_threshold():
+    with pytest.raises(ValueError, match="energy_threshold"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "vibration",
+                    "init_structure": "ts_opt.stru",
+                    "thermochemistry": {"energy_threshold": -1.0},
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_rejects_redundant_yaml_aliases():
     base_calculator = {"name": "abacus", "abacus": {"parameters": {}}}
     invalid_configs = [

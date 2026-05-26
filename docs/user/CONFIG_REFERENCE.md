@@ -179,9 +179,10 @@ calculation:
     model: harmonic        # harmonic or ideal_gas
     temperature: 300.0
     ignore_imag_modes: true
+    energy_threshold: 1.0e-6
 ```
 
-`model: harmonic` uses ASE `HarmonicThermo` and reports ZPE, entropy, internal energy, and Helmholtz free energy. This is the default for surfaces, adsorbates, TS local modes, and solid-like approximations.
+`model: harmonic` uses ASE `HarmonicThermo` and reports ZPE, entropy, internal energy, and Helmholtz free energy. This is the default for surfaces, adsorbates, TS local modes, and solid-like approximations. Before thermochemistry is evaluated, ATST-Tools keeps only real vibrational energies greater than `energy_threshold` (eV); the default `1.0e-6` removes near-zero finite-difference noise modes that can appear in high-symmetry crystals.
 
 For isolated small molecules, use `model: ideal_gas`:
 
@@ -194,6 +195,7 @@ thermochemistry:
   symmetrynumber: 2
   spin: 0
   ignore_imag_modes: true
+  energy_threshold: 1.0e-6
 ```
 
 This uses ASE `IdealGasThermo` and includes translational, rotational, and vibrational degrees of freedom in the reported Gibbs free energy.
@@ -243,6 +245,7 @@ calculation:
       model: harmonic
       temperature: 300.0
       ignore_imag_modes: true
+      energy_threshold: 1.0e-6
 ```
 
 `indices: auto` uses the rough NEB displacement analysis to select the main moving atoms. `indices: all` passes `None` to ASE `Vibrations`.

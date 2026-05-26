@@ -119,6 +119,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.vibration.thermochemistry.model | calculation.d2s.vibration.thermochemistry | `'harmonic' \| 'ideal_gas'` | `'harmonic'` | Thermochemistry model. |
 | calculation.d2s.vibration.thermochemistry.temperature | calculation.d2s.vibration.thermochemistry | `float` | `300.0` | Temperature in Kelvin. |
 | calculation.d2s.vibration.thermochemistry.ignore_imag_modes | calculation.d2s.vibration.thermochemistry | `bool` | `True` | Ignore imaginary modes in thermochemistry. |
+| calculation.d2s.vibration.thermochemistry.energy_threshold | calculation.d2s.vibration.thermochemistry | `float` | `1e-06` | Minimum real vibration energy in eV included in thermochemistry. |
 | calculation.d2s.vibration.thermochemistry.pressure | calculation.d2s.vibration.thermochemistry | `float` | `101325.0` | Pressure in Pa for ideal-gas thermo. |
 | calculation.d2s.vibration.thermochemistry.geometry | calculation.d2s.vibration.thermochemistry | `'monatomic' \| 'linear' \| 'nonlinear'` | `'nonlinear'` | Molecular geometry for ideal-gas thermo. |
 | calculation.d2s.vibration.thermochemistry.symmetrynumber | calculation.d2s.vibration.thermochemistry | `int` | `1` | Rotational symmetry number. |
@@ -145,6 +146,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.vibration.thermochemistry.model | calculation.vibration.thermochemistry | `'harmonic' \| 'ideal_gas'` | `'harmonic'` | Thermochemistry model. |
 | calculation.vibration.thermochemistry.temperature | calculation.vibration.thermochemistry | `float` | `300.0` | Temperature in Kelvin. |
 | calculation.vibration.thermochemistry.ignore_imag_modes | calculation.vibration.thermochemistry | `bool` | `True` | Ignore imaginary modes in thermochemistry. |
+| calculation.vibration.thermochemistry.energy_threshold | calculation.vibration.thermochemistry | `float` | `1e-06` | Minimum real vibration energy in eV included in thermochemistry. |
 | calculation.vibration.thermochemistry.pressure | calculation.vibration.thermochemistry | `float` | `101325.0` | Pressure in Pa for ideal-gas thermo. |
 | calculation.vibration.thermochemistry.geometry | calculation.vibration.thermochemistry | `'monatomic' \| 'linear' \| 'nonlinear'` | `'nonlinear'` | Molecular geometry for ideal-gas thermo. |
 | calculation.vibration.thermochemistry.symmetrynumber | calculation.vibration.thermochemistry | `int` | `1` | Rotational symmetry number. |

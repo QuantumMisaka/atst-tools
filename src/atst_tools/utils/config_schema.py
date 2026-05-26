@@ -176,6 +176,11 @@ class ThermochemistryConfig(StrictConfig):
     model: Literal["harmonic", "ideal_gas"] = Field(default="harmonic", description="Thermochemistry model.")
     temperature: float = Field(default=300.0, gt=0, description="Temperature in Kelvin.")
     ignore_imag_modes: bool = Field(default=True, description="Ignore imaginary modes in thermochemistry.")
+    energy_threshold: float = Field(
+        default=1.0e-6,
+        ge=0,
+        description="Minimum real vibration energy in eV included in thermochemistry.",
+    )
     pressure: float = Field(default=101325.0, gt=0, description="Pressure in Pa for ideal-gas thermo.")
     geometry: Literal["monatomic", "linear", "nonlinear"] = Field(
         default="nonlinear",

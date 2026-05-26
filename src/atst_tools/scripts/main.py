@@ -155,6 +155,7 @@ calculation:
       model: harmonic
       temperature: 300.0
       ignore_imag_modes: true
+      energy_threshold: 1.0e-6
 """,
         "relax": """\
 calculation:
@@ -177,6 +178,7 @@ calculation:
     model: harmonic
     temperature: 300.0
     ignore_imag_modes: true
+    energy_threshold: 1.0e-6
 """,
         "irc": """\
 calculation:
