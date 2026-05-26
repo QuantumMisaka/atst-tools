@@ -420,6 +420,20 @@ def test_neb_post_writes_latest_and_init_chain(tmp_path, monkeypatch):
     assert len(read("restart.traj", index=":")) == 3
 
 
+def test_neb_post_plot_all_handles_equal_endpoint_band(tmp_path, monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+    write("neb.traj", [_atoms(0.0, 0.0), _atoms(1.0, 1.0), _atoms(0.0, 2.0)])
+    monkeypatch.setattr(cli.NEBPost, "get_TS_stru", lambda self, name="TS_get": None)
+
+    cli.main(["neb", "post", "neb.traj", "--plot-all"])
+
+    output = capsys.readouterr().out
+    assert "Reaction Barrier and Energy Difference" in output
+    assert "Warning: Failed to plot all bands" not in output
+
+
 def test_traj_collect_and_transform_roundtrip(tmp_path, monkeypatch):
     from atst_tools.scripts import cli
 

@@ -35,12 +35,8 @@ class NEBPost:
 
         if n_max == 0:
             print("=== n_max set to 0, automatically detect the images of chain by NEBTools ===")
-            try:
-                self.n_images = NEBTools(self.all_image)._guess_nimages()
-            except Exception:
-                # Fallback if NEBTools fails to guess (e.g. for simple list of images)
-                self.n_images = len(self.all_image)
             self.neb_chain = select_post_neb_chain(images, n_max=0)
+            self.n_images = len(self.neb_chain)
         elif (n_max > 0) and (isinstance(n_max, int)):
             self.n_images = n_max + 2
             self.neb_chain = select_post_neb_chain(images, n_max=n_max)
@@ -82,23 +78,21 @@ class NEBPost:
     
     def get_TS_stru(self, name="TS_get"):
         """Get TS structure from NEB chain"""
-        raw_barrier = NEBTools(self.neb_chain).get_barrier(fit=False, raw=True)[0]
-        for atoms in self.neb_chain:
-            ene = atoms.get_potential_energy()
-            if np.isclose(ene, raw_barrier):
-                write(f"{name}.cif", atoms, format="cif")
-                try:
-                    write(f"{name}.stru", atoms, format="stru")
-                    print(f"TS structure is saved as {name}.cif and {name}.stru")
-                except Exception as e:
-                    print(f"TS structure is saved as {name}.cif")
-                    print(f"Warning: Failed to save {name}.stru (format 'stru' not supported?): {e}")
-                return
+        energies = [atoms.get_potential_energy() for atoms in self.neb_chain]
+        atoms = self.neb_chain[int(np.argmax(energies))]
+        write(f"{name}.cif", atoms, format="cif")
+        try:
+            write(f"{name}.stru", atoms, format="stru")
+            print(f"TS structure is saved as {name}.cif and {name}.stru")
+        except Exception as e:
+            print(f"TS structure is saved as {name}.cif")
+            print(f"Warning: Failed to save {name}.stru (format 'stru' not supported?): {e}")
+        return
 
     def plot_neb_bands(self, label='nebplots_chain'):
         """makes plots of final neb band in the series in a single PDF"""
         try:
-            return NEBTools(self.neb_chain).plot_bands(label=label)
+            return NEBTools(self.neb_chain).plot_bands(label=label, nimages=len(self.neb_chain))
         except Exception as e:
             print(f"Warning: Failed to plot NEB bands. {e}")
             return None
@@ -106,7 +100,7 @@ class NEBPost:
     def plot_all_bands(self, label='nebplots_all'):
         """Gmakes plots of all band during neb in the series in a single PDF"""
         try:
-            return NEBTools(self.all_image).plot_bands(label=label)
+            return NEBTools(self.all_image).plot_bands(label=label, nimages=self.n_images)
         except Exception as e:
             print(f"Warning: Failed to plot all bands. {e}")
             return None
