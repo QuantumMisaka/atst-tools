@@ -27,6 +27,8 @@ from atst_tools.utils.neb_endpoints import (
     endpoint_policy,
     ensure_neb_endpoint_results,
     freeze_current_results,
+    freeze_results,
+    get_endpoint_results,
     has_endpoint_results,
 )
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
@@ -141,11 +143,28 @@ class D2SWorkflow:
         scale_fmax = self.neb_config["scale_fmax"]
         max_steps = self.neb_config["max_steps"]
 
+        input_endpoint_results = []
+        for atoms in (init_atoms, final_atoms):
+            results = get_endpoint_results(atoms)
+            input_endpoint_results.append(
+                (
+                    results[0],
+                    results[1],
+                    atoms.info.get("atst_endpoint_result", "provided"),
+                )
+                if results is not None
+                else None
+            )
+
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
         images = solver.run(
             maxiter=self.neb_config["idpp_maxiter"],
             tol=self.neb_config["idpp_tol"],
         )
+        for index, cached in zip((0, -1), input_endpoint_results):
+            if cached is not None:
+                energy, forces, status = cached
+                freeze_results(images[index], energy, forces, status=status)
 
         ensure_neb_endpoint_results(
             images,
@@ -154,6 +173,10 @@ class D2SWorkflow:
             directories=("endpoint_initial", "endpoint_final"),
             context="D2S rough DyNEB",
         )
+        for index, cached in zip((0, -1), input_endpoint_results):
+            if cached is not None:
+                energy, forces, status = cached
+                freeze_results(images[index], energy, forces, status=status)
         allow_shared = should_share_calculator(self.calc_name, self.config, parallel=False)
         shared_calc = self._get_calc("NEB/shared", shared=True) if allow_shared else None
         for index, image in enumerate(images[1:-1], start=1):
