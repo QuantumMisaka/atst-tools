@@ -20,7 +20,7 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 ### 开发测试环境
 
 - 项目当前开发测试在SAI超级计算机登录节点。服务器上有可直接使用的ABACUS LTS 3.10.1 和 DeePMD-kit 3.1.3
-- 项目所属Python环境在atst-dev conda env。
+- 项目当前在开发并行NEB模块，需依赖mpi4py，所用仓库在新创建的conda环境 atst-neb-mpi 中。
 - 开展调用ABACUS和DeePMD-kit的测试需要将任务通过slurm脚本交到4V100节点上，使用GPU节点计算。对于ABACUS，你需要在INPUT中设置ks_solver cusolver (在默认的basis lcao下)。
 
 ### 基本边界

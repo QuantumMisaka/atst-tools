@@ -96,6 +96,22 @@ calculation:
 
 `auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
 
+For MPI image-level NEB, launch the Python workflow itself under MPI and keep
+one Python rank per interior image:
+
+```bash
+mpirun -np <number-of-interior-images> atst run config.yaml
+```
+
+When `parallel: true` and ASE sees `world.size > 1`, ATST-Tools requires the MPI
+rank count to equal `len(init_chain) - 2`. Each active image gets its own ABACUS
+calculator directory such as `run_neb/image_001`, following the same
+image-isolated directory model used by the vendored abacuslite NEB example.
+This outer MPI layer is separate from `calculator.abacus.mpi`, which controls
+the ABACUS subprocess count for one image. ATST-Tools does not run or generate
+Slurm submission commands; use your site job script to launch the outer Python
+MPI command, and keep all ABACUS executable details in `calculator.abacus`.
+
 ### 2.3 AutoNEB
 **Type**: `autoneb`
 
@@ -103,7 +119,7 @@ calculation:
 | :--- | :--- | :--- | :--- |
 | `prefix` | string | `run_autoneb` | Prefix for output files and directories. |
 | `init_chain` | string | **Required** | Path to the initial guess chain. |
-| `n_simul` | int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
+| `n_simul` | positive int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
 | `n_max` | int | `10` | Maximum number of images in the band. |
 | `neb_backend` | string | `atst` | Experimental backend selector: `atst` uses the validated compatibility wrapper; `ase` uses native ASE AutoNEB. |
 | `maxsteps` | int/list[int] | `100` | Maximum optimization steps per iteration; a two-value list follows ASE AutoNEB's normal/climbing-stage schedule. |
@@ -114,6 +130,11 @@ calculation:
 | `climb` | bool | `true` | Enable climbing image refinement. |
 | `fmax` | float/list[float] | `0.05` | Force threshold or AutoNEB threshold schedule. |
 | `endpoint_singlepoint` | string | `auto` | Same endpoint result policy as ordinary NEB. |
+
+For MPI AutoNEB, launch with one Python rank per simultaneously optimized
+image. If `n_simul` is set, `world.size` must equal `n_simul`; if `n_simul` is
+`null`, ATST-Tools uses `world.size`. The same outer/inner MPI distinction as
+ordinary NEB applies.
 
 ### 2.4 Dimer Method
 **Type**: `dimer`
@@ -294,6 +315,13 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 | `pseudo_dir` | string | `.` | Directory containing pseudopotential files. |
 | `orbital_dir` | string | `.` | Directory containing basis set files. |
 | `parameters` | dict | `{}` | Key-value pairs for ABACUS `INPUT` file (e.g., `ecutwfc`, `scf_thr`). |
+
+`command` may be a bare executable (`abacus`), an explicit launcher
+(`mpirun -np 4 abacus`, `srun -n 4 abacus`), or a template using `{mpi}` such
+as `mpirun -np {mpi} abacus`. This command is the inner ABACUS execution command
+for one image; it is not the outer image-level MPI launcher. In image-level MPI
+mode, a bare single-process ABACUS command is run with outer MPI launcher
+variables removed so ABACUS does not accidentally join the Python MPI world.
 
 The same `calculator.abacus` block can be used for local input preparation:
 

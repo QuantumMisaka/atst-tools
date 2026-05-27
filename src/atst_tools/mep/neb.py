@@ -1,11 +1,22 @@
 """ASE-native NEB compatibility wrapper used by ATST-Tools."""
 
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import threading
 
 import numpy as np
 from ase.build import minimize_rotation_and_translation
 from ase.mep.neb import NEB, NEBState
 from ase.optimize.precon import Precon, PreconImages
+
+
+def _world_sum_scalar(world, value):
+    """Return a scalar sum using the communicator's modern API when present."""
+    if hasattr(world, "sum_scalar"):
+        return world.sum_scalar(value)
+    return world.sum(value)
 
 
 class AbacusNEB(NEB):
@@ -62,8 +73,8 @@ class AbacusNEB(NEB):
                 )
                 raise ValueError(msg)
 
-        forces = np.empty(((self.nimages - 2), self.natoms, 3))
-        energies = np.empty(self.nimages)
+        forces = np.zeros(((self.nimages - 2), self.natoms, 3))
+        energies = np.zeros(self.nimages)
         real_forces = np.zeros((self.nimages, self.natoms, 3))
 
         if self.remove_rotation_and_translation:
@@ -105,23 +116,24 @@ class AbacusNEB(NEB):
                 thread.join()
         else:
             i = self.world.rank * (self.nimages - 2) // self.world.size + 1
+            local_energies = np.zeros(self.nimages)
             try:
                 forces[i - 1] = images[i].get_forces()
                 energies[i] = images[i].get_potential_energy()
+                local_energies[i] = energies[i]
                 real_forces[i] = images[i].get_forces(apply_constraint=False)
             except Exception:
-                error = self.world.sum(1.0)
+                error = _world_sum_scalar(self.world, 1.0)
                 raise
             else:
-                error = self.world.sum(0.0)
+                error = _world_sum_scalar(self.world, 0.0)
                 if error:
                     raise RuntimeError("Parallel NEB failed!")
 
-            for i in range(1, self.nimages - 1):
-                root = (i - 1) * self.world.size // (self.nimages - 2)
-                self.world.broadcast(energies[i : i + 1], root)
-                self.world.broadcast(forces[i - 1], root)
-                self.world.broadcast(real_forces[i], root)
+            self.world.sum(local_energies)
+            self.world.sum(forces)
+            self.world.sum(real_forces)
+            energies[1:-1] = local_energies[1:-1]
 
         if self.precon is None or isinstance(self.precon, (str, Precon, list)):
             self.precon = PreconImages(self.precon, images)

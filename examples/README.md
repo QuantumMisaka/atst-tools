@@ -92,6 +92,32 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
 then Dimer or Sella, with optional vibration follow-up.
 
+### NEB image-level MPI smoke
+
+Image-level NEB parallelism requires Python itself to be MPI-aware. On SAI, use
+an environment with `mpi4py` compiled after loading
+`abacus/LTSv3.10.1-sm70-auto`, then launch one Python rank per active image:
+
+```bash
+module load abacus/LTSv3.10.1-sm70-auto
+conda activate atst-neb-mpi
+cd examples/01_neb_Li-Si
+mpirun -np 3 atst run config_parallel_smoke.yaml
+```
+
+For AutoNEB, use one Python rank per `calculation.n_simul`:
+
+```bash
+cd examples/03_autoneb_Cy-Pt
+mpirun -np 4 atst run config_parallel_smoke.yaml
+```
+
+The outer `mpirun` controls ASE image scheduling. `calculator.abacus.mpi`
+controls the ABACUS subprocess count for each image; keep it at `1` for first
+parallel smoke tests unless the allocation is sized for nested MPI. ATST-Tools
+does not submit Slurm jobs; put the outer command above inside your site sbatch
+script or replace `mpirun` with the site launcher that exposes an mpi4py world.
+
 ## Chemical Systems Summary
 
 | Example Directory | System | Elements | Method |

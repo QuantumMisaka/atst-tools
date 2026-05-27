@@ -105,7 +105,8 @@ def test_neb_make_marks_pure_structure_endpoints_as_placeholder(tmp_path, monkey
 
 
 def test_li_si_zero_endpoint_regression_changes_barrier():
-    band = read("examples/01_neb_Li-Si/neb.traj", index=":")[-5:]
+    endpoint_reference_energies = [-1.0, -0.4, -0.1, -0.3, -1.1]
+    band = [_atoms(energy=energy, x=float(index)) for index, energy in enumerate(endpoint_reference_energies)]
     real = [atoms.copy() for atoms in band]
     zero = [atoms.copy() for atoms in band]
     for index, atoms in enumerate(real):

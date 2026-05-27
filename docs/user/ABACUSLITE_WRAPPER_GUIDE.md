@@ -81,6 +81,45 @@ and the selected single-ended method. For NEB and AutoNEB, endpoint
 single-point governance repairs placeholder endpoint results before ASE NEB
 construction when configured with `endpoint_singlepoint: auto` or `always`.
 
+## NEB Image-Level MPI
+
+The vendored abacuslite tree includes a working NEB pattern in
+`src/atst_tools/external/ASE_interface/examples/neb.py`: each image receives an
+independent `Abacus` calculator directory, and ASE runs `NEB(...,
+parallel=True)`. ATST-Tools follows this image-isolated directory model for
+ABACUS-backed NEB and AutoNEB.
+
+On SAI, use an MPI-enabled Python environment built against the same OpenMPI
+stack loaded by ABACUS LTS 3.10.1:
+
+```bash
+conda create -n atst-neb-mpi python=3.10
+conda activate atst-neb-mpi
+module load abacus/LTSv3.10.1-sm70-auto
+python -m pip install -e .
+MPICC="$(which mpicc)" python -m pip install --no-binary=mpi4py mpi4py
+```
+
+Validate ASE can see MPI before launching a workflow:
+
+```bash
+mpirun -np 4 python -c 'from mpi4py import MPI; from ase.parallel import world; print(world.rank, world.size)'
+```
+
+For ordinary NEB, `mpirun -np N atst run config.yaml` requires `N` to equal the
+number of interior images. For AutoNEB, `N` must equal `calculation.n_simul`.
+Keep `calculator.abacus.mpi: 1` for first smoke tests; increasing it adds a
+second, inner MPI layer for each ABACUS image calculation.
+
+The outer launcher is intentionally outside ATST-Tools. Put the `mpirun -np N
+atst run ...` command in your site sbatch script, or use an equivalent site
+launcher if it exposes a real mpi4py communicator to ASE. Configure the ABACUS
+subprocess command separately with `calculator.abacus.command`; explicit
+commands such as `srun -n 4 abacus` and templates such as `mpirun -np {mpi}
+abacus` are accepted. When a bare single-process command such as `abacus` runs
+inside an image-level MPI workflow, ATST-Tools clears the outer MPI launcher
+environment for the ABACUS subprocess so it remains a one-image calculation.
+
 ## Non-Goals
 
 - No Slurm submission command is provided in this layer.

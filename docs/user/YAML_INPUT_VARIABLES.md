@@ -35,7 +35,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.type | calculation.type=autoneb | `'autoneb'` | `required` | Select the AutoNEB workflow. |
 | calculation.autoneb.init_chain | calculation.type=autoneb | `str` | `required` | Initial NEB chain trajectory. |
 | calculation.autoneb.prefix | calculation.type=autoneb | `str` | `'run_autoneb'` | AutoNEB per-image output prefix. |
-| calculation.autoneb.n_simul | calculation.type=autoneb | `int \| NoneType` | `null` | Number of images optimized simultaneously. |
+| calculation.autoneb.n_simul | calculation.type=autoneb | `Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0)])] \| NoneType` | `null` | Number of images optimized simultaneously. |
 | calculation.autoneb.n_max | calculation.type=autoneb | `int` | `10` | Maximum number of AutoNEB images. |
 | calculation.autoneb.algorism | calculation.type=autoneb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
 | calculation.autoneb.neb_backend | calculation.type=autoneb | `'atst' \| 'ase'` | `'atst'` | AutoNEB implementation backend: ATST compatibility wrapper or native ASE. |

@@ -83,7 +83,10 @@ class AutoNEBCalculation(StrictConfig):
     type: Literal["autoneb"] = Field(description="Select the AutoNEB workflow.")
     init_chain: str = Field(description="Initial NEB chain trajectory.")
     prefix: str = Field(default="run_autoneb", description="AutoNEB per-image output prefix.")
-    n_simul: int | None = Field(default=None, description="Number of images optimized simultaneously.")
+    n_simul: Annotated[int, Field(gt=0)] | None = Field(
+        default=None,
+        description="Number of images optimized simultaneously.",
+    )
     n_max: int = Field(default=10, gt=1, description="Maximum number of AutoNEB images.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
     neb_backend: Literal["atst", "ase"] = Field(

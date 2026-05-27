@@ -1,6 +1,10 @@
 # AbacusAutoNEB implementation
 # part of ATST-Tools
 
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import os
 import shutil
 import types
@@ -9,6 +13,7 @@ from copy import deepcopy
 from math import exp, log
 from pathlib import Path
 import numpy as np
+from ase.calculators.singlepoint import SinglePointCalculator
 from ase.mep.autoneb import AutoNEB, seriel_writer, store_E_and_F_in_spc
 from ase.io import read, write, Trajectory
 from ase.parallel import world
@@ -19,6 +24,36 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
+from atst_tools.utils.mpi import (
+    get_ase_world,
+    rank_owns_local_image,
+    validate_image_parallel_world,
+)
+
+
+def _store_E_and_F_in_spc_reduced(neb):
+    """Freeze parallel NEB image results using reductions instead of broadcasts."""
+    neb.get_forces()
+    images = neb.images
+    if not neb.parallel:
+        return store_E_and_F_in_spc(neb)
+
+    energies = np.zeros(neb.nimages)
+    forces = np.zeros((neb.nimages, neb.natoms, 3))
+    image_index = neb.world.rank * (neb.nimages - 2) // neb.world.size + 1
+    forces[image_index] = images[image_index].get_forces()
+    energies[image_index] = images[image_index].get_potential_energy()
+
+    neb.world.sum(energies)
+    neb.world.sum(forces)
+
+    for i in range(1, neb.nimages - 1):
+        images[i].calc = SinglePointCalculator(
+            images[i],
+            energy=energies[i],
+            forces=forces[i],
+        )
+
 
 class AbacusAutoNEB(AutoNEB):
     """
@@ -53,6 +88,60 @@ class AbacusAutoNEB(AutoNEB):
         super().__init__(attach_calculators, prefix, n_simul, n_max, 
                          iter_folder=iter_folder, **kwargs)
 
+    def __initialize__(self):
+        """Load AutoNEB image files with explicit non-parallel ASE reads."""
+        if not os.path.isfile(f"{self.prefix}000.traj"):
+            raise OSError(
+                f"No file with name {self.prefix}000.traj",
+                "was found. Should contain initial image",
+            )
+
+        index_exists = [
+            i for i in range(self.n_max)
+            if os.path.isfile("%s%03d.traj" % (self.prefix, i))
+        ]
+        n_cur = index_exists[-1] + 1
+
+        if self.world.rank == 0:
+            print(
+                "The NEB initially has %d images " % len(index_exists),
+                "(including the end-points)",
+            )
+        if len(index_exists) == 1:
+            raise Exception("Only a start point exists")
+
+        for i in range(len(index_exists)):
+            if i != index_exists[i]:
+                raise Exception(
+                    "Files must be ordered sequentially",
+                    "without gaps.",
+                )
+        if self.world.rank == 0:
+            for i in index_exists:
+                filename_ref = self.iter_trajpath(i, 0)
+                if os.path.isfile(filename_ref):
+                    try:
+                        os.rename(filename_ref, str(filename_ref) + ".bak")
+                    except OSError:
+                        pass
+                filename = "%s%03d.traj" % (self.prefix, i)
+                try:
+                    shutil.copy2(filename, filename_ref)
+                except OSError:
+                    pass
+        self.world.barrier()
+
+        for i in range(n_cur):
+            if i in index_exists:
+                filename = "%s%03d.traj" % (self.prefix, i)
+                newim = read(filename, parallel=False)
+                self.all_images.append(newim)
+            else:
+                self.all_images.append(self.all_images[0].copy())
+
+        self.iteration = 0
+        return n_cur
+
     def _execute_one_neb(self, exitstack, n_cur, to_run,
                          climb=False, many_steps=False):
         """
@@ -70,6 +159,12 @@ class AbacusAutoNEB(AutoNEB):
         """
         closelater = exitstack.enter_context
         self.iteration += 1
+        if self.parallel:
+            validate_image_parallel_world(
+                self.world,
+                len(to_run) - 2,
+                "active AutoNEB images",
+            )
         if self.world.rank == 0:
             self.iter_folder.mkdir(parents=True, exist_ok=True)
 
@@ -162,7 +257,7 @@ class AbacusAutoNEB(AutoNEB):
             fmax = self.fmax
         qn.run(fmax=fmax, steps=steps)
 
-        neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
+        neb.distribute = types.MethodType(_store_E_and_F_in_spc_reduced, neb)
         neb.distribute()
 
     def run(self):
@@ -361,13 +456,16 @@ class AutoNEBRunner:
         self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.prefix = calc_config['prefix']
-        self.n_simul = calc_config.get('n_simul') or world.size
+        self.world = get_ase_world()
+        self.n_simul = calc_config.get('n_simul') or self.world.size
         self.n_max = calc_config['n_max']
         self.algorism = calc_config['algorism']
         requested_parallel = calc_config['parallel']
-        self.parallel = requested_parallel and world.size > 1
+        self.parallel = requested_parallel and self.world.size > 1
         if requested_parallel and not self.parallel:
             print("Notice: image-level AutoNEB parallelism requires MPI-launched atst run; running images serially.")
+        if self.parallel:
+            validate_image_parallel_world(self.world, self.n_simul, "AutoNEB n_simul")
         self.fmax = calc_config['fmax']
         self.maxsteps = calc_config['maxsteps']
         self.neb_backend = calc_config.get("neb_backend", "atst")
@@ -450,16 +548,47 @@ class AutoNEBRunner:
             return
 
         for i, image in enumerate(images):
-             if self.parallel:
-                 base_dir = self._base_directory()
-                 image_dir = f"{base_dir}-rank{world.rank}"
-                 
-                 image.calc = self._get_calculator(image_dir, shared=False)
-             else:
-                 base_dir = self._base_directory()
-                 image_index = self._image_index(image, i)
-                 image_dir = f"{base_dir}/image_{int(image_index):03d}"
-                 image.calc = self._get_calculator(image_dir, shared=False)
+            if self.parallel and not rank_owns_local_image(self.world, i):
+                continue
+            if self.parallel:
+                base_dir = self._base_directory()
+                image_index = self._image_index(image, i)
+                image_dir = f"{base_dir}/image_{int(image_index):03d}"
+                image.calc = self._get_calculator(image_dir, shared=False)
+            else:
+                base_dir = self._base_directory()
+                image_index = self._image_index(image, i)
+                image_dir = f"{base_dir}/image_{int(image_index):03d}"
+                image.calc = self._get_calculator(image_dir, shared=False)
+
+    def _prepare_endpoint_results(self):
+        """Prepare endpoint single-point results once and synchronize images."""
+        base_dir = self._base_directory()
+        policy = endpoint_policy(self.calc_config, default="auto")
+
+        def prepare():
+            ensure_neb_endpoint_results(
+                self.init_chain,
+                lambda directory: self._get_calculator(f"{base_dir}/{directory}"),
+                policy=policy,
+                directories=("endpoint_initial", "endpoint_final"),
+                context="AutoNEB",
+            )
+
+        if not self.parallel:
+            prepare()
+            return
+
+        sync_file = Path(".atst_autoneb_endpoint_synced.traj")
+        if self.world.rank == 0:
+            prepare()
+            write(sync_file, self.init_chain)
+        self.world.barrier()
+        self.init_chain = read(sync_file, index=":", parallel=False)
+        self.world.barrier()
+        if self.world.rank == 0:
+            sync_file.unlink(missing_ok=True)
+        self.world.barrier()
 
     def _get_optimizer(self):
         """
@@ -483,22 +612,22 @@ class AutoNEBRunner:
         Run the AutoNEB workflow.
         """
         print("=== Starting AutoNEB Calculation ===")
+        if self.parallel and self.world.rank == 0:
+            print(
+                "Image-level AutoNEB parallelism active: "
+                f"world.size={self.world.size}, n_simul={self.n_simul}"
+            )
 
-        if not self.restart:
+        if not self.restart and self.world.rank == 0:
             for path in Path(".").glob(f"{self.prefix}[0-9][0-9][0-9].traj"):
                 path.unlink()
             iter_path = Path(self.iter_folder)
             if iter_path.exists():
                 shutil.rmtree(iter_path)
+        if self.parallel:
+            self.world.barrier()
 
-        base_dir = self._base_directory()
-        ensure_neb_endpoint_results(
-            self.init_chain,
-            lambda directory: self._get_calculator(f"{base_dir}/{directory}"),
-            policy=endpoint_policy(self.calc_config, default="auto"),
-            directories=("endpoint_initial", "endpoint_final"),
-            context="AutoNEB",
-        )
+        self._prepare_endpoint_results()
         
         autoneb_kwargs = {
             "attach_calculators": self.attach_calculators,
@@ -506,7 +635,7 @@ class AutoNEBRunner:
             "n_simul": self.n_simul,
             "n_max": self.n_max,
             "iter_folder": self.iter_folder,
-            "world": world,
+            "world": self.world,
             "method": self.algorism,
             "parallel": self.parallel,
             "optimizer": self._get_optimizer(),
@@ -523,9 +652,12 @@ class AutoNEBRunner:
             )
         
         # Write initial files if they don't exist
-        for i, atoms in enumerate(self.init_chain):
-             filename = f'{self.prefix}{i:03d}.traj'
-             write(filename, atoms)
+        if self.world.rank == 0:
+            for i, atoms in enumerate(self.init_chain):
+                 filename = f'{self.prefix}{i:03d}.traj'
+                 write(filename, atoms)
+        if self.parallel:
+            self.world.barrier()
                  
         self._active_autoneb = autoneb
         try:

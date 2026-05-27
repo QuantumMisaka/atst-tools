@@ -2,8 +2,12 @@
 
 import argparse
 import logging
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import numpy as np
-from ase.io import read
+from ase.io import read, write
 from ase.mep.neb import NEB
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
@@ -27,6 +31,11 @@ from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.idpp import generate
+from atst_tools.utils.mpi import (
+    get_ase_world,
+    rank_owns_local_image,
+    validate_image_parallel_world,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -262,6 +271,28 @@ def _normalized_calculation(config, calc_config):
         return calc_config
     return apply_calculation_defaults(calc_config)
 
+
+def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
+    """Run endpoint preparation on rank 0 and share frozen results via a temp chain."""
+    sync_file = ".atst_neb_endpoint_synced.traj"
+    if world.rank == 0:
+        prepare_endpoints(images)
+        write(sync_file, images)
+    if hasattr(world, "barrier"):
+        world.barrier()
+    synced_images = read(sync_file, index=":", parallel=False)
+    if hasattr(world, "barrier"):
+        world.barrier()
+    if world.rank == 0:
+        try:
+            os.remove(sync_file)
+        except FileNotFoundError:
+            pass
+    if hasattr(world, "barrier"):
+        world.barrier()
+    return synced_images
+
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -318,26 +349,40 @@ def run_neb(config, calc_name, calc_config):
     parallel = calc_config['parallel']
     max_steps = calc_config['max_steps']
     opt_name = calc_config['optimizer']
-    from ase.parallel import world
+    world = get_ase_world()
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
         LOGGER.warning(
             "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
         )
+    if effective_parallel:
+        validate_image_parallel_world(world, len(init_chain) - 2, "NEB")
+        LOGGER.info(
+            "Image-level NEB parallelism active: world.size=%s, interior_images=%s",
+            world.size,
+            len(init_chain) - 2,
+        )
 
     base_dir = _abacus_base_directory(config, 'run_atst')
     policy = endpoint_policy(calc_config, default="auto")
-    ensure_neb_endpoint_results(
-        init_chain,
-        lambda directory: _get_workflow_calculator(
-            calc_name,
-            config,
-            directory=f"{base_dir}/{directory}",
-        ),
-        policy=policy,
-        directories=("endpoint_initial", "endpoint_final"),
-        context="NEB",
-    )
+
+    def prepare_endpoints(images):
+        return ensure_neb_endpoint_results(
+            images,
+            lambda directory: _get_workflow_calculator(
+                calc_name,
+                config,
+                directory=f"{base_dir}/{directory}",
+            ),
+            policy=policy,
+            directories=("endpoint_initial", "endpoint_final"),
+            context="NEB",
+        )
+
+    if effective_parallel:
+        init_chain = _sync_parallel_endpoint_results(init_chain, world, prepare_endpoints)
+    else:
+        prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
     
     # Initialize NEB
@@ -360,9 +405,9 @@ def run_neb(config, calc_name, calc_config):
         )
     for i, image in enumerate(init_chain[1:-1]):
         if effective_parallel:
-            if world.rank == i % world.size:
+            if rank_owns_local_image(world, i):
                 # Determine directory logic
-                image_dir = f"{base_dir}-rank{world.rank}"
+                image_dir = f"{base_dir}/image_{i + 1:03d}"
                 
                 image.calc = _get_workflow_calculator(
                     calc_name, 

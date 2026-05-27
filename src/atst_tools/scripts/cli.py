@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import numpy as np
 from ase.io import read, write
 from ase.vibrations import Vibrations
