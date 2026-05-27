@@ -125,13 +125,13 @@
   <p class="small">Date: 2026-05-27. Repository: <code>/home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools</code>. Scope: ATST-Tools current tree and <code>temp_repos/mace-reaction-kit</code>.</p>
 
   <div class="lead">
-    <p><strong>总论：</strong>不建议把 <code>mace-reaction-kit</code> 整体移植到 ATST-Tools。ATST-Tools 已覆盖 NEB、AutoNEB、Dimer、Sella、CCQN、D2S、Vibration 和 Sella IRC，真正值得吸收的是 MACE-Reaction-Kit 在“CCQN 自动化、TS 后验证流水线、结果产物治理”上的工程能力。迁移时应保持 ATST-Tools 的 CLI + YAML、ASE-native、ABACUS/DeePMD 后端定位，不引入 MACE 平台 runner 或默认 Torch/GPU 依赖。</p>
+    <p><strong>总论：</strong>不建议把 <code>mace-reaction-kit</code> 整体移植到 ATST-Tools。ATST-Tools 已覆盖 NEB、AutoNEB、Dimer、Sella、CCQN、D2S、Vibration 和 Sella IRC，真正值得吸收的是 MACE-Reaction-Kit 在“CCQN 自动化、TS 后验证流水线、结果产物治理”上的工程能力。迁移时应保持 ATST-Tools 的 CLI + YAML、ASE-native、ABACUS/DeePMD 后端定位。MACE model 可以作为可选 ASE calculator backend 评估，但不应引入 MACE 平台 runner 或默认 Torch/GPU 依赖。</p>
   </div>
 
   <div class="cards">
     <div class="card"><strong>优先吸收</strong><span class="ok">CCQN 自动化</span><br>自动枚举 reactive bond modes、product alignment、mode manifest、诊断日志。</div>
     <div class="card"><strong>谨慎吸收</strong><span class="warn">TS 后处理流水线</span><br>TS search 后接 vibration、IRC 或 descent path，需保持科学语义清晰。</div>
-    <div class="card"><strong>暂不吸收</strong><span class="bad">MACE 专属栈</span><br>不迁移 Adam/form runner、MACECalculator 绑定逻辑、GPU CCQN 整体实现。</div>
+    <div class="card"><strong>谨慎评估</strong><span class="warn">MACE 后端</span><br>可考虑可选 calculator backend；不迁移 Adam/form runner 或 GPU CCQN 整体实现。</div>
   </div>
 
   <h2>1. 审查范围与验证方法</h2>
@@ -261,6 +261,12 @@
         <td><span class="ok">值得吸收。</span>用后端无关 manifest 统一 TS、trajectory、validation、IRC、thermo 输出。</td>
       </tr>
       <tr>
+        <td>ML potential calculator backend</td>
+        <td>正式支持 DP/DeepMD：<code>calculator.name: dp</code> 或 <code>deepmd</code>，通过 <code>deepmd.calculator.DP</code> 构造 ASE calculator，并有 schema、factory、单测、文档和 DP 验证报告。</td>
+        <td>以 MACE 为核心后端：workflow 通过 <code>MACECalculator</code>、<code>model_selection/custom_pes_model</code>、<code>device</code> 和 multi-head/device 逻辑运行。</td>
+        <td><span class="warn">可以吸收，但边界不同。</span>ATST 可新增可选 <code>calculator.name: mace</code> 后端；不应迁移 MACE-Reaction-Kit 的平台模型选择和展示逻辑。</td>
+      </tr>
+      <tr>
         <td>任务运行信息收集与总结</td>
         <td>有 read-only CLI：<code>neb summary</code>、<code>relax summary</code>、<code>dimer/sella/ccqn summary</code>、<code>vibration summary</code>、<code>d2s summary</code>、<code>abacus collect</code>、<code>traj collect/transform</code>。</td>
         <td>每个 workflow 返回 <code>WorkflowResult(summary, generated_files, plots, gifs, visualize)</code>，主 runner 生成 <code>report.md</code>，并通过 output map 选择标准化文件路径返回给平台。</td>
@@ -339,7 +345,97 @@
     </tbody>
   </table>
 
-  <h2>4. 任务运行信息收集与总结能力对比</h2>
+  <h2>4. DP 与 MACE 模型后端支持研判</h2>
+  <p>ATST-Tools 当前已经把 DeePMD-kit / DP 作为正式 ML potential calculator backend 接入，而不是临时脚本级支持。相比之下，MACE-Reaction-Kit 的设计从一开始就围绕 MACE model 展开。是否在 ATST-Tools 中支持 MACE model，应按“新增一个可选 ASE calculator backend”来评估，而不是把 MACE-Reaction-Kit 的平台 runner 整体迁入。</p>
+
+  <h3>4.1 ATST-Tools 当前 DP 支持状态</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>层面</th>
+        <th>确认结果</th>
+        <th>证据</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>配置 schema</td>
+        <td><code>VALID_CALCULATORS</code> 包含 <code>dp</code> 和 <code>deepmd</code>；DP 配置要求 <code>calculator.dp.model</code>。</td>
+        <td><code>src/atst_tools/utils/config_schema.py</code>，以及 <code>tests/unit/test_config.py</code> 中 DP model 必填和默认值测试。</td>
+      </tr>
+      <tr>
+        <td>calculator factory</td>
+        <td><code>CalculatorFactory</code> 对 <code>dp/deepmd</code> 调用 <code>DeepPotentialFactory</code>，后者导入 <code>deepmd.calculator.DP</code>。</td>
+        <td><code>src/atst_tools/calculators/dp.py</code>、<code>src/atst_tools/calculators/factory.py</code>。</td>
+      </tr>
+      <tr>
+        <td>模型参数</td>
+        <td>支持 <code>model</code>、<code>head</code>、<code>type_map</code>、<code>type_dict</code>、<code>omp</code>、<code>share_calculator</code>；<code>type_map</code> 会转换为 deepmd-kit 所需 <code>type_dict</code>。</td>
+        <td><code>tests/unit/test_factory.py</code> 覆盖 head、type mapping、OMP、cache key 和 share policy。</td>
+      </tr>
+      <tr>
+        <td>workflow 覆盖</td>
+        <td>DP 后端已通过 <code>atst run</code> 接入 NEB、AutoNEB、Dimer、Sella、Relax、Vibration、D2S 和 IRC 边界处理。</td>
+        <td><code>docs/reports/DP_VALIDATION_2.0.0.md</code> 记录 SAI GPU 节点 DP 验证。</td>
+      </tr>
+      <tr>
+        <td>共享策略</td>
+        <td>串行 NEB/DyNEB/AutoNEB 可复用一个 DP calculator，避免 ML calculator 重复初始化；也可通过 <code>share_calculator: false</code> 关闭。</td>
+        <td><code>should_share_calculator()</code> 与 factory cache 测试。</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>结论：ATST-Tools 对 DP model 的支持已经是项目级正式能力，具备配置治理、calculator 构造、测试覆盖和实算验证。它不是只支持某个 DP 示例，而是通过 ASE calculator factory 对多个 workflow 统一开放。</p>
+
+  <h3>4.2 MACE-Reaction-Kit 的 MACE 后端能力</h3>
+  <p>MACE-Reaction-Kit 的模型后端集中在 <code>Workflow.create_mace_calc()</code>：根据 <code>model_selection</code> 或 <code>custom_pes_model</code> 选择模型，处理 <code>device</code>、dtype、multi-head、D3 修正等参数，然后构造 <code>mace.calculators.MACECalculator</code>。其配置表单还暴露了内置模型选项，例如 <code>mace-omat-0-small.model</code> 和 <code>mace-mh-1.model</code>。</p>
+  <p>这说明 MACE-Reaction-Kit 中的 MACE 支持很完整，但它和平台运行环境、内置模型路径、可视化输出、batch inference 以及 runner 表单高度耦合。ATST-Tools 若支持 MACE model，应抽取为轻量、后端无关的 calculator backend，而不是迁移这些平台绑定。</p>
+
+  <h3>4.3 ATST-Tools 是否有必要支持 MACE model</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>判断</th>
+        <th>建议</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>是否有必要？</td>
+        <td><span class="ok">有必要，但优先级应低于 CCQN 自动化和 TS validation。</span>MACE 是常见 ASE ML potential，适合作为 ABACUS 前筛、快速路径搜索和 TS guess 生成后端。</td>
+        <td>列入 P2 或独立 calculator-backend 小任务，不阻塞当前过渡态算法治理主线。</td>
+      </tr>
+      <tr>
+        <td>能否直接照搬 MACE-Reaction-Kit？</td>
+        <td><span class="bad">不建议。</span>MACE-Reaction-Kit 的模型选择、runner 输出和平台表单不符合 ATST CLI + YAML 架构。</td>
+        <td>只复用接口思想：通过 ASE <code>MACECalculator</code> 构造 calculator；不要迁移 Adam/form runner。</td>
+      </tr>
+      <tr>
+        <td>推荐接口</td>
+        <td>新增 <code>calculator.name: mace</code>，配置块为 <code>calculator.mace</code>。</td>
+        <td>最小字段为 <code>model</code>、<code>device</code>、<code>dtype</code>、<code>head</code>、<code>default_dtype</code>、<code>share_calculator</code>；高级特性如 D3、batched inference 后续再评估。</td>
+      </tr>
+      <tr>
+        <td>依赖治理</td>
+        <td>MACE 会引入 Torch/MACE 依赖，不能成为默认安装要求。</td>
+        <td>采用 optional extra，例如 <code>atst-tools[mace]</code>；缺依赖时报清晰 ImportError。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>calculator:
+  name: mace
+  mace:
+    model: /path/to/mace.model
+    device: cuda
+    dtype: float32
+    head: null
+    share_calculator: true</code></pre>
+
+  <p>最终判断：DP 是 ATST 当前已验证的正式 ML 后端；MACE 值得作为可选 ML 后端支持，因为这与 ATST 的 ASE-native calculator factory 方向一致。但它应作为一个独立的、轻量的 calculator backend 进入，而不是作为 MACE-Reaction-Kit 子系统迁移。</p>
+
+  <h2>5. 任务运行信息收集与总结能力对比</h2>
   <p>除过渡态算法本身外，任务运行信息的收集、监控和总结也是 ATST-Tools 与 MACE-Reaction-Kit 的重要差异。两者都有类似能力，但形态不同：ATST-Tools 面向命令行和 HPC 离线运行，强调只读 summary CLI；MACE-Reaction-Kit 面向平台 runner，强调运行结束时返回标准化结果对象和文件路径。</p>
 
   <h3>4.1 ATST-Tools 当前 summary/collect 能力</h3>
@@ -431,7 +527,7 @@
     </tbody>
   </table>
 
-  <h2>5. 值得实现的内容分级</h2>
+  <h2>6. 值得实现的内容分级</h2>
   <h3>P0：近期最高优先级</h3>
   <table>
     <thead>
@@ -520,17 +616,18 @@
     <li><strong>CCQN batch/job-array：</strong>MACE 的 batch pairs 对高通量筛选有价值，但 ATST 的 ABACUS 场景不能简单串行照搬，应与 Slurm job array 或分任务 manifest 结合。</li>
     <li><strong>IS/TS/FS reaction thermo：</strong>在 TS validation 稳定后，基于 vibration 结果生成反应能垒、ZPE 修正和温度网格自由能表。</li>
     <li><strong>HTML/CSV summary：</strong>统一 examples 和生产任务的结果摘要，便于人工审查和文档归档。</li>
+    <li><strong>MACE calculator backend：</strong>作为可选 ML potential 后端支持 <code>calculator.name: mace</code>，复用 ATST calculator factory 和 workflow，不迁移平台 runner。</li>
   </ul>
 
   <h3>P3：不建议近期实现</h3>
   <ul>
     <li><strong>GPU/Torch CCQN 整体移植：</strong>ATST 的主要成本通常在 calculator，尤其是 ABACUS 调用；先引入 GPU optimizer 栈会增加依赖和维护面。</li>
     <li><strong>MACE 平台 runner：</strong><code>task_family</code>、form config、output map 适合 Adam 平台，不符合 ATST 的 CLI + YAML 主接口。</li>
-    <li><strong>MACECalculator 专属逻辑：</strong>会削弱 ATST 的 ABACUS/DeePMD/ASE-native 定位。</li>
+    <li><strong>MACE-Reaction-Kit 的平台绑定模型选择逻辑：</strong>内置模型列表、平台路径和 <code>outputShow</code> 不应进入 ATST；只应保留 calculator backend 层。</li>
     <li><strong>替换现有 IDPP/alignment：</strong>ATST 已有 <code>Fast_IDPPSolver</code> 和 atom alignment，可补质量检查，不应重写路线。</li>
   </ul>
 
-  <h2>6. 推荐实施路线</h2>
+  <h2>7. 推荐实施路线</h2>
   <table>
     <thead>
       <tr>
@@ -562,13 +659,13 @@
       <tr>
         <td>Phase 4</td>
         <td>高通量与性能评估</td>
-        <td>设计 CCQN batch/job-array manifest；评估 GPU CCQN 是否需要成为可选 extra。</td>
-        <td>Slurm dry-run/job script 生成测试；多任务失败恢复测试；性能基准对比。</td>
+        <td>设计 CCQN batch/job-array manifest；评估 GPU CCQN 和 MACE calculator backend 是否需要成为可选 extra。</td>
+        <td>Slurm dry-run/job script 生成测试；多任务失败恢复测试；MACE calculator import/parameter/unit smoke；性能基准对比。</td>
       </tr>
     </tbody>
   </table>
 
-  <h2>7. 建议接口形态</h2>
+  <h2>8. 建议接口形态</h2>
   <p>建议延续 ATST 的 YAML 风格，在已有 <code>ccqn</code>、<code>d2s</code> 和未来 <code>post</code> 段上扩展，而不是引入 MACE 的 <code>task_family</code>。</p>
   <pre><code>calculation:
   type: ccqn
@@ -596,7 +693,7 @@
       displacement: 0.1
       imaginary_cutoff_cm1: 50.0</code></pre>
 
-  <h2>8. 文档与实现一致性问题</h2>
+  <h2>9. 文档与实现一致性问题</h2>
   <p>在本次审查中还发现 ATST-Tools 当前文档有几处落后于实现，建议作为迁移前的文档治理任务先修正：</p>
   <ul>
     <li><code>docs/reports/FEATURE_STATUS_MATRIX.md</code> 漏掉 CCQN 行，并且仍描述 D2S 只接 Dimer/Sella。</li>
@@ -605,7 +702,7 @@
     <li><code>examples/08_d2s_Cy-Pt/config*.yaml</code> 的注释可能仍只列 <code>dimer, sella</code>。</li>
   </ul>
 
-  <h2>9. 风险与边界</h2>
+  <h2>10. 风险与边界</h2>
   <table>
     <thead>
       <tr>
@@ -632,8 +729,13 @@
       </tr>
       <tr>
         <td>后端耦合</td>
-        <td>MACE 的能力依赖 MACECalculator 和平台输出约定。</td>
-        <td>迁移算法思想，不迁移后端绑定；所有新工具以 ASE Atoms 和 calculator-neutral API 为边界。</td>
+        <td>MACE-Reaction-Kit 的能力依赖 MACECalculator、平台模型路径和平台输出约定。</td>
+        <td>算法和 workflow 工具保持 calculator-neutral；MACE 只作为可选 ASE calculator backend 接入。</td>
+      </tr>
+      <tr>
+        <td>ML 后端依赖膨胀</td>
+        <td>DP 已依赖 deepmd-kit；MACE 会继续引入 Torch/MACE 栈。如果默认安装包含所有 ML 后端，会提高环境复杂度。</td>
+        <td>保持 DP/MACE 均为运行时可选依赖；MACE 使用 optional extra 和清晰 ImportError，不影响 ABACUS/DP 用户。</td>
       </tr>
       <tr>
         <td>计算成本失控</td>
@@ -643,8 +745,8 @@
     </tbody>
   </table>
 
-  <h2>10. 最终建议</h2>
-  <p>ATST-Tools 的近期演进应围绕“把已有过渡态算法变得更易用、更可验证、更可追踪”，而不是扩张算法名录。最值得从 MACE-Reaction-Kit 吸收的是 CCQN 自动 reactive mode、模式级 manifest、TS validation 和后处理 pipeline。GPU CCQN、MACE runner 和 MACE 专属 calculator 逻辑不应进入近期路线。</p>
+  <h2>11. 最终建议</h2>
+  <p>ATST-Tools 的近期演进应围绕“把已有过渡态算法变得更易用、更可验证、更可追踪”，而不是扩张算法名录。最值得从 MACE-Reaction-Kit 吸收的是 CCQN 自动 reactive mode、模式级 manifest、TS validation 和后处理 pipeline。GPU CCQN 和 MACE runner 不应进入近期路线；MACE model 支持可以作为独立的可选 calculator backend 任务评估。</p>
   <p>建议下一步先拆出一份 Phase 1 实施计划：只做 CCQN 自动化增强，并同步修正文档中 D2S/CCQN 状态不一致的问题。这个阶段完成后，ATST-Tools 对单端 TS 搜索的用户体验会有实质提升，同时不会破坏当前 ABACUS/DP 工作流主线。</p>
 
 </article>
