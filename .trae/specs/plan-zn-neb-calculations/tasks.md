@@ -1,0 +1,19 @@
+# Tasks
+- [x] Task 1: 可行性分析与参数整理
+  - [x] SubTask 1.1: 确认 ATST-Tools 结合 ABACUS (cusolver) 在 SAI 超算上进行 ~200 原子体系 NEB 计算的硬件与软件可行性，输出分析总结。
+  - [x] SubTask 1.2: 从 `INPUT` 中提取各项参数，梳理赝势与轨道文件的对应关系，列出需用户补充的缺失项（如 N, O 元素的赝势和轨道文件）。
+- [x] Task 2: 编写生成初始 NEB 插值轨迹的脚本/命令文档
+  - [x] SubTask 2.1: 利用 `atst neb make` 对 `Zn1.cif` 和 `Zn2.cif` 进行 IDPP 插值生成 `init_neb_chain.traj` 的操作步骤。
+- [x] Task 3: 编写 CI-NEB 计算方案
+  - [x] SubTask 3.1: 在 `temp_practices` 下创建 `cineb_config.yaml` 配置文件，包含 `calculation.type: neb` 和 `climb: true` 等参数。
+  - [x] SubTask 3.2: 编写对应的 SAI 超算 `submit_cineb.sbatch` 提交脚本。
+- [x] Task 4: 编写 AutoNEB 计算方案
+  - [x] SubTask 4.1: 创建 `autoneb_config.yaml` 配置文件，设置 `calculation.type: autoneb` 及其相关参数。
+  - [x] SubTask 4.2: 编写对应的 SAI 超算 `submit_autoneb.sbatch` 提交脚本。
+- [x] Task 5: 编写 D2S 计算方案
+  - [x] SubTask 5.1: 创建 `d2s_config.yaml` 配置文件，设置 `calculation.type: d2s` 及相关的 Dimer/Sella 搜索参数。
+  - [x] SubTask 5.2: 编写对应的 SAI 超算 `submit_d2s.sbatch` 提交脚本。
+- [ ] Task 6: Slurm smoke 与生产实算验证
+  - [x] SubTask 6.1: 提交 CI-NEB、AutoNEB、D2S smoke jobs。
+  - [ ] SubTask 6.2: smoke jobs 完成后检查 ABACUS/ATST 日志并提交生产 jobs。
+  - [ ] SubTask 6.3: 对生产结果执行 NEB post-processing 并与文献图对比。
