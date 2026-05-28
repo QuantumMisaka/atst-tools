@@ -25,9 +25,16 @@ from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
 from atst_tools.utils.io import read_structure
-from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
+from atst_tools.utils.neb_endpoints import (
+    ENDPOINT_OPTIMIZED,
+    endpoint_policy,
+    ensure_neb_endpoint_results,
+    freeze_current_results,
+    has_endpoint_results,
+)
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.idpp import generate
+from atst_tools.utils.artifacts import write_artifact_manifest
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,8 +97,16 @@ calculation:
   fmax: 0.05
   max_steps: 100
   climb: true
+  two_stage: false
+  stage1_steps: 5
+  stage1_fmax: 0.1
   parallel: true
   endpoint_singlepoint: auto
+  endpoint_optimization:
+    enabled: false
+    skip_if_has_results: true
+    fmax: 0.05
+    max_steps: 100
 """,
         "autoneb": """\
 calculation:
@@ -136,6 +151,13 @@ calculation:
   final_structure: ccqn_final.extxyz
   e_vector_method: ic
   reactive_bonds: "1-2"
+  auto_reactive_bonds:
+    enabled: false
+    molecule_indices: null
+    cutoff_A: 3.0
+    max_modes: 20
+  mode_manifest: ccqn_mode_manifest.json
+  diagnostics_file: ccqn_diagnostics.json
   ic_mode: democratic
   cos_phi: 0.5
   trust_radius_uphill: 0.1
@@ -169,6 +191,7 @@ calculation:
     nfree: 2
     name: d2s_vib
     results_file: d2s_vibration_results.json
+    validation_file: d2s_ts_validation.json
     thermochemistry:
       model: harmonic
       temperature: 300.0
@@ -192,6 +215,8 @@ calculation:
   delta: 0.01
   nfree: 2
   name: vib_calc
+  results_file: vibration_results.json
+  validation_file: ts_validation.json
   thermochemistry:
     model: harmonic
     temperature: 300.0
@@ -202,9 +227,13 @@ calculation:
 calculation:
   type: irc
   init_structure: inputs/ts_opt.stru
+  backend: sella
   trajectory: irc_log.traj
   normalized_trajectory: norm_irc_log.traj
   direction: both
+  # For backend: descent, provide a NumPy mode vector.
+  mode_vector: null
+  descent_delta: 0.1
   fmax: 0.05
   max_steps: 1000
   dx: 0.1
@@ -280,6 +309,25 @@ def _normalized_calculation(config, calc_config):
         return calc_config
     return apply_calculation_defaults(calc_config)
 
+
+def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, optimizer_class):
+    endpoint_config = calc_config.get("endpoint_optimization") or {}
+    if not endpoint_config.get("enabled"):
+        return
+    skip_existing = endpoint_config.get("skip_if_has_results", True)
+    for label, atoms in (("initial", init_chain[0]), ("final", init_chain[-1])):
+        if skip_existing and has_endpoint_results(atoms):
+            continue
+        atoms.calc = _get_workflow_calculator(
+            calc_name,
+            config,
+            directory=f"{base_dir}/endpoint_{label}_relax",
+        )
+        opt = optimizer_class(atoms, trajectory=f"endpoint_{label}_relax.traj")
+        opt.run(fmax=endpoint_config.get("fmax", 0.05), steps=endpoint_config.get("max_steps", 100))
+        freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
+
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -336,6 +384,7 @@ def run_neb(config, calc_name, calc_config):
     parallel = calc_config['parallel']
     max_steps = calc_config['max_steps']
     opt_name = calc_config['optimizer']
+    two_stage = calc_config.get("two_stage", False)
     from ase.parallel import world
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
@@ -345,6 +394,8 @@ def run_neb(config, calc_name, calc_config):
 
     base_dir = _abacus_base_directory(config, 'run_atst')
     policy = endpoint_policy(calc_config, default="auto")
+    optimizer = get_optimizer(opt_name)
+    _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, optimizer)
     ensure_neb_endpoint_results(
         init_chain,
         lambda directory: _get_workflow_calculator(
@@ -364,7 +415,7 @@ def run_neb(config, calc_name, calc_config):
                     parallel=effective_parallel,
                     method=algorism, 
                     k=k,
-                    climb=climb,
+                    climb=False if two_stage else climb,
                     allow_shared_calculator=allow_shared)
     
     # Attach Calculators
@@ -398,9 +449,26 @@ def run_neb(config, calc_name, calc_config):
                 )
 
     # Run
-    optimizer = get_optimizer(opt_name)
     opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
+    if two_stage:
+        opt.run(fmax=calc_config.get("stage1_fmax", 0.1), steps=calc_config.get("stage1_steps", 5))
+        neb.climb = climb
+        opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
     opt.run(fmax=fmax, steps=max_steps)
+    write_artifact_manifest(
+        calc_config.get("artifact_manifest", "atst_artifacts.json"),
+        workflow="neb",
+        artifacts=[{"role": "trajectory", "path": traj_file}],
+        stages=[
+            {
+                "name": "ordinary_neb_warmup",
+                "status": "complete" if two_stage else "skipped",
+                "fmax": calc_config.get("stage1_fmax", 0.1),
+                "steps": calc_config.get("stage1_steps", 5),
+            },
+            {"name": "ci_neb" if climb else "neb", "status": "complete", "fmax": fmax, "steps": max_steps},
+        ],
+    )
     LOGGER.info("NEB calculation finished")
 
 def run_autoneb(config, calc_name, calc_config):

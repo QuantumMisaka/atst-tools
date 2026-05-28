@@ -33,6 +33,8 @@ from atst_tools.utils.neb_endpoints import (
 )
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
+from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.ts_validation import build_ts_validation_summary
 
 
 class D2SWorkflow:
@@ -40,7 +42,7 @@ class D2SWorkflow:
     Double-ended to single-ended workflow.
 
     The workflow performs endpoint optimization, rough DyNEB, then refines the
-    highest-energy image with Dimer or Sella.
+    highest-energy image with Dimer, Sella, or CCQN.
     """
 
     def __init__(self, config: Dict[str, Any], calc_name: str, calc_config: Dict[str, Any]):
@@ -325,6 +327,10 @@ class D2SWorkflow:
         output = vib_config["results_file"]
         with open(output, "w", encoding="utf-8") as handle:
             json.dump(results, handle, indent=4)
+        validation = build_ts_validation_summary(results, source=output)
+        validation_file = vib_config.get("validation_file", "d2s_ts_validation.json")
+        with open(validation_file, "w", encoding="utf-8") as handle:
+            json.dump(validation, handle, indent=4)
         print(f"Wrote {output}")
 
     def run(self):
@@ -345,4 +351,23 @@ class D2SWorkflow:
 
         single_traj = self.run_single_ended(neb_chain, max_idx, ts_guess)
         self.run_vibration(neb_chain, ts_guess, single_traj)
+        artifacts = [
+            {"role": "rough_neb_trajectory", "path": "neb_rough.traj"},
+            {"role": "single_ended_trajectory", "path": single_traj},
+        ]
+        vibration_config = self.calc_config.get("vibration", {})
+        if vibration_config.get("enabled"):
+            artifacts.append({"role": "vibration_results", "path": vibration_config["results_file"]})
+            artifacts.append({"role": "ts_validation", "path": vibration_config.get("validation_file", "d2s_ts_validation.json")})
+        write_artifact_manifest(
+            self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
+            workflow="d2s",
+            artifacts=artifacts,
+            stages=[
+                {"name": "endpoint_optimization", "status": "complete"},
+                {"name": "rough_neb", "status": "complete"},
+                {"name": self.method, "status": "complete"},
+                {"name": "vibration", "status": "complete" if vibration_config.get("enabled") else "skipped"},
+            ],
+        )
         print("=== D2S Workflow Finished ===")

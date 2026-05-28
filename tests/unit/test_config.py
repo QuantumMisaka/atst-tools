@@ -94,6 +94,57 @@ def test_validate_accepts_neb_make_input():
     ) is True
 
 
+def test_validate_accepts_neb_two_stage_and_endpoint_optimization():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+                "two_stage": True,
+                "stage1_steps": 5,
+                "stage1_fmax": 0.1,
+                "endpoint_optimization": {"enabled": True, "fmax": 0.03, "max_steps": 8},
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["two_stage"] is True
+    assert config["calculation"]["endpoint_optimization"]["max_steps"] == 8
+
+
+def test_validate_accepts_ccqn_auto_reactive_bonds_without_explicit_bonds():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "ccqn",
+                "init_structure": "ccqn_init.traj",
+                "e_vector_method": "ic",
+                "auto_reactive_bonds": {"enabled": True, "molecule_indices": [1]},
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["auto_reactive_bonds"]["enabled"] is True
+
+
+def test_validate_accepts_descent_irc_backend():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "irc",
+                "backend": "descent",
+                "init_structure": "ts.traj",
+                "mode_vector": "mode.npy",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["backend"] == "descent"
+
+
 def test_validate_rejects_invalid_endpoint_singlepoint_policy():
     with pytest.raises(ValueError, match="endpoint_singlepoint"):
         ConfigLoader.validate(

@@ -247,6 +247,34 @@ def summarize_vibration_config(config_file: str | Path) -> dict[str, Any]:
     }
 
 
+def summarize_artifact_manifest(manifest_file: str | Path) -> dict[str, Any]:
+    """Read an ATST artifact manifest and add per-artifact existence status."""
+    manifest_path = Path(manifest_file)
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    base_dir = manifest_path.parent
+    artifacts = []
+    for artifact in data.get("artifacts", []):
+        item = dict(artifact)
+        path = Path(item.get("path", ""))
+        resolved = path if path.is_absolute() else base_dir / path
+        item["resolved_path"] = str(resolved)
+        item["exists"] = resolved.exists()
+        artifacts.append(item)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "workflow": data.get("workflow"),
+        "source": str(manifest_path),
+        "status": {
+            "n_artifacts": len(artifacts),
+            "n_missing": sum(1 for artifact in artifacts if not artifact["exists"]),
+            "complete": all(artifact["exists"] for artifact in artifacts),
+        },
+        "stages": data.get("stages", []),
+        "artifacts": artifacts,
+        "metadata": data.get("metadata", {}),
+    }
+
+
 def _stage_from_traj(path: str | Path, workflow: str, *, n_max: int | None = None, base_dir: Path | None = None) -> dict[str, Any]:
     path = Path(path)
     if base_dir is not None and not path.is_absolute():

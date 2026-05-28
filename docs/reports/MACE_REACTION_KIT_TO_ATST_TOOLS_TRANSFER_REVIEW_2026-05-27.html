@@ -665,6 +665,56 @@
     </tbody>
   </table>
 
+  <h3>7.1 代码推进状态（2026-05-28）</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>级别</th>
+        <th>功能点</th>
+        <th>当前落地状态</th>
+        <th>验证方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P0</td>
+        <td>CCQN 自动 reactive mode</td>
+        <td>已新增 <code>atst_tools.utils.reactive_modes</code>，standalone CCQN 可通过 <code>auto_reactive_bonds.enabled</code> 枚举 molecule-catalyst reactive bonds，并选择排序第一的 mode 运行。</td>
+        <td>单元测试覆盖 1-based index parsing、距离排序、manifest 写出和 CCQN runner 接入。</td>
+      </tr>
+      <tr>
+        <td>P0</td>
+        <td>CCQN product alignment、mode manifest、diagnostics</td>
+        <td>已新增 <code>align_product_indices</code>、<code>ccqn_mode_manifest.json</code> 和 <code>ccqn_diagnostics.json</code>。诊断记录 mode、能量、最大力、步长、最小 Hessian 本征值和 trust radius。</td>
+        <td>mock optimizer 和小体系 CCQN optimizer step 测试验证。</td>
+      </tr>
+      <tr>
+        <td>P0</td>
+        <td>统一 artifact manifest 与 TS validation</td>
+        <td>已新增 <code>atst_artifacts.json</code> 写出工具、summary 回读工具和 <code>ts_validation.json</code> 生成器；Vibration workflow 默认写出 vibration results、TS validation 和 artifact manifest。</td>
+        <td>manifest 文件存在性汇总、单虚频判定单元测试通过。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>NEB two-stage CI-NEB</td>
+        <td>已在普通 NEB 中加入 <code>two_stage</code>、<code>stage1_steps</code>、<code>stage1_fmax</code>。执行语义为第一阶段 <code>climb=False</code>，随后设置 <code>neb.climb = climb</code> 进入最终阶段。</td>
+        <td>测试确认初始化时关闭 climb，并按 <code>stage1_fmax/stage1_steps</code> 与 <code>fmax/max_steps</code> 分两阶段运行。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>普通 NEB endpoint relaxation</td>
+        <td>已新增 <code>endpoint_optimization</code>，可显式在 ordinary NEB 前优化两端点；默认关闭，避免改变既有工作流成本。</td>
+        <td>测试确认启用后两端点先调用 optimizer。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>Descent IRC backend</td>
+        <td>已在 <code>calculation.type=irc</code> 中新增 <code>backend: descent</code>、<code>mode_vector</code> 和 <code>descent_delta</code>。该路径是 mode-displaced downhill relaxation，不等同于严格 IRC。</td>
+        <td>mock FIRE 测试确认沿正反 mode 位移并分别优化。</td>
+      </tr>
+    </tbody>
+  </table>
+
   <h2>8. 建议接口形态</h2>
   <p>建议延续 ATST 的 YAML 风格，在已有 <code>ccqn</code>、<code>d2s</code> 和未来 <code>post</code> 段上扩展，而不是引入 MACE 的 <code>task_family</code>。</p>
   <pre><code>calculation:
@@ -674,7 +724,7 @@
   auto_reactive_bonds:
     enabled: true
     molecule_indices: "1-12"
-    cutoff: 3.0
+    cutoff_A: 3.0
     max_modes: 20
     max_bonds_per_mode: 2
     debug_labels: true
@@ -686,12 +736,13 @@
       enabled: true
       backend: sella</code></pre>
   <p>对于近似路径，可显式使用 <code>backend: descent</code>，并在输出中写明它不是严格 IRC：</p>
-  <pre><code>  post:
-    irc:
-      enabled: true
-      backend: descent
-      displacement: 0.1
-      imaginary_cutoff_cm1: 50.0</code></pre>
+  <pre><code>calculation:
+  type: irc
+  init_structure: ts_opt.traj
+  backend: descent
+  mode_vector: first_imaginary_mode.npy
+  descent_delta: 0.1
+  direction: both</code></pre>
 
   <h2>9. 文档与实现一致性问题</h2>
   <p>在本次审查中还发现 ATST-Tools 当前文档有几处落后于实现，建议作为迁移前的文档治理任务先修正：</p>

@@ -34,6 +34,15 @@ class NEBMakeConfig(StrictConfig):
     format: str | None = Field(default=None, description="Optional ASE input format override.")
 
 
+class NEBEndpointOptimizationConfig(StrictConfig):
+    """Ordinary NEB endpoint optimization configuration."""
+
+    enabled: bool = Field(default=False, description="Relax endpoints before ordinary NEB.")
+    skip_if_has_results: bool = Field(default=True, description="Skip endpoints that already have energy and forces.")
+    fmax: float = Field(default=0.05, gt=0, description="Endpoint optimization force threshold.")
+    max_steps: int = Field(default=100, gt=0, description="Endpoint optimization step limit.")
+
+
 class NEBCalculation(StrictConfig):
     """Nudged elastic band workflow configuration."""
 
@@ -41,8 +50,12 @@ class NEBCalculation(StrictConfig):
     init_chain: str | None = Field(default=None, description="Initial NEB chain trajectory.")
     make: NEBMakeConfig | None = Field(default=None, description="Nested chain generation configuration.")
     trajectory: str = Field(default="neb.traj", description="NEB trajectory output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     restart: bool = Field(default=False, description="Restart from the latest complete trajectory band.")
     climb: bool = Field(default=True, description="Enable climbing-image NEB.")
+    two_stage: bool = Field(default=False, description="Run a short ordinary NEB warm-up before CI-NEB.")
+    stage1_steps: int = Field(default=5, gt=0, description="Maximum ordinary NEB warm-up steps for two-stage NEB.")
+    stage1_fmax: float = Field(default=0.1, gt=0, description="Force threshold for ordinary NEB warm-up.")
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     k: float | list[float] = Field(default=0.1, description="NEB spring constant(s) in eV/Ang^2.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
@@ -60,6 +73,10 @@ class NEBCalculation(StrictConfig):
     endpoint_singlepoint: Literal["auto", "always", "never"] = Field(
         default="auto",
         description="Endpoint result policy before NEB starts.",
+    )
+    endpoint_optimization: NEBEndpointOptimizationConfig = Field(
+        default_factory=NEBEndpointOptimizationConfig,
+        description="Optional endpoint relaxation before ordinary NEB.",
     )
 
     @field_validator("k")
@@ -156,6 +173,19 @@ class SellaCalculation(StrictConfig):
     directory: str = Field(default="sella_run", description="Calculator working directory.")
 
 
+class AutoReactiveBondsConfig(StrictConfig):
+    """Automatic CCQN reactive-bond enumeration configuration."""
+
+    enabled: bool = Field(default=False, description="Enable reactive-bond mode enumeration.")
+    molecule_indices: str | list[int] | None = Field(default=None, description="1-based adsorbate or molecule indices.")
+    active_molecule_indices: str | list[int] | None = Field(default=None, description="Optional active molecule atoms.")
+    active_catalyst_indices: str | list[int] | None = Field(default=None, description="Optional active catalyst atoms.")
+    cutoff_A: float = Field(default=3.0, gt=0, description="Maximum molecule-catalyst pair distance.")
+    max_modes: int = Field(default=20, gt=0, description="Maximum ranked modes to write to the manifest.")
+    max_bonds_per_mode: int = Field(default=1, gt=0, description="Maximum bond count in a mode.")
+    bond_detect_scale: float = Field(default=1.2, gt=0, description="Covalent radii multiplier used for labels.")
+
+
 class CCQNCalculation(StrictConfig):
     """Standalone CCQN saddle-point search configuration."""
 
@@ -164,12 +194,20 @@ class CCQNCalculation(StrictConfig):
     trajectory: str = Field(default="ccqn.traj", description="CCQN trajectory output.")
     logfile: str = Field(default="ccqn.log", description="CCQN optimizer log file.")
     final_structure: str = Field(default="ccqn_final.extxyz", description="Final optimized structure output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     restart: bool = Field(default=False, description="Restart from the last trajectory frame.")
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     max_steps: int | None = Field(default=200, gt=0, description="Maximum optimizer steps.")
     e_vector_method: Literal["ic", "interp"] = Field(default="ic", description="CCQN cone-axis construction method.")
     reactive_bonds: str | list[list[int]] | None = Field(default=None, description="1-based reactive bonds for IC mode.")
     product_file: str | None = Field(default=None, description="Product-like structure for interpolation mode.")
+    align_product_indices: bool = Field(default=False, description="Align product atom indices to the initial structure.")
+    auto_reactive_bonds: AutoReactiveBondsConfig = Field(
+        default_factory=AutoReactiveBondsConfig,
+        description="Automatic reactive-bond mode enumeration.",
+    )
+    mode_manifest: str = Field(default="ccqn_mode_manifest.json", description="CCQN reactive-mode manifest JSON.")
+    diagnostics_file: str | None = Field(default="ccqn_diagnostics.json", description="CCQN optimizer diagnostics JSON.")
     ic_mode: Literal["democratic", "sum"] = Field(default="democratic", description="IC bond contribution mode.")
     cos_phi: float = Field(default=0.5, gt=0, lt=1, description="Cosine of the cone half angle.")
     trust_radius_uphill: float = Field(default=0.1, gt=0, description="Fixed uphill trust radius in Ang.")
@@ -183,7 +221,7 @@ class CCQNCalculation(StrictConfig):
 
     @model_validator(mode="after")
     def _validate_direction_inputs(self) -> "CCQNCalculation":
-        if self.e_vector_method == "ic" and not self.reactive_bonds:
+        if self.e_vector_method == "ic" and not self.reactive_bonds and not self.auto_reactive_bonds.enabled:
             raise ValueError("calculation.reactive_bonds is required when e_vector_method=ic")
         if self.e_vector_method == "interp" and not self.product_file:
             raise ValueError("calculation.product_file is required when e_vector_method=interp")
@@ -234,6 +272,9 @@ class VibrationCalculation(StrictConfig):
     nfree: Literal[2, 4] = Field(default=2, description="Number of displacements per degree of freedom.")
     indices: list[int] | None = Field(default=None, description="Atom indices to vibrate; None means all atoms.")
     name: str = Field(default="vib", description="ASE vibration cache prefix.")
+    results_file: str = Field(default="vibration_results.json", description="Vibration JSON output.")
+    validation_file: str = Field(default="ts_validation.json", description="Transition-state validation JSON output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     restart: bool = Field(default=False, description="Reuse existing vibration cache files.")
     directory: str = Field(default="vib_run", description="Calculator working directory.")
     thermochemistry: ThermochemistryConfig = Field(
@@ -302,6 +343,13 @@ class D2SCCQNConfig(StrictConfig):
     directory: str | None = Field(default=None, description="CCQN calculator directory.")
     e_vector_method: Literal["interp", "ic"] = Field(default="interp", description="CCQN cone-axis method.")
     reactive_bonds: str | list[list[int]] | None = Field(default=None, description="1-based reactive bonds for IC mode.")
+    align_product_indices: bool = Field(default=False, description="Align product atom indices to the initial structure.")
+    auto_reactive_bonds: AutoReactiveBondsConfig = Field(
+        default_factory=AutoReactiveBondsConfig,
+        description="Automatic reactive-bond mode enumeration.",
+    )
+    mode_manifest: str = Field(default="ccqn_mode_manifest.json", description="CCQN reactive-mode manifest JSON.")
+    diagnostics_file: str | None = Field(default="ccqn_diagnostics.json", description="CCQN optimizer diagnostics JSON.")
     ic_mode: Literal["democratic", "sum"] = Field(default="democratic", description="IC bond contribution mode.")
     cos_phi: float = Field(default=0.5, gt=0, lt=1, description="Cosine of the cone half angle.")
     trust_radius_uphill: float = Field(default=0.1, gt=0, description="Fixed uphill trust radius in Ang.")
@@ -323,6 +371,7 @@ class D2SVibrationConfig(StrictConfig):
     nfree: Literal[2, 4] = Field(default=2, description="Number of displacements per degree of freedom.")
     name: str = Field(default="d2s_vib", description="ASE vibration cache prefix.")
     results_file: str = Field(default="d2s_vibration_results.json", description="Vibration JSON output.")
+    validation_file: str = Field(default="d2s_ts_validation.json", description="Transition-state validation JSON output.")
     directory: str = Field(default="VIBRATION", description="Vibration calculator directory.")
     thermochemistry: ThermochemistryConfig = Field(default_factory=ThermochemistryConfig, description="Thermochemistry settings.")
 
@@ -335,6 +384,7 @@ class D2SCalculation(StrictConfig):
     init_file: str = Field(description="Initial-state structure file.")
     final_file: str = Field(description="Final-state structure file.")
     directory: str = Field(default="run_d2s", description="Base workflow directory.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     restart: bool = Field(default=False, description="Reuse rough NEB and single-ended checkpoints.")
     endpoint_singlepoint: Literal["auto", "always", "never"] = Field(default="auto", description="Endpoint result policy.")
     endpoint_optimization: EndpointOptimizationConfig = Field(
@@ -349,12 +399,16 @@ class D2SCalculation(StrictConfig):
 
 
 class IRCCalculation(StrictConfig):
-    """Sella IRC workflow configuration."""
+    """IRC workflow configuration."""
 
-    type: Literal["irc"] = Field(description="Select the Sella intrinsic reaction coordinate workflow.")
+    type: Literal["irc"] = Field(description="Select the intrinsic reaction coordinate workflow.")
+    backend: Literal["sella", "descent"] = Field(default="sella", description="IRC backend.")
     init_structure: str = Field(description="Transition-state structure file.")
     trajectory: str = Field(default="irc_log.traj", description="IRC trajectory output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     normalized_trajectory: str | None = Field(default=None, description="Normalized trajectory for direction=both.")
+    mode_vector: str | None = Field(default=None, description="NumPy mode vector for descent IRC backend.")
+    descent_delta: float = Field(default=0.1, gt=0, description="Initial displacement along the descent IRC mode.")
     direction: Literal["both", "forward", "reverse"] = Field(default="both", description="IRC direction.")
     restart: bool = Field(default=False, description="Append from the last trajectory frame.")
     directory: str = Field(default="irc_run", description="Calculator working directory.")
@@ -365,6 +419,12 @@ class IRCCalculation(StrictConfig):
     gamma: float = Field(default=0.1, gt=0, description="Sella IRC gamma parameter.")
     irctol: float = Field(default=0.01, gt=0, description="IRC tolerance.")
     keep_going: bool = Field(default=False, description="Forwarded to sella.IRC.")
+
+    @model_validator(mode="after")
+    def _validate_backend_inputs(self) -> "IRCCalculation":
+        if self.backend == "descent" and not self.mode_vector:
+            raise ValueError("calculation.mode_vector is required when backend=descent")
+        return self
 
 
 CalculationConfig = Annotated[

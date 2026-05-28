@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 from typing import Any
 
 import numpy as np
@@ -13,6 +14,9 @@ from scipy.linalg import eigh
 from scipy.optimize import brentq, minimize
 
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.idpp import align_atom_indices
+from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
 
 
 def parse_reactive_bonds(value: Any, natoms: int | None = None) -> list[tuple[int, int]]:
@@ -200,6 +204,7 @@ class CCQNOptimizer(Optimizer):
         trust_radius_saddle_max: float = 0.2,
         hessian: bool = False,
         accept_initial_converged: bool = False,
+        diagnostics_file: str | None = None,
     ):
         """Initialize a CCQN optimizer.
 
@@ -221,6 +226,7 @@ class CCQNOptimizer(Optimizer):
             hessian: Use calculator Hessian when available.
             accept_initial_converged: Treat an already force-converged TS guess
                 as a PRFO-region point before the first optimizer step.
+            diagnostics_file: Optional JSON file for step-level diagnostics.
         """
         super().__init__(atoms, restart=restart, logfile=logfile, trajectory=trajectory, master=master)
         self.e_vector_method = str(e_vector_method).lower()
@@ -241,6 +247,8 @@ class CCQNOptimizer(Optimizer):
         self.prev_energy = None
         self.eigvals = None
         self.eigvecs = None
+        self.diagnostics_file = diagnostics_file
+        self.diagnostics_steps = []
 
         if self.e_vector_method not in {"ic", "interp"}:
             raise ValueError("e_vector_method must be 'ic' or 'interp'")
@@ -250,6 +258,32 @@ class CCQNOptimizer(Optimizer):
             raise ValueError("reactive_bonds is required for e_vector_method='ic'")
         if accept_initial_converged:
             self.mode = "prfo"
+
+    def _write_diagnostics(self) -> None:
+        if not self.diagnostics_file:
+            return
+        payload = {
+            "schema_version": "atst-ccqn-diagnostics-v1",
+            "steps": self.diagnostics_steps,
+        }
+        os.makedirs(os.path.dirname(self.diagnostics_file) or ".", exist_ok=True)
+        with open(self.diagnostics_file, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+
+    def _record_diagnostics(self, *, energy: float, gradient: np.ndarray, step: np.ndarray, eigvals: np.ndarray) -> None:
+        self.diagnostics_steps.append(
+            {
+                "step": len(self.diagnostics_steps),
+                "mode": self.mode,
+                "energy_eV": energy,
+                "max_force_eV_per_A": float(np.linalg.norm(gradient.reshape(-1, 3), axis=1).max()),
+                "step_norm_A": float(np.linalg.norm(step)),
+                "min_eigenvalue": float(eigvals[0]) if len(eigvals) else None,
+                "trust_radius_saddle_A": self.trust_radius_saddle,
+                "trust_radius_uphill_A": self.trust_radius_uphill,
+            }
+        )
+        self._write_diagnostics()
 
     def converged(self, forces=None) -> bool:
         """Return whether CCQN has converged to a PRFO saddle-region point."""
@@ -395,6 +429,7 @@ class CCQNOptimizer(Optimizer):
             step = self._solve_prfo(gradient, eigvals, eigvecs, energy)
 
         self.atoms.set_positions((positions + step).reshape(-1, 3))
+        self._record_diagnostics(energy=energy, gradient=gradient, step=step, eigvals=eigvals)
         self.prev_positions = positions
         self.prev_gradient = gradient
         self.prev_energy = energy
@@ -429,6 +464,19 @@ class AbacusCCQN:
         self.traj_file = traj_file
         self.product_atoms = product_atoms
 
+    def _write_mode_manifest(self, modes: list[dict[str, Any]], selected: dict[str, Any] | None) -> None:
+        manifest_file = self.calc_config.get("mode_manifest")
+        if not manifest_file:
+            return
+        payload = {
+            "schema_version": "atst-ccqn-mode-manifest-v1",
+            "selected_mode": selected,
+            "modes": modes,
+        }
+        os.makedirs(os.path.dirname(manifest_file) or ".", exist_ok=True)
+        with open(manifest_file, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+
     def set_calculator(self):
         """Return a workflow-local calculator."""
         directory = self.calc_config.get("directory", "ccqn_run")
@@ -445,8 +493,30 @@ class AbacusCCQN:
             product_atoms = read_structure(self.calc_config["product_file"])
             product_atoms.set_cell(atoms.get_cell())
             product_atoms.set_pbc(atoms.get_pbc())
+        if product_atoms is not None and self.calc_config.get("align_product_indices"):
+            product_atoms = align_atom_indices(atoms, product_atoms)
 
         reactive_bonds = parse_reactive_bonds(self.calc_config.get("reactive_bonds"), natoms=len(atoms))
+        modes = []
+        selected_mode = None
+        auto_config = self.calc_config.get("auto_reactive_bonds") or {}
+        if self.calc_config.get("e_vector_method", "ic") == "ic" and not reactive_bonds and auto_config.get("enabled"):
+            modes = enumerate_reactive_bond_modes(
+                atoms,
+                molecule_indices=auto_config.get("molecule_indices"),
+                active_molecule_indices=auto_config.get("active_molecule_indices"),
+                active_catalyst_indices=auto_config.get("active_catalyst_indices"),
+                cutoff_A=auto_config.get("cutoff_A", 3.0),
+                max_modes=auto_config.get("max_modes", 20),
+                max_bonds_per_mode=auto_config.get("max_bonds_per_mode", 1),
+                bond_detect_scale=auto_config.get("bond_detect_scale", 1.2),
+            )
+            if not modes:
+                raise ValueError("auto_reactive_bonds found no candidate reactive modes")
+            selected_mode = modes[0]
+            reactive_bonds = [tuple(pair) for pair in selected_mode["reactive_bonds"]]
+        if modes or self.calc_config.get("mode_manifest"):
+            self._write_mode_manifest(modes, selected_mode)
         optimizer = CCQNOptimizer(
             atoms,
             logfile=self.calc_config.get("logfile", "ccqn.log"),
@@ -460,6 +530,7 @@ class AbacusCCQN:
             trust_radius_saddle_initial=self.calc_config.get("trust_radius_saddle_initial", 0.05),
             hessian=self.calc_config.get("hessian", False),
             accept_initial_converged=self.calc_config.get("accept_initial_converged", False),
+            diagnostics_file=self.calc_config.get("diagnostics_file"),
         )
         max_steps = self.calc_config.get("max_steps")
         if max_steps is None:
@@ -470,4 +541,17 @@ class AbacusCCQN:
         if final_structure:
             os.makedirs(os.path.dirname(final_structure) or ".", exist_ok=True)
             write(final_structure, atoms)
+        artifacts = [{"role": "trajectory", "path": self.traj_file}]
+        if final_structure:
+            artifacts.append({"role": "ts_structure", "path": final_structure})
+        if self.calc_config.get("mode_manifest"):
+            artifacts.append({"role": "ccqn_mode_manifest", "path": self.calc_config["mode_manifest"]})
+        if self.calc_config.get("diagnostics_file"):
+            artifacts.append({"role": "ccqn_diagnostics", "path": self.calc_config["diagnostics_file"]})
+        write_artifact_manifest(
+            self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
+            workflow="ccqn",
+            artifacts=artifacts,
+            stages=[{"name": "ccqn", "status": "complete"}],
+        )
         return atoms

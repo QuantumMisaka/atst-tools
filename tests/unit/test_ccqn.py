@@ -1,7 +1,10 @@
+import json
+
 import numpy as np
 import pytest
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
+from ase.io import write
 
 
 class DoubleWellCalculator(Calculator):
@@ -134,3 +137,95 @@ def test_d2s_ccqn_uses_local_neb_reference(monkeypatch, tmp_path):
     np.testing.assert_allclose(calls[0]["positions"], [[0.5, 0.0, 0.0]])
     np.testing.assert_allclose(calls[0]["product"], [[1.0, 0.0, 0.0]])
     assert calls[0]["method"] == "interp"
+
+
+def test_reactive_modes_enumerates_ranked_molecule_surface_pairs():
+    from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
+
+    atoms = Atoms("HOPt2", positions=[[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [0.8, 0.0, 0.0], [4.5, 0.0, 0.0]])
+
+    modes = enumerate_reactive_bond_modes(
+        atoms,
+        molecule_indices=[1, 2],
+        active_molecule_indices=[1],
+        active_catalyst_indices=[3, 4],
+        cutoff_A=2.0,
+    )
+
+    assert modes[0]["reactive_bonds"] == [(0, 2)]
+    assert modes[0]["reactive_bonds_1based"] == [[1, 3]]
+    assert modes[0]["distance_A"] == pytest.approx(0.8)
+
+
+def test_abacus_ccqn_aligns_product_and_writes_mode_outputs(monkeypatch, tmp_path):
+    from atst_tools.mep import ccqn
+
+    init = Atoms("HO", positions=[[0.0, 0.0, 0.0], [5.0, 0.0, 0.0]])
+    product = Atoms("OH", positions=[[6.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    product_path = tmp_path / "product.traj"
+    write(product_path, product)
+    selected = {}
+
+    class FakeOptimizer:
+        def __init__(self, atoms, **kwargs):
+            selected.update(kwargs)
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ccqn.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DoubleWellCalculator())
+    monkeypatch.setattr(ccqn, "CCQNOptimizer", FakeOptimizer)
+
+    runner = ccqn.AbacusCCQN(
+        init.copy(),
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "ccqn",
+            "e_vector_method": "ic",
+            "product_file": str(product_path),
+            "align_product_indices": True,
+            "auto_reactive_bonds": {
+                "enabled": True,
+                "molecule_indices": [1],
+                "active_catalyst_indices": [2],
+                "cutoff_A": 10.0,
+            },
+            "mode_manifest": "ccqn_mode_manifest.json",
+            "diagnostics_file": "ccqn_diagnostics.json",
+            "max_steps": 1,
+            "final_structure": None,
+        },
+    )
+    runner.run()
+
+    assert selected["reactive_bonds"] == [(0, 1)]
+    np.testing.assert_allclose(selected["product_atoms"].get_positions(), [[1.0, 0.0, 0.0], [6.0, 0.0, 0.0]])
+    manifest = json.loads((tmp_path / "ccqn_mode_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["selected_mode"]["reactive_bonds_1based"] == [[1, 2]]
+    assert selected["diagnostics_file"] == "ccqn_diagnostics.json"
+
+
+def test_ccqn_optimizer_writes_json_diagnostics(tmp_path):
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms = Atoms("H", positions=[[0.1, 0.0, 0.0]], cell=[10, 10, 10], pbc=True)
+    atoms.calc = DoubleWellCalculator()
+    product = Atoms("H", positions=[[1.0, 0.0, 0.0]], cell=[10, 10, 10], pbc=True)
+    diagnostics = tmp_path / "diag.json"
+
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        hessian=True,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+    opt.step()
+
+    data = json.loads(diagnostics.read_text(encoding="utf-8"))
+    assert data["schema_version"] == "atst-ccqn-diagnostics-v1"
+    assert data["steps"][0]["mode"] in {"uphill", "prfo"}
+    assert "min_eigenvalue" in data["steps"][0]

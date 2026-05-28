@@ -7,6 +7,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io import write
 
 from atst_tools.utils.summary import (
+    summarize_artifact_manifest,
     summarize_d2s_config,
     summarize_neb_trajectory,
     summarize_trajectory,
@@ -131,3 +132,42 @@ calculator:
 
     assert summary["stages"]["rough_neb"]["status"] == "present"
     assert summary["stages"]["rough_neb"]["source"].endswith("run/neb_rough.traj")
+
+
+def test_artifact_manifest_summary_reports_existing_and_missing_files(tmp_path):
+    from atst_tools.utils.artifacts import write_artifact_manifest
+
+    present = tmp_path / "ts.traj"
+    present.write_text("placeholder", encoding="utf-8")
+    manifest = write_artifact_manifest(
+        tmp_path / "atst_artifacts.json",
+        workflow="ccqn",
+        artifacts=[
+            {"role": "ts_structure", "path": "ts.traj"},
+            {"role": "validation", "path": "missing.json"},
+        ],
+        stages=[{"name": "ccqn", "status": "complete"}],
+    )
+
+    summary = summarize_artifact_manifest(tmp_path / "atst_artifacts.json")
+
+    assert manifest["schema_version"] == "atst-artifacts-v1"
+    assert summary["workflow"] == "ccqn"
+    assert summary["artifacts"][0]["exists"] is True
+    assert summary["artifacts"][1]["exists"] is False
+
+
+def test_ts_validation_summary_classifies_one_imaginary_mode():
+    from atst_tools.utils.ts_validation import build_ts_validation_summary
+
+    validation = build_ts_validation_summary(
+        {
+            "frequencies": [100.0, 200.0, 300.0],
+            "imaginary_frequencies": [120.0, 0.0, 0.0],
+        },
+        fmax=0.03,
+        fmax_threshold=0.05,
+    )
+
+    assert validation["status"] == "pass"
+    assert validation["checks"]["n_imaginary_modes"]["value"] == 1
