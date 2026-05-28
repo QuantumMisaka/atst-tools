@@ -1,12 +1,6 @@
 calculation:
   type: neb
-  make:
-    init_structure: inputs/cy_pt_initial.traj
-    final_structure: inputs/cy_pt_final.traj
-    n_images: 5
-    method: IDPP
-    output: cy_pt_neb_5_images.traj
-    no_align: true
+  init_chain: inputs/cy_pt_neb_5_images.traj
   trajectory: neb_parallel_nested_mpi.traj
   climb: true
   fmax: 0.05

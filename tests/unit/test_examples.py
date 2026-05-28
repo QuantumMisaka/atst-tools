@@ -65,9 +65,7 @@ def test_cy_pt_parallel_neb_nested_mpi_example_is_sai_sized():
 
     assert calculation["type"] == "neb"
     assert calculation["parallel"] is True
-    assert calculation["make"]["n_images"] == 5
-    assert calculation["make"]["init_structure"] == "inputs/cy_pt_initial.traj"
-    assert calculation["make"]["final_structure"] == "inputs/cy_pt_final.traj"
+    assert calculation["init_chain"] == "inputs/cy_pt_neb_5_images.traj"
     assert abacus["mpi"] == 4
     assert abacus["omp"] == 8
     assert abacus["version_command"] == "abacus --version"
