@@ -23,6 +23,7 @@ from atst_tools.mep.neb import AbacusNEB
 from atst_tools.mep.autoneb import AutoNEBRunner
 from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
+from atst_tools.mep.ccqn import AbacusCCQN
 from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
@@ -132,6 +133,23 @@ calculation:
   max_steps: 100
   trajectory: sella.traj
   eta: 0.002
+""",
+        "ccqn": """\
+calculation:
+  type: ccqn
+  init_structure: inputs/ccqn_init.stru
+  fmax: 0.05
+  max_steps: 200
+  trajectory: ccqn.traj
+  logfile: ccqn.log
+  final_structure: ccqn_final.extxyz
+  e_vector_method: ic
+  reactive_bonds: "1-2"
+  ic_mode: democratic
+  cos_phi: 0.5
+  trust_radius_uphill: 0.1
+  trust_radius_saddle_initial: 0.05
+  accept_initial_converged: false
 """,
         "d2s": """\
 calculation:
@@ -550,12 +568,39 @@ def run_sella(config, calc_name, calc_config):
     LOGGER.info("Sella calculation finished")
 
 
+def run_ccqn(config, calc_name, calc_config):
+    """
+    Execute CCQN calculation workflow.
+
+    Args:
+        config (dict): Full configuration dictionary.
+        calc_name (str): Name of the calculator.
+        calc_config (dict): Calculation-specific configuration.
+    """
+    LOGGER.info("Starting CCQN calculation")
+    calc_config = _normalized_calculation(config, calc_config)
+
+    init_structure = calc_config["init_structure"]
+    traj_file = calc_config["trajectory"]
+    atoms = get_last_frame(traj_file) if calc_config.get("restart") else read_structure(init_structure)
+
+    ccqn = AbacusCCQN(
+        init_Atoms=atoms,
+        config=config,
+        calc_name=calc_name,
+        calc_config=calc_config,
+        traj_file=traj_file,
+    )
+    ccqn.run()
+    LOGGER.info("CCQN calculation finished")
+
+
 def _build_parser():
     description = "ATST-Tools: ASE workflows for ABACUS-first transition-state calculations"
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | d2s | relax | vibration | irc
+          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc
           calculator.name:  abacus | dp
 
         Common commands:
@@ -637,6 +682,8 @@ def run_from_args(args):
         run_dimer(config, calc_name, calc_config)
     elif calc_type == 'sella':
         run_sella(config, calc_name, calc_config)
+    elif calc_type == 'ccqn':
+        run_ccqn(config, calc_name, calc_config)
     elif calc_type == 'd2s':
         workflow = D2SWorkflow(config, calc_name, calc_config)
         workflow.run()

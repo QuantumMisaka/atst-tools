@@ -69,8 +69,26 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.sella.eta | calculation.type=sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.sella.order | calculation.type=sella | `int` | `1` | Saddle-point order. |
 | calculation.sella.directory | calculation.type=sella | `str` | `'sella_run'` | Calculator working directory. |
+| calculation.ccqn.type | calculation.type=ccqn | `'ccqn'` | `required` | Select the standalone CCQN saddle-point workflow. |
+| calculation.ccqn.init_structure | calculation.type=ccqn | `str` | `required` | Initial transition-state guess. |
+| calculation.ccqn.trajectory | calculation.type=ccqn | `str` | `'ccqn.traj'` | CCQN trajectory output. |
+| calculation.ccqn.logfile | calculation.type=ccqn | `str` | `'ccqn.log'` | CCQN optimizer log file. |
+| calculation.ccqn.final_structure | calculation.type=ccqn | `str` | `'ccqn_final.extxyz'` | Final optimized structure output. |
+| calculation.ccqn.restart | calculation.type=ccqn | `bool` | `False` | Restart from the last trajectory frame. |
+| calculation.ccqn.fmax | calculation.type=ccqn | `float` | `0.05` | Force convergence threshold in eV/Ang. |
+| calculation.ccqn.max_steps | calculation.type=ccqn | `int \| NoneType` | `200` | Maximum optimizer steps. |
+| calculation.ccqn.e_vector_method | calculation.type=ccqn | `'ic' \| 'interp'` | `'ic'` | CCQN cone-axis construction method. |
+| calculation.ccqn.reactive_bonds | calculation.type=ccqn | `str \| list[list[int]] \| NoneType` | `null` | 1-based reactive bonds for IC mode. |
+| calculation.ccqn.product_file | calculation.type=ccqn | `str \| NoneType` | `null` | Product-like structure for interpolation mode. |
+| calculation.ccqn.ic_mode | calculation.type=ccqn | `'democratic' \| 'sum'` | `'democratic'` | IC bond contribution mode. |
+| calculation.ccqn.cos_phi | calculation.type=ccqn | `float` | `0.5` | Cosine of the cone half angle. |
+| calculation.ccqn.trust_radius_uphill | calculation.type=ccqn | `float` | `0.1` | Fixed uphill trust radius in Ang. |
+| calculation.ccqn.trust_radius_saddle_initial | calculation.type=ccqn | `float` | `0.05` | Initial PRFO trust radius in Ang. |
+| calculation.ccqn.hessian | calculation.type=ccqn | `bool` | `False` | Use calculator Hessian when available. |
+| calculation.ccqn.accept_initial_converged | calculation.type=ccqn | `bool` | `False` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
+| calculation.ccqn.directory | calculation.type=ccqn | `str` | `'ccqn_run'` | Calculator working directory. |
 | calculation.d2s.type | calculation.type=d2s | `'d2s'` | `required` | Select the double-ended to single-ended transition-state workflow. |
-| calculation.d2s.method | calculation.type=d2s | `'dimer' \| 'sella'` | `'dimer'` | Single-ended refinement method. |
+| calculation.d2s.method | calculation.type=d2s | `'dimer' \| 'sella' \| 'ccqn'` | `'dimer'` | Single-ended refinement method. |
 | calculation.d2s.init_file | calculation.type=d2s | `str` | `required` | Initial-state structure file. |
 | calculation.d2s.final_file | calculation.type=d2s | `str` | `required` | Final-state structure file. |
 | calculation.d2s.directory | calculation.type=d2s | `str` | `'run_d2s'` | Base workflow directory. |
@@ -106,6 +124,21 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.sella.directory | calculation.d2s.sella | `str \| NoneType` | `null` | Sella calculator directory. |
 | calculation.d2s.sella.eta | calculation.d2s.sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.d2s.sella.order | calculation.d2s.sella | `int` | `1` | Saddle-point order. |
+| calculation.d2s.ccqn | calculation.type=d2s | `dict` | `schema defaults` | CCQN refinement configuration. |
+| calculation.d2s.ccqn.fmax | calculation.d2s.ccqn | `float` | `0.05` | CCQN force threshold. |
+| calculation.d2s.ccqn.max_steps | calculation.d2s.ccqn | `int \| NoneType` | `200` | CCQN maximum steps. |
+| calculation.d2s.ccqn.trajectory | calculation.d2s.ccqn | `str` | `'ccqn.traj'` | CCQN trajectory output. |
+| calculation.d2s.ccqn.logfile | calculation.d2s.ccqn | `str` | `'ccqn.log'` | CCQN optimizer log file. |
+| calculation.d2s.ccqn.final_structure | calculation.d2s.ccqn | `str` | `'ccqn_final.extxyz'` | Final optimized structure output. |
+| calculation.d2s.ccqn.directory | calculation.d2s.ccqn | `str \| NoneType` | `null` | CCQN calculator directory. |
+| calculation.d2s.ccqn.e_vector_method | calculation.d2s.ccqn | `'interp' \| 'ic'` | `'interp'` | CCQN cone-axis method. |
+| calculation.d2s.ccqn.reactive_bonds | calculation.d2s.ccqn | `str \| list[list[int]] \| NoneType` | `null` | 1-based reactive bonds for IC mode. |
+| calculation.d2s.ccqn.ic_mode | calculation.d2s.ccqn | `'democratic' \| 'sum'` | `'democratic'` | IC bond contribution mode. |
+| calculation.d2s.ccqn.cos_phi | calculation.d2s.ccqn | `float` | `0.5` | Cosine of the cone half angle. |
+| calculation.d2s.ccqn.trust_radius_uphill | calculation.d2s.ccqn | `float` | `0.1` | Fixed uphill trust radius in Ang. |
+| calculation.d2s.ccqn.trust_radius_saddle_initial | calculation.d2s.ccqn | `float` | `0.05` | Initial PRFO trust radius in Ang. |
+| calculation.d2s.ccqn.hessian | calculation.d2s.ccqn | `bool` | `False` | Use calculator Hessian when available. |
+| calculation.d2s.ccqn.accept_initial_converged | calculation.d2s.ccqn | `bool` | `False` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
 | calculation.d2s.vibration | calculation.type=d2s | `dict` | `schema defaults` | Optional vibration configuration. |
 | calculation.d2s.vibration.enabled | calculation.d2s.vibration | `bool` | `False` | Run vibration after single-ended refinement. |
 | calculation.d2s.vibration.indices | calculation.d2s.vibration | `'auto' \| 'all' \| list[int]` | `'auto'` | Atom index selection. |

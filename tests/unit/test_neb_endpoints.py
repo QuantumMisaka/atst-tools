@@ -122,7 +122,7 @@ def test_li_si_zero_endpoint_regression_changes_barrier():
     real_barrier = NEBTools(real).get_barrier(fit=False)[0]
     zero_barrier = NEBTools(zero).get_barrier(fit=False)[0]
 
-    assert real_barrier > 0.7
+    assert real_barrier == pytest.approx(0.9)
     assert zero_barrier == 0.0
 
 

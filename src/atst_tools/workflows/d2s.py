@@ -17,6 +17,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.dimer import AbacusDimer
 from atst_tools.mep.sella import AbacusSella
+from atst_tools.mep.ccqn import AbacusCCQN
 from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.idpp import Fast_IDPPSolver
@@ -26,6 +27,8 @@ from atst_tools.utils.neb_endpoints import (
     endpoint_policy,
     ensure_neb_endpoint_results,
     freeze_current_results,
+    freeze_results,
+    get_endpoint_results,
     has_endpoint_results,
 )
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
@@ -51,8 +54,8 @@ class D2SWorkflow:
         self.base_directory = self._base_directory()
         self.restart = calc_config["restart"]
 
-        if self.method not in {"dimer", "sella"}:
-            raise ValueError("D2S method must be 'dimer' or 'sella'")
+        if self.method not in {"dimer", "sella", "ccqn"}:
+            raise ValueError("D2S method must be 'dimer', 'sella', or 'ccqn'")
 
     def _base_directory(self) -> str:
         if "calculator" in self.config:
@@ -140,11 +143,28 @@ class D2SWorkflow:
         scale_fmax = self.neb_config["scale_fmax"]
         max_steps = self.neb_config["max_steps"]
 
+        input_endpoint_results = []
+        for atoms in (init_atoms, final_atoms):
+            results = get_endpoint_results(atoms)
+            input_endpoint_results.append(
+                (
+                    results[0],
+                    results[1],
+                    atoms.info.get("atst_endpoint_result", "provided"),
+                )
+                if results is not None
+                else None
+            )
+
         solver = Fast_IDPPSolver.from_endpoints(init_atoms, final_atoms, n_images)
         images = solver.run(
             maxiter=self.neb_config["idpp_maxiter"],
             tol=self.neb_config["idpp_tol"],
         )
+        for index, cached in zip((0, -1), input_endpoint_results):
+            if cached is not None:
+                energy, forces, status = cached
+                freeze_results(images[index], energy, forces, status=status)
 
         ensure_neb_endpoint_results(
             images,
@@ -153,6 +173,10 @@ class D2SWorkflow:
             directories=("endpoint_initial", "endpoint_final"),
             context="D2S rough DyNEB",
         )
+        for index, cached in zip((0, -1), input_endpoint_results):
+            if cached is not None:
+                energy, forces, status = cached
+                freeze_results(images[index], energy, forces, status=status)
         allow_shared = should_share_calculator(self.calc_name, self.config, parallel=False)
         shared_calc = self._get_calc("NEB/shared", shared=True) if allow_shared else None
         for index, image in enumerate(images[1:-1], start=1):
@@ -207,6 +231,31 @@ class D2SWorkflow:
                 max_steps=dimer_config.get("max_steps"),
             )
             return dimer_traj
+
+        if self.method == "ccqn":
+            ccqn_config = self._single_config_with_directory("CCQN")
+            ccqn_traj = ccqn_config["trajectory"]
+            if self.restart and os.path.exists(ccqn_traj):
+                print(f"=== CCQN trajectory exists ({ccqn_traj}); skipping single-ended step ===")
+                return ccqn_traj
+            product_atoms = None
+            if ccqn_config.get("e_vector_method", "interp") == "interp":
+                idx_after = min(len(neb_chain) - 1, max_idx + 1)
+                idx_before = max(0, max_idx - 1)
+                ref_idx = idx_after if idx_after != max_idx else idx_before
+                product_atoms = neb_chain[ref_idx].copy()
+                product_atoms.set_cell(ts_guess.get_cell())
+                product_atoms.set_pbc(ts_guess.get_pbc())
+            ccqn = AbacusCCQN(
+                ts_guess,
+                self.config,
+                self.calc_name,
+                ccqn_config,
+                traj_file=ccqn_traj,
+                product_atoms=product_atoms,
+            )
+            ccqn.run()
+            return ccqn_traj
 
         sella_config = self._single_config_with_directory("SELLA")
         sella_traj = sella_config["trajectory"]

@@ -24,6 +24,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
+from atst_tools.utils.neb_endpoints import freeze_results, get_endpoint_results
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
@@ -495,6 +496,15 @@ class AutoNEBRunner:
         """Copy middle-image constraints and magmoms to endpoints as main did."""
         if len(self.init_chain) < 3:
             return
+        endpoint_results = {}
+        for index in (0, -1):
+            results = get_endpoint_results(self.init_chain[index])
+            if results is not None:
+                endpoint_results[index] = (
+                    results[0],
+                    results[1],
+                    self.init_chain[index].info.get("atst_endpoint_result", "provided"),
+                )
         reference = self.init_chain[len(self.init_chain) // 2]
         magmoms = reference.get_initial_magnetic_moments()
         constraints = reference.constraints
@@ -502,6 +512,8 @@ class AutoNEBRunner:
             endpoint.set_initial_magnetic_moments(magmoms)
             if constraints:
                 endpoint.set_constraint(deepcopy(constraints))
+        for index, (energy, forces, status) in endpoint_results.items():
+            freeze_results(self.init_chain[index], energy, forces, status=status)
 
     def _base_directory(self):
         base_dir = self.calc_config['directory']

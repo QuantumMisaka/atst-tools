@@ -10,6 +10,7 @@ atst run --dry-run config.yaml
 atst run --restart config.yaml
 atst run --list-types
 atst run --show-template neb --calculator abacus
+atst run --show-template ccqn --calculator abacus
 atst run --show-template irc --calculator abacus
 ```
 
@@ -17,7 +18,7 @@ atst run --show-template irc --calculator abacus
 configuration without launching calculators. `--restart` temporarily sets
 `calculation.restart: true` without editing the YAML file. `--list-types`
 prints supported workflow types. `--show-template` accepts `neb`, `autoneb`,
-`dimer`, `sella`, `d2s`, `relax`, `vibration`, or `irc`; combine it with
+`dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, or `irc`; combine it with
 `--calculator {abacus,dp}` to choose the template backend. `--log-level`
 accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR`.
 
@@ -63,6 +64,8 @@ atst neb make INIT FINAL N_IMAGES --from-chain old_neb.traj -o inputs/init_neb_c
 atst neb post neb.traj --n-max 5 --plot --vib-analysis
 atst neb post neb.traj --n-max 5 --write-latest neb_latest
 atst neb post --autoneb-prefix run_autoneb --write-neb-init-chain init_neb_chain.traj
+atst neb summary neb.traj --n-max 5 --tail 5
+atst neb summary --autoneb-prefix run_autoneb --format json --output neb_summary.json
 ```
 
 `atst neb make` performs structure interpolation only. If the input endpoints are pure structures without energy/force results, the output chain marks endpoint results as placeholders. `atst run` repairs those placeholders by running endpoint single-point calculations before NEB/AutoNEB starts; do not pass placeholder chains directly to bare ASE NEB.
@@ -70,6 +73,8 @@ atst neb post --autoneb-prefix run_autoneb --write-neb-init-chain init_neb_chain
 `atst neb make` also supports `--fix HEIGHT:DIR`, `--mag ELEMENT:MOMENT[,ELEMENT:MOMENT...]`, `--from-chain`, `--ts`, and `--no-align`. `sort_tol` and pymatgen autosort are intentionally not part of the refactored CLI.
 
 `atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices. It supports `--n-max`, `--plot`, `--plot-all`, `--view`, `--vib-analysis`, `--vib-thr`, `--output-prefix`, and `--strict-band`. It can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
+
+`atst neb summary` is a read-only monitor/post-summary command. For ordinary NEB trajectories it reports the band size, complete optimization steps, incomplete frame remainder, per-step raw maximum-force image, image energy, barrier, and delta E. For AutoNEB it reads the current final chain from `--autoneb-prefix` or `--autoneb-files`. Use `--format json` and `--output` for machine-readable reports, `--tail N` for compact terminal output, and `--watch SEC` for polling a running job.
 
 ## Trajectory Tools
 
@@ -88,30 +93,42 @@ atst traj transform neb.traj --neb --n-max 5 --format cif --output-prefix latest
 atst dimer make-from-neb neb.traj \
   --output-traj inputs/dimer_init.traj \
   --output-vector inputs/displacement_vector.npy
+atst dimer summary run_dimer.traj --tail 5
+atst sella summary run_sella.traj --tail 5
+atst ccqn summary run_ccqn.traj --tail 5
 ```
 
 This command extracts the highest-energy NEB image and a normalized displacement vector for a Dimer calculation. It accepts `--n-max`, `--output-traj`, `--output-vector`, and `--norm`. The Dimer calculation itself remains a YAML workflow through `atst run`.
 `--output-structure` is accepted as a hidden compatibility alias during the refactor period.
+
+`dimer summary`, `sella summary`, and `ccqn summary` read existing optimization trajectories and report frame count, latest energy, latest raw maximum force, and per-frame energy/force rows. They support `--format`, `--output`, `--tail`, and `--watch`.
 
 ## Relax Tools
 
 ```bash
 atst relax post relax.traj --output-format stru --output STRU
 atst relax post sella.traj --ind -1 --output-format traj --output restart.traj
+atst relax summary relax.traj --tail 5
 ```
 
 `atst relax post` extracts one frame from a relaxation, Dimer, or Sella trajectory, prints the energy and maximum atomic force, and writes a restart structure. Use `--ind` to choose the frame, `--output-format {stru,cif,poscar,traj,xyz}` to choose the writer, and `--output` to choose the path. This is the lightweight path for preparing TS relax / Single-End Methods restart inputs.
+
+`atst relax summary` is read-only and reports the energy/force trend for an existing relaxation trajectory.
 
 ## Vibration Tools
 
 ```bash
 atst vibration post config.yaml
 atst vibration post config.yaml --write-modes
+atst vibration summary config.yaml
+atst d2s summary config.yaml --format json --output d2s_summary.json
 ```
 
 This command rebuilds vibration summary and thermochemistry JSON from existing ASE vibration cache files. It does not launch new force calculations. Use `--write-modes` to write ASE vibration mode trajectories and `--output` to choose the JSON path.
 It supports the same thermochemistry configuration as `calculation.type: vibration`, including harmonic corrections and ideal-gas corrections for small molecules.
 
+`atst vibration summary` checks existing vibration cache files and any available vibration result JSON without running new displacements. `atst d2s summary` reads a D2S YAML file and summarizes available endpoint, rough NEB, single-ended, and optional vibration stage outputs.
+
 ## Workflow CLI Boundary
 
-`config validate`, `abacus prepare/collect`, `neb make/post`, `dimer make-from-neb`, `relax post`, and `vibration post` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, D2S, Relax, Vibration, and IRC calculations remain YAML workflows through `atst run`.
+`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, and IRC calculations remain YAML workflows through `atst run`.

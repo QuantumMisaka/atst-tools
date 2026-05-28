@@ -1,7 +1,11 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+import yaml
+
+from atst_tools.utils.io import read_structure
 
 
 REFERENCE_CASES = {
@@ -46,11 +50,26 @@ REFERENCE_CASES = {
     },
     "05_sella_H2-Au": {
         "reference_type": "single_ended_ts",
-        "final_energy_eV": -239255.122869,
+        "final_energy_eV": -239255.127237,
         "main_final_energy_eV": -239255.122160,
-        "energy_delta_eV": -0.000709,
-        "transition_state_fmax_eV_per_A": 0.048256,
-        "transition_state_rmsd_to_main_A": 0.000007,
+        "energy_delta_eV": -0.005077,
+        "transition_state_fmax_eV_per_A": 0.035438,
+        "transition_state_rmsd_to_main_A": 0.007952,
+        "initial_rmsd_to_reference_A": 0.000101,
+        "trajectory_frames": 9,
+        "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
+    },
+    "12_ccqn_H2-Au": {
+        "reference_type": "single_ended_ts",
+        "final_energy_eV": -239255.123188,
+        "matched_sella_case": "05_sella_H2-Au",
+        "energy_delta_to_sella_eV": 0.004049,
+        "transition_state_fmax_eV_per_A": 0.046243,
+        "fmax_delta_to_sella_eV_per_A": 0.010805,
+        "transition_state_rmsd_to_sella_A": 0.007682,
+        "transition_state_rmsd_to_reference_A": 0.000334,
+        "initial_rmsd_to_reference_A": 0.000101,
+        "trajectory_frames": 14,
         "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
     },
     "08_d2s_Cy-Pt": {
@@ -97,6 +116,52 @@ def test_reference_results_record_ts_artifacts_for_barrier_cases():
         assert case["transition_state_index"] is not None
         assert case["forward_barrier_eV"] > 0
         assert (root / case["transition_state_structure"]).is_file()
+
+
+def test_ccqn_h2_au_reference_matches_sella_result():
+    root = Path(__file__).resolve().parents[2]
+    data = json.loads((root / "examples" / "reference_results.json").read_text(encoding="utf-8"))
+
+    ccqn = data["cases"]["12_ccqn_H2-Au"]
+    sella = data["cases"]["05_sella_H2-Au"]
+
+    assert ccqn["matched_sella_case"] == "05_sella_H2-Au"
+    assert ccqn["energy_delta_to_sella_eV"] == pytest.approx(
+        abs(ccqn["final_energy_eV"] - sella["final_energy_eV"]),
+        abs=1e-6,
+    )
+    assert ccqn["energy_delta_to_sella_eV"] <= 0.01
+    assert ccqn["transition_state_rmsd_to_sella_A"] <= 0.02
+    assert sella["transition_state_fmax_eV_per_A"] <= 0.05
+    assert ccqn["transition_state_fmax_eV_per_A"] <= 0.05
+    assert sella["trajectory_frames"] >= 3
+    assert ccqn["trajectory_frames"] >= 3
+    assert ccqn["transition_state_structure"] == sella["transition_state_structure"]
+
+
+def test_h2_au_sella_and_ccqn_examples_use_perturbed_inputs():
+    root = Path(__file__).resolve().parents[2]
+    reference = read_structure(root / "examples" / "reference_structures" / "05_sella_H2-Au_final_ts.extxyz")
+    sella_input = read_structure(root / "examples" / "05_sella_H2-Au" / "inputs" / "sella_init.stru")
+    ccqn_input = read_structure(root / "examples" / "12_ccqn_H2-Au" / "inputs" / "ccqn_init.stru")
+    config = yaml.safe_load((root / "examples" / "12_ccqn_H2-Au" / "config.yaml").read_text(encoding="utf-8"))
+    smoke_config = yaml.safe_load(
+        (root / "examples" / "12_ccqn_H2-Au" / "config_smoke.yaml").read_text(encoding="utf-8")
+    )
+
+    def rmsd(atoms_a, atoms_b):
+        delta = atoms_a.get_positions() - atoms_b.get_positions()
+        return float(np.sqrt((delta * delta).mean()))
+
+    assert rmsd(sella_input, reference) > 5e-5
+    assert rmsd(sella_input, reference) < 0.005
+    assert rmsd(ccqn_input, reference) == pytest.approx(rmsd(sella_input, reference), abs=1e-9)
+    assert rmsd(ccqn_input, sella_input) == pytest.approx(0.0, abs=1e-12)
+
+    for loaded_config in (config, smoke_config):
+        calculation = loaded_config["calculation"]
+        assert calculation["init_structure"] == "inputs/ccqn_init.stru"
+        assert calculation["accept_initial_converged"] is False
 
 
 @pytest.mark.integration

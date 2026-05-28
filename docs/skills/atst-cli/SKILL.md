@@ -56,14 +56,21 @@ atst abacus prepare CONFIG.yaml --structure STRUCTURE --output-dir DIR
 atst abacus collect RUN_DIR --output abacus_results.json
 atst neb make INIT FINAL N_IMAGES -o init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max N --vib-analysis
+atst neb summary neb.traj --n-max N --tail 5
 atst dimer make-from-neb neb.traj --n-max N --output-traj dimer_init.traj
+atst dimer summary dimer.traj --tail 5
 atst relax post relax.traj --output-format traj --output restart.traj
+atst relax summary relax.traj --tail 5
 atst vibration post config.yaml --output vibration_results.json
+atst vibration summary config.yaml
+atst d2s summary config.yaml --format json --output d2s_summary.json
 atst traj collect frames/*.xyz -o collection.traj --no-calc
 atst traj transform collection.traj --format extxyz --output-prefix collection
 ```
 
 `atst neb make --method` accepts `IDPP` (default) or `linear`.
+`summary` commands are read-only monitors/post-summaries; they do not create
+calculators or launch ABACUS/DP.
 
 ## ABACUS Wrapper Boundary
 

@@ -461,6 +461,29 @@ def test_autoneb_runner_copies_middle_constraints_to_endpoints(monkeypatch):
     assert runner.init_chain[-1].get_initial_magnetic_moments().tolist() == [1.5]
 
 
+def test_autoneb_runner_preserves_endpoint_results_when_copying_middle_conditions(monkeypatch):
+    from atst_tools.mep import autoneb
+    from atst_tools.utils.neb_endpoints import ENDPOINT_COMPUTED, ENDPOINT_RESULT_KEY
+
+    chain = [_atoms(1.0), _atoms(0.1), _atoms(0.2), _atoms(2.0)]
+    chain[0].info[ENDPOINT_RESULT_KEY] = ENDPOINT_COMPUTED
+    chain[-1].info[ENDPOINT_RESULT_KEY] = ENDPOINT_COMPUTED
+    chain[2].set_initial_magnetic_moments([1.5])
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+
+    assert runner.init_chain[0].get_potential_energy() == pytest.approx(1.0)
+    assert runner.init_chain[-1].get_potential_energy() == pytest.approx(2.0)
+    assert runner.init_chain[0].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+    assert runner.init_chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+
+
 def test_autoneb_runner_passes_optimizer_kwargs_to_optimizer(monkeypatch):
     from atst_tools.mep import autoneb
 
@@ -693,6 +716,56 @@ def test_d2s_rough_neb_forwards_optimizer_kwargs(monkeypatch, tmp_path):
     workflow.run_rough_neb(chain[0], chain[-1])
 
     assert optimizer_kwargs == {"downhill_check": True, "maxstep": 0.05}
+
+
+def test_d2s_rough_neb_preserves_endpoint_results_after_idpp(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+    from atst_tools.utils.neb_endpoints import ENDPOINT_COMPUTED, ENDPOINT_RESULT_KEY
+
+    monkeypatch.chdir(tmp_path)
+    init = _atoms(1.0)
+    final = _atoms(2.0)
+    init.info[ENDPOINT_RESULT_KEY] = ENDPOINT_COMPUTED
+    final.info[ENDPOINT_RESULT_KEY] = ENDPOINT_COMPUTED
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            return [init.copy(), _atoms(1.5), final.copy()]
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(9.0))
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: images)
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    calc_config = d2s.apply_calculation_defaults(
+        {
+            "type": "d2s",
+            "method": "sella",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "endpoint_singlepoint": "never",
+            "neb": {"n_images": 1},
+        }
+    )
+    workflow = d2s.D2SWorkflow(
+        {"config_version": "2.0.0", "calculator": {"name": "abacus", "abacus": {"directory": "run_d2s", "parameters": {}}}},
+        "abacus",
+        calc_config,
+    )
+
+    chain = workflow.run_rough_neb(init, final)
+
+    assert chain[0].get_potential_energy() == pytest.approx(1.0)
+    assert chain[-1].get_potential_energy() == pytest.approx(2.0)
+    assert chain[0].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+    assert chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
 
 
 def test_d2s_rough_neb_forwards_scale_fmax(monkeypatch, tmp_path):

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 
 
 CONFIG_VERSION = "2.0.0"
-VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc")
+VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
 
@@ -159,6 +159,40 @@ class SellaCalculation(StrictConfig):
     directory: str = Field(default="sella_run", description="Calculator working directory.")
 
 
+class CCQNCalculation(StrictConfig):
+    """Standalone CCQN saddle-point search configuration."""
+
+    type: Literal["ccqn"] = Field(description="Select the standalone CCQN saddle-point workflow.")
+    init_structure: str = Field(description="Initial transition-state guess.")
+    trajectory: str = Field(default="ccqn.traj", description="CCQN trajectory output.")
+    logfile: str = Field(default="ccqn.log", description="CCQN optimizer log file.")
+    final_structure: str = Field(default="ccqn_final.extxyz", description="Final optimized structure output.")
+    restart: bool = Field(default=False, description="Restart from the last trajectory frame.")
+    fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
+    max_steps: int | None = Field(default=200, gt=0, description="Maximum optimizer steps.")
+    e_vector_method: Literal["ic", "interp"] = Field(default="ic", description="CCQN cone-axis construction method.")
+    reactive_bonds: str | list[list[int]] | None = Field(default=None, description="1-based reactive bonds for IC mode.")
+    product_file: str | None = Field(default=None, description="Product-like structure for interpolation mode.")
+    ic_mode: Literal["democratic", "sum"] = Field(default="democratic", description="IC bond contribution mode.")
+    cos_phi: float = Field(default=0.5, gt=0, lt=1, description="Cosine of the cone half angle.")
+    trust_radius_uphill: float = Field(default=0.1, gt=0, description="Fixed uphill trust radius in Ang.")
+    trust_radius_saddle_initial: float = Field(default=0.05, gt=0, description="Initial PRFO trust radius in Ang.")
+    hessian: bool = Field(default=False, description="Use calculator Hessian when available.")
+    accept_initial_converged: bool = Field(
+        default=False,
+        description="Accept an already force-converged TS guess before taking an uphill CCQN step.",
+    )
+    directory: str = Field(default="ccqn_run", description="Calculator working directory.")
+
+    @model_validator(mode="after")
+    def _validate_direction_inputs(self) -> "CCQNCalculation":
+        if self.e_vector_method == "ic" and not self.reactive_bonds:
+            raise ValueError("calculation.reactive_bonds is required when e_vector_method=ic")
+        if self.e_vector_method == "interp" and not self.product_file:
+            raise ValueError("calculation.product_file is required when e_vector_method=interp")
+        return self
+
+
 class RelaxCalculation(StrictConfig):
     """Structure relaxation workflow configuration."""
 
@@ -260,6 +294,28 @@ class D2SSellaConfig(StrictConfig):
     order: int = Field(default=1, gt=0, description="Saddle-point order.")
 
 
+class D2SCCQNConfig(StrictConfig):
+    """D2S CCQN refinement configuration."""
+
+    fmax: float = Field(default=0.05, gt=0, description="CCQN force threshold.")
+    max_steps: int | None = Field(default=200, gt=0, description="CCQN maximum steps.")
+    trajectory: str = Field(default="ccqn.traj", description="CCQN trajectory output.")
+    logfile: str = Field(default="ccqn.log", description="CCQN optimizer log file.")
+    final_structure: str = Field(default="ccqn_final.extxyz", description="Final optimized structure output.")
+    directory: str | None = Field(default=None, description="CCQN calculator directory.")
+    e_vector_method: Literal["interp", "ic"] = Field(default="interp", description="CCQN cone-axis method.")
+    reactive_bonds: str | list[list[int]] | None = Field(default=None, description="1-based reactive bonds for IC mode.")
+    ic_mode: Literal["democratic", "sum"] = Field(default="democratic", description="IC bond contribution mode.")
+    cos_phi: float = Field(default=0.5, gt=0, lt=1, description="Cosine of the cone half angle.")
+    trust_radius_uphill: float = Field(default=0.1, gt=0, description="Fixed uphill trust radius in Ang.")
+    trust_radius_saddle_initial: float = Field(default=0.05, gt=0, description="Initial PRFO trust radius in Ang.")
+    hessian: bool = Field(default=False, description="Use calculator Hessian when available.")
+    accept_initial_converged: bool = Field(
+        default=False,
+        description="Accept an already force-converged TS guess before taking an uphill CCQN step.",
+    )
+
+
 class D2SVibrationConfig(StrictConfig):
     """Optional D2S vibration analysis configuration."""
 
@@ -278,7 +334,7 @@ class D2SCalculation(StrictConfig):
     """Double-ended to single-ended transition-state workflow configuration."""
 
     type: Literal["d2s"] = Field(description="Select the double-ended to single-ended transition-state workflow.")
-    method: Literal["dimer", "sella"] = Field(default="dimer", description="Single-ended refinement method.")
+    method: Literal["dimer", "sella", "ccqn"] = Field(default="dimer", description="Single-ended refinement method.")
     init_file: str = Field(description="Initial-state structure file.")
     final_file: str = Field(description="Final-state structure file.")
     directory: str = Field(default="run_d2s", description="Base workflow directory.")
@@ -291,6 +347,7 @@ class D2SCalculation(StrictConfig):
     neb: D2SNEBConfig = Field(default_factory=D2SNEBConfig, description="Rough DyNEB configuration.")
     dimer: D2SDimerConfig = Field(default_factory=D2SDimerConfig, description="Dimer refinement configuration.")
     sella: D2SSellaConfig = Field(default_factory=D2SSellaConfig, description="Sella refinement configuration.")
+    ccqn: D2SCCQNConfig = Field(default_factory=D2SCCQNConfig, description="CCQN refinement configuration.")
     vibration: D2SVibrationConfig = Field(default_factory=D2SVibrationConfig, description="Optional vibration configuration.")
 
 
@@ -319,6 +376,7 @@ CalculationConfig = Annotated[
         AutoNEBCalculation,
         DimerCalculation,
         SellaCalculation,
+        CCQNCalculation,
         D2SCalculation,
         RelaxCalculation,
         VibrationCalculation,
@@ -332,6 +390,7 @@ CALCULATION_SCHEMA_BY_TYPE: dict[str, type[StrictConfig]] = {
     "autoneb": AutoNEBCalculation,
     "dimer": DimerCalculation,
     "sella": SellaCalculation,
+    "ccqn": CCQNCalculation,
     "d2s": D2SCalculation,
     "relax": RelaxCalculation,
     "vibration": VibrationCalculation,

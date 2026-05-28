@@ -56,6 +56,7 @@ atst run config.yaml
 ```bash
 atst run --list-types
 atst run --show-template neb --calculator abacus
+atst run --show-template ccqn --calculator abacus
 atst run --show-template d2s --calculator dp
 ```
 
@@ -67,14 +68,15 @@ atst run --show-template d2s --calculator dp
 | :--- | :--- | :--- |
 | `neb` | NEB / DyNEB 路径优化 | `atst run config.yaml` |
 | `autoneb` | 自动插点 NEB | `atst run config.yaml` |
-| `d2s` | 粗 NEB 到 Dimer/Sella 单端 TS 搜索 | `atst run config.yaml` |
+| `d2s` | 粗 NEB 到 Dimer/Sella/CCQN 单端 TS 搜索 | `atst run config.yaml` |
 | `dimer` | Dimer 单端鞍点搜索 | `atst run config.yaml` |
 | `sella` | Sella 鞍点搜索 | `atst run config.yaml` |
+| `ccqn` | CCQN 单端鞍点搜索 | `atst run config.yaml` |
 | `relax` | 结构优化 | `atst run config.yaml` |
 | `vibration` | 振动频率和热化学校正 | `atst run config.yaml` |
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
 
-D2S 和 IRC 已纳入 2.0.0 schema 与示例，不再是待集成状态。
+D2S、CCQN 和 IRC 已纳入 2.0.0 schema 与示例，不再是待集成状态。
 
 ## 5. ABACUS / abacuslite 集成
 
@@ -107,7 +109,7 @@ calculator:
 ATST-Tools 是分层 wrapper：
 
 - 复杂工作流通过 `atst run CONFIG.yaml` 使用 abacuslite 作为 ASE calculator
-  backend，例如 NEB、D2S、Relax、Vibration、IRC。
+  backend，例如 NEB、D2S、CCQN、Relax、Vibration、IRC。
 - 简单前处理通过 `atst abacus prepare` 生成 `INPUT`、`KPT`、`STRU`。
 - 简单后处理通过 `atst abacus collect` 生成只读 JSON 摘要，并在文件齐全时
   解析最终结构。
@@ -121,14 +123,21 @@ ATST-Tools 是分层 wrapper：
 ```bash
 atst neb make inputs/init.xyz inputs/final.xyz 5 -o inputs/init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max 5 --vib-analysis --write-latest neb_latest
+atst neb summary neb.traj --n-max 5 --tail 5
 atst dimer make-from-neb neb.traj --n-max 5 --output-traj dimer_init.traj
+atst dimer summary dimer.traj --tail 5
 atst relax post relax.traj --output-format traj --output restart.traj
+atst relax summary relax.traj --tail 5
 atst vibration post config.yaml --output vibration_results.json
+atst vibration summary config.yaml
+atst d2s summary config.yaml --format json --output d2s_summary.json
 atst traj collect frames/*.xyz -o collection.traj --no-calc
 atst traj transform collection.traj --format extxyz --output-prefix collection
 ```
 
 `atst neb make --method` 可选 `IDPP`（默认）或 `linear`。
+`summary` 子命令只读已有轨迹、cache 或阶段输出，可用于 Slurm 任务监控和最终结果摘要；
+不会创建 calculator，也不会运行 ABACUS/DP。
 
 ABACUS 前后处理：
 
@@ -146,6 +155,7 @@ atst abacus collect run_abacus --output abacus_results.json
 - AutoNEB：`examples/03_autoneb_Cy-Pt/config.yaml`
 - Dimer：`examples/04_dimer_CO-Pt/config.yaml`
 - Sella：`examples/05_sella_H2-Au/config.yaml`
+- CCQN：`examples/12_ccqn_H2-Au/config.yaml`
 - Vibration：`examples/07_vibration_H2-Au/config.yaml`
 - D2S：`examples/08_d2s_Cy-Pt/config.yaml`
 - IRC：`examples/10_irc_H2/config.yaml`

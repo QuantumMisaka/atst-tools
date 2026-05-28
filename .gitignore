@@ -20,6 +20,7 @@ slurm-*
 *.err
 *.log
 *.traj
+*_final.extxyz
 *.json
 !examples/reference_results.json
 !examples/09_lightweight_cli/vib/

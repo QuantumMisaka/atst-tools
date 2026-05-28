@@ -19,13 +19,14 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `05_sella_H2-Au/`: Sella method for the same system.
 *   `06_relax_H2-Au/`: Geometry optimization of the initial state.
 *   `07_vibration_H2-Au/`: Vibrational analysis of the Transition State.
+*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system.
 
 ### 3. Advanced Workflows (Cyclohexane on Pt@Graphene)
 *   `03_autoneb_Cy-Pt/`: **Cyclohexane on Pt-doped Graphene**. Demonstrates the **AutoNEB** workflow for complex paths.
-*   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer search.
+*   `08_d2s_Cy-Pt/`: **Double-to-Single (D2S)** workflow, combining rough NEB with precise Sella/Dimer/CCQN search.
 
 ### 4. Lightweight Commands and Auxiliary Workflows
-*   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, `atst dimer`, `atst relax post`, and `atst vibration post`.
+*   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, summary commands, `atst dimer`, `atst relax post`, and `atst vibration post`.
 *   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, and `reverse`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
 
@@ -65,7 +66,9 @@ This path does not require ABACUS or DP:
 cd examples/09_lightweight_cli
 atst neb make inputs/init.xyz inputs/final.xyz 3 -o inputs/init_neb_chain.traj --method linear
 atst neb post inputs/neb_result.extxyz --n-max 1 --vib-analysis
+atst neb summary inputs/neb_result.extxyz --n-max 1 --tail 5
 atst relax post inputs/relax_result.extxyz --output-format traj --output restart.traj
+atst relax summary inputs/relax_result.extxyz --tail 5
 ```
 
 ### ABACUS workflow path
@@ -90,7 +93,7 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 ```
 
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
-then Dimer or Sella, with optional vibration follow-up.
+then Dimer, Sella, or CCQN, with optional vibration follow-up.
 
 ### NEB image-level MPI smoke
 
@@ -133,6 +136,7 @@ script or replace `mpirun` with the site launcher that exposes an mpi4py world.
 | `09_lightweight_cli` | Minimal local fixtures | H | Lightweight CLI |
 | `10_irc_H2` | H2 TS fixture | H | IRC |
 | `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |
+| `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
 
 ## Reference Results
 
@@ -147,8 +151,9 @@ validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
 | `02_neb_H2-Au` | NEB barrier | 4 | `1.124752` eV (`+0.003972` eV vs main) | `reference_structures/02_neb_H2-Au_ts.extxyz` |
 | `03_autoneb_Cy-Pt` | AutoNEB barrier | 5 | `1.330070` eV (`+0.002184` eV vs main) | `reference_structures/03_autoneb_Cy-Pt_ts.extxyz` |
 | `04_dimer_CO-Pt` | Dimer final TS | n/a | final fmax `0.033976` eV/Ang; energy delta `-0.001867` eV vs main | `reference_structures/04_dimer_CO-Pt_final_ts.extxyz` |
-| `05_sella_H2-Au` | Sella final TS | n/a | final fmax `0.048256` eV/Ang; energy delta `-0.000709` eV vs main | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
+| `05_sella_H2-Au` | Sella perturbed TS search | n/a | final fmax `0.035438` eV/Ang; RMSD `0.007952` Ang to reference TS | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 | `08_d2s_Cy-Pt` | D2S first rough barrier + Sella | 6 | first rough barrier `2.678812` eV (`+0.000017` eV vs main); Sella fmax `0.039662` eV/Ang | `reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz` |
+| `12_ccqn_H2-Au` | CCQN perturbed TS search | n/a | matches `05_sella_H2-Au`: energy delta `0.004049` eV, RMSD `0.007682` Ang; RMSD `0.000334` Ang to reference TS | `reference_structures/05_sella_H2-Au_final_ts.extxyz` |
 
 `06_relax_H2-Au`, `07_vibration_H2-Au`, `09_lightweight_cli`,
 `10_irc_H2`, and `11_vibration_ideal_gas_H2` do not have like-for-like
