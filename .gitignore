@@ -41,6 +41,7 @@ KPT.bak.*
 STRU
 STRU.bak.*
 submit_atst_abacus.sbatch
+validation_runs/
 
 # Keep curated examples and test fixtures versioned.
 !examples/**/config*.yaml

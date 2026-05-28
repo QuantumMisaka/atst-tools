@@ -121,6 +121,29 @@ parallel smoke tests unless the allocation is sized for nested MPI. ATST-Tools
 does not submit Slurm jobs; put the outer command above inside your site sbatch
 script or replace `mpirun` with the site launcher that exposes an mpi4py world.
 
+### SAI Cy-Pt image-parallel ABACUS examples
+
+The dedicated SAI image-level parallel examples are split from the basic
+`03_autoneb_Cy-Pt` example so the simple AutoNEB case remains uncluttered:
+
+```bash
+cd examples/13_neb_parallel_Cy-Pt
+sbatch submit_huge_gpu.sbatch
+
+cd ../14_autoneb_parallel_Cy-Pt
+sbatch submit_rush_gpu.sbatch
+```
+
+`13_neb_parallel_Cy-Pt/config.yaml` runs ordinary NEB with five interior images
+from the Cy-Pt endpoint pair. The Slurm script uses `huge-gpu` QOS and launches
+`mpirun -np 5 atst run ...`; each Python image rank then launches ABACUS with
+`calculator.abacus.mpi: 4` and an isolated local inner `mpirun` command.
+
+`14_autoneb_parallel_Cy-Pt/config.yaml` runs AutoNEB from the same endpoint pair
+with `n_simul: 4`. The Slurm script uses `rush-gpu` QOS and launches
+`mpirun -np 4 atst run ...`; each image uses a single ABACUS process with
+`calculator.abacus.mpi: 1`. Both configs set `calculator.abacus.omp: 8`.
+
 ## Chemical Systems Summary
 
 | Example Directory | System | Elements | Method |
@@ -137,6 +160,8 @@ script or replace `mpirun` with the site launcher that exposes an mpi4py world.
 | `10_irc_H2` | H2 TS fixture | H | IRC |
 | `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |
 | `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
+| `13_neb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | NEB image-parallel |
+| `14_autoneb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | AutoNEB image-parallel |
 
 ## Reference Results
 

@@ -78,6 +78,59 @@ def test_run_neb_parallel_requires_rank_count_equal_interior_images(monkeypatch,
         )
 
 
+def test_run_neb_parallel_make_generates_chain_only_on_rank_zero(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3), _atoms(0.4)]
+    fake_world = FakeWorld(size=3, rank=1)
+    generated = []
+    read_calls = []
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "generate", lambda **kwargs: generated.append(kwargs))
+    monkeypatch.setattr(main, "read", lambda path, *args, **kwargs: read_calls.append(path) or chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "get_ase_world", lambda: fake_world)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "neb",
+            "make": {
+                "init_structure": "init.traj",
+                "final_structure": "final.traj",
+                "n_images": 3,
+                "method": "IDPP",
+                "output": "made.traj",
+                "no_align": True,
+            },
+            "trajectory": "neb.traj",
+            "parallel": True,
+            "restart": False,
+        },
+    )
+
+    assert generated == []
+    assert read_calls[0] == "made.traj"
+    assert fake_world.barriers >= 1
+
+
 def test_run_neb_parallel_uses_image_index_directory(monkeypatch, tmp_path):
     from atst_tools.scripts import main
 

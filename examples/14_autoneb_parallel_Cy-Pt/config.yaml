@@ -1,0 +1,60 @@
+calculation:
+  type: autoneb
+  prefix: run_autoneb_parallel_single_gpu
+  init_chain: inputs/cy_pt_endpoints.traj
+  n_simul: 4
+  n_max: 10
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+  fmax: [0.20, 0.05]
+  climb: true
+  maxsteps: 10000
+  iter_folder: AutoNEB_iter_parallel_single_gpu
+  endpoint_singlepoint: auto
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    version_command: abacus --version
+    mpi: 1
+    omp: 8
+    directory: autoneb_parallel_single_gpu
+    kpts: [2, 1, 2]
+    parameters:
+        calculation: scf
+        nspin: 2
+        dft_functional: pbe
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        vdw_method: d3_bj
+        symmetry: 0
+        scf_thr: 1e-06
+        scf_nmax: 100
+        smearing_method: gaussian
+        smearing_sigma: 0.001
+        mixing_type: broyden
+        cal_force: 1
+        cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
+        out_stru: 1
+        out_chg: -1
+        out_mul: 0
+        out_bandgap: 0
+        out_wfc_lcao: 0
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           C: C_ONCV_PBE-1.0.upf
+           Pt: Pt_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           C: C_gga_7au_100Ry_2s2p1d.orb
+           Pt: Pt_gga_7au_100Ry_4s2p2d1f.orb

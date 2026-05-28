@@ -331,26 +331,37 @@ def run_neb(config, calc_name, calc_config):
     if has_init_chain == has_make:
         raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
 
+    parallel = calc_config['parallel']
+    world = get_ase_world()
+    effective_parallel = parallel and world.size > 1
+    if parallel and not effective_parallel:
+        LOGGER.warning(
+            "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
+        )
+
     if has_make:
         make_config = calc_config.get('make') or {}
         init_chain_file = make_config['output']
         fix_height, fix_dir = _parse_make_fix(make_config.get('fix'))
         mag_ele, mag_num = _parse_make_mag(make_config.get('magmom'))
         if not restart:
-            generate(
-                method=make_config['method'],
-                n_images=make_config['n_images'],
-                is_file=make_config['init_structure'],
-                fs_file=make_config['final_structure'],
-                output_file=init_chain_file,
-                format=make_config.get('format'),
-                fix_height=fix_height,
-                fix_dir=fix_dir,
-                mag_ele=mag_ele,
-                mag_num=mag_num,
-                no_align=make_config['no_align'],
-                ts_file=make_config.get('ts_guess'),
-            )
+            if not effective_parallel or world.rank == 0:
+                generate(
+                    method=make_config['method'],
+                    n_images=make_config['n_images'],
+                    is_file=make_config['init_structure'],
+                    fs_file=make_config['final_structure'],
+                    output_file=init_chain_file,
+                    format=make_config.get('format'),
+                    fix_height=fix_height,
+                    fix_dir=fix_dir,
+                    mag_ele=mag_ele,
+                    mag_num=mag_num,
+                    no_align=make_config['no_align'],
+                    ts_file=make_config.get('ts_guess'),
+                )
+            if effective_parallel and hasattr(world, "barrier"):
+                world.barrier()
     else:
         init_chain_file = calc_config['init_chain']
     if restart:
@@ -364,15 +375,8 @@ def run_neb(config, calc_name, calc_config):
     fmax = calc_config['fmax']
     k = calc_config['k']
     algorism = calc_config['algorism']
-    parallel = calc_config['parallel']
     max_steps = calc_config['max_steps']
     opt_name = calc_config['optimizer']
-    world = get_ase_world()
-    effective_parallel = parallel and world.size > 1
-    if parallel and not effective_parallel:
-        LOGGER.warning(
-            "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
-        )
     if effective_parallel:
         validate_image_parallel_world(world, len(init_chain) - 2, "NEB")
         LOGGER.info(
