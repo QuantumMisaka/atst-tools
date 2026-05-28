@@ -1,12 +1,26 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.0.0
-**Last Updated**: 2026-05-15
+**Last Updated**: 2026-05-28
 **Status**: Maintained
 
-This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
+This document is the hand-written semantic reference for `config.yaml` files
+used by `atst run`. It explains workflow behavior, common configuration
+patterns, backend boundaries, and migration notes. The generated parameter
+table is maintained separately in
+[YAML_INPUT_VARIABLES.md](YAML_INPUT_VARIABLES.md), which is the main lookup
+entry for schema-governed non-calculator YAML fields.
 
-YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the input before dispatching workflows, so optional variables get schema defaults before runtime. Use `atst config validate --print-normalized` to inspect the exact defaults that will be applied. The generated non-calculator variable table is maintained in `docs/user/YAML_INPUT_VARIABLES.md`.
+The configuration is divided into two main sections: `calculation` (task
+definition) and `calculator` (engine configuration). New configurations should
+use this two-section layout; root-level `abacus` is retained only as a
+migration path for legacy inputs.
+
+YAML variables are governed by the Pydantic schema in
+`src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the
+input before dispatching workflows, so optional variables get schema defaults
+before runtime. Use `atst config validate --print-normalized` to inspect the
+exact defaults that will be applied.
 
 ---
 

@@ -1,0 +1,36 @@
+calculation:
+  type: irc
+  backend: descent
+  init_structure: inputs/ts.stru
+  mode_vector: inputs/descent_mode.npy
+  descent_delta: 0.10
+  trajectory: irc_descent.traj
+  normalized_trajectory: norm_irc_descent.traj
+  artifact_manifest: atst_artifacts_descent.json
+  direction: both
+  fmax: 0.05
+  max_steps: 5
+  dx: 0.1
+  eta: 0.002
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 1
+    omp: 8
+    directory: irc_descent_run
+    kpts: [1, 1, 1]
+    parameters:
+      calculation: scf
+      basis_type: lcao
+      ks_solver: cusolver
+      ecutwfc: 100
+      scf_thr: 1e-6
+      cal_force: 1
+      pseudo_dir: ../data
+      orbital_dir: ../data
+      pseudopotentials:
+        H: H_ONCV_PBE-1.0.upf
+      basissets:
+        H: H_gga_6au_100Ry_2s1p.orb

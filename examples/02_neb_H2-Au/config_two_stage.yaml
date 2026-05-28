@@ -1,0 +1,62 @@
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain_smoke.traj
+  climb: true
+  two_stage: true
+  stage1_steps: 1
+  stage1_fmax: 0.10
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: false
+  optimizer: FIRE
+  max_steps: 1
+  trajectory: neb_two_stage_abacus_smoke.traj
+  artifact_manifest: atst_artifacts_two_stage_abacus_smoke.json
+  endpoint_singlepoint: auto
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 1
+    omp: 8
+    directory: run_neb_two_stage_abacus_smoke
+    kpts: [3, 1, 3]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        vdw_method: d3_bj
+        dft_functional: pbe
+        nspin: 2
+        symmetry: 1
+        scf_thr: 1e-06
+        scf_nmax: 300
+        smearing_method: mp
+        smearing_sigma: 0.002
+        mixing_type: broyden
+        cal_force: 1
+        cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
+        out_stru: 1
+        out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        efield_pos_max: 0.8
+        efield_pos_dec: 0.1
+        efield_amp: 0.0
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           Au: Au_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           Au: Au_gga_7au_100Ry_4s2p2d1f.orb

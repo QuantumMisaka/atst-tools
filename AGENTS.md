@@ -32,3 +32,32 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 ### 用户快速使用
 - `examples` 目录下包含项目的快速上手案例。
 - `docs/skills/atst-cli/SKILL.md` 中包含 atst-cli 的快速使用说明
+
+### 文档治理入口
+
+开发任务结束前必须按文档治理机制更新对应入口。先判断本次变更影响的是用户路径、开发者路径还是项目管理路径，再同步长期文档和状态账本。
+
+#### 用户入口
+- `README.md`：项目目标、支持 workflow、快速开始、参数入口和状态入口。
+- `docs/index.md`：用户、开发者、项目管理者三条阅读路径。
+- `docs/user/USER_GUIDE_CN.md`：中文 10 分钟快速上手、SAI/ABACUS/DP 注意事项。
+- `examples/README.md`：示例学习路径和可运行配置说明。
+- `docs/user/CONFIG_REFERENCE.md`：手写 YAML 语义参考。
+- `docs/user/YAML_INPUT_VARIABLES.md`：由 schema 生成的 YAML 参数总表。
+
+#### 开发者入口
+- `docs/developer/HANDOVER.md`：维护者日常 checklist，新增 workflow、YAML 字段、CLI、backend、example、report、release 时先查这里。
+- `docs/developer/DOCUMENTATION_STANDARDS.md`：文档元数据、生命周期、reports L1-L4 分级、归档和待删除规则。
+- `docs/developer/DOCS_ARCHITECTURE.md`：目录职责、目标读者和文档生命周期类型。
+- `docs/developer/YAML_INPUT_GOVERNANCE.md`：YAML schema、生成参数文档和测试治理。
+- `docs/reports/DOCUMENTATION_STATUS_REPORT.md`：活跃文档和 reports 的治理账本。
+- `docs/reports/FEATURE_STATUS_MATRIX.md`：当前功能支持状态。
+
+#### 变更后检查
+- 文档-only 变更至少运行：
+  ```bash
+  git diff --check -- README.md docs examples/README.md AGENTS.md
+  rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md AGENTS.md
+  ```
+- 修改 YAML schema 时，重新生成 `docs/user/YAML_INPUT_VARIABLES.md`，并运行 `tests/unit/test_config.py`。
+- 新增或移动 report 时，同步更新 `docs/reports/DOCUMENTATION_STATUS_REPORT.md`；被取代材料先进入 `docs/archive/pending_delete/` 复核，不直接删除。

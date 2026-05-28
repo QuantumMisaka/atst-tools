@@ -13,6 +13,7 @@ from atst_tools.utils.neb_endpoints import (
     ENDPOINT_PLACEHOLDER,
     ENDPOINT_RESULT_KEY,
     ensure_neb_endpoint_results,
+    freeze_current_results,
     mark_endpoint_result,
 )
 
@@ -29,6 +30,23 @@ class DummyCalc(Calculator):
         self.results["energy"] = self.energy
         self.results["forces"] = np.ones((len(atoms), 3)) * 0.25
         self.results["stress"] = np.zeros(6)
+
+
+class EnergyForceOnlyCalc(Calculator):
+    implemented_properties = ["energy", "forces"]
+
+    def __init__(self):
+        super().__init__()
+        self.stress_calls = 0
+
+    def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        self.results["energy"] = 4.0
+        self.results["forces"] = np.ones((len(atoms), 3)) * 0.5
+
+    def get_stress(self, atoms=None):
+        self.stress_calls += 1
+        raise RuntimeError("stress should not be requested")
 
 
 def _atoms(energy=0.0, x=0.0, with_calc=True):
@@ -58,6 +76,18 @@ def test_endpoint_helper_recomputes_placeholder_endpoint(capsys):
     assert chain[-1].get_potential_energy() == 6.0
     assert chain[0].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
     assert "placeholder" in capsys.readouterr().out
+
+
+def test_freeze_current_results_does_not_request_missing_stress():
+    atoms = _atoms(with_calc=False)
+    calc = EnergyForceOnlyCalc()
+    atoms.calc = calc
+
+    freeze_current_results(atoms)
+
+    assert atoms.get_potential_energy() == pytest.approx(4.0)
+    np.testing.assert_allclose(atoms.get_forces(), np.ones((1, 3)) * 0.5)
+    assert calc.stress_calls == 0
 
 
 def test_endpoint_helper_keeps_valid_endpoint_in_auto_mode():
@@ -104,9 +134,14 @@ def test_neb_make_marks_pure_structure_endpoints_as_placeholder(tmp_path, monkey
     assert [chain[0].get_potential_energy(), chain[-1].get_potential_energy()] == [0.0, 0.0]
 
 
-def test_li_si_zero_endpoint_regression_changes_barrier():
-    endpoint_reference_energies = [-1.0, -0.4, -0.1, -0.3, -1.1]
-    band = [_atoms(energy=energy, x=float(index)) for index, energy in enumerate(endpoint_reference_energies)]
+def test_zero_endpoint_regression_changes_barrier():
+    band = [
+        _atoms(energy=-10.0, x=0.0),
+        _atoms(energy=-9.6, x=1.0),
+        _atoms(energy=-9.2, x=2.0),
+        _atoms(energy=-9.5, x=3.0),
+        _atoms(energy=-9.8, x=4.0),
+    ]
     real = [atoms.copy() for atoms in band]
     zero = [atoms.copy() for atoms in band]
     for index, atoms in enumerate(real):
@@ -122,7 +157,7 @@ def test_li_si_zero_endpoint_regression_changes_barrier():
     real_barrier = NEBTools(real).get_barrier(fit=False)[0]
     zero_barrier = NEBTools(zero).get_barrier(fit=False)[0]
 
-    assert real_barrier == pytest.approx(0.9)
+    assert real_barrier == pytest.approx(0.8)
     assert zero_barrier == 0.0
 
 

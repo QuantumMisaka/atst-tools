@@ -1,0 +1,33 @@
+calculation:
+  type: ccqn
+  init_structure: inputs/ccqn_init.stru
+  fmax: 0.05
+  max_steps: 2
+  trajectory: ccqn_auto_modes_dp.traj
+  logfile: ccqn_auto_modes_dp.log
+  final_structure: ccqn_auto_modes_dp_final.extxyz
+  artifact_manifest: atst_artifacts_auto_modes_dp.json
+  e_vector_method: ic
+  auto_reactive_bonds:
+    enabled: true
+    molecule_indices: "1-2"
+    active_catalyst_indices: "3-66"
+    cutoff_A: 3.5
+    max_modes: 8
+    max_bonds_per_mode: 1
+  mode_manifest: ccqn_auto_modes_dp_mode_manifest.json
+  diagnostics_file: ccqn_auto_diagnostics_dp.json
+  ic_mode: democratic
+  cos_phi: 0.5
+  trust_radius_uphill: 0.05
+  trust_radius_saddle_initial: 0.03
+  accept_initial_converged: false
+  directory: run_ccqn_auto_modes_dp
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

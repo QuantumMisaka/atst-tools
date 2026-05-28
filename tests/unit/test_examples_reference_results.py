@@ -164,6 +164,39 @@ def test_h2_au_sella_and_ccqn_examples_use_perturbed_inputs():
         assert calculation["accept_initial_converged"] is False
 
 
+def test_new_p0_p1_examples_exercise_new_yaml_interfaces():
+    root = Path(__file__).resolve().parents[2]
+
+    def load_example(relative_path):
+        return yaml.safe_load((root / "examples" / relative_path).read_text(encoding="utf-8"))
+
+    neb = load_example("02_neb_H2-Au/config_two_stage.yaml")["calculation"]
+    neb_dp = load_example("02_neb_H2-Au/config_two_stage_dp.yaml")["calculation"]
+    assert neb["type"] == "neb"
+    assert neb["two_stage"] is True
+    assert neb["stage1_steps"] == 1
+    assert neb["stage1_fmax"] == pytest.approx(0.10)
+    assert neb_dp["two_stage"] is True
+    assert neb_dp["stage1_steps"] == 3
+
+    irc = load_example("10_irc_H2/config_descent.yaml")["calculation"]
+    irc_dp = load_example("10_irc_H2/config_descent_dp.yaml")["calculation"]
+    assert irc["type"] == "irc"
+    assert irc["backend"] == "descent"
+    assert irc["mode_vector"] == "inputs/descent_mode.npy"
+    assert irc_dp["backend"] == "descent"
+
+    ccqn = load_example("12_ccqn_H2-Au/config_auto_modes.yaml")["calculation"]
+    ccqn_dp = load_example("12_ccqn_H2-Au/config_auto_modes_dp.yaml")["calculation"]
+    for calculation in (ccqn, ccqn_dp):
+        assert calculation["type"] == "ccqn"
+        assert calculation["e_vector_method"] == "ic"
+        assert "reactive_bonds" not in calculation
+        assert calculation["auto_reactive_bonds"]["enabled"] is True
+        assert calculation["auto_reactive_bonds"]["molecule_indices"] == "1-2"
+        assert calculation["mode_manifest"].endswith("mode_manifest.json")
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize("case_name, expected", REFERENCE_CASES.items())
 def test_reference_results_pin_reproduction_values(case_name, expected):

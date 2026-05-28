@@ -1,26 +1,88 @@
 # 文档系统交接与维护
 
-**版本**: 2.0.0
-**日期**: 2026-05-15
+**版本**: 2026-05-28
+**日期**: 2026-05-28
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
-## 1. 维护职责
-- **路线与计划**：架构负责人（`YAML_INPUT_GOVERNANCE.md`）
-- **用户向导与示例**：工作流维护者（`../user/USER_GUIDE_CN.md`、`../../examples/README.md`）
-- **发布说明与归档**：版本管理员（releases/RELEASE_NOTES_<version>.md）
+本文档是维护者日常 checklist。任何功能、YAML、CLI、backend、example、report 或
+release 变更，都先从对应小节确认需要同步的文档。
 
-## 2. 例行流程
-- **每次功能变更 PR**：更新相关文档及 `DOCUMENTATION_STATUS_REPORT.md`。
-- **RC 冻结**：统一文档标签为 RC，输出发布说明并归档到 `releases/`。
-- **正式发布**：将 RC 发布说明转换为 Release Notes，更新状态为“已发布”。
+## 1. 日常入口
 
-## 3. 工具与检查项
-- **预提交检查**：
-  - 链接有效性：所有 Markdown 链接是否指向存在的文件。
-  - 格式检查：使用 `markdownlint` 或类似工具。
-- **文档状态追踪**：以 `DOCUMENTATION_STATUS_REPORT.md` 为单一信息入口，定期刷新。
+- 用户入口：[README.md](../../README.md)、[docs/index.md](../index.md)、
+  [USER_GUIDE_CN.md](../user/USER_GUIDE_CN.md)。
+- 参数入口：[CONFIG_REFERENCE.md](../user/CONFIG_REFERENCE.md) 和
+  [YAML_INPUT_VARIABLES.md](../user/YAML_INPUT_VARIABLES.md)。
+- 开发入口：[YAML_INPUT_GOVERNANCE.md](YAML_INPUT_GOVERNANCE.md)、
+  [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)。
+- 项目状态入口：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 和
+  [DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)。
 
-## 4. 紧急修订
-- **发现与实现不一致**：立即修正文档状态，并在下一版补齐示例或测试。
-- **关键路径错误**：优先修复安装/运行指南中的路径错误。
+## 2. 新增或修改 workflow
+
+- 更新 `README.md` 的支持列表和 quick start 说明。
+- 更新 `docs/user/USER_GUIDE_CN.md`、`CLI_REFERENCE.md`、`CONFIG_REFERENCE.md`。
+- 添加或更新 `examples/<case>/config*.yaml` 和 `examples/README.md`。
+- 更新 `docs/reports/FEATURE_STATUS_MATRIX.md`。
+- 添加或更新 workflow 测试、example 测试和必要验证报告。
+
+## 3. 新增或修改 YAML 字段
+
+- 修改 `src/atst_tools/utils/config_schema.py`。
+- 重新生成 `docs/user/YAML_INPUT_VARIABLES.md`。
+- 在 `docs/user/CONFIG_REFERENCE.md` 解释语义、默认值影响和常见配置组合。
+- 更新示例 YAML。
+- 运行 `tests/unit/test_config.py` 和相关 workflow/example tests。
+
+## 4. 新增或修改 CLI
+
+- 更新 `docs/user/CLI_REFERENCE.md`。
+- 更新 `docs/skills/atst-cli/SKILL.md` 中的操作片段。
+- 必要时更新 README 的轻量命令列表。
+- 添加 CLI 测试或更新现有命令测试。
+
+## 5. 新增或修改 calculator backend
+
+- 更新 README backend section 和项目边界说明。
+- 更新 `docs/user/CONFIG_REFERENCE.md` 的 calculator 配置说明。
+- 更新 `docs/user/USER_GUIDE_CN.md` 的运行时依赖和环境边界。
+- 更新 feature/status reports 和 calculator factory tests。
+- 若 backend 涉及 ABACUS/DP 环境，补充验证报告或在现有报告中记录边界。
+
+## 6. 新增或修改 example
+
+- 更新 `examples/README.md` 的学习路径、目录说明和 chemical systems 表。
+- 更新 `examples/reference_results.json`，或明确该 example 暂无 reference 结果。
+- 保证新增输入在 `inputs/` 或受控路径下，生成输出不进入 git。
+- 运行 example 解析、dry-run 或 reference-result 测试。
+
+## 7. 新增 report 或移动旧 report
+
+- 判断 report 级别：L1 状态入口、L2 当前证据、L3 当前主题审查、L4 历史材料。
+- 更新 `docs/reports/DOCUMENTATION_STATUS_REPORT.md`。
+- 只有当 report 是核心入口或当前重点证据时，才从 `docs/index.md` 链接。
+- 被取代的 report 先吸收结论，再移到 `docs/archive/` 或
+  `docs/archive/pending_delete/`。
+
+## 8. 准备 release
+
+- 更新 `docs/releases/RELEASE_NOTES_<version>.md`。
+- 更新 README badge、版本说明和 release scope。
+- 更新 `FEATURE_STATUS_MATRIX.md` 和 `DOCUMENTATION_STATUS_REPORT.md`。
+- 复核 `docs/archive/pending_delete/README.md`，确认是否最终删除待删除文件。
+- 运行文档链接、格式和相关测试。
+
+## 9. 最小检查
+
+```bash
+git diff --check -- README.md docs examples/README.md
+rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md
+```
+
+若修改 YAML schema：
+
+```bash
+conda run -n atst-dev python -m atst_tools.utils.config_docs --output docs/user/YAML_INPUT_VARIABLES.md
+conda run -n atst-dev pytest tests/unit/test_config.py -q
+```

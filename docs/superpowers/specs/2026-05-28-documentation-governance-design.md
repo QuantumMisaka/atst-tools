@@ -2,8 +2,11 @@
 
 **Version**: 2026-05-28
 **Date**: 2026-05-28
-**Status**: Draft for user review
+**Status**: Accepted
 **Owner**: ATST-Tools maintainers
+
+This accepted design is the source of truth for the 2026-05-28 documentation
+governance pass.
 
 ## Goal
 

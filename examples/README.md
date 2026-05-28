@@ -15,11 +15,11 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
 
 ### 2. Surface Reactions (H2 on Au(111))
-*   `02_neb_H2-Au/`: **H2 dissociation on Au(111)**. Demonstrate NEB on a metal surface.
+*   `02_neb_H2-Au/`: **H2 dissociation on Au(111)**. Demonstrates NEB on a metal surface, including two-stage NEB examples in `config_two_stage*.yaml`.
 *   `05_sella_H2-Au/`: Sella method for the same system.
 *   `06_relax_H2-Au/`: Geometry optimization of the initial state.
 *   `07_vibration_H2-Au/`: Vibrational analysis of the Transition State.
-*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system.
+*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system, including reactive-mode enumeration examples in `config_auto_modes*.yaml`.
 
 ### 3. Advanced Workflows (Cyclohexane on Pt@Graphene)
 *   `03_autoneb_Cy-Pt/`: **Cyclohexane on Pt-doped Graphene**. Demonstrates the **AutoNEB** workflow for complex paths.
@@ -27,7 +27,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 
 ### 4. Lightweight Commands and Auxiliary Workflows
 *   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, summary commands, `atst dimer`, `atst relax post`, and `atst vibration post`.
-*   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, and `reverse`.
+*   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, `reverse`, and descent-mode IRC via `config_descent*.yaml` plus `inputs/descent_mode.npy`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
 
 ### 5. Classic Transition State Search (CO on Pt(111))
@@ -94,6 +94,25 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
 then Dimer, Sella, or CCQN, with optional vibration follow-up.
+
+### P0/P1 workflow smoke examples
+
+These DP-backed examples exercise the new YAML interfaces without requiring a
+Slurm allocation:
+
+```bash
+cd examples/02_neb_H2-Au
+atst run config_two_stage_dp.yaml
+
+cd ../10_irc_H2
+atst run config_descent_dp.yaml
+
+cd ../12_ccqn_H2-Au
+atst run config_auto_modes_dp.yaml
+```
+
+The matching ABACUS-backed configs are `config_two_stage.yaml`,
+`config_descent.yaml`, and `config_auto_modes.yaml`.
 
 ### NEB image-level MPI smoke
 

@@ -36,6 +36,7 @@ def test_example_input_paths_exist():
         "init_file",
         "final_file",
         "displacement_vector",
+        "mode_vector",
     }
 
     for config_file in sorted(Path("examples").glob("*/config*.yaml")):

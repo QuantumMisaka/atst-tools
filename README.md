@@ -88,6 +88,18 @@ need the selected calculator runtime:
 
 ## Quick Start
 
+Choose the path that matches what you need:
+
+| Need | Start here |
+| :--- | :--- |
+| Run a workflow in 10 minutes | [Chinese user guide](docs/user/USER_GUIDE_CN.md) |
+| Pick an example | [Examples overview](examples/README.md) |
+| Check supported features | [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md) |
+| Look up YAML semantics | [Configuration reference](docs/user/CONFIG_REFERENCE.md) |
+| Look up every schema field | [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md) |
+| Use CLI helper commands | [CLI reference](docs/user/CLI_REFERENCE.md) |
+| Browse all documentation paths | [Documentation index](docs/index.md) |
+
 Run a small relaxation example:
 
 ```bash
@@ -249,18 +261,23 @@ The main extension points are deliberately small:
 | Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command modules |
 | Add examples | `examples/<case>/config.yaml` and curated `inputs/` |
 
-Developer documentation:
+Developer governance starts from these maintained entry points:
 
 - [Documentation index](docs/index.md)
+- [Handover checklist](docs/developer/HANDOVER.md)
 - [YAML input governance](docs/developer/YAML_INPUT_GOVERNANCE.md)
 - [Documentation standards](docs/developer/DOCUMENTATION_STANDARDS.md)
+- [Documentation architecture](docs/developer/DOCS_ARCHITECTURE.md)
 - [ABACUS wrapper guide](docs/user/ABACUSLITE_WRAPPER_GUIDE.md)
 - [Maintained atst-cli skill](docs/skills/atst-cli/SKILL.md)
-- [Refactor stage review](docs/reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md)
-- [User experience reinforcement report](docs/reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md)
+
+Project status and validation entry points:
+
 - [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md)
+- [Documentation governance report](docs/reports/DOCUMENTATION_STATUS_REPORT.md)
 - [DP validation report](docs/reports/DP_VALIDATION_2.0.0.md)
-- [IRC integration review](docs/reports/IRC_INTEGRATION_REVIEW.md)
+- [Issue #25 AutoNEB fmax fix report](docs/reports/ISSUE_25_AUTONEB_FMAX_FIX_REPORT_2026-05-22.md)
+- [MPI image-level NEB parallel summary](docs/reports/MPI4PY_ASE_NEB_PARALLEL_ATST_SUMMARY_2026-05-27.md)
 
 ## Version Governance
 
