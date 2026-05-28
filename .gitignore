@@ -23,6 +23,8 @@ slurm-*
 *_final.extxyz
 *.json
 !examples/reference_results.json
+!examples/dp_reference_results.json
+!examples/dp_model_manifest.json
 !examples/09_lightweight_cli/vib/
 !examples/09_lightweight_cli/vib/cache.*.json
 !docs/reports/*.metrics.json

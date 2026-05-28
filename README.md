@@ -207,8 +207,15 @@ calculator:
     share_calculator: true
 ```
 
-The 2.0.0 DP validation used DPA-3.1-3M with the `Omat24` head. Model files and
-runtime outputs are intentionally not tracked by git.
+The 2.0.0 DP validation used DPA-3.1-3M with the `Omat24` head. The pinned
+download source, checksum, expected size, and local path are recorded in
+`examples/dp_model_manifest.json`. Model files and runtime outputs are
+intentionally not tracked by git.
+
+```bash
+python scripts/download_dp_model.py
+python scripts/download_dp_model.py --check-only
+```
 
 ## Examples
 

@@ -80,11 +80,13 @@ def compute_vibration_thermochemistry(
         symmetrynumber = int(thermo_config["symmetrynumber"])
         spin = float(thermo_config["spin"])
         potentialenergy = float(thermo_config["potentialenergy"])
+        gas_atoms = atoms.copy()
+        gas_atoms.set_pbc(False)
         thermo = IdealGasThermo(
             energies,
             geometry=geometry,
             potentialenergy=potentialenergy,
-            atoms=atoms,
+            atoms=gas_atoms,
             symmetrynumber=symmetrynumber,
             spin=spin,
             ignore_imag_modes=ignore_imag_modes,

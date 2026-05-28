@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=atst-cypt-neb-img5
-#SBATCH --partition=4V100
+#SBATCH --partition=8V100V0
 #SBATCH --nodes=5
 #SBATCH --ntasks=20
 #SBATCH --gpus-per-node=4

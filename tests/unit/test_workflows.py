@@ -541,6 +541,80 @@ def test_autoneb_runner_can_use_native_ase_backend(monkeypatch, tmp_path):
     assert calls[0][1]["method"] == "improvedtangent"
 
 
+def test_autoneb_runner_rewrites_final_image_files_after_run(monkeypatch, tmp_path):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2)]
+    writes = []
+
+    class FakeAutoNEB:
+        def __init__(self, **kwargs):
+            self.all_images = [image.copy() for image in chain]
+
+        def run(self):
+            for index, image in enumerate(self.all_images):
+                image.calc = SinglePointCalculator(
+                    image,
+                    energy=10.0 + index,
+                    forces=np.zeros((len(image), 3)),
+                )
+
+    def fake_write(filename, atoms, *args, **kwargs):
+        writes.append((str(filename), atoms.get_potential_energy()))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(autoneb, "write", fake_write)
+    monkeypatch.setattr(autoneb, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(autoneb, "AbacusAutoNEB", FakeAutoNEB)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+    runner.run()
+
+    assert ("run_autoneb001.traj", 11.0) in writes
+
+
+def test_autoneb_runner_computes_missing_final_image_results_before_rewrite(monkeypatch, tmp_path):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2)]
+    writes = []
+
+    class FakeAutoNEB:
+        def __init__(self, **kwargs):
+            self.all_images = [image.copy() for image in chain]
+            self.all_images[1].calc = None
+
+        def run(self):
+            return None
+
+    def fake_get_calculator(calc_name, config, **kwargs):
+        return DummyCalc(11.0)
+
+    def fake_write(filename, atoms, *args, **kwargs):
+        writes.append((str(filename), atoms.get_potential_energy()))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(autoneb, "write", fake_write)
+    monkeypatch.setattr(autoneb, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(autoneb, "AbacusAutoNEB", FakeAutoNEB)
+    monkeypatch.setattr(autoneb.CalculatorFactory, "get_calculator", fake_get_calculator)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+    runner.run()
+
+    assert ("run_autoneb001.traj", 11.0) in writes
+
+
 def test_native_autoneb_does_not_share_dp_calculator(monkeypatch):
     from atst_tools.mep import autoneb
 
