@@ -49,8 +49,15 @@ The examples are organized by chemical system and method to demonstrate the vers
     atst run config.yaml
     ```
 
-    To run the DP variant, make sure `temp_repos/dp_model/DPA-3.1-3M.pt` exists
-    and deepmd-kit is available, then run:
+    To run the DP variant, make sure deepmd-kit is available. From the
+    repository root, fetch the pinned DPA-3.1-3M model first:
+
+    ```bash
+    python scripts/download_dp_model.py
+    python scripts/download_dp_model.py --check-only
+    ```
+
+    Then run:
 
     ```bash
     atst run config_dp.yaml
@@ -135,9 +142,10 @@ sbatch submit_rush_gpu.sbatch
 ```
 
 `13_neb_parallel_Cy-Pt/config.yaml` runs ordinary NEB with five interior images
-from the Cy-Pt endpoint pair. The Slurm script uses `huge-gpu` QOS and launches
-`mpirun -np 5 atst run ...`; each Python image rank then launches ABACUS with
-`calculator.abacus.mpi: 4` and an isolated local inner `mpirun` command.
+from a prepared Cy-Pt double-end chain. The Slurm script uses `huge-gpu` QOS and
+launches `mpirun -np 5 atst run ...`; each Python image rank then launches
+ABACUS with `calculator.abacus.mpi: 4` and an isolated local inner `mpirun`
+command.
 
 `14_autoneb_parallel_Cy-Pt/config.yaml` runs AutoNEB from the same endpoint pair
 with `n_simul: 4`. The Slurm script uses `rush-gpu` QOS and launches
@@ -170,6 +178,18 @@ reference structures are stored as reviewable `.extxyz` files under
 `reference_structures/`. The quantitative values below are from the SAI `4V100`
 validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
 
+DP-backed validation references are collected separately in
+`dp_reference_results.json`, with curated structures under
+`dp_reference_structures/`. Those values were produced on SAI `4V100PX` nodes
+using `temp_repos/dp_model/DPA-3.1-3M.pt` (`sha256:
+86dd3a804d78ca5d203ebf98747e8f16dff9713ba8950097ceb760b161e19907`, DP head
+`Omat24`). The download URL and checksum are pinned in `dp_model_manifest.json`;
+use `python scripts/download_dp_model.py --check-only` from the repository root
+to verify an existing local copy. The model is a useful external validation
+asset for exercising every `config_dp.yaml`, but it should not be committed
+directly as a normal git blob; use Git LFS or an artifact store if the
+checkpoint needs versioning.
+
 | Example | Reference | TS index | Main-comparable value | Structure |
 | :--- | :--- | ---: | :--- | :--- |
 | `01_neb_Li-Si` | NEB barrier | 2 | `0.618346` eV (`+0.000019` eV vs main) | `reference_structures/01_neb_Li-Si_ts.extxyz` |
@@ -184,3 +204,16 @@ validation using ABACUS LTS 3.10.1 with GPU `ks_solver: cusolver`.
 `10_irc_H2`, and `11_vibration_ideal_gas_H2` do not have like-for-like
 main-branch TS/barrier baselines. They remain listed in `reference_results.json`
 with validation status or auxiliary output references.
+
+| DP Example | Status | Main DP value | ABACUS comparison |
+| :--- | :--- | :--- | :--- |
+| `01_neb_Li-Si` | green | barrier `0.723182` eV, projected fmax `0.049976` eV/Ang | `+0.104836` eV; TS RMSD `0.002821` Ang |
+| `02_neb_H2-Au` | yellow | barrier `0.647409` eV, projected fmax `0.069072` eV/Ang | `-0.477343` eV; TS RMSD `0.055256` Ang |
+| `03_autoneb_Cy-Pt` | yellow | barrier `1.339684` eV, projected fmax `3.816353` eV/Ang | `+0.009614` eV; TS RMSD `0.100587` Ang |
+| `04_dimer_CO-Pt` | green | final fmax `0.045176` eV/Ang | TS RMSD `0.033274` Ang |
+| `05_sella_H2-Au` | green | final fmax `0.049454` eV/Ang | TS RMSD `0.052622` Ang |
+| `06_relax_H2-Au` | green | final fmax `0.049054` eV/Ang | non-TS workflow |
+| `07_vibration_H2-Au` | green | 205 valid cache files, ZPE `0.699170` eV | post-processing workflow |
+| `08_d2s_Cy-Pt` | yellow | rough barrier `1.929739` eV, dimer fmax `0.052908` eV/Ang | rough barrier `-0.749073` eV; rough TS RMSD `0.150699` Ang |
+| `10_irc_H2` | green | 5 IRC frames, final fmax `0.004265` eV/Ang | gas-phase auxiliary workflow |
+| `11_vibration_ideal_gas_H2` | yellow | ideal-gas Gibbs free energy `-0.032443` eV | minimal H2 fixture with 5 filtered modes |

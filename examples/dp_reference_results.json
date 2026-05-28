@@ -1,0 +1,223 @@
+{
+  "cases": {
+    "01_neb_Li-Si": {
+      "comparison": {
+        "abacus_barrier_eV": 0.618346,
+        "delta_vs_abacus_eV": 0.10483588473582273,
+        "ts_rmsd_to_abacus_ang": 0.002820839007020925
+      },
+      "metrics": {
+        "barrier_eV": 0.7231818847358227,
+        "complete_steps": 23,
+        "max_force_eV_per_ang": 0.8950467636578971,
+        "n_images": 5,
+        "projected_neb_fmax_eV_per_ang": 0.04997556119342903,
+        "ts_image": 2
+      },
+      "notes": "Converged by projected NEB fmax; endpoints were recomputed with DP via endpoint_singlepoint: always.",
+      "slurm_job_id": "461555",
+      "status": "green",
+      "structure": {
+        "abacus_reference": "reference_structures/01_neb_Li-Si_ts.extxyz",
+        "path": "dp_reference_structures/01_neb_Li-Si_dp_ts.extxyz",
+        "rmsd_to_abacus_ang": 0.002820839007020925
+      },
+      "workflow": "neb"
+    },
+    "02_neb_H2-Au": {
+      "comparison": {
+        "abacus_barrier_eV": 1.124752,
+        "delta_vs_abacus_eV": -0.4773425981659889,
+        "ts_rmsd_to_abacus_ang": 0.05525608886533529
+      },
+      "metrics": {
+        "barrier_eV": 0.6474094018340111,
+        "complete_steps": 101,
+        "max_force_eV_per_ang": 0.5151464950609914,
+        "n_images": 10,
+        "projected_neb_fmax_eV_per_ang": 0.06907247729921165,
+        "ts_image": 4
+      },
+      "notes": "Barrier is within the pragmatic 0.5 eV envelope, but the max-step run stopped slightly above the 0.05 eV/Ang projected fmax target.",
+      "slurm_job_id": "461556",
+      "status": "yellow",
+      "structure": {
+        "abacus_reference": "reference_structures/02_neb_H2-Au_ts.extxyz",
+        "path": "dp_reference_structures/02_neb_H2-Au_dp_ts.extxyz",
+        "rmsd_to_abacus_ang": 0.05525608886533529
+      },
+      "workflow": "neb"
+    },
+    "03_autoneb_Cy-Pt": {
+      "comparison": {
+        "abacus_barrier_eV": 1.33007,
+        "delta_vs_abacus_eV": 0.009614128761291418,
+        "ts_rmsd_to_abacus_ang": 0.10058706631908762
+      },
+      "metrics": {
+        "barrier_eV": 1.3396841287612915,
+        "max_force_eV_per_ang": 3.8121734055813916,
+        "n_images": 10,
+        "projected_neb_fmax_eV_per_ang": 3.8163531455562962,
+        "ts_image": 5
+      },
+      "notes": "Barrier matches ABACUS closely, while final image forces show this AutoNEB run is not a strict converged TS search.",
+      "slurm_job_id": "461654",
+      "status": "yellow",
+      "structure": {
+        "abacus_reference": "reference_structures/03_autoneb_Cy-Pt_ts.extxyz",
+        "path": "dp_reference_structures/03_autoneb_Cy-Pt_dp_ts.extxyz",
+        "rmsd_to_abacus_ang": 0.10058706631908762
+      },
+      "workflow": "autoneb"
+    },
+    "04_dimer_CO-Pt": {
+      "comparison": {
+        "ts_rmsd_to_abacus_ang": 0.03327378496219362
+      },
+      "metrics": {
+        "latest_energy_eV": -384.346491843462,
+        "max_force_eV_per_ang": 0.04517558968551469,
+        "n_frames": 19
+      },
+      "slurm_job_id": "461558",
+      "status": "green",
+      "structure": {
+        "abacus_reference": "reference_structures/04_dimer_CO-Pt_final_ts.extxyz",
+        "path": "dp_reference_structures/04_dimer_CO-Pt_dp_final_ts.extxyz",
+        "rmsd_to_abacus_ang": 0.03327378496219362
+      },
+      "workflow": "dimer"
+    },
+    "05_sella_H2-Au": {
+      "comparison": {
+        "ts_rmsd_to_abacus_ang": 0.05262197551008907
+      },
+      "metrics": {
+        "latest_energy_eV": -203.03242464363575,
+        "max_force_eV_per_ang": 0.04945427100886386,
+        "n_frames": 10
+      },
+      "slurm_job_id": "461559",
+      "status": "green",
+      "structure": {
+        "abacus_reference": "reference_structures/05_sella_H2-Au_final_ts.extxyz",
+        "path": "dp_reference_structures/05_sella_H2-Au_dp_final_ts.extxyz",
+        "rmsd_to_abacus_ang": 0.05262197551008907
+      },
+      "workflow": "sella"
+    },
+    "06_relax_H2-Au": {
+      "metrics": {
+        "latest_energy_eV": -204.0037397518754,
+        "max_force_eV_per_ang": 0.04905417994196809,
+        "n_frames": 34
+      },
+      "slurm_job_id": "461560",
+      "status": "green",
+      "structure": {
+        "path": "dp_reference_structures/06_relax_H2-Au_dp_relaxed.extxyz"
+      },
+      "workflow": "relax"
+    },
+    "07_vibration_H2-Au": {
+      "metrics": {
+        "helmholtz_free_energy_eV": -2.2645495124768487,
+        "invalid_cache_files": 0,
+        "n_frequencies": 102,
+        "n_imaginary_modes": 1,
+        "valid_cache_files": 205,
+        "zpe_eV": 0.6991701974861168
+      },
+      "slurm_job_id": "461561",
+      "status": "green",
+      "workflow": "vibration"
+    },
+    "08_d2s_Cy-Pt": {
+      "comparison": {
+        "abacus_rough_barrier_eV": 2.678812,
+        "rough_delta_vs_abacus_eV": -0.7490730015869143,
+        "rough_ts_rmsd_to_abacus_ang": 0.15069857044079155
+      },
+      "metrics": {
+        "complete": true,
+        "dimer_energy_eV": -539.3829747438431,
+        "dimer_max_force_eV_per_ang": 0.052908138542142845,
+        "method": "dimer",
+        "rough_barrier_eV": 1.929738998413086,
+        "rough_projected_neb_fmax_eV_per_ang": 0.7990368190329122,
+        "rough_ts_image": 5
+      },
+      "notes": "Workflow completed, but rough NEB differs from ABACUS by more than the tighter barrier envelope and the final dimer force is slightly above 0.05 eV/Ang.",
+      "slurm_job_id": "461562",
+      "status": "yellow",
+      "structures": {
+        "dimer": {
+          "path": "dp_reference_structures/08_d2s_Cy-Pt_dp_dimer_ts.extxyz"
+        },
+        "rough_neb": {
+          "abacus_reference": "reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz",
+          "path": "dp_reference_structures/08_d2s_Cy-Pt_dp_rough_ts.extxyz",
+          "rmsd_to_abacus_ang": 0.15069857044079155
+        }
+      },
+      "workflow": "d2s"
+    },
+    "10_irc_H2": {
+      "metrics": {
+        "latest_energy_eV": -6.580698490142822,
+        "latest_max_force_eV_per_ang": 0.00426499853746599,
+        "n_frames": 5
+      },
+      "slurm_job_id": "461563",
+      "status": "green",
+      "workflow": "irc"
+    },
+    "11_vibration_ideal_gas_H2": {
+      "metrics": {
+        "enthalpy_eV": 0.3698837305579336,
+        "gibbs_free_energy_eV": -0.032442823149930966,
+        "n_filtered_modes": 5,
+        "n_frequencies": 6,
+        "n_imaginary_modes": 4,
+        "n_valid_modes": 1,
+        "zpe_eV": 0.2799597345656647
+      },
+      "notes": "Exercises the IdealGasThermo post-processing path; most modes are filtered because this is a minimal H2 fixture.",
+      "slurm_job_id": "461564",
+      "status": "yellow",
+      "workflow": "vibration_ideal_gas"
+    }
+  },
+  "generated_at": "2026-05-28T00:00:00+08:00",
+  "model_recommendation": {
+    "decision": "keep_as_external_validation_asset",
+    "git_policy": "Do not add the 45 MiB checkpoint directly to normal git; use Git LFS or an artifact store if it must be versioned.",
+    "rationale": "The model executes every DP-backed example and gives reasonable workflow-level references, but several transition-state searches remain not strictly converged or differ materially from ABACUS."
+  },
+  "schema_version": 1,
+  "validation_run": {
+    "atst": "2.0.0+current-source",
+    "deepmd_kit": "3.1.2",
+    "dp_head": "Omat24",
+    "job_ids": [
+      "461555",
+      "461556",
+      "461558",
+      "461559",
+      "461560",
+      "461561",
+      "461562",
+      "461563",
+      "461564",
+      "461654"
+    ],
+    "model_path": "temp_repos/dp_model/DPA-3.1-3M.pt",
+    "model_sha256": "86dd3a804d78ca5d203ebf98747e8f16dff9713ba8950097ceb760b161e19907",
+    "model_url": "https://store.aissquare.com/models/35b4ce45-4f59-4868-9fd7-a0c0f5ad9464/DPA-3.1-3M.pt",
+    "partition": "4V100PX",
+    "platform": "SAI Slurm GPU nodes",
+    "qos": "flood-1o2gpu",
+    "source": "current checkout via PYTHONPATH=src"
+  }
+}
