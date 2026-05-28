@@ -693,9 +693,10 @@ class AutoNEBRunner:
             autoneb.run()
         finally:
             self._active_autoneb = None
-        if self.world.rank == 0:
-            self._freeze_final_image_results(autoneb.all_images)
-            for i, atoms in enumerate(autoneb.all_images):
+        final_images = getattr(autoneb, "all_images", None)
+        if self.world.rank == 0 and final_images is not None:
+            self._freeze_final_image_results(final_images)
+            for i, atoms in enumerate(final_images):
                 filename = f'{self.prefix}{i:03d}.traj'
                 write(filename, atoms)
         print("=== AutoNEB Calculation Finished ===")
