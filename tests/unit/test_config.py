@@ -411,6 +411,20 @@ def test_validate_accepts_autoneb_backend_selector():
     assert config["calculation"]["neb_backend"] == "ase"
 
 
+def test_validate_rejects_non_positive_autoneb_n_simul():
+    with pytest.raises(ValueError, match="n_simul"):
+        ConfigLoader.normalize(
+            {
+                "calculation": {
+                    "type": "autoneb",
+                    "init_chain": "chain.traj",
+                    "n_simul": 0,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_rejects_unknown_neb_backend():
     with pytest.raises(ValueError, match="neb_backend"):
         ConfigLoader.validate(

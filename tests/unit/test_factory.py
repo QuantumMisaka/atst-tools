@@ -78,6 +78,69 @@ def test_abacus_factory_uses_explicit_version_command(monkeypatch):
     assert "version_command" not in calc.kwargs
 
 
+def test_abacus_factory_formats_mpi_placeholder(monkeypatch):
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "mpirun -np {mpi} abacus",
+                "mpi": 2,
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    assert calc.kwargs["profile"].kwargs["command"] == "mpirun -np 2 abacus"
+
+
+def test_abacus_factory_does_not_wrap_explicit_srun_command(monkeypatch):
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "srun -n 2 abacus",
+                "mpi": 2,
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    assert calc.kwargs["profile"].kwargs["command"] == "srun -n 2 abacus"
+
+
+def test_abacus_factory_strips_outer_mpi_env_for_single_process_abacus(monkeypatch):
+    monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "3")
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "abacus",
+                "mpi": 1,
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    command = calc.kwargs["profile"].kwargs["command"]
+    assert command.startswith("env -u OMPI_COMM_WORLD_SIZE")
+    assert command.endswith(" abacus")
+
+
 def test_dp_factory_uses_deepmd_calculator(monkeypatch):
     class FakeDP:
         def __init__(self, **kwargs):

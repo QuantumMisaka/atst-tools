@@ -2,8 +2,12 @@
 
 import argparse
 import logging
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import numpy as np
-from ase.io import read
+from ase.io import read, write
 from ase.mep.neb import NEB
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 import os
@@ -35,6 +39,11 @@ from atst_tools.utils.neb_endpoints import (
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.mpi import (
+    get_ase_world,
+    rank_owns_local_image,
+    validate_image_parallel_world,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -328,6 +337,27 @@ def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, o
         freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
 
 
+def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
+    """Run endpoint preparation on rank 0 and share frozen results via a temp chain."""
+    sync_file = ".atst_neb_endpoint_synced.traj"
+    if world.rank == 0:
+        prepare_endpoints(images)
+        write(sync_file, images)
+    if hasattr(world, "barrier"):
+        world.barrier()
+    synced_images = read(sync_file, index=":", parallel=False)
+    if hasattr(world, "barrier"):
+        world.barrier()
+    if world.rank == 0:
+        try:
+            os.remove(sync_file)
+        except FileNotFoundError:
+            pass
+    if hasattr(world, "barrier"):
+        world.barrier()
+    return synced_images
+
+
 def run_neb(config, calc_name, calc_config):
     """
     Execute NEB calculation workflow.
@@ -348,26 +378,37 @@ def run_neb(config, calc_name, calc_config):
     if has_init_chain == has_make:
         raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
 
+    parallel = calc_config['parallel']
+    world = get_ase_world()
+    effective_parallel = parallel and world.size > 1
+    if parallel and not effective_parallel:
+        LOGGER.warning(
+            "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
+        )
+
     if has_make:
         make_config = calc_config.get('make') or {}
         init_chain_file = make_config['output']
         fix_height, fix_dir = _parse_make_fix(make_config.get('fix'))
         mag_ele, mag_num = _parse_make_mag(make_config.get('magmom'))
         if not restart:
-            generate(
-                method=make_config['method'],
-                n_images=make_config['n_images'],
-                is_file=make_config['init_structure'],
-                fs_file=make_config['final_structure'],
-                output_file=init_chain_file,
-                format=make_config.get('format'),
-                fix_height=fix_height,
-                fix_dir=fix_dir,
-                mag_ele=mag_ele,
-                mag_num=mag_num,
-                no_align=make_config['no_align'],
-                ts_file=make_config.get('ts_guess'),
-            )
+            if not effective_parallel or world.rank == 0:
+                generate(
+                    method=make_config['method'],
+                    n_images=make_config['n_images'],
+                    is_file=make_config['init_structure'],
+                    fs_file=make_config['final_structure'],
+                    output_file=init_chain_file,
+                    format=make_config.get('format'),
+                    fix_height=fix_height,
+                    fix_dir=fix_dir,
+                    mag_ele=mag_ele,
+                    mag_num=mag_num,
+                    no_align=make_config['no_align'],
+                    ts_file=make_config.get('ts_guess'),
+                )
+            if effective_parallel and hasattr(world, "barrier"):
+                world.barrier()
     else:
         init_chain_file = calc_config['init_chain']
     if restart:
@@ -381,32 +422,39 @@ def run_neb(config, calc_name, calc_config):
     fmax = calc_config['fmax']
     k = calc_config['k']
     algorism = calc_config['algorism']
-    parallel = calc_config['parallel']
     max_steps = calc_config['max_steps']
     opt_name = calc_config['optimizer']
     two_stage = calc_config.get("two_stage", False)
-    from ase.parallel import world
-    effective_parallel = parallel and world.size > 1
-    if parallel and not effective_parallel:
-        LOGGER.warning(
-            "Image-level NEB parallelism requires MPI-launched atst run; running images serially."
+    if effective_parallel:
+        validate_image_parallel_world(world, len(init_chain) - 2, "NEB")
+        LOGGER.info(
+            "Image-level NEB parallelism active: world.size=%s, interior_images=%s",
+            world.size,
+            len(init_chain) - 2,
         )
 
     base_dir = _abacus_base_directory(config, 'run_atst')
     policy = endpoint_policy(calc_config, default="auto")
     optimizer = get_optimizer(opt_name)
-    _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, optimizer)
-    ensure_neb_endpoint_results(
-        init_chain,
-        lambda directory: _get_workflow_calculator(
-            calc_name,
-            config,
-            directory=f"{base_dir}/{directory}",
-        ),
-        policy=policy,
-        directories=("endpoint_initial", "endpoint_final"),
-        context="NEB",
-    )
+
+    def prepare_endpoints(images):
+        _relax_neb_endpoints(images, config, calc_name, calc_config, base_dir, optimizer)
+        return ensure_neb_endpoint_results(
+            images,
+            lambda directory: _get_workflow_calculator(
+                calc_name,
+                config,
+                directory=f"{base_dir}/{directory}",
+            ),
+            policy=policy,
+            directories=("endpoint_initial", "endpoint_final"),
+            context="NEB",
+        )
+
+    if effective_parallel:
+        init_chain = _sync_parallel_endpoint_results(init_chain, world, prepare_endpoints)
+    else:
+        prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
     
     # Initialize NEB
@@ -429,9 +477,9 @@ def run_neb(config, calc_name, calc_config):
         )
     for i, image in enumerate(init_chain[1:-1]):
         if effective_parallel:
-            if world.rank == i % world.size:
+            if rank_owns_local_image(world, i):
                 # Determine directory logic
-                image_dir = f"{base_dir}-rank{world.rank}"
+                image_dir = f"{base_dir}/image_{i + 1:03d}"
                 
                 image.calc = _get_workflow_calculator(
                     calc_name, 

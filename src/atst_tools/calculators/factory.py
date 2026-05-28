@@ -11,9 +11,22 @@ from ase.calculators.calculator import Calculator
 
 from atst_tools.calculators.abacuslite_backend import Abacus, ATSTAbacusProfile, BACKEND_SOURCE
 from atst_tools.calculators.dp import DeepPotentialFactory
+from atst_tools.utils.mpi import mpi_launcher_detected
 
 
 _ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters", "version_command"}
+_MPI_ENV_KEYS_TO_CLEAR = (
+    "OMPI_COMM_WORLD_SIZE",
+    "OMPI_COMM_WORLD_RANK",
+    "OMPI_COMM_WORLD_LOCAL_RANK",
+    "OMPI_COMM_WORLD_LOCAL_SIZE",
+    "OMPI_UNIVERSE_SIZE",
+    "PMI_SIZE",
+    "PMI_RANK",
+    "PMIX_RANK",
+    "PMIX_NAMESPACE",
+    "MPI_LOCALRANKID",
+)
 LOGGER = logging.getLogger(__name__)
 _ABACUS_BACKEND_LOGGED = False
 
@@ -45,6 +58,9 @@ def _build_abacus_command(command: str, mpi: int) -> str:
     executable = shlex.split(command)[0] if command.strip() else "abacus"
     if mpi > 1 and executable not in {"mpirun", "mpiexec", "srun"}:
         return f"mpirun -np {mpi} {command}"
+    if mpi == 1 and executable not in {"env", "mpirun", "mpiexec", "srun"} and mpi_launcher_detected():
+        clear_env = " ".join(f"-u {key}" for key in _MPI_ENV_KEYS_TO_CLEAR)
+        return f"env {clear_env} {command or 'abacus'}"
     return command or "abacus"
 
 

@@ -164,6 +164,22 @@
       "validation_elapsed": "00:36:19",
       "validation_node": "4v100pxn05",
       "validation_status": "ABACUS validated through abacuslite from the same perturbed H2/Au TS guess as the Sella example; CCQN uses accept_initial_converged: false and returns to the Sella reference TS within tolerance"
+    },
+    "13_neb_parallel_Cy-Pt": {
+      "reference_type": "parallel_example",
+      "workflow": "neb_image_parallel",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "SAI image-level parallel example split from 03_autoneb_Cy-Pt endpoints; validate with dry-run and optional Slurm execution"
+    },
+    "14_autoneb_parallel_Cy-Pt": {
+      "reference_type": "parallel_example",
+      "workflow": "autoneb_image_parallel",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "SAI image-level parallel AutoNEB example split from 03_autoneb_Cy-Pt endpoints; validate with dry-run and optional Slurm execution"
     }
   }
 }

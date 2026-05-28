@@ -26,13 +26,33 @@ def _load_abacuslite_backend():
 Abacus, AbacusProfile, BACKEND_SOURCE = _load_abacuslite_backend()
 
 
-def _default_version_command(command: str) -> list[str]:
-    """Return the default bare ABACUS version-probe command."""
+def _command_executable(command: str) -> str:
+    """Return the executable from a possibly launcher- or env-wrapped command."""
     parts = shlex.split(command)
     if not parts:
-        return ["abacus", "--version"]
-    executable = parts[-1] if parts[0] in {"mpirun", "mpiexec", "srun"} else parts[0]
-    return [executable, "--version"]
+        return "abacus"
+    if parts[0] in {"mpirun", "mpiexec", "srun"}:
+        return parts[-1]
+    if parts[0] == "env":
+        index = 1
+        while index < len(parts):
+            if parts[index] == "-u":
+                index += 2
+                continue
+            if parts[index].startswith("-"):
+                index += 1
+                continue
+            if "=" in parts[index]:
+                index += 1
+                continue
+            return parts[index]
+        return "abacus"
+    return parts[0]
+
+
+def _default_version_command(command: str) -> list[str]:
+    """Return the default bare ABACUS version-probe command."""
+    return [_command_executable(command), "--version"]
 
 
 class ATSTAbacusProfile(AbacusProfile):

@@ -95,6 +95,55 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
 then Dimer, Sella, or CCQN, with optional vibration follow-up.
 
+### NEB image-level MPI smoke
+
+Image-level NEB parallelism requires Python itself to be MPI-aware. On SAI, use
+an environment with `mpi4py` compiled after loading
+`abacus/LTSv3.10.1-sm70-auto`, then launch one Python rank per active image:
+
+```bash
+module load abacus/LTSv3.10.1-sm70-auto
+conda activate atst-neb-mpi
+cd examples/01_neb_Li-Si
+mpirun -np 3 atst run config_parallel_smoke.yaml
+```
+
+For AutoNEB, use one Python rank per `calculation.n_simul`:
+
+```bash
+cd examples/03_autoneb_Cy-Pt
+mpirun -np 4 atst run config_parallel_smoke.yaml
+```
+
+The outer `mpirun` controls ASE image scheduling. `calculator.abacus.mpi`
+controls the ABACUS subprocess count for each image; keep it at `1` for first
+parallel smoke tests unless the allocation is sized for nested MPI. ATST-Tools
+does not submit Slurm jobs; put the outer command above inside your site sbatch
+script or replace `mpirun` with the site launcher that exposes an mpi4py world.
+
+### SAI Cy-Pt image-parallel ABACUS examples
+
+The dedicated SAI image-level parallel examples are split from the basic
+`03_autoneb_Cy-Pt` example so the simple AutoNEB case remains uncluttered:
+
+```bash
+cd examples/13_neb_parallel_Cy-Pt
+sbatch submit_huge_gpu.sbatch
+
+cd ../14_autoneb_parallel_Cy-Pt
+sbatch submit_rush_gpu.sbatch
+```
+
+`13_neb_parallel_Cy-Pt/config.yaml` runs ordinary NEB with five interior images
+from the Cy-Pt endpoint pair. The Slurm script uses `huge-gpu` QOS and launches
+`mpirun -np 5 atst run ...`; each Python image rank then launches ABACUS with
+`calculator.abacus.mpi: 4` and an isolated local inner `mpirun` command.
+
+`14_autoneb_parallel_Cy-Pt/config.yaml` runs AutoNEB from the same endpoint pair
+with `n_simul: 4`. The Slurm script uses `rush-gpu` QOS and launches
+`mpirun -np 4 atst run ...`; each image uses a single ABACUS process with
+`calculator.abacus.mpi: 1`. Both configs set `calculator.abacus.omp: 8`.
+
 ## Chemical Systems Summary
 
 | Example Directory | System | Elements | Method |
@@ -111,6 +160,8 @@ then Dimer, Sella, or CCQN, with optional vibration follow-up.
 | `10_irc_H2` | H2 TS fixture | H | IRC |
 | `11_vibration_ideal_gas_H2` | H2 gas molecule | H | Vibration + IdealGasThermo |
 | `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
+| `13_neb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | NEB image-parallel |
+| `14_autoneb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | AutoNEB image-parallel |
 
 ## Reference Results
 

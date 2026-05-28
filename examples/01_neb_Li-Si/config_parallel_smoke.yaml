@@ -1,0 +1,47 @@
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  climb: true
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+  max_steps: 1
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 1
+    omp: 1
+    directory: run_neb_parallel_smoke_envsafe
+    kpts: [2, 2, 2]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        dft_functional: pbe
+        scf_thr: 1e-06
+        scf_nmax: 100
+        smearing_method: gaussian
+        smearing_sigma: 0.001
+        mixing_type: broyden
+        cal_force: 1
+        cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
+        out_stru: 1
+        out_chg: 0
+        out_mul: 0
+        out_wfc_lcao: 0
+        out_bandgap: 0
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           Li: Li_ONCV_PBE-1.2.upf
+           Si: Si_ONCV_PBE-1.2.upf
+        basissets:
+           Li: Li_gga_8au_100Ry_4s1p.orb
+           Si: Si_gga_8au_100Ry_2s2p1d.orb
