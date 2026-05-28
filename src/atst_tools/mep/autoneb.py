@@ -24,7 +24,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
-from atst_tools.utils.neb_endpoints import freeze_results, get_endpoint_results
+from atst_tools.utils.neb_endpoints import freeze_current_results, freeze_results, get_endpoint_results
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
@@ -619,6 +619,23 @@ class AutoNEBRunner:
             return partial(optimizer, **self.optimizer_kwargs)
         return optimizer
 
+    def _freeze_final_image_results(self, images):
+        """Ensure final AutoNEB image files can be summarized without calculators."""
+        base_dir = self._base_directory()
+        shared_calc = None
+        for index, image in enumerate(images):
+            try:
+                image.get_potential_energy()
+                image.get_forces()
+            except Exception:
+                if is_dp_calculator(self.calc_name):
+                    if shared_calc is None:
+                        shared_calc = self._get_calculator(f"{base_dir}/final_shared", shared=True)
+                    image.calc = shared_calc
+                else:
+                    image.calc = self._get_calculator(f"{base_dir}/final_image_{index:03d}")
+            freeze_current_results(image)
+
     def run(self):
         """
         Run the AutoNEB workflow.
@@ -676,4 +693,9 @@ class AutoNEBRunner:
             autoneb.run()
         finally:
             self._active_autoneb = None
+        if self.world.rank == 0:
+            self._freeze_final_image_results(autoneb.all_images)
+            for i, atoms in enumerate(autoneb.all_images):
+                filename = f'{self.prefix}{i:03d}.traj'
+                write(filename, atoms)
         print("=== AutoNEB Calculation Finished ===")

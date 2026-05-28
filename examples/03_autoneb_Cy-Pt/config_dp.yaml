@@ -11,6 +11,7 @@ calculation:
   climb: true
   maxsteps: 5
   iter_folder: AutoNEB_iter
+  endpoint_singlepoint: always
 
 calculator:
   name: dp
