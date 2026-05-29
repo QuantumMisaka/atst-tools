@@ -1,0 +1,40 @@
+[INFO] NCCL Topology dumped via C-API and successfully patched to force GDR=1.
+No AVX512, but AVX2 detected, utilizing the corresponding version...
+No AVX512, but AVX2 detected, utilizing the corresponding version...
+No AVX512, but AVX2 detected, utilizing the corresponding version...
+No AVX512, but AVX2 detected, utilizing the corresponding version...
+No AVX512, but AVX2 detected, utilizing the corresponding version...
+Loading abacus/LTSv3.10.1-sm70-auto
+  Loading requirement: cuda/12.9.1 nvhpc/25.7-gnu-tuned
+    openmpi/5.0.8-nvhpc25.7-gnu-auto fftw/3.3.10 libxc/7.0.0-auto
+    saiblas/2509-gnu-auto elpa/2025.06.001-2509-gnu-sm70-auto
+Starting NEB calculation
+Starting NEB calculation
+Starting NEB calculation
+Starting NEB calculation
+Starting NEB calculation
+Image-level NEB parallelism active: world.size=5, interior_images=5
+Image-level NEB parallelism active: world.size=5, interior_images=5
+Image-level NEB parallelism active: world.size=5, interior_images=5
+Image-level NEB parallelism active: world.size=5, interior_images=5
+Image-level NEB parallelism active: world.size=5, interior_images=5
+Using vendored abacuslite backend for ABACUS calculator.
+Using vendored abacuslite backend for ABACUS calculator.
+Using vendored abacuslite backend for ABACUS calculator.
+Using vendored abacuslite backend for ABACUS calculator.
+Using vendored abacuslite backend for ABACUS calculator.
+      Step     Time          Energy          fmax
+FIRE:    0 23:06:37   -11865.502211        0.114133
+NEB calculation finished
+NEB calculation finished
+NEB calculation finished
+NEB calculation finished
+NEB calculation finished
+[1779980797.427388] [8v100v0n03:3192035:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x5be6b421ffc0 was not matched
+[1779980797.427409] [8v100v0n03:3192035:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x1254455ace92 was not matched
+[1779980797.427414] [8v100v0n03:3192035:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x5be6b421ff00 was not matched
+[1779980797.427418] [8v100v0n03:3192035:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x1254455a8d12 was not matched
+[1779980797.430449] [8v100v0n04:3252953:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x623ae5cc5d80 was not matched
+[1779980797.430469] [8v100v0n04:3252953:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x13d3355b1012 was not matched
+[1779980797.430472] [8v100v0n04:3252953:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x623ae5cc5cc0 was not matched
+[1779980797.430474] [8v100v0n04:3252953:0]       tag_match.c:62   UCX  WARN  unexpected tag-receive descriptor 0x13d3355ace92 was not matched

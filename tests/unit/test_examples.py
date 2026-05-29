@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from ruamel.yaml import YAML
 
@@ -66,6 +67,7 @@ def test_cy_pt_parallel_neb_nested_mpi_example_is_sai_sized():
     assert calculation["type"] == "neb"
     assert calculation["parallel"] is True
     assert calculation["init_chain"] == "inputs/cy_pt_neb_5_images.traj"
+    assert calculation["fmax"] == 0.12
     assert abacus["mpi"] == 4
     assert abacus["omp"] == 8
     assert abacus["version_command"] == "abacus --version"
@@ -89,6 +91,7 @@ def test_cy_pt_parallel_autoneb_single_gpu_example_is_sai_sized():
     assert calculation["parallel"] is True
     assert calculation["n_simul"] == 4
     assert calculation["init_chain"] == "inputs/cy_pt_endpoints.traj"
+    assert calculation["fmax"] == [0.20, 0.20]
     assert abacus["command"] == "abacus"
     assert abacus["mpi"] == 1
     assert abacus["omp"] == 8
@@ -103,16 +106,53 @@ def test_cy_pt_parallel_sbatch_examples_encode_sai_launchers():
     autoneb = autoneb_script.read_text(encoding="utf-8")
 
     assert "#SBATCH --qos=huge-gpu" in neb
+    assert "#SBATCH --partition=8V100V0" in neb
     assert "#SBATCH --nodes=5" in neb
     assert "#SBATCH --ntasks=20" in neb
     assert "#SBATCH --gpus-per-node=4" in neb
     assert "mpirun -np 5 --map-by ppr:1:node atst run config.yaml" in neb
 
     assert "#SBATCH --qos=rush-gpu" in autoneb
+    assert "#SBATCH --partition=4V100" in autoneb
     assert "#SBATCH --nodes=1" in autoneb
     assert "#SBATCH --ntasks=4" in autoneb
     assert "#SBATCH --gpus-per-node=4" in autoneb
     assert "mpirun -np 4 --map-by $MAP_OPT atst run config.yaml" in autoneb
+
+
+def test_cy_pt_parallel_examples_include_completed_validation_outputs():
+    reference = json.loads(Path("examples/reference_results.json").read_text(encoding="utf-8"))
+    neb_reference = reference["cases"]["13_neb_parallel_Cy-Pt"]
+    autoneb_reference = reference["cases"]["14_autoneb_parallel_Cy-Pt"]
+
+    neb_dir = Path("examples/13_neb_parallel_Cy-Pt/outputs")
+    autoneb_dir = Path("examples/14_autoneb_parallel_Cy-Pt/outputs")
+
+    neb_summary_path = neb_dir / "summary_13_neb_parallel_8v100_fmax012.json"
+    autoneb_summary_path = autoneb_dir / "summary_14_autoneb_parallel.json"
+
+    assert (neb_dir / "README.md").exists()
+    assert (neb_dir / "neb_parallel_nested_mpi.traj").exists()
+    assert (neb_dir / "slurm-461967.out").exists()
+    assert neb_summary_path.exists()
+
+    assert (autoneb_dir / "README.md").exists()
+    assert (autoneb_dir / "slurm-462244.out").exists()
+    assert autoneb_summary_path.exists()
+    assert len(sorted(autoneb_dir.glob("run_autoneb_parallel_single_gpu*.traj"))) == 10
+
+    neb_summary = json.loads(neb_summary_path.read_text(encoding="utf-8"))
+    autoneb_summary = json.loads(autoneb_summary_path.read_text(encoding="utf-8"))
+
+    assert neb_summary["status"]["complete"] is True
+    assert round(neb_summary["latest"]["barrier_eV"], 6) == neb_reference["forward_barrier_eV"]
+    assert neb_summary["latest"]["ts_image"] == neb_reference["transition_state_index"]
+    assert round(neb_summary["latest"]["projected_neb_fmax_eV_per_A"], 6) == neb_reference["projected_neb_fmax_eV_per_A"]
+
+    assert autoneb_summary["status"]["complete"] is True
+    assert round(autoneb_summary["latest"]["barrier_eV"], 6) == autoneb_reference["forward_barrier_eV"]
+    assert autoneb_summary["latest"]["ts_image"] == autoneb_reference["transition_state_index"]
+    assert round(autoneb_summary["latest"]["projected_neb_fmax_eV_per_A"], 6) == autoneb_reference["projected_neb_fmax_eV_per_A"]
 
 
 def test_base_cy_pt_autoneb_example_keeps_parallel_cases_split_out():

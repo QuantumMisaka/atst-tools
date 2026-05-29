@@ -7,7 +7,7 @@ calculation:
   algorism: improvedtangent
   parallel: true
   optimizer: FIRE
-  fmax: [0.20, 0.05]
+  fmax: [0.20, 0.20]
   climb: true
   maxsteps: 10000
   iter_folder: AutoNEB_iter_parallel_single_gpu
