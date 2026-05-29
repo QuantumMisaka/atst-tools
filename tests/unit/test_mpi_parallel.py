@@ -239,6 +239,7 @@ def test_autoneb_parallel_initial_files_written_only_by_rank_zero(monkeypatch, t
 
     class FakeAutoNEB:
         def __init__(self, **kwargs):
+            self.all_images = chain
             return None
 
         def run(self):
@@ -275,6 +276,7 @@ def test_autoneb_parallel_logs_world_size(monkeypatch, tmp_path, capsys):
 
     class FakeAutoNEB:
         def __init__(self, **kwargs):
+            self.all_images = chain
             return None
 
         def run(self):
