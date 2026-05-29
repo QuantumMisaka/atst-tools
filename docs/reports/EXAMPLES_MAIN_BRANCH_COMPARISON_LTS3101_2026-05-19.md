@@ -1,5 +1,10 @@
 # Examples vs Main Branch Validation - 2026-05-19
 
+**Version**: 2.0.0
+**Date**: 2026-05-19
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
+
 ## 中文摘要
 
 本报告是当前 `examples/` 与 `main` branch 已有过渡态案例结果的比对和

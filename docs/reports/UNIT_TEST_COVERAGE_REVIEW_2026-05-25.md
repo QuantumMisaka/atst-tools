@@ -1,6 +1,9 @@
 # ATST-Tools 单元测试覆盖审查报告
 
-日期：2026-05-25
+**Version**: 2.0.0
+**Date**: 2026-05-25
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 本报告以 `docs/reports/EXAMPLES_REPRODUCTION_RECHECK_AND_ABACUSLITE_AUDIT_2026-05-24.md` 中的 examples 复现结论，以及当前 `src/atst_tools` 核心实现为参考，审查现有单元测试对项目关键功能和复现实例的覆盖情况。
 

@@ -78,6 +78,7 @@ release 变更，都先从对应小节确认需要同步的文档。
 ```bash
 git diff --check -- README.md docs examples/README.md
 rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md
+python scripts/check_docs_governance.py
 ```
 
 若修改 YAML schema：

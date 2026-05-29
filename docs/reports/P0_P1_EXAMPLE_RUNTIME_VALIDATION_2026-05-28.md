@@ -1,5 +1,10 @@
 # P0/P1 Example Runtime Validation - 2026-05-28
 
+**Version**: 2.0.0
+**Date**: 2026-05-28
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
+
 ## Scope
 
 This report records the example additions and runtime checks for the P0/P1

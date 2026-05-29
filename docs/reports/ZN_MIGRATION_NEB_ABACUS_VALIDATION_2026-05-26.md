@@ -1,9 +1,11 @@
 # Zn Migration NEB ABACUS Validation
 
+**Version:** 2.0.0
 **Date:** 2026-05-26  
 **Workspace:** `temp_practices/zn_neb_atst_validation`  
 **Status:** Smoke jobs moved to `4V100PX`; CI-NEB smoke completed and CI-NEB
 production is running.
+**Owner:** ATST-Tools maintainers
 
 ## Scope
 

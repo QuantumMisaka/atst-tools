@@ -2,6 +2,8 @@
 
 **Version**: 2.0.0
 **Last Updated**: 2026-05-28
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |

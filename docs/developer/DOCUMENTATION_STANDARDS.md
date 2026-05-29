@@ -85,10 +85,13 @@
 ```bash
 git diff --check -- README.md docs examples/README.md
 rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md
+python scripts/check_docs_governance.py
 ```
 
 还应对 README 和非 archive 的 `docs/**/*.md` 执行本地相对链接检查。若修改 HTML
-报告，用 Python 标准库 `HTMLParser` 做基础解析。若修改 YAML schema，重新生成参数表并运行：
+报告，用 Python 标准库 `HTMLParser` 做基础解析。`check_docs_governance.py`
+会统一检查 active links、reports 账本、metadata、pending-delete inventory 和 HTML
+report 基础解析。若修改 YAML schema，重新生成参数表并运行：
 
 ```bash
 conda run -n atst-dev python -m atst_tools.utils.config_docs --output docs/user/YAML_INPUT_VARIABLES.md

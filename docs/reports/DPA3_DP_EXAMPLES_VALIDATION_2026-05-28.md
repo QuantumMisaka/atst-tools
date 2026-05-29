@@ -1,6 +1,9 @@
 # DPA-3.1 DP Examples Validation
 
-Date: 2026-05-28
+**Version**: 2.0.0
+**Date**: 2026-05-28
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 ## Scope
 

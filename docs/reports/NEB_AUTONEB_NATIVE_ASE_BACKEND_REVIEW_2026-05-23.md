@@ -1,6 +1,9 @@
 # NEB/AutoNEB Native ASE Backend Review
 
+**Version**: 2.0.0
 **Date**: 2026-05-23  
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 **Scope**: ordinary NEB and AutoNEB execution for ABACUS-backed examples
 
 ## Summary
