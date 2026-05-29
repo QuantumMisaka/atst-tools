@@ -168,18 +168,32 @@
     "13_neb_parallel_Cy-Pt": {
       "reference_type": "parallel_example",
       "workflow": "neb_image_parallel",
-      "transition_state_index": null,
-      "forward_barrier_eV": null,
+      "forward_barrier_eV": 1.322675,
+      "reference_03_forward_barrier_eV": 1.322675,
+      "barrier_delta_to_03_eV": -0.000000,
+      "transition_state_index": 4,
+      "projected_neb_fmax_eV_per_A": 0.114133,
       "transition_state_structure": null,
-      "validation_status": "SAI image-level parallel example split from 03_autoneb_Cy-Pt endpoints; validate with dry-run and optional Slurm execution"
+      "validation_job_id": 461967,
+      "validation_elapsed": "00:03:28",
+      "validation_partition": "8V100V0",
+      "validation_node": "8v100v0n[02-06]",
+      "validation_status": "SAI real-run validated with mpirun -np 5 atst run; each image launched ABACUS with mpi=4 and omp=8"
     },
     "14_autoneb_parallel_Cy-Pt": {
       "reference_type": "parallel_example",
       "workflow": "autoneb_image_parallel",
-      "transition_state_index": null,
-      "forward_barrier_eV": null,
+      "forward_barrier_eV": 1.322099,
+      "reference_03_forward_barrier_eV": 1.322675,
+      "barrier_delta_to_03_eV": -0.000576,
+      "transition_state_index": 5,
+      "projected_neb_fmax_eV_per_A": 0.184590,
       "transition_state_structure": null,
-      "validation_status": "SAI image-level parallel AutoNEB example split from 03_autoneb_Cy-Pt endpoints; validate with dry-run and optional Slurm execution"
+      "validation_job_id": 462244,
+      "validation_elapsed": "00:37:16",
+      "validation_partition": "4V100",
+      "validation_node": "4v100n01",
+      "validation_status": "SAI real-run validated with mpirun -np 4 atst run; each image used single-process ABACUS with omp=8"
     }
   }
 }

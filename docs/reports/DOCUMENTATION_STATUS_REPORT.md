@@ -60,6 +60,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/ZN_MIGRATION_NEB_ABACUS_VALIDATION_2026-05-26.md` | Zn migration NEB ABACUS 验证证据。 |
 | `docs/reports/MPI4PY_ASE_NEB_PARALLEL_ATST_SUMMARY_2026-05-27.md` | MPI image-level NEB/AutoNEB 并行设计、约束和验证总结。 |
 | `docs/reports/P0_P1_EXAMPLE_RUNTIME_VALIDATION_2026-05-28.md` | P0/P1 示例 runtime 验证和当前示例扩展证据。 |
+| `docs/reports/NEB_IMAGE_PARALLEL_E2E_VALIDATION_2026-05-29.md` | Cy-Pt image-level NEB/AutoNEB SAI 端到端验证、barrier 对比和 nested MPI 证据。 |
 
 ### L3: 当前主题审查
 

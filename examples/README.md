@@ -7,9 +7,10 @@ The examples are organized by chemical system and method to demonstrate the vers
 
 *   `data/`: Centralized repository for Pseudopotentials (`.upf`) and Numerical Orbitals (`.orb`).
 *   `<case>/inputs/`: Curated input structures and vectors referenced by `config*.yaml`.
+*   `<case>/outputs/`: Curated completed-run outputs when an example is meant to be inspected without rerunning an expensive calculation.
 *   `config.yaml`: ABACUS-backed example configuration.
 *   `config_dp.yaml`: DP-backed example configuration when available. These use `../../temp_repos/dp_model/DPA-3.1-3M.pt` with `head: Omat24` for local validation; the model file is intentionally outside git.
-*   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS/DP scratch files are ignored unless they are explicitly curated inputs.
+*   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS/DP scratch files are ignored unless they are explicitly curated inputs or completed-run outputs.
 
 ### 1. Basic Examples (Li Diffusion)
 *   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
@@ -161,15 +162,36 @@ sbatch submit_rush_gpu.sbatch
 ```
 
 `13_neb_parallel_Cy-Pt/config.yaml` runs ordinary NEB with five interior images
-from a prepared Cy-Pt double-end chain. The Slurm script uses `huge-gpu` QOS and
-launches `mpirun -np 5 atst run ...`; each Python image rank then launches
-ABACUS with `calculator.abacus.mpi: 4` and an isolated local inner `mpirun`
-command.
+from a prepared Cy-Pt double-end chain. The Slurm script uses the `8V100V0`
+partition with `huge-gpu` QOS and launches `mpirun -np 5 atst run ...`; each
+Python image rank then launches ABACUS with `calculator.abacus.mpi: 4` and an
+isolated local inner `mpirun` command.
 
 `14_autoneb_parallel_Cy-Pt/config.yaml` runs AutoNEB from the same endpoint pair
 with `n_simul: 4`. The Slurm script uses `rush-gpu` QOS and launches
 `mpirun -np 4 atst run ...`; each image uses a single ABACUS process with
-`calculator.abacus.mpi: 1`. Both configs set `calculator.abacus.omp: 8`.
+`calculator.abacus.mpi: 1`. Both configs set `calculator.abacus.omp: 8`. The
+example thresholds are tuned for SAI smoke validation against the 03 Cy-Pt
+AutoNEB barrier: `13` uses `fmax: 0.12`, and `14` uses `fmax: [0.20, 0.20]`.
+
+Both examples include completed-run outputs from the final SAI validation:
+
+- `13_neb_parallel_Cy-Pt/outputs/` comes from job `461967` on `8V100V0`.
+  Inspect it with:
+  ```bash
+  cd examples/13_neb_parallel_Cy-Pt
+  atst neb summary outputs/neb_parallel_nested_mpi.traj --n-max 5 --strict
+  ```
+- `14_autoneb_parallel_Cy-Pt/outputs/` comes from job `462244` on `4V100`.
+  Inspect it with:
+  ```bash
+  cd examples/14_autoneb_parallel_Cy-Pt
+  atst neb summary --autoneb-prefix outputs/run_autoneb_parallel_single_gpu
+  ```
+
+The full validation work directories, including intermediate AutoNEB iteration
+files and monitoring logs, remain under
+`validation_runs/cypt_parallel_e2e_20260528/`.
 
 ## Chemical Systems Summary
 

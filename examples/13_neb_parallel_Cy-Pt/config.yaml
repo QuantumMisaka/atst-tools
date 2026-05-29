@@ -3,7 +3,7 @@ calculation:
   init_chain: inputs/cy_pt_neb_5_images.traj
   trajectory: neb_parallel_nested_mpi.traj
   climb: true
-  fmax: 0.05
+  fmax: 0.12
   k: 0.1
   algorism: improvedtangent
   parallel: true
