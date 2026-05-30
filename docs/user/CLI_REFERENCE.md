@@ -62,6 +62,7 @@ atst neb make INIT FINAL N_IMAGES -o inputs/init_neb_chain.traj --method [IDPP|l
 atst neb make INIT FINAL N_IMAGES --ts TS_GUESS -o inputs/init_neb_chain.traj
 atst neb make INIT FINAL N_IMAGES --from-chain old_neb.traj -o inputs/init_neb_chain.traj
 atst neb post neb.traj --n-max 5 --plot --vib-analysis
+atst neb post neb.traj --n-max 5 --plot --plot-label neb_energy_profile --energy-profile
 atst neb post neb.traj --n-max 5 --write-latest neb_latest
 atst neb post --autoneb-prefix run_autoneb --write-neb-init-chain init_neb_chain.traj
 atst neb summary neb.traj --n-max 5 --tail 5
@@ -72,7 +73,7 @@ atst neb summary --autoneb-prefix run_autoneb --format json --output neb_summary
 `--method` accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository Fast IDPP solver; `linear` writes the aligned linear interpolation directly. Use `-o/--output` to choose the output trajectory and `--format` to override ASE input format detection.
 `atst neb make` also supports `--fix HEIGHT:DIR`, `--mag ELEMENT:MOMENT[,ELEMENT:MOMENT...]`, `--from-chain`, `--ts`, and `--no-align`. `sort_tol` and pymatgen autosort are intentionally not part of the refactored CLI.
 
-`atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices. It supports `--n-max`, `--plot`, `--plot-all`, `--view`, `--vib-analysis`, `--vib-thr`, `--output-prefix`, and `--strict-band`. It can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
+`atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices. It supports `--n-max`, `--plot`, `--plot-label`, `--energy-profile`, `--plot-all`, `--view`, `--vib-analysis`, `--vib-thr`, `--output-prefix`, and `--strict-band`. Use `--energy-profile` to print each selected image's absolute energy, energy relative to the first image, and max force; use `--plot-label` to choose the `--plot` PDF prefix. It can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
 
 `atst neb summary` is a read-only monitor/post-summary command. For ordinary NEB trajectories it reports the band size, complete optimization steps, incomplete frame remainder, per-step raw maximum-force image, image energy, barrier, and delta E. For AutoNEB it reads the current final chain from `--autoneb-prefix` or `--autoneb-files`. Use `--format json` and `--output` for machine-readable reports, `--tail N` for compact terminal output, and `--watch SEC` for polling a running job.
 

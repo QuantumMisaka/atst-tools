@@ -383,8 +383,8 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
         def get_TS_stru(self, name="TS_get"):
             calls.append(("ts", name))
 
-        def plot_neb_bands(self):
-            calls.append(("plot",))
+        def plot_neb_bands(self, label="nebplots_chain"):
+            calls.append(("plot", label))
 
         def write_latest_bands(self, outname="neb_latest"):
             calls.append(("latest", outname))
@@ -402,8 +402,62 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
 
     cli.main(["neb", "post", "neb.traj", "--n-max", "1", "--plot", "--vib-analysis"])
 
-    assert calls == [("init", 0), ("barrier",), ("ts", "TS_get"), ("plot",)]
+    assert calls == [("init", 0), ("barrier",), ("ts", "TS_get"), ("plot", "nebplots_chain")]
     assert "Suggested Vibration Indices" in capsys.readouterr().out
+
+
+def test_neb_post_prints_energy_profile_and_uses_plot_label(monkeypatch, capsys):
+    from atst_tools.scripts import cli
+
+    calls = []
+
+    class FakeNEBPost:
+        def __init__(self, images, n_max=0):
+            self.neb_chain = images
+            calls.append(("init", n_max))
+
+        def get_barrier(self):
+            calls.append(("barrier",))
+
+        def get_TS_stru(self, name="TS_get"):
+            calls.append(("ts", name))
+
+        def plot_neb_bands(self, label="nebplots_chain"):
+            calls.append(("plot", label))
+
+        def energy_profile(self):
+            calls.append(("energy_profile",))
+            return [
+                {"image": 0, "energy_eV": 2.0, "rel_energy_eV": 0.0, "max_force_eV_per_A": 0.0},
+                {"image": 1, "energy_eV": 3.0, "rel_energy_eV": 1.0, "max_force_eV_per_A": 0.2},
+            ]
+
+    monkeypatch.setattr(cli, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0)])
+    monkeypatch.setattr(cli, "NEBPost", FakeNEBPost)
+
+    cli.main([
+        "neb",
+        "post",
+        "neb.traj",
+        "--n-max",
+        "0",
+        "--plot",
+        "--plot-label",
+        "custom_nebplot",
+        "--energy-profile",
+    ])
+
+    output = capsys.readouterr().out
+    assert calls == [
+        ("init", 0),
+        ("barrier",),
+        ("ts", "TS_get"),
+        ("plot", "custom_nebplot"),
+        ("energy_profile",),
+    ]
+    assert "=== NEB Energy Profile ===" in output
+    assert "image energy_eV rel_energy_eV max_force_eV_per_A" in output
+    assert "   1     3.000000     1.000000           0.200000" in output
 
 
 def test_neb_post_writes_latest_and_init_chain(tmp_path, monkeypatch):

@@ -74,6 +74,7 @@ This path does not require ABACUS or DP:
 cd examples/09_lightweight_cli
 atst neb make inputs/init.xyz inputs/final.xyz 3 -o inputs/init_neb_chain.traj --method linear
 atst neb post inputs/neb_result.extxyz --n-max 1 --vib-analysis
+atst neb post inputs/neb_result.extxyz --n-max 1 --plot --plot-label neb_energy_profile --energy-profile
 atst neb summary inputs/neb_result.extxyz --n-max 1 --tail 5
 atst relax post inputs/relax_result.extxyz --output-format traj --output restart.traj
 atst relax summary inputs/relax_result.extxyz --tail 5

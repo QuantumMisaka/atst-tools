@@ -75,6 +75,32 @@ class NEBPost:
         # set fit to True/False is not determined yet
         print(f"Reaction Barrier and Energy Difference: {barrier} (eV)")
         return barrier
+
+    def energy_profile(self):
+        """Return absolute and relative energies for the selected NEB chain.
+
+        Returns:
+            A list of dictionaries containing image index, absolute energy,
+            energy relative to the first image, and maximum atomic force.
+        """
+        energies = [float(atoms.get_potential_energy()) for atoms in self.neb_chain]
+        reference = energies[0] if energies else 0.0
+        profile = []
+        for image, (atoms, energy) in enumerate(zip(self.neb_chain, energies)):
+            try:
+                forces = atoms.get_forces()
+                max_force = float(np.linalg.norm(forces, axis=1).max()) if len(forces) else 0.0
+            except Exception:
+                max_force = float("nan")
+            profile.append(
+                {
+                    "image": image,
+                    "energy_eV": energy,
+                    "rel_energy_eV": energy - reference,
+                    "max_force_eV_per_A": max_force,
+                }
+            )
+        return profile
     
     def get_TS_stru(self, name="TS_get"):
         """Get TS structure from NEB chain"""

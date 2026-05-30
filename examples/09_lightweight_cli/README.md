@@ -10,6 +10,7 @@ Run from this directory:
 atst neb make inputs/init.xyz inputs/final.xyz 3 -o inputs/init_neb_chain.traj --method linear
 atst neb make inputs/init.xyz inputs/final.xyz 3 --ts inputs/ts.xyz -o inputs/init_neb_chain_ts.traj --method linear
 atst neb post inputs/neb_result.extxyz --n-max 1 --vib-analysis --write-latest neb_latest
+atst neb post inputs/neb_result.extxyz --n-max 1 --plot --plot-label neb_energy_profile --energy-profile
 atst traj transform inputs/neb_result.extxyz --neb --n-max 1 --format extxyz --output-prefix latest_band
 atst traj collect inputs/init.xyz inputs/ts.xyz inputs/final.xyz -o collection.traj --no-calc
 atst dimer make-from-neb inputs/neb_result.extxyz --n-max 1 --output-traj dimer_init.traj

@@ -215,6 +215,8 @@ def _add_neb_parser(subparsers):
     post.add_argument("traj_file", nargs="?", help="NEB trajectory file")
     post.add_argument("--n-max", type=int, default=0, help="Number of intermediate images")
     post.add_argument("--plot", action="store_true", help="Plot NEB bands")
+    post.add_argument("--plot-label", default="nebplots_chain", help="Output prefix for --plot PDF")
+    post.add_argument("--energy-profile", action="store_true", help="Print per-image absolute and relative energies")
     post.add_argument("--plot-all", action="store_true", help="Plot all bands in the input trajectory")
     post.add_argument("--view", action="store_true", help="View NEB bands in ASE GUI")
     post.add_argument("--vib-analysis", action="store_true", help="Suggest vibration atom indices")
@@ -328,7 +330,17 @@ def _neb_post_command(args):
 
     if args.plot:
         print("=== Plotting NEB Bands ===")
-        post.plot_neb_bands()
+        post.plot_neb_bands(label=args.plot_label)
+
+    if args.energy_profile:
+        print("=== NEB Energy Profile ===")
+        print("image energy_eV rel_energy_eV max_force_eV_per_A")
+        for row in post.energy_profile():
+            print(
+                "{image:>4} {energy_eV:>12.6f} {rel_energy_eV:>12.6f} {max_force_eV_per_A:>18.6f}".format(
+                    **row
+                )
+            )
 
     if args.plot_all:
         print("=== Plotting All NEB Bands ===")
