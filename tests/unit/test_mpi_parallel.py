@@ -518,13 +518,14 @@ def test_autoneb_parallel_endpoint_sync_reads_without_ase_parallel(monkeypatch, 
     assert read_kwargs[-1] == {"index": ":", "parallel": False}
 
 
-def test_abacus_autoneb_parallel_rejects_grouped_rank_execution():
+def test_abacus_autoneb_parallel_rejects_grouped_rank_execution(monkeypatch, tmp_path):
     from atst_tools.mep.autoneb import AbacusAutoNEB
 
     class FakeStack:
         def enter_context(self, obj):
             return obj
 
+    monkeypatch.chdir(tmp_path)
     auto = AbacusAutoNEB(
         attach_calculators=lambda images: None,
         prefix="run_autoneb",
@@ -554,7 +555,7 @@ def test_abacus_neb_parallel_synchronizes_with_reductions_not_broadcasts():
     assert world.sums >= 4
 
 
-def test_abacus_autoneb_initialize_reads_image_files_without_ase_parallel(monkeypatch):
+def test_abacus_autoneb_initialize_reads_image_files_without_ase_parallel(monkeypatch, tmp_path):
     from atst_tools.mep import autoneb
 
     read_kwargs = []
@@ -563,6 +564,7 @@ def test_abacus_autoneb_initialize_reads_image_files_without_ase_parallel(monkey
         text = str(path)
         return text.endswith("run000.traj") or text.endswith("run001.traj")
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(autoneb.os.path, "isfile", fake_isfile)
     monkeypatch.setattr(
         autoneb,
