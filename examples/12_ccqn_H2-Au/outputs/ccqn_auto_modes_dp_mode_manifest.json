@@ -1,0 +1,167 @@
+{
+  "schema_version": "atst-ccqn-mode-manifest-v1",
+  "selected_mode": {
+    "reactive_bonds": [
+      [
+        1,
+        60
+      ]
+    ],
+    "reactive_bonds_1based": [
+      [
+        2,
+        61
+      ]
+    ],
+    "distance_A": 1.8273064849184204,
+    "score": 1.8273064849184204,
+    "label": "H2-Au61",
+    "within_covalent_cutoff": true
+  },
+  "modes": [
+    {
+      "reactive_bonds": [
+        [
+          1,
+          60
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          2,
+          61
+        ]
+      ],
+      "distance_A": 1.8273064849184204,
+      "score": 1.8273064849184204,
+      "label": "H2-Au61",
+      "within_covalent_cutoff": true
+    },
+    {
+      "reactive_bonds": [
+        [
+          0,
+          64
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          1,
+          65
+        ]
+      ],
+      "distance_A": 1.829047101020347,
+      "score": 1.829047101020347,
+      "label": "H1-Au65",
+      "within_covalent_cutoff": true
+    },
+    {
+      "reactive_bonds": [
+        [
+          0,
+          60
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          1,
+          61
+        ]
+      ],
+      "distance_A": 1.9366299141765795,
+      "score": 1.9366299141765795,
+      "label": "H1-Au61",
+      "within_covalent_cutoff": true
+    },
+    {
+      "reactive_bonds": [
+        [
+          1,
+          59
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          2,
+          60
+        ]
+      ],
+      "distance_A": 1.977194217635406,
+      "score": 1.977194217635406,
+      "label": "H2-Au60",
+      "within_covalent_cutoff": true
+    },
+    {
+      "reactive_bonds": [
+        [
+          0,
+          59
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          1,
+          60
+        ]
+      ],
+      "distance_A": 2.660105950806679,
+      "score": 2.660105950806679,
+      "label": "H1-Au60",
+      "within_covalent_cutoff": false
+    },
+    {
+      "reactive_bonds": [
+        [
+          1,
+          64
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          2,
+          65
+        ]
+      ],
+      "distance_A": 2.6929050284921545,
+      "score": 2.6929050284921545,
+      "label": "H2-Au65",
+      "within_covalent_cutoff": false
+    },
+    {
+      "reactive_bonds": [
+        [
+          0,
+          65
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          1,
+          66
+        ]
+      ],
+      "distance_A": 2.9764326351077566,
+      "score": 2.9764326351077566,
+      "label": "H1-Au66",
+      "within_covalent_cutoff": false
+    },
+    {
+      "reactive_bonds": [
+        [
+          1,
+          55
+        ]
+      ],
+      "reactive_bonds_1based": [
+        [
+          2,
+          56
+        ]
+      ],
+      "distance_A": 2.9903070061342483,
+      "score": 2.9903070061342483,
+      "label": "H2-Au56",
+      "within_covalent_cutoff": false
+    }
+  ]
+}

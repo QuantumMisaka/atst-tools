@@ -16,7 +16,7 @@ def test_all_example_configs_parse_and_validate():
             config = yaml.load(handle)
         assert ConfigLoader.validate(config) is True, config_file
         normalized = ConfigLoader.normalize(config)
-        assert "config_version" in normalized, config_file
+        assert "config_version" not in normalized, config_file
 
 
 def test_abacus_examples_use_sai_gpu_solver():
@@ -119,6 +119,40 @@ def test_cy_pt_parallel_sbatch_examples_encode_sai_launchers():
     assert "#SBATCH --ntasks=4" in autoneb
     assert "#SBATCH --gpus-per-node=4" in autoneb
     assert "mpirun -np 4 --map-by $MAP_OPT atst run config.yaml" in autoneb
+
+
+def test_p0_p1_examples_include_curated_validation_outputs():
+    neb_dir = Path("examples/02_neb_H2-Au/outputs")
+    irc_dir = Path("examples/10_irc_H2/outputs")
+    ccqn_dir = Path("examples/12_ccqn_H2-Au/outputs")
+
+    for path in (
+        neb_dir / "README.md",
+        neb_dir / "neb_two_stage_abacus_smoke.traj",
+        neb_dir / "neb_two_stage_dp.traj",
+        neb_dir / "slurm-atst_neb2stage-461313.out",
+        irc_dir / "README.md",
+        irc_dir / "irc_descent.traj",
+        irc_dir / "norm_irc_descent.traj",
+        irc_dir / "irc_descent_dp.traj",
+        irc_dir / "norm_irc_descent_dp.traj",
+        irc_dir / "slurm-atst_ircdesc-461256.out",
+        ccqn_dir / "README.md",
+        ccqn_dir / "ccqn_auto_modes.traj",
+        ccqn_dir / "ccqn_auto_modes_dp.traj",
+        ccqn_dir / "ccqn_auto_modes_mode_manifest.json",
+        ccqn_dir / "ccqn_auto_modes_dp_mode_manifest.json",
+        ccqn_dir / "slurm-atst_ccqnauto-461254.out",
+    ):
+        assert path.exists(), path
+
+    neb_manifest = json.loads((neb_dir / "atst_artifacts_two_stage_abacus_smoke.json").read_text(encoding="utf-8"))
+    irc_manifest = json.loads((irc_dir / "atst_artifacts_descent.json").read_text(encoding="utf-8"))
+    mode_manifest = json.loads((ccqn_dir / "ccqn_auto_modes_mode_manifest.json").read_text(encoding="utf-8"))
+
+    assert neb_manifest["workflow"] == "neb"
+    assert irc_manifest["workflow"] == "irc"
+    assert mode_manifest["selected_mode"]["reactive_bonds_1based"] == [[2, 61]]
 
 
 def test_cy_pt_parallel_examples_include_completed_validation_outputs():

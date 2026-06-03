@@ -41,9 +41,9 @@ All DP checks used `../../temp_repos/dp_model/DPA-3.1-3M.pt` with
 
 | Example | Command | Result | Output evidence |
 | --- | --- | --- | --- |
-| Two-stage NEB | `atst run config_two_stage_dp.yaml` | exit `0` | `neb_two_stage_dp.traj`: 40 frames; `atst_artifacts_two_stage_dp.json`: workflow `neb` |
-| Descent IRC | `atst run config_descent_dp.yaml` | exit `0` | `irc_descent_dp.traj`: 2 frames; `norm_irc_descent_dp.traj`: 2 frames; workflow `irc` |
-| CCQN auto modes | `atst run config_auto_modes_dp.yaml` | exit `0` | `ccqn_auto_modes_dp.traj`: 3 frames; `selected_mode.reactive_bonds_1based`: `[[2, 61]]`; 8 candidate modes; 2 diagnostic steps |
+| Two-stage NEB | `atst run config_two_stage_dp.yaml` | exit `0` | `outputs/neb_two_stage_dp.traj`: 40 frames; `outputs/atst_artifacts_two_stage_dp.json`: workflow `neb` |
+| Descent IRC | `atst run config_descent_dp.yaml` | exit `0` | `outputs/irc_descent_dp.traj`: 2 frames; `outputs/norm_irc_descent_dp.traj`: 2 frames; workflow `irc` |
+| CCQN auto modes | `atst run config_auto_modes_dp.yaml` | exit `0` | `outputs/ccqn_auto_modes_dp.traj`: 3 frames; `selected_mode.reactive_bonds_1based`: `[[2, 61]]`; 8 candidate modes; 2 diagnostic steps |
 
 ## ABACUS Slurm Smoke Checks
 
@@ -60,9 +60,9 @@ Submission environment:
 
 | Example | Config | Job ID | Slurm state | Elapsed | Output evidence |
 | --- | --- | --- | --- | --- | --- |
-| Descent IRC | `examples/10_irc_H2/config_descent.yaml` | `461256` | `COMPLETED`, exit `0:0` | `00:01:13` | `irc_descent.traj`: 2 frames; `norm_irc_descent.traj`: 2 frames; `atst_artifacts_descent.json`: workflow `irc` |
-| CCQN auto modes | `examples/12_ccqn_H2-Au/config_auto_modes.yaml` | `461254` | `COMPLETED`, exit `0:0` | `00:07:32` | `ccqn_auto_modes.traj`: 3 frames; `selected_mode.reactive_bonds_1based`: `[[2, 61]]`; 8 candidate modes; 2 diagnostic steps |
-| Two-stage NEB | `examples/02_neb_H2-Au/config_two_stage.yaml` | `461313` | `COMPLETED`, exit `0:0` | `00:07:43` | `neb_two_stage_abacus_smoke.traj`: 6 frames; manifest stage names `ordinary_neb_warmup=complete`, `ci_neb=complete` |
+| Descent IRC | `examples/10_irc_H2/config_descent.yaml` | `461256` | `COMPLETED`, exit `0:0` | `00:01:13` | `outputs/irc_descent.traj`: 2 frames; `outputs/norm_irc_descent.traj`: 2 frames; `outputs/atst_artifacts_descent.json`: workflow `irc` |
+| CCQN auto modes | `examples/12_ccqn_H2-Au/config_auto_modes.yaml` | `461254` | `COMPLETED`, exit `0:0` | `00:07:32` | `outputs/ccqn_auto_modes.traj`: 3 frames; `selected_mode.reactive_bonds_1based`: `[[2, 61]]`; 8 candidate modes; 2 diagnostic steps |
+| Two-stage NEB | `examples/02_neb_H2-Au/config_two_stage.yaml` | `461313` | `COMPLETED`, exit `0:0` | `00:07:43` | `outputs/neb_two_stage_abacus_smoke.traj`: 6 frames; manifest stage names `ordinary_neb_warmup=complete`, `ci_neb=complete` |
 
 ## Implementation Notes
 

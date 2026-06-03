@@ -123,6 +123,12 @@ atst run config_auto_modes_dp.yaml
 The matching ABACUS-backed configs are `config_two_stage.yaml`,
 `config_descent.yaml`, and `config_auto_modes.yaml`.
 
+The completed P0/P1 validation artifacts are curated under:
+
+- `02_neb_H2-Au/outputs/`
+- `10_irc_H2/outputs/`
+- `12_ccqn_H2-Au/outputs/`
+
 ### NEB image-level MPI smoke
 
 Image-level NEB parallelism requires Python itself to be MPI-aware. On SAI, use
