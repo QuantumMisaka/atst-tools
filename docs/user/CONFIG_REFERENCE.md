@@ -72,8 +72,8 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 | `init_chain` | string | One of `init_chain` / `make` | Path to the initial chain file (e.g., `init_neb_chain.traj`). |
 | `climb` | bool | `True` | Enable Climbing Image NEB (CI-NEB). |
 | `two_stage` | bool | `False` | Run a short ordinary NEB warm-up before enabling CI-NEB. |
-| `stage1_steps` | int | `5` | Maximum ordinary NEB warm-up steps when `two_stage: true`. |
-| `stage1_fmax` | float | `0.1` | Warm-up force threshold when `two_stage: true`. |
+| `stage1_steps` | int/null | `20` | Maximum ordinary NEB warm-up steps when `two_stage: true`; warm-up stops when `stage1_fmax` is reached or this limit is exhausted. `null` uses the ASE optimizer default step limit. |
+| `stage1_fmax` | float | `0.20` | Warm-up force threshold when `two_stage: true`. |
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `neb_backend` | string | `atst` | Experimental backend selector: `atst` uses the validated compatibility wrapper; `ase` uses native ASE NEB. |
@@ -118,7 +118,7 @@ calculation:
 
 `auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
 
-For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. This mirrors the common 3-5 step pre-relaxation practice while keeping the first-stage ABACUS cost explicitly bounded.
+For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. The first stage uses ASE optimizer stop semantics: it stops when either `stage1_fmax` is reached or `stage1_steps` is exhausted. The default `stage1_steps: 20` is a bounded warm-up, not a guarantee that the ordinary NEB stage will reach `stage1_fmax`. Set `stage1_steps: null` only when you intentionally want the first stage to rely on `stage1_fmax` and ASE's very large default optimizer step limit; this can be expensive for ABACUS.
 
 For MPI image-level NEB, launch the Python workflow itself under MPI and keep
 one Python rank per interior image:

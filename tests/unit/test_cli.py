@@ -168,6 +168,9 @@ def test_atst_run_show_template_prints_yaml(capsys):
     assert "calculation:" in output
     assert "type: neb" in output
     assert "make:" in output
+    assert "two_stage: true" in output
+    assert "stage1_steps: 20" in output
+    assert "stage1_fmax: 0.2" in output
     assert "calculator:" in output
 
 

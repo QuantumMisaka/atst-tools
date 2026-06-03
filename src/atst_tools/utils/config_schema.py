@@ -52,8 +52,15 @@ class NEBCalculation(StrictConfig):
     restart: bool = Field(default=False, description="Restart from the latest complete trajectory band.")
     climb: bool = Field(default=True, description="Enable climbing-image NEB.")
     two_stage: bool = Field(default=False, description="Run a short ordinary NEB warm-up before CI-NEB.")
-    stage1_steps: int = Field(default=5, gt=0, description="Maximum ordinary NEB warm-up steps for two-stage NEB.")
-    stage1_fmax: float = Field(default=0.1, gt=0, description="Force threshold for ordinary NEB warm-up.")
+    stage1_steps: Annotated[int, Field(gt=0)] | None = Field(
+        default=20,
+        description=(
+            "Maximum ordinary NEB warm-up steps for two-stage NEB; the warm-up "
+            "stops when stage1_fmax is reached or this step limit is exhausted. "
+            "Null uses the ASE optimizer default step limit."
+        ),
+    )
+    stage1_fmax: float = Field(default=0.20, gt=0, description="Force threshold for ordinary NEB warm-up.")
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     k: float | list[float] = Field(default=0.1, description="NEB spring constant(s) in eV/Ang^2.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")

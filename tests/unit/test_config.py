@@ -112,6 +112,65 @@ def test_validate_accepts_neb_two_stage_and_endpoint_optimization():
     assert config["calculation"]["endpoint_optimization"]["max_steps"] == 8
 
 
+def test_validate_neb_two_stage_defaults_and_unbounded_stage1_steps():
+    from atst_tools.utils.config_schema import apply_calculation_defaults
+
+    default_config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+    null_config = {
+        "calculation": {
+            "type": "neb",
+            "init_chain": "init_neb_chain.traj",
+            "two_stage": True,
+            "stage1_steps": None,
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    assert ConfigLoader.validate(null_config) is True
+    assert apply_calculation_defaults(null_config["calculation"])["stage1_steps"] is None
+    assert default_config["calculation"]["stage1_steps"] == 20
+    assert default_config["calculation"]["stage1_fmax"] == pytest.approx(0.20)
+
+
+def test_normalize_omits_null_neb_stage1_steps():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+                "two_stage": True,
+                "stage1_steps": None,
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert "stage1_steps" not in config["calculation"]
+
+
+def test_validate_rejects_zero_neb_stage1_steps():
+    with pytest.raises(ValueError, match="stage1_steps"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "neb",
+                    "init_chain": "init_neb_chain.traj",
+                    "two_stage": True,
+                    "stage1_steps": 0,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_accepts_ccqn_auto_reactive_bonds_without_explicit_bonds():
     config = ConfigLoader.normalize(
         {

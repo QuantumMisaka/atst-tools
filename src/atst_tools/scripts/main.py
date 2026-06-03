@@ -106,9 +106,9 @@ calculation:
   fmax: 0.05
   max_steps: 100
   climb: true
-  two_stage: false
-  stage1_steps: 5
-  stage1_fmax: 0.1
+  two_stage: true
+  stage1_steps: 20
+  stage1_fmax: 0.2
   parallel: true
   endpoint_singlepoint: auto
   endpoint_optimization:
@@ -496,11 +496,19 @@ def run_neb(config, calc_name, calc_config):
 
     # Run
     opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
+    stage1_converged = None
+    stage1_actual_steps = None
     if two_stage:
-        opt.run(fmax=calc_config.get("stage1_fmax", 0.1), steps=calc_config.get("stage1_steps", 5))
+        stage1_steps = calc_config.get("stage1_steps", 20)
+        if stage1_steps is None:
+            stage1_converged = opt.run(fmax=calc_config.get("stage1_fmax", 0.20))
+        else:
+            stage1_converged = opt.run(fmax=calc_config.get("stage1_fmax", 0.20), steps=stage1_steps)
+        stage1_actual_steps = getattr(opt, "nsteps", None)
         neb.climb = climb
         opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
-    opt.run(fmax=fmax, steps=max_steps)
+    final_converged = opt.run(fmax=fmax, steps=max_steps)
+    final_actual_steps = getattr(opt, "nsteps", None)
     write_artifact_manifest(
         calc_config.get("artifact_manifest", "atst_artifacts.json"),
         workflow="neb",
@@ -509,10 +517,19 @@ def run_neb(config, calc_name, calc_config):
             {
                 "name": "ordinary_neb_warmup",
                 "status": "complete" if two_stage else "skipped",
-                "fmax": calc_config.get("stage1_fmax", 0.1),
-                "steps": calc_config.get("stage1_steps", 5),
+                "fmax": calc_config.get("stage1_fmax", 0.20),
+                "steps": calc_config.get("stage1_steps", 20),
+                "converged": stage1_converged,
+                "actual_steps": stage1_actual_steps,
             },
-            {"name": "ci_neb" if climb else "neb", "status": "complete", "fmax": fmax, "steps": max_steps},
+            {
+                "name": "ci_neb" if climb else "neb",
+                "status": "complete",
+                "fmax": fmax,
+                "steps": max_steps,
+                "converged": final_converged,
+                "actual_steps": final_actual_steps,
+            },
         ],
     )
     LOGGER.info("NEB calculation finished")

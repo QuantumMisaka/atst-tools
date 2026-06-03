@@ -2,6 +2,9 @@ calculation:
   type: neb
   init_chain: inputs/init_neb_chain.traj
   climb: true
+  two_stage: true
+  stage1_steps: 1
+  stage1_fmax: 0.20
   fmax: 0.05
   k: 0.1
   algorism: improvedtangent

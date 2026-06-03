@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import sys
 import types
+import json
 from contextlib import ExitStack
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
@@ -162,6 +163,60 @@ def test_run_neb_two_stage_starts_without_climb_then_enables_ci(monkeypatch, tmp
         ("run", False, 0.2, 5),
         ("run", True, 0.05, 20),
     ]
+
+
+def test_run_neb_two_stage_omits_steps_for_null_stage1_steps(monkeypatch, tmp_path):
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+    calls = []
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            self.climb = kwargs["climb"]
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            self.neb = neb
+            self.nsteps = 0
+
+        def run(self, fmax=None, *args, **kwargs):
+            calls.append(("run", self.neb.climb, fmax, args, kwargs))
+            self.nsteps = 4 if not self.neb.climb else 8
+            return self.neb.climb
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "two_stage": True,
+            "stage1_fmax": 0.2,
+            "stage1_steps": None,
+            "fmax": 0.05,
+            "max_steps": 20,
+            "climb": True,
+        },
+    )
+
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert calls == [
+        ("run", False, 0.2, (), {}),
+        ("run", True, 0.05, (), {"steps": 20}),
+    ]
+    assert manifest["stages"][0]["converged"] is False
+    assert manifest["stages"][0]["actual_steps"] == 4
+    assert manifest["stages"][0]["steps"] is None
 
 
 def test_run_neb_can_relax_endpoints_before_neb(monkeypatch, tmp_path):

@@ -24,8 +24,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.restart | calculation.type=neb | `bool` | `False` | Restart from the latest complete trajectory band. |
 | calculation.neb.climb | calculation.type=neb | `bool` | `True` | Enable climbing-image NEB. |
 | calculation.neb.two_stage | calculation.type=neb | `bool` | `False` | Run a short ordinary NEB warm-up before CI-NEB. |
-| calculation.neb.stage1_steps | calculation.type=neb | `int` | `5` | Maximum ordinary NEB warm-up steps for two-stage NEB. |
-| calculation.neb.stage1_fmax | calculation.type=neb | `float` | `0.1` | Force threshold for ordinary NEB warm-up. |
+| calculation.neb.stage1_steps | calculation.type=neb | `int \| NoneType` | `20` | Maximum ordinary NEB warm-up steps for two-stage NEB; the warm-up stops when stage1_fmax is reached or this step limit is exhausted. Null uses the ASE optimizer default step limit. |
+| calculation.neb.stage1_fmax | calculation.type=neb | `float` | `0.2` | Force threshold for ordinary NEB warm-up. |
 | calculation.neb.fmax | calculation.type=neb | `float` | `0.05` | Force convergence threshold in eV/Ang. |
 | calculation.neb.k | calculation.type=neb | `float \| list[float]` | `0.1` | NEB spring constant(s) in eV/Ang^2. |
 | calculation.neb.algorism | calculation.type=neb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
@@ -43,7 +43,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.type | calculation.type=autoneb | `'autoneb'` | `required` | Select the AutoNEB workflow. |
 | calculation.autoneb.init_chain | calculation.type=autoneb | `str` | `required` | Initial NEB chain trajectory. |
 | calculation.autoneb.prefix | calculation.type=autoneb | `str` | `'run_autoneb'` | AutoNEB per-image output prefix. |
-| calculation.autoneb.n_simul | calculation.type=autoneb | `Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0)])] \| NoneType` | `null` | Number of images optimized simultaneously. |
+| calculation.autoneb.n_simul | calculation.type=autoneb | `int \| NoneType` | `null` | Number of images optimized simultaneously. |
 | calculation.autoneb.n_max | calculation.type=autoneb | `int` | `10` | Maximum number of AutoNEB images. |
 | calculation.autoneb.algorism | calculation.type=autoneb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
 | calculation.autoneb.neb_backend | calculation.type=autoneb | `'atst' \| 'ase'` | `'atst'` | AutoNEB implementation backend: ATST compatibility wrapper or native ASE. |

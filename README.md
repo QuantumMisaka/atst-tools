@@ -138,6 +138,9 @@ calculation:
   fmax: 0.05
   max_steps: 100
   climb: true
+  two_stage: true
+  stage1_steps: 20
+  stage1_fmax: 0.20
 
 calculator:
   name: abacus
