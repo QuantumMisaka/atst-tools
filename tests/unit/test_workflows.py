@@ -43,11 +43,12 @@ def _install_fake_sella(monkeypatch, fake_irc, failure_cls=None):
     return failure_cls
 
 
-def test_d2s_workflow_uses_unified_constructor(monkeypatch):
+def test_d2s_workflow_uses_unified_constructor(monkeypatch, tmp_path):
     from atst_tools.workflows import d2s
 
     calls = []
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
     monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
     monkeypatch.setattr(
@@ -1123,7 +1124,7 @@ def test_dimer_displacement_mask_uses_all_vector_components():
     assert dimer.set_d_mask_by_displacement() == [True, True, True, False]
 
 
-def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch):
+def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch, tmp_path):
     from atst_tools.mep import dimer as dimer_module
 
     control_kwargs = {}
@@ -1149,6 +1150,7 @@ def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch):
         def run(self, fmax=None, steps=None):
             return None
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(dimer_module, "DimerControl", FakeDimerControl)
     monkeypatch.setattr(dimer_module, "MinModeAtoms", FakeMinModeAtoms)
     monkeypatch.setattr(dimer_module, "MinModeTranslate", FakeTranslate)

@@ -1,7 +1,0 @@
-- [x] 针对本项目体系的 ABACUS NEB 计算可行性分析与参数清单总结已完成。
-- [x] 初始 NEB 插值轨迹生成步骤已记录。
-- [x] 针对 CI-NEB 方法的 `cineb_config.yaml` 配置文件和 `submit_cineb.sbatch` 脚本已成功创建并符合规范。
-- [x] 针对 AutoNEB 方法的 `autoneb_config.yaml` 配置文件和 `submit_autoneb.sbatch` 脚本已成功创建并符合规范。
-- [x] 针对 D2S 方法的 `d2s_config.yaml` 配置文件和 `submit_d2s.sbatch` 脚本已成功创建并符合规范。
-- [ ] CI-NEB、AutoNEB、D2S smoke jobs 已完成并通过日志检查。
-- [ ] 生产计算已完成，NEB/AutoNEB/D2S 能垒已提取并与 `paper_Zn_neb.jpg` 对比。
