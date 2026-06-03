@@ -314,8 +314,6 @@ def _get_workflow_calculator(calc_name, config, shared=None, **kwargs):
 
 def _normalized_calculation(config, calc_config):
     """Return a schema-normalized calculation section for direct helper calls."""
-    if "config_version" in config:
-        return calc_config
     return apply_calculation_defaults(calc_config)
 
 

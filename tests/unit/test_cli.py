@@ -266,7 +266,7 @@ calculator:
     cli.main(["config", "validate", str(config_file), "--print-normalized"])
 
     output = capsys.readouterr().out
-    assert "config_version: 2.0.0" in output
+    assert "config_version" not in output
     assert "trajectory: relax.traj" in output
 
 

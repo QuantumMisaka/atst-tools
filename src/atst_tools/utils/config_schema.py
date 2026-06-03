@@ -7,8 +7,6 @@ from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-
-CONFIG_VERSION = "2.0.0"
 VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
@@ -591,7 +589,6 @@ class CalculatorConfig(StrictConfig):
 class ATSTConfig(StrictConfig):
     """Top-level ATST-Tools YAML configuration."""
 
-    config_version: str = Field(default=CONFIG_VERSION, description="Configuration schema version.")
     calculation: CalculationConfig = Field(description="Workflow configuration.")
     calculator: CalculatorConfig = Field(description="Calculator configuration.")
 

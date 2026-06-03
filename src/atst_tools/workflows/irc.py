@@ -28,7 +28,7 @@ class IRCWorkflow:
     def __init__(self, config: Dict[str, Any], calc_name: str, calc_config: Dict[str, Any]):
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.init_structure = calc_config["init_structure"]
         self.traj_file = calc_config["trajectory"]

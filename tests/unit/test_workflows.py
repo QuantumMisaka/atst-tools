@@ -962,7 +962,9 @@ def test_d2s_rough_neb_preserves_endpoint_results_after_idpp(monkeypatch, tmp_pa
         }
     )
     workflow = d2s.D2SWorkflow(
-        {"config_version": "2.0.0", "calculator": {"name": "abacus", "abacus": {"directory": "run_d2s", "parameters": {}}}},
+        {
+            "calculator": {"name": "abacus", "abacus": {"directory": "run_d2s", "parameters": {}}},
+        },
         "abacus",
         calc_config,
     )

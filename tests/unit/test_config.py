@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 from ruamel.yaml import YAML
-
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config_schema import json_schema
 
@@ -315,11 +314,22 @@ def test_normalize_populates_defaults_for_relax_dp():
         }
     )
 
-    assert config["config_version"] == "2.0.0"
+    assert "config_version" not in config
     assert config["calculation"]["fmax"] == 0.05
     assert config["calculation"]["max_steps"] == 200
     assert config["calculation"]["trajectory"] == "relax.traj"
     assert config["calculator"]["dp"]["share_calculator"] is True
+
+
+def test_validate_rejects_unknown_top_level_config_version():
+    with pytest.raises(ValueError, match="config_version"):
+        ConfigLoader.validate(
+            {
+                "config_version": "1.0.0",
+                "calculation": {"type": "relax", "init_structure": "init.stru"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
 
 
 def test_autoneb_optimizer_kwargs_are_governed_and_default_empty():
@@ -559,3 +569,4 @@ def test_json_schema_can_be_generated():
 
     assert schema["type"] == "object"
     assert "calculation" in schema["properties"]
+    assert "config_version" not in schema["properties"]

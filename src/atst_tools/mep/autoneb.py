@@ -454,7 +454,7 @@ class AutoNEBRunner:
         """
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.prefix = calc_config['prefix']
         self.world = get_ase_world()

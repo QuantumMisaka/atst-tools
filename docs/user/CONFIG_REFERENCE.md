@@ -1,7 +1,7 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.0.0
-**Last Updated**: 2026-05-28
+**Version**: 2.0.1
+**Last Updated**: 2026-06-02
 **Status**: Maintained
 
 This document is the hand-written semantic reference for `config.yaml` files
@@ -27,7 +27,6 @@ exact defaults that will be applied.
 ## 1. Top-Level Structure
 
 ```yaml
-config_version: "2.0.0"  # Optional. Defaults to the current schema version.
 calculation:
   type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc
   # ... task specific parameters ...
@@ -46,6 +45,10 @@ atst config validate config.yaml --output used_config.yaml
 atst run --list-types
 atst run --show-template neb --calculator abacus
 ```
+
+There is no `config_version` field in ATST-Tools YAML. The active schema is the
+schema shipped with the installed package version, and unknown top-level fields
+are rejected.
 
 ---
 
