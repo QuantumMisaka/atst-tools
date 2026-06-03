@@ -13,6 +13,8 @@ SCHEMA_VERSION = "atst-artifacts-v1"
 def _jsonable(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
+    if hasattr(value, "item"):
+        return _jsonable(value.item())
     if isinstance(value, dict):
         return {key: _jsonable(val) for key, val in value.items()}
     if isinstance(value, (list, tuple)):
