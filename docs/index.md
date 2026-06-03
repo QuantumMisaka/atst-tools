@@ -52,7 +52,7 @@ evidence, documentation health, release scope, or cleanup priorities.
 2. [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md) for
    the active documentation ledger, report levels, archive state, and
    pending-delete status.
-3. [2.0.0 release notes](releases/RELEASE_NOTES_2.0.0.md) for version-level
+3. [2.0.1 release notes](releases/RELEASE_NOTES_2.0.1.md) for version-level
    delivery scope.
 4. Current validation reports linked from the governance report when judging a
    specific feature, backend, or environment.
@@ -64,7 +64,7 @@ resolver first tries an independently installed `abacuslite` package, then
 falls back to the vendored snapshot under
 `src/atst_tools/external/ASE_interface/abacuslite`.
 
-The vendored snapshot is kept for 2.0.0 reproducibility on SAI and is not
+The vendored snapshot is kept for 2.0.x reproducibility on SAI and is not
 intended to be the only long-term integration mode. When `abacuslite` has a
 stable release channel, ATST-Tools should move it to an optional dependency or
 extra and retire the vendored fallback.

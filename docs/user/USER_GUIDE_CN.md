@@ -3,7 +3,7 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.0.0 版本把原 main branch 的脚本集合整理为可安装 Python package，
+当前 2.0.1 版本把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析和 IRC 任务。
 
@@ -86,7 +86,7 @@ atst run --show-template d2s --calculator dp
 | `vibration` | 振动频率和热化学校正 | `atst run config.yaml` |
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
 
-D2S、CCQN 和 IRC 已纳入 2.0.0 schema 与示例，不再是待集成状态。功能支持状态、
+D2S、CCQN 和 IRC 已纳入 2.0.x schema 与示例，不再是待集成状态。功能支持状态、
 验证边界和暂不支持项目以
 [FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 为准。
 

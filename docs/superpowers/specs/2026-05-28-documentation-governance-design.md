@@ -157,7 +157,7 @@ The project manager reading path is:
 1. `docs/reports/FEATURE_STATUS_MATRIX.md`: current feature support range.
 2. `docs/reports/DOCUMENTATION_STATUS_REPORT.md`: documentation governance
    state, active reports, archive status, and pending-delete status.
-3. `docs/releases/RELEASE_NOTES_2.0.0.md`: version-level delivery scope.
+3. `docs/releases/RELEASE_NOTES_2.0.1.md`: current version-level delivery scope.
 4. Current validation reports: DP validation, Issue #25 final fix, MPI parallel
    summary, MACE transfer review, and other active evidence reports.
 5. `docs/archive/pending_delete/README.md`: release-time deletion review list.

@@ -15,12 +15,12 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 ### 仓库设计
 - 优化 user interface，使用 CLI + YAML inputs 进行工作流交互，并在examples/目录下留下示例交互模式。
 - 对于 abacus 的 ase interfaces，ATST-Tools 将从 ase-abacus 迁移到 abacuslite，此时 ATST-Tools 的基本定位是 abacuslite CLI wrapper，通过 abacuslite 完成abacus相关设置，并配合 ASE 开展计算任务。在这一设计下，ATST-Tools将尽可能不重写 ASE 的已有实现，尽可能做到 ASE-native。
-- temp_repos 不同步到git仓库，其中放置开发时可参考代码仓库
+- temp_repos 不同步到 git 仓库，其中放置开发时可参考代码仓库
 
 ### 开发测试环境
 
 - 项目当前开发测试在SAI超级计算机登录节点。服务器上有可直接使用的ABACUS LTS 3.10.1 和 DeePMD-kit 3.1.3
-- 项目当前在开发并行NEB模块，需依赖mpi4py，所用仓库在新创建的conda环境 atst-neb-mpi 中。
+- 项目当前在开发并行NEB模块，需依赖mpi4py，所用仓库在新创建的conda环境 atst-dev 中。
 - 开展调用ABACUS和DeePMD-kit的测试需要将任务通过slurm脚本交到4V100节点上，使用GPU节点计算。对于ABACUS，你需要在INPUT中设置ks_solver cusolver (在默认的basis lcao下)。
 
 ### 基本边界

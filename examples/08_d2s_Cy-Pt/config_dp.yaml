@@ -1,6 +1,6 @@
 calculation:
   type: d2s
-  method: dimer # Options: dimer, sella
+  method: dimer # Options: dimer, sella, ccqn
   init_file: inputs/init.stru
   final_file: inputs/final.stru
 

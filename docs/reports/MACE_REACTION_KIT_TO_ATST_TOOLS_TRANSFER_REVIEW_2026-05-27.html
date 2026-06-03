@@ -126,13 +126,13 @@
 
   <div class="lead">
     <p><strong>总论：</strong>不建议把 <code>mace-reaction-kit</code> 整体移植到 ATST-Tools。ATST-Tools 已覆盖 NEB、AutoNEB、Dimer、Sella、CCQN、D2S、Vibration 和 Sella IRC，真正值得吸收的是 MACE-Reaction-Kit 在“CCQN 自动化、TS 后验证流水线、结果产物治理”上的工程能力。迁移时应保持 ATST-Tools 的 CLI + YAML、ASE-native、ABACUS/DeePMD 后端定位。MACE model 可以作为可选 ASE calculator backend 评估，但不应引入 MACE 平台 runner 或默认 Torch/GPU 依赖。</p>
-    <p><strong>2026-05-28 更新：</strong><span class="ok">P0 中的 CCQN 自动 reactive mode、product alignment、mode manifest、diagnostics、artifact manifest 与 TS validation 已在项目内落地。</span><span class="ok">P1 中的 NEB two-stage、普通 NEB endpoint relaxation 和 descent IRC backend 已落地。</span><span class="warn">TS search 后处理复合 pipeline、CCQN batch/job-array、完整 IS/TS/FS reaction thermo 与 MACE calculator backend 仍未完成。</span></p>
+    <p><strong>2026-06-02 更新：</strong><span class="ok">P0/P1 核心功能已完成。</span><span class="ok">P0 中的 CCQN 自动 reactive mode、product alignment、mode manifest、diagnostics、artifact manifest 与 TS validation 已在项目内落地，并已通过单元测试、DP smoke 与 ABACUS/SAI 示例验证。</span><span class="ok">P1 中的 NEB two-stage、普通 NEB endpoint relaxation 和 descent IRC backend 已落地。</span><span class="warn">TS search 后处理复合 pipeline、CCQN batch/job-array、完整 IS/TS/FS reaction thermo、HTML/CSV 汇总与 MACE calculator backend 不再作为本轮 P0/P1 完成范围，而是后续可独立立项的未来增强。</span></p>
   </div>
 
   <div class="cards">
     <div class="card"><strong>优先吸收</strong><span class="ok">已完成：CCQN 自动化</span><br>自动枚举 reactive bond modes、product alignment、mode manifest、诊断日志。</div>
-    <div class="card"><strong>谨慎吸收</strong><span class="warn">部分完成：TS 后处理流水线</span><br>Vibration TS validation、artifact manifest 和 descent IRC 已完成；通用 <code>post</code> 复合流水线未完成。</div>
-    <div class="card"><strong>谨慎评估</strong><span class="warn">MACE 后端</span><br>可考虑可选 calculator backend；不迁移 Adam/form runner 或 GPU CCQN 整体实现。</div>
+    <div class="card"><strong>未来增强</strong><span class="warn">待独立立项：TS 后处理流水线</span><br>Vibration TS validation、artifact manifest 和 descent IRC 已完成；通用 <code>post</code> 复合流水线保留为后续增强。</div>
+    <div class="card"><strong>未来评估</strong><span class="warn">MACE 后端</span><br>可作为可选 calculator backend 独立评估；不迁移 Adam/form runner 或 GPU CCQN 整体实现。</div>
   </div>
 
   <h2>1. 审查范围与验证方法</h2>
@@ -595,7 +595,7 @@
         <td>命名为 <code>descent</code> 或 <code>fake</code>，文档明确“近似路径，不等价于严格 IRC”。</td>
       </tr>
       <tr>
-        <td><span class="warn">未完成</span><br>TS search → vibration → IRC 复合后处理</td>
+        <td><span class="warn">未来增强</span><br>TS search → vibration → IRC 复合后处理</td>
         <td>把用户常用的“找 TS、验虚频、跑 IRC”连成可复现工作流。</td>
         <td>通过 <code>post</code> 段显式启用，不改变现有单任务默认行为。</td>
       </tr>
@@ -614,10 +614,10 @@
 
   <h3>P2：中期增强</h3>
   <ul>
-    <li><span class="warn">未完成。</span><strong>CCQN batch/job-array：</strong>MACE 的 batch pairs 对高通量筛选有价值，但 ATST 的 ABACUS 场景不能简单串行照搬，应与 Slurm job array 或分任务 manifest 结合。</li>
-    <li><span class="warn">未完成。</span><strong>IS/TS/FS reaction thermo：</strong>在 TS validation 稳定后，基于 vibration 结果生成反应能垒、ZPE 修正和温度网格自由能表。</li>
-    <li><span class="warn">未完成。</span><strong>HTML/CSV summary：</strong>统一 examples 和生产任务的结果摘要，便于人工审查和文档归档。</li>
-    <li><span class="warn">未完成。</span><strong>MACE calculator backend：</strong>作为可选 ML potential 后端支持 <code>calculator.name: mace</code>，复用 ATST calculator factory 和 workflow，不迁移平台 runner。</li>
+    <li><span class="warn">未来增强。</span><strong>CCQN batch/job-array：</strong>MACE 的 batch pairs 对高通量筛选有价值，但 ATST 的 ABACUS 场景不能简单串行照搬，应与 Slurm job array 或分任务 manifest 结合。</li>
+    <li><span class="warn">未来增强。</span><strong>IS/TS/FS reaction thermo：</strong>在 TS validation 稳定后，基于 vibration 结果生成反应能垒、ZPE 修正和温度网格自由能表。</li>
+    <li><span class="warn">未来增强。</span><strong>HTML/CSV summary：</strong>统一 examples 和生产任务的结果摘要，便于人工审查和文档归档。</li>
+    <li><span class="warn">未来评估。</span><strong>MACE calculator backend：</strong>作为可选 ML potential 后端支持 <code>calculator.name: mace</code>，复用 ATST calculator factory 和 workflow，不迁移平台 runner。</li>
   </ul>
 
   <h3>P3：不建议近期实现</h3>
@@ -652,13 +652,13 @@
         <td>虚频 0/1/多虚频案例；无频率结果时的错误信息；artifact manifest 路径存在性和 summary CLI 回读测试。</td>
       </tr>
       <tr>
-        <td><span class="warn">部分完成</span><br>Phase 3</td>
+        <td><span class="warn">未来增强</span><br>Phase 3</td>
         <td>复合 post pipeline</td>
-        <td><code>backend: descent</code> 已作为 IRC workflow 落地；通用 <code>post.vibration</code>、<code>post.irc</code>、<code>post.descent</code> 复合配置尚未实现。</td>
+        <td><code>backend: descent</code> 已作为 IRC workflow 落地；通用 <code>post.vibration</code>、<code>post.irc</code>、<code>post.descent</code> 复合配置作为未来增强，不属于本轮 P0/P1 核心完成范围。</td>
         <td>CLI/YAML schema 测试；Sella IRC mock 测试；产物路径和 summary 测试。</td>
       </tr>
       <tr>
-        <td><span class="warn">未完成</span><br>Phase 4</td>
+        <td><span class="warn">未来评估</span><br>Phase 4</td>
         <td>高通量与性能评估</td>
         <td>设计 CCQN batch/job-array manifest；评估 GPU CCQN 和 MACE calculator backend 是否需要成为可选 extra。</td>
         <td>Slurm dry-run/job script 生成测试；多任务失败恢复测试；MACE calculator import/parameter/unit smoke；性能基准对比。</td>
@@ -750,8 +750,8 @@
   <ul>
     <li><span class="ok">已完成。</span><code>docs/reports/FEATURE_STATUS_MATRIX.md</code> 已补充 CCQN、D2S+CCQN、two-stage NEB、artifact manifest、descent IRC 和 MPI image-level parallelism。</li>
     <li><span class="ok">已完成。</span><code>src/atst_tools/workflows/d2s.py</code> 顶部 docstring 已更新为 rough DyNEB → Dimer/Sella/CCQN。</li>
-    <li><span class="warn">部分完成。</span><code>docs/user/CONFIG_REFERENCE.md</code> 的 D2S 参数表和主体段落已列出 <code>ccqn</code>，但 optional vibration 说明仍有 Dimer/Sella 旧措辞。</li>
-    <li><span class="warn">未完成。</span><code>examples/08_d2s_Cy-Pt/config*.yaml</code> 的注释仍只列 <code>dimer, sella</code>。</li>
+    <li><span class="ok">已完成。</span><code>docs/user/CONFIG_REFERENCE.md</code> 的 D2S 参数表和主体段落已列出 <code>ccqn</code>。</li>
+    <li><span class="ok">已完成。</span><code>examples/08_d2s_Cy-Pt/config*.yaml</code> 的注释已列出 <code>dimer, sella, ccqn</code>。</li>
   </ul>
 
   <h2>10. 风险与边界</h2>
@@ -799,7 +799,7 @@
 
   <h2>11. 最终建议</h2>
   <p>ATST-Tools 的近期演进应围绕“把已有过渡态算法变得更易用、更可验证、更可追踪”，而不是扩张算法名录。最值得从 MACE-Reaction-Kit 吸收的是 CCQN 自动 reactive mode、模式级 manifest、TS validation 和后处理 pipeline。GPU CCQN 和 MACE runner 不应进入近期路线；MACE model 支持可以作为独立的可选 calculator backend 任务评估。</p>
-  <p><span class="ok">2026-05-28 状态：</span>原建议中的 Phase 1 与 Phase 2 核心能力已经落地；下一步应优先收尾文档一致性问题，并决定是否继续推进通用 <code>post</code> 复合后处理、CCQN batch/job-array、完整 reaction thermo 或 MACE calculator backend。</p>
+  <p><span class="ok">2026-06-02 状态：</span>原建议中的 P0/P1 核心能力已经落地并进入项目主线；通用 <code>post</code> 复合后处理、CCQN batch/job-array、完整 reaction thermo、HTML/CSV summary 和 MACE calculator backend 均作为未来增强或未来评估项，不阻塞当前 2.0.x 主功能收口。</p>
 
 </article>
 </main>

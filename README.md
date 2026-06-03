@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.0.1-blue)](pyproject.toml)
 [![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
@@ -19,7 +19,7 @@ Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.0.0 status |
+| Area | Current 2.0.1 status |
 | :--- | :--- |
 | Package | Installable Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
@@ -27,7 +27,7 @@ Python scripts.
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.0.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.0.md). |
+| Release | `2.0.1`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.1.md). |
 
 ## What You Can Run
 
@@ -75,7 +75,7 @@ Build a local release artifact:
 
 ```bash
 python -m build
-pip install dist/atst_tools-2.0.0-py3-none-any.whl
+pip install dist/atst_tools-2.0.1-py3-none-any.whl
 ```
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
@@ -236,15 +236,17 @@ project:
 | `examples/10_irc_H2` | IRC YAML examples. |
 | `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
 | `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
+| `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
+| `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
 
 ## Validation
 
-The 2.0.0 README badges reflect the current governed project state:
+The 2.0.1 README badges reflect the current governed project state:
 
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.0`.
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.1`.
 - Unit test coverage badge: measured with
   `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
   `coverage report --omit='src/atst_tools/external/*'`.
@@ -297,8 +299,8 @@ pyproject.toml -> [project].version
 Runtime entry points read that governed package version through
 `atst_tools.package_version()`. Source-tree runs read `pyproject.toml`, while
 installed-package runs use distribution metadata generated from the same field.
-The YAML `config_version` is a separate schema-compatibility marker and is also
-`2.0.0` for this release line.
+There is no YAML-level `config_version`; user YAML is governed directly by the
+installed package schema, and unknown top-level fields are rejected.
 
 ## Project Boundary
 
