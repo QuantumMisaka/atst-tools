@@ -6,7 +6,6 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 
 | YAML path | Level | Type | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| config_version | top-level | `str` | `'2.0.0'` | Configuration schema version. |
 | calculation.neb.type | calculation.type=neb | `'neb'` | `required` | Select the ordinary NEB or DyNEB workflow. |
 | calculation.neb.init_chain | calculation.type=neb | `str \| NoneType` | `null` | Initial NEB chain trajectory. |
 | calculation.neb.make | calculation.type=neb | `dict` | `null` | Nested chain generation configuration. |
@@ -21,8 +20,12 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.make.no_align | calculation.neb.make | `bool` | `False` | Disable atom-index alignment before interpolation. |
 | calculation.neb.make.format | calculation.neb.make | `str \| NoneType` | `null` | Optional ASE input format override. |
 | calculation.neb.trajectory | calculation.type=neb | `str` | `'neb.traj'` | NEB trajectory output. |
+| calculation.neb.artifact_manifest | calculation.type=neb | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
 | calculation.neb.restart | calculation.type=neb | `bool` | `False` | Restart from the latest complete trajectory band. |
 | calculation.neb.climb | calculation.type=neb | `bool` | `True` | Enable climbing-image NEB. |
+| calculation.neb.two_stage | calculation.type=neb | `bool` | `False` | Run a short ordinary NEB warm-up before CI-NEB. |
+| calculation.neb.stage1_steps | calculation.type=neb | `int` | `5` | Maximum ordinary NEB warm-up steps for two-stage NEB. |
+| calculation.neb.stage1_fmax | calculation.type=neb | `float` | `0.1` | Force threshold for ordinary NEB warm-up. |
 | calculation.neb.fmax | calculation.type=neb | `float` | `0.05` | Force convergence threshold in eV/Ang. |
 | calculation.neb.k | calculation.type=neb | `float \| list[float]` | `0.1` | NEB spring constant(s) in eV/Ang^2. |
 | calculation.neb.algorism | calculation.type=neb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
@@ -32,10 +35,15 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.optimizer | calculation.type=neb | `str` | `'FIRE'` | ASE optimizer name. |
 | calculation.neb.optimizer_kwargs | calculation.type=neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the ASE optimizer constructor. |
 | calculation.neb.endpoint_singlepoint | calculation.type=neb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy before NEB starts. |
+| calculation.neb.endpoint_optimization | calculation.type=neb | `dict` | `schema defaults` | Optional endpoint relaxation before ordinary NEB. |
+| calculation.neb.endpoint_optimization.enabled | calculation.neb.endpoint_optimization | `bool` | `False` | Relax endpoints before ordinary NEB. |
+| calculation.neb.endpoint_optimization.skip_if_has_results | calculation.neb.endpoint_optimization | `bool` | `True` | Skip endpoints that already have energy and forces. |
+| calculation.neb.endpoint_optimization.fmax | calculation.neb.endpoint_optimization | `float` | `0.05` | Endpoint optimization force threshold. |
+| calculation.neb.endpoint_optimization.max_steps | calculation.neb.endpoint_optimization | `int` | `100` | Endpoint optimization step limit. |
 | calculation.autoneb.type | calculation.type=autoneb | `'autoneb'` | `required` | Select the AutoNEB workflow. |
 | calculation.autoneb.init_chain | calculation.type=autoneb | `str` | `required` | Initial NEB chain trajectory. |
 | calculation.autoneb.prefix | calculation.type=autoneb | `str` | `'run_autoneb'` | AutoNEB per-image output prefix. |
-| calculation.autoneb.n_simul | calculation.type=autoneb | `int \| NoneType` | `null` | Number of images optimized simultaneously. |
+| calculation.autoneb.n_simul | calculation.type=autoneb | `Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0)])] \| NoneType` | `null` | Number of images optimized simultaneously. |
 | calculation.autoneb.n_max | calculation.type=autoneb | `int` | `10` | Maximum number of AutoNEB images. |
 | calculation.autoneb.algorism | calculation.type=autoneb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
 | calculation.autoneb.neb_backend | calculation.type=autoneb | `'atst' \| 'ase'` | `'atst'` | AutoNEB implementation backend: ATST compatibility wrapper or native ASE. |
@@ -69,11 +77,43 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.sella.eta | calculation.type=sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.sella.order | calculation.type=sella | `int` | `1` | Saddle-point order. |
 | calculation.sella.directory | calculation.type=sella | `str` | `'sella_run'` | Calculator working directory. |
+| calculation.ccqn.type | calculation.type=ccqn | `'ccqn'` | `required` | Select the standalone CCQN saddle-point workflow. |
+| calculation.ccqn.init_structure | calculation.type=ccqn | `str` | `required` | Initial transition-state guess. |
+| calculation.ccqn.trajectory | calculation.type=ccqn | `str` | `'ccqn.traj'` | CCQN trajectory output. |
+| calculation.ccqn.logfile | calculation.type=ccqn | `str` | `'ccqn.log'` | CCQN optimizer log file. |
+| calculation.ccqn.final_structure | calculation.type=ccqn | `str` | `'ccqn_final.extxyz'` | Final optimized structure output. |
+| calculation.ccqn.artifact_manifest | calculation.type=ccqn | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
+| calculation.ccqn.restart | calculation.type=ccqn | `bool` | `False` | Restart from the last trajectory frame. |
+| calculation.ccqn.fmax | calculation.type=ccqn | `float` | `0.05` | Force convergence threshold in eV/Ang. |
+| calculation.ccqn.max_steps | calculation.type=ccqn | `int \| NoneType` | `200` | Maximum optimizer steps. |
+| calculation.ccqn.e_vector_method | calculation.type=ccqn | `'ic' \| 'interp'` | `'ic'` | CCQN cone-axis construction method. |
+| calculation.ccqn.reactive_bonds | calculation.type=ccqn | `str \| list[list[int]] \| NoneType` | `null` | 1-based reactive bonds for IC mode. |
+| calculation.ccqn.product_file | calculation.type=ccqn | `str \| NoneType` | `null` | Product-like structure for interpolation mode. |
+| calculation.ccqn.align_product_indices | calculation.type=ccqn | `bool` | `False` | Align product atom indices to the initial structure. |
+| calculation.ccqn.auto_reactive_bonds | calculation.type=ccqn | `dict` | `schema defaults` | Automatic reactive-bond mode enumeration. |
+| calculation.ccqn.auto_reactive_bonds.enabled | calculation.ccqn.auto_reactive_bonds | `bool` | `False` | Enable reactive-bond mode enumeration. |
+| calculation.ccqn.auto_reactive_bonds.molecule_indices | calculation.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | 1-based adsorbate or molecule indices. |
+| calculation.ccqn.auto_reactive_bonds.active_molecule_indices | calculation.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | Optional active molecule atoms. |
+| calculation.ccqn.auto_reactive_bonds.active_catalyst_indices | calculation.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | Optional active catalyst atoms. |
+| calculation.ccqn.auto_reactive_bonds.cutoff_A | calculation.ccqn.auto_reactive_bonds | `float` | `3.0` | Maximum molecule-catalyst pair distance. |
+| calculation.ccqn.auto_reactive_bonds.max_modes | calculation.ccqn.auto_reactive_bonds | `int` | `20` | Maximum ranked modes to write to the manifest. |
+| calculation.ccqn.auto_reactive_bonds.max_bonds_per_mode | calculation.ccqn.auto_reactive_bonds | `int` | `1` | Maximum bond count in a mode. |
+| calculation.ccqn.auto_reactive_bonds.bond_detect_scale | calculation.ccqn.auto_reactive_bonds | `float` | `1.2` | Covalent radii multiplier used for labels. |
+| calculation.ccqn.mode_manifest | calculation.type=ccqn | `str` | `'ccqn_mode_manifest.json'` | CCQN reactive-mode manifest JSON. |
+| calculation.ccqn.diagnostics_file | calculation.type=ccqn | `str \| NoneType` | `'ccqn_diagnostics.json'` | CCQN optimizer diagnostics JSON. |
+| calculation.ccqn.ic_mode | calculation.type=ccqn | `'democratic' \| 'sum'` | `'democratic'` | IC bond contribution mode. |
+| calculation.ccqn.cos_phi | calculation.type=ccqn | `float` | `0.5` | Cosine of the cone half angle. |
+| calculation.ccqn.trust_radius_uphill | calculation.type=ccqn | `float` | `0.1` | Fixed uphill trust radius in Ang. |
+| calculation.ccqn.trust_radius_saddle_initial | calculation.type=ccqn | `float` | `0.05` | Initial PRFO trust radius in Ang. |
+| calculation.ccqn.hessian | calculation.type=ccqn | `bool` | `False` | Use calculator Hessian when available. |
+| calculation.ccqn.accept_initial_converged | calculation.type=ccqn | `bool` | `False` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
+| calculation.ccqn.directory | calculation.type=ccqn | `str` | `'ccqn_run'` | Calculator working directory. |
 | calculation.d2s.type | calculation.type=d2s | `'d2s'` | `required` | Select the double-ended to single-ended transition-state workflow. |
-| calculation.d2s.method | calculation.type=d2s | `'dimer' \| 'sella'` | `'dimer'` | Single-ended refinement method. |
+| calculation.d2s.method | calculation.type=d2s | `'dimer' \| 'sella' \| 'ccqn'` | `'dimer'` | Single-ended refinement method. |
 | calculation.d2s.init_file | calculation.type=d2s | `str` | `required` | Initial-state structure file. |
 | calculation.d2s.final_file | calculation.type=d2s | `str` | `required` | Final-state structure file. |
 | calculation.d2s.directory | calculation.type=d2s | `str` | `'run_d2s'` | Base workflow directory. |
+| calculation.d2s.artifact_manifest | calculation.type=d2s | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
 | calculation.d2s.restart | calculation.type=d2s | `bool` | `False` | Reuse rough NEB and single-ended checkpoints. |
 | calculation.d2s.endpoint_singlepoint | calculation.type=d2s | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy. |
 | calculation.d2s.endpoint_optimization | calculation.type=d2s | `dict` | `schema defaults` | Endpoint optimization policy. |
@@ -106,6 +146,33 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.sella.directory | calculation.d2s.sella | `str \| NoneType` | `null` | Sella calculator directory. |
 | calculation.d2s.sella.eta | calculation.d2s.sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.d2s.sella.order | calculation.d2s.sella | `int` | `1` | Saddle-point order. |
+| calculation.d2s.ccqn | calculation.type=d2s | `dict` | `schema defaults` | CCQN refinement configuration. |
+| calculation.d2s.ccqn.fmax | calculation.d2s.ccqn | `float` | `0.05` | CCQN force threshold. |
+| calculation.d2s.ccqn.max_steps | calculation.d2s.ccqn | `int \| NoneType` | `200` | CCQN maximum steps. |
+| calculation.d2s.ccqn.trajectory | calculation.d2s.ccqn | `str` | `'ccqn.traj'` | CCQN trajectory output. |
+| calculation.d2s.ccqn.logfile | calculation.d2s.ccqn | `str` | `'ccqn.log'` | CCQN optimizer log file. |
+| calculation.d2s.ccqn.final_structure | calculation.d2s.ccqn | `str` | `'ccqn_final.extxyz'` | Final optimized structure output. |
+| calculation.d2s.ccqn.directory | calculation.d2s.ccqn | `str \| NoneType` | `null` | CCQN calculator directory. |
+| calculation.d2s.ccqn.e_vector_method | calculation.d2s.ccqn | `'interp' \| 'ic'` | `'interp'` | CCQN cone-axis method. |
+| calculation.d2s.ccqn.reactive_bonds | calculation.d2s.ccqn | `str \| list[list[int]] \| NoneType` | `null` | 1-based reactive bonds for IC mode. |
+| calculation.d2s.ccqn.align_product_indices | calculation.d2s.ccqn | `bool` | `False` | Align product atom indices to the initial structure. |
+| calculation.d2s.ccqn.auto_reactive_bonds | calculation.d2s.ccqn | `dict` | `schema defaults` | Automatic reactive-bond mode enumeration. |
+| calculation.d2s.ccqn.auto_reactive_bonds.enabled | calculation.d2s.ccqn.auto_reactive_bonds | `bool` | `False` | Enable reactive-bond mode enumeration. |
+| calculation.d2s.ccqn.auto_reactive_bonds.molecule_indices | calculation.d2s.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | 1-based adsorbate or molecule indices. |
+| calculation.d2s.ccqn.auto_reactive_bonds.active_molecule_indices | calculation.d2s.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | Optional active molecule atoms. |
+| calculation.d2s.ccqn.auto_reactive_bonds.active_catalyst_indices | calculation.d2s.ccqn.auto_reactive_bonds | `str \| list[int] \| NoneType` | `null` | Optional active catalyst atoms. |
+| calculation.d2s.ccqn.auto_reactive_bonds.cutoff_A | calculation.d2s.ccqn.auto_reactive_bonds | `float` | `3.0` | Maximum molecule-catalyst pair distance. |
+| calculation.d2s.ccqn.auto_reactive_bonds.max_modes | calculation.d2s.ccqn.auto_reactive_bonds | `int` | `20` | Maximum ranked modes to write to the manifest. |
+| calculation.d2s.ccqn.auto_reactive_bonds.max_bonds_per_mode | calculation.d2s.ccqn.auto_reactive_bonds | `int` | `1` | Maximum bond count in a mode. |
+| calculation.d2s.ccqn.auto_reactive_bonds.bond_detect_scale | calculation.d2s.ccqn.auto_reactive_bonds | `float` | `1.2` | Covalent radii multiplier used for labels. |
+| calculation.d2s.ccqn.mode_manifest | calculation.d2s.ccqn | `str` | `'ccqn_mode_manifest.json'` | CCQN reactive-mode manifest JSON. |
+| calculation.d2s.ccqn.diagnostics_file | calculation.d2s.ccqn | `str \| NoneType` | `'ccqn_diagnostics.json'` | CCQN optimizer diagnostics JSON. |
+| calculation.d2s.ccqn.ic_mode | calculation.d2s.ccqn | `'democratic' \| 'sum'` | `'democratic'` | IC bond contribution mode. |
+| calculation.d2s.ccqn.cos_phi | calculation.d2s.ccqn | `float` | `0.5` | Cosine of the cone half angle. |
+| calculation.d2s.ccqn.trust_radius_uphill | calculation.d2s.ccqn | `float` | `0.1` | Fixed uphill trust radius in Ang. |
+| calculation.d2s.ccqn.trust_radius_saddle_initial | calculation.d2s.ccqn | `float` | `0.05` | Initial PRFO trust radius in Ang. |
+| calculation.d2s.ccqn.hessian | calculation.d2s.ccqn | `bool` | `False` | Use calculator Hessian when available. |
+| calculation.d2s.ccqn.accept_initial_converged | calculation.d2s.ccqn | `bool` | `False` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
 | calculation.d2s.vibration | calculation.type=d2s | `dict` | `schema defaults` | Optional vibration configuration. |
 | calculation.d2s.vibration.enabled | calculation.d2s.vibration | `bool` | `False` | Run vibration after single-ended refinement. |
 | calculation.d2s.vibration.indices | calculation.d2s.vibration | `'auto' \| 'all' \| list[int]` | `'auto'` | Atom index selection. |
@@ -114,6 +181,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.vibration.nfree | calculation.d2s.vibration | `2 \| 4` | `2` | Number of displacements per degree of freedom. |
 | calculation.d2s.vibration.name | calculation.d2s.vibration | `str` | `'d2s_vib'` | ASE vibration cache prefix. |
 | calculation.d2s.vibration.results_file | calculation.d2s.vibration | `str` | `'d2s_vibration_results.json'` | Vibration JSON output. |
+| calculation.d2s.vibration.validation_file | calculation.d2s.vibration | `str` | `'d2s_ts_validation.json'` | Transition-state validation JSON output. |
 | calculation.d2s.vibration.directory | calculation.d2s.vibration | `str` | `'VIBRATION'` | Vibration calculator directory. |
 | calculation.d2s.vibration.thermochemistry | calculation.d2s.vibration | `dict` | `schema defaults` | Thermochemistry settings. |
 | calculation.d2s.vibration.thermochemistry.model | calculation.d2s.vibration.thermochemistry | `'harmonic' \| 'ideal_gas'` | `'harmonic'` | Thermochemistry model. |
@@ -140,6 +208,9 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.vibration.nfree | calculation.type=vibration | `2 \| 4` | `2` | Number of displacements per degree of freedom. |
 | calculation.vibration.indices | calculation.type=vibration | `list[int] \| NoneType` | `null` | Atom indices to vibrate; None means all atoms. |
 | calculation.vibration.name | calculation.type=vibration | `str` | `'vib'` | ASE vibration cache prefix. |
+| calculation.vibration.results_file | calculation.type=vibration | `str` | `'vibration_results.json'` | Vibration JSON output. |
+| calculation.vibration.validation_file | calculation.type=vibration | `str` | `'ts_validation.json'` | Transition-state validation JSON output. |
+| calculation.vibration.artifact_manifest | calculation.type=vibration | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
 | calculation.vibration.restart | calculation.type=vibration | `bool` | `False` | Reuse existing vibration cache files. |
 | calculation.vibration.directory | calculation.type=vibration | `str` | `'vib_run'` | Calculator working directory. |
 | calculation.vibration.thermochemistry | calculation.type=vibration | `dict` | `schema defaults` | Thermochemistry settings. |
@@ -152,10 +223,14 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.vibration.thermochemistry.symmetrynumber | calculation.vibration.thermochemistry | `int` | `1` | Rotational symmetry number. |
 | calculation.vibration.thermochemistry.spin | calculation.vibration.thermochemistry | `float` | `0.0` | Spin for ideal-gas thermo. |
 | calculation.vibration.thermochemistry.potentialenergy | calculation.vibration.thermochemistry | `float` | `0.0` | Potential energy override for ideal-gas thermo. |
-| calculation.irc.type | calculation.type=irc | `'irc'` | `required` | Select the Sella intrinsic reaction coordinate workflow. |
+| calculation.irc.type | calculation.type=irc | `'irc'` | `required` | Select the intrinsic reaction coordinate workflow. |
+| calculation.irc.backend | calculation.type=irc | `'sella' \| 'descent'` | `'sella'` | IRC backend. |
 | calculation.irc.init_structure | calculation.type=irc | `str` | `required` | Transition-state structure file. |
 | calculation.irc.trajectory | calculation.type=irc | `str` | `'irc_log.traj'` | IRC trajectory output. |
+| calculation.irc.artifact_manifest | calculation.type=irc | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
 | calculation.irc.normalized_trajectory | calculation.type=irc | `str \| NoneType` | `null` | Normalized trajectory for direction=both. |
+| calculation.irc.mode_vector | calculation.type=irc | `str \| NoneType` | `null` | NumPy mode vector for descent IRC backend. |
+| calculation.irc.descent_delta | calculation.type=irc | `float` | `0.1` | Initial displacement along the descent IRC mode. |
 | calculation.irc.direction | calculation.type=irc | `'both' \| 'forward' \| 'reverse'` | `'both'` | IRC direction. |
 | calculation.irc.restart | calculation.type=irc | `bool` | `False` | Append from the last trajectory frame. |
 | calculation.irc.directory | calculation.type=irc | `str` | `'irc_run'` | Calculator working directory. |

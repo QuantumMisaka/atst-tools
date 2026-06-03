@@ -1,0 +1,24 @@
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  climb: true
+  two_stage: true
+  stage1_steps: 3
+  stage1_fmax: 0.10
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: false
+  optimizer: FIRE
+  max_steps: 3
+  trajectory: neb_two_stage_dp.traj
+  artifact_manifest: atst_artifacts_two_stage_dp.json
+  endpoint_singlepoint: auto
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

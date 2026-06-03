@@ -7,6 +7,7 @@ calculation:
   algorism: improvedtangent
   parallel: true
   optimizer: FIRE
+  endpoint_singlepoint: always
 
 calculator:
   name: dp

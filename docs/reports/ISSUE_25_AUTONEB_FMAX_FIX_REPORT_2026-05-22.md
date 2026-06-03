@@ -1,6 +1,9 @@
 # Issue #25 AutoNEB fmax 修复报告
 
+**Version**: 2.0.0
 **Date**: 2026-05-22  
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 **Issue**: https://github.com/QuantumMisaka/atst-tools/issues/25  
 **Case**: `examples/03_autoneb_Cy-Pt`  
 **Final status**: resolved; ready to close
@@ -267,9 +270,9 @@ fixed.
 
 - Main issue: https://github.com/QuantumMisaka/atst-tools/issues/25
 - Initial code/source assessment:
-  `docs/reports/ISSUE_25_AUTONEB_FMAX_REVIEW_2026-05-18.md`
+  `docs/archive/pending_delete/reports/ISSUE_25_AUTONEB_FMAX_REVIEW_2026-05-18.md`
 - SAI stability validation:
-  `docs/reports/ISSUE_25_AUTONEB_SAI_VALIDATION_2026-05-18.md`
+  `docs/archive/pending_delete/reports/ISSUE_25_AUTONEB_SAI_VALIDATION_2026-05-18.md`
 - ASE/ATST AutoNEB comparison:
   `docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md`
 - Final examples-vs-main validation:

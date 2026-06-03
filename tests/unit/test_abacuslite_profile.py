@@ -48,6 +48,22 @@ def test_atst_version_uses_bare_executable_for_wrapped_run_command(monkeypatch):
     assert calls == [["abacus", "--version"]]
 
 
+def test_atst_version_uses_bare_executable_for_env_sanitized_command(monkeypatch):
+    """Version probing should skip env -u prefixes used for MPI env cleanup."""
+    calls = []
+
+    def fake_read_stdout(command):
+        calls.append(command)
+        return "ABACUS v3.10.1\n"
+
+    monkeypatch.setattr(abacuslite_backend, "read_stdout", fake_read_stdout)
+
+    profile = ATSTAbacusProfile("env -u OMPI_COMM_WORLD_SIZE -u PMIX_RANK abacus")
+
+    assert profile.version() == "v3.10.1"
+    assert calls == [["abacus", "--version"]]
+
+
 def test_atst_version_command_override_is_used_verbatim(monkeypatch):
     """Site-specific version probe commands can be configured explicitly."""
     calls = []

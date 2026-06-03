@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 from ruamel.yaml import YAML
-
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config_schema import json_schema
 
@@ -44,6 +43,7 @@ def test_validate_accepts_supported_calculation_types():
         "autoneb": {"init_chain": "init_neb_chain.traj"},
         "dimer": {"init_structure": "dimer_init.traj"},
         "sella": {"init_structure": "sella_init.stru"},
+        "ccqn": {"init_structure": "ccqn_init.traj", "reactive_bonds": "1-2"},
         "d2s": {"init_file": "init.stru", "final_file": "final.stru"},
         "relax": {"init_structure": "init.stru"},
         "vibration": {"init_structure": "ts_opt.stru"},
@@ -91,6 +91,57 @@ def test_validate_accepts_neb_make_input():
             "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
         }
     ) is True
+
+
+def test_validate_accepts_neb_two_stage_and_endpoint_optimization():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+                "two_stage": True,
+                "stage1_steps": 5,
+                "stage1_fmax": 0.1,
+                "endpoint_optimization": {"enabled": True, "fmax": 0.03, "max_steps": 8},
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["two_stage"] is True
+    assert config["calculation"]["endpoint_optimization"]["max_steps"] == 8
+
+
+def test_validate_accepts_ccqn_auto_reactive_bonds_without_explicit_bonds():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "ccqn",
+                "init_structure": "ccqn_init.traj",
+                "e_vector_method": "ic",
+                "auto_reactive_bonds": {"enabled": True, "molecule_indices": [1]},
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["auto_reactive_bonds"]["enabled"] is True
+
+
+def test_validate_accepts_descent_irc_backend():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "irc",
+                "backend": "descent",
+                "init_structure": "ts.traj",
+                "mode_vector": "mode.npy",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["backend"] == "descent"
 
 
 def test_validate_rejects_invalid_endpoint_singlepoint_policy():
@@ -263,11 +314,22 @@ def test_normalize_populates_defaults_for_relax_dp():
         }
     )
 
-    assert config["config_version"] == "2.0.0"
+    assert "config_version" not in config
     assert config["calculation"]["fmax"] == 0.05
     assert config["calculation"]["max_steps"] == 200
     assert config["calculation"]["trajectory"] == "relax.traj"
     assert config["calculator"]["dp"]["share_calculator"] is True
+
+
+def test_validate_rejects_unknown_top_level_config_version():
+    with pytest.raises(ValueError, match="config_version"):
+        ConfigLoader.validate(
+            {
+                "config_version": "1.0.0",
+                "calculation": {"type": "relax", "init_structure": "init.stru"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
 
 
 def test_autoneb_optimizer_kwargs_are_governed_and_default_empty():
@@ -359,6 +421,20 @@ def test_validate_accepts_autoneb_backend_selector():
     assert config["calculation"]["neb_backend"] == "ase"
 
 
+def test_validate_rejects_non_positive_autoneb_n_simul():
+    with pytest.raises(ValueError, match="n_simul"):
+        ConfigLoader.normalize(
+            {
+                "calculation": {
+                    "type": "autoneb",
+                    "init_chain": "chain.traj",
+                    "n_simul": 0,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_rejects_unknown_neb_backend():
     with pytest.raises(ValueError, match="neb_backend"):
         ConfigLoader.validate(
@@ -425,6 +501,23 @@ def test_validate_accepts_d2s_neb_idpp_controls():
     assert config["calculation"]["neb"]["idpp_tol"] == 1e-3
 
 
+def test_validate_accepts_d2s_ccqn_method():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "d2s",
+                "method": "ccqn",
+                "init_file": "init.traj",
+                "final_file": "final.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["method"] == "ccqn"
+    assert config["calculation"]["ccqn"]["e_vector_method"] == "interp"
+
+
 def test_normalize_legacy_root_abacus_section():
     config = ConfigLoader.normalize(
         {
@@ -465,7 +558,7 @@ def test_run_templates_validate_against_schema():
     from atst_tools.scripts.main import _template
 
     yaml = YAML(typ="safe")
-    for calc_type in ("neb", "autoneb", "dimer", "sella", "d2s", "relax", "vibration", "irc"):
+    for calc_type in ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc"):
         for calculator in ("abacus", "dp"):
             config = yaml.load(_template(calc_type, calculator))
             assert ConfigLoader.validate(config) is True
@@ -476,3 +569,4 @@ def test_json_schema_can_be_generated():
 
     assert schema["type"] == "object"
     assert "calculation" in schema["properties"]
+    assert "config_version" not in schema["properties"]

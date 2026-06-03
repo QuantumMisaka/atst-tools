@@ -10,6 +10,8 @@ from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import clean_cache_files
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
+from atst_tools.utils.ts_validation import build_ts_validation_summary
+from atst_tools.utils.artifacts import write_artifact_manifest
 
 class VibrationWorkflow:
     """
@@ -38,7 +40,7 @@ class VibrationWorkflow:
         """
         self.config = config
         self.calc_name = calc_name
-        self.calc_config = calc_config if "config_version" in config else apply_calculation_defaults(calc_config)
+        self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.delta = calc_config['delta']
         self.nfree = calc_config['nfree']
@@ -46,6 +48,8 @@ class VibrationWorkflow:
         self.name = calc_config['name']
         self.init_structure = calc_config['init_structure']
         self.restart = calc_config['restart']
+        self.results_file = calc_config.get("results_file", "vibration_results.json")
+        self.validation_file = calc_config.get("validation_file", "ts_validation.json")
 
     def _prepare_cache(self):
         vib_path = Path(self.name)
@@ -132,5 +136,20 @@ class VibrationWorkflow:
             'indices': self.indices,
             'thermo': thermo,
         }
-        with open('vibration_results.json', 'w') as f:
+        with open(self.results_file, 'w', encoding="utf-8") as f:
             json.dump(results, f, indent=4)
+        validation = build_ts_validation_summary(
+            results,
+            source=self.results_file,
+        )
+        with open(self.validation_file, "w", encoding="utf-8") as f:
+            json.dump(validation, f, indent=4)
+        write_artifact_manifest(
+            self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
+            workflow="vibration",
+            artifacts=[
+                {"role": "vibration_results", "path": self.results_file},
+                {"role": "ts_validation", "path": self.validation_file},
+            ],
+            stages=[{"name": "vibration", "status": "complete"}],
+        )

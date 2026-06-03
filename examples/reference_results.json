@@ -70,16 +70,18 @@
     "05_sella_H2-Au": {
       "reference_type": "single_ended_ts",
       "workflow": "sella",
-      "final_energy_eV": -239255.122869,
+      "final_energy_eV": -239255.127237,
       "main_final_energy_eV": -239255.12216,
-      "energy_delta_eV": -0.000709,
+      "energy_delta_eV": -0.005077,
       "transition_state_index": null,
-      "transition_state_fmax_eV_per_A": 0.048256,
-      "transition_state_rmsd_to_main_A": 0.000007,
+      "transition_state_fmax_eV_per_A": 0.035438,
+      "transition_state_rmsd_to_main_A": 0.007952,
+      "initial_rmsd_to_reference_A": 0.000101,
+      "trajectory_frames": 9,
       "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
-      "validation_job_id": 437568,
-      "validation_elapsed": "00:02:14",
-      "validation_node": "4v100n28"
+      "validation_job_id": 454726,
+      "validation_elapsed": "00:36:19",
+      "validation_node": "4v100pxn05"
     },
     "06_relax_H2-Au": {
       "reference_type": "non_ts",
@@ -142,6 +144,56 @@
       "transition_state_structure": null,
       "reference_output": "vibration_results.json",
       "validation_status": "schema_load_checked; no like-for-like main TS/barrier baseline"
+    },
+    "12_ccqn_H2-Au": {
+      "reference_type": "single_ended_ts",
+      "workflow": "ccqn",
+      "final_energy_eV": -239255.123188,
+      "matched_sella_case": "05_sella_H2-Au",
+      "energy_delta_to_sella_eV": 0.004049,
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_fmax_eV_per_A": 0.046243,
+      "fmax_delta_to_sella_eV_per_A": 0.010805,
+      "transition_state_rmsd_to_sella_A": 0.007682,
+      "transition_state_rmsd_to_reference_A": 0.000334,
+      "initial_rmsd_to_reference_A": 0.000101,
+      "trajectory_frames": 14,
+      "transition_state_structure": "examples/reference_structures/05_sella_H2-Au_final_ts.extxyz",
+      "validation_job_id": 454726,
+      "validation_elapsed": "00:36:19",
+      "validation_node": "4v100pxn05",
+      "validation_status": "ABACUS validated through abacuslite from the same perturbed H2/Au TS guess as the Sella example; CCQN uses accept_initial_converged: false and returns to the Sella reference TS within tolerance"
+    },
+    "13_neb_parallel_Cy-Pt": {
+      "reference_type": "parallel_example",
+      "workflow": "neb_image_parallel",
+      "forward_barrier_eV": 1.322675,
+      "reference_03_forward_barrier_eV": 1.322675,
+      "barrier_delta_to_03_eV": -0.000000,
+      "transition_state_index": 4,
+      "projected_neb_fmax_eV_per_A": 0.114133,
+      "transition_state_structure": null,
+      "validation_job_id": 461967,
+      "validation_elapsed": "00:03:28",
+      "validation_partition": "8V100V0",
+      "validation_node": "8v100v0n[02-06]",
+      "validation_status": "SAI real-run validated with mpirun -np 5 atst run; each image launched ABACUS with mpi=4 and omp=8"
+    },
+    "14_autoneb_parallel_Cy-Pt": {
+      "reference_type": "parallel_example",
+      "workflow": "autoneb_image_parallel",
+      "forward_barrier_eV": 1.322099,
+      "reference_03_forward_barrier_eV": 1.322675,
+      "barrier_delta_to_03_eV": -0.000576,
+      "transition_state_index": 5,
+      "projected_neb_fmax_eV_per_A": 0.184590,
+      "transition_state_structure": null,
+      "validation_job_id": 462244,
+      "validation_elapsed": "00:37:16",
+      "validation_partition": "4V100",
+      "validation_node": "4v100n01",
+      "validation_status": "SAI real-run validated with mpirun -np 4 atst run; each image used single-process ABACUS with omp=8"
     }
   }
 }

@@ -2,6 +2,8 @@
 
 **Date**: 2026-05-12  
 **Version**: 2.0.0
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 ## Conclusion
 

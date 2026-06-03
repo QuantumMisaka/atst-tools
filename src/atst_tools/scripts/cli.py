@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
+from atst_tools.utils.mpi import bootstrap_mpi_for_ase
+
+bootstrap_mpi_for_ase()
+
 import numpy as np
 from ase.io import read, write
 from ase.vibrations import Vibrations
@@ -23,6 +27,14 @@ from atst_tools.utils.restart_helpers import (
     read_autoneb_final_chain,
     select_last_neb_chain,
     select_post_neb_chain,
+)
+from atst_tools.utils.summary import (
+    summarize_autoneb,
+    summarize_d2s_config,
+    summarize_neb_trajectory,
+    summarize_trajectory,
+    summarize_vibration_config,
+    write_summary_json,
 )
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 
@@ -203,6 +215,8 @@ def _add_neb_parser(subparsers):
     post.add_argument("traj_file", nargs="?", help="NEB trajectory file")
     post.add_argument("--n-max", type=int, default=0, help="Number of intermediate images")
     post.add_argument("--plot", action="store_true", help="Plot NEB bands")
+    post.add_argument("--plot-label", default="nebplots_chain", help="Output prefix for --plot PDF")
+    post.add_argument("--energy-profile", action="store_true", help="Print per-image absolute and relative energies")
     post.add_argument("--plot-all", action="store_true", help="Plot all bands in the input trajectory")
     post.add_argument("--view", action="store_true", help="View NEB bands in ASE GUI")
     post.add_argument("--vib-analysis", action="store_true", help="Suggest vibration atom indices")
@@ -214,6 +228,22 @@ def _add_neb_parser(subparsers):
     post.add_argument("--write-neb-init-chain", help="Write selected final chain for ordinary NEB refinement")
     post.add_argument("--strict-band", action="store_true", help="Require trajectory length to be whole NEB bands")
     post.set_defaults(func=_neb_post_command)
+
+    summary = neb_subparsers.add_parser("summary", help="Summarize an NEB or AutoNEB trajectory")
+    summary.add_argument("traj_file", nargs="?", help="NEB trajectory file")
+    summary.add_argument("--n-max", type=int, default=0, help="Number of intermediate images")
+    summary.add_argument("--autoneb-prefix", help="Read AutoNEB per-image files matching PREFIX*.traj/extxyz")
+    summary.add_argument("--autoneb-files", nargs="+", help="Read explicit AutoNEB per-image files")
+    summary.add_argument("--strict", action="store_true", help="Require ordinary NEB trajectory length to be whole bands")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=_neb_summary_command)
+
+
+def _add_summary_output_options(parser):
+    parser.add_argument("--format", choices=("table", "json"), default="table", help="Summary output format")
+    parser.add_argument("--output", help="Write JSON summary to this file")
+    parser.add_argument("--tail", type=int, help="Only show the last N rows in table output")
+    parser.add_argument("--watch", type=float, help="Refresh the summary every SEC seconds")
 
 
 def _parse_fix(value):
@@ -300,7 +330,17 @@ def _neb_post_command(args):
 
     if args.plot:
         print("=== Plotting NEB Bands ===")
-        post.plot_neb_bands()
+        post.plot_neb_bands(label=args.plot_label)
+
+    if args.energy_profile:
+        print("=== NEB Energy Profile ===")
+        print("image energy_eV rel_energy_eV max_force_eV_per_A")
+        for row in post.energy_profile():
+            print(
+                "{image:>4} {energy_eV:>12.6f} {rel_energy_eV:>12.6f} {max_force_eV_per_A:>18.6f}".format(
+                    **row
+                )
+            )
 
     if args.plot_all:
         print("=== Plotting All NEB Bands ===")
@@ -319,6 +359,106 @@ def _neb_post_command(args):
         post.view_neb_bands(args.traj_file or args.write_neb_init_chain or "neb.traj")
 
 
+def _emit_summary(summary, args):
+    if args.output:
+        write_summary_json(summary, args.output)
+    if args.format == "json":
+        print(json.dumps(_jsonable(summary), indent=2))
+        return
+    _print_summary_table(summary, tail=args.tail)
+
+
+def _jsonable(value):
+    if isinstance(value, float) and np.isnan(value):
+        return None
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {key: _jsonable(val) for key, val in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    return value
+
+
+def _run_summary_command(args, builder):
+    import time
+
+    while True:
+        summary = builder()
+        _emit_summary(summary, args)
+        if not args.watch:
+            return
+        time.sleep(args.watch)
+
+
+def _print_summary_table(summary, tail=None):
+    workflow = summary["workflow"]
+    if workflow in {"neb", "autoneb"}:
+        print(f"{workflow.upper()} trajectory summary")
+        status = summary["status"]
+        print(
+            "n_frames={n_frames} n_images={n_images} complete_steps={complete_steps} "
+            "remainder_frames={remainder_frames}".format(**status)
+        )
+        steps = summary.get("steps", [])
+        if tail and tail > 0:
+            steps = steps[-tail:]
+        print("step max_force_image max_force_eV_per_A energy_eV rel_energy_eV barrier_eV delta_e_eV")
+        for step in steps:
+            print(
+                "{step:>4} {max_force_image:>15} {max_force_eV_per_A:>18.6f} "
+                "{max_force_image_energy_eV:>12.6f} {max_force_image_rel_energy_eV:>12.6f} "
+                "{barrier_eV:>10.6f} {delta_e_eV:>10.6f}".format(**step)
+            )
+        return
+    if "frames" in summary:
+        print(f"{workflow} trajectory summary")
+        latest = summary.get("latest", {})
+        print(f"n_frames={summary['status']['n_frames']}")
+        if latest:
+            print(
+                f"latest_step={latest['step']} latest_energy_eV={latest['energy_eV']:.10f} "
+                f"latest_max_force_eV_per_A={latest['max_force_eV_per_A']:.10f}"
+            )
+        frames = summary["frames"]
+        if tail and tail > 0:
+            frames = frames[-tail:]
+        print("step energy_eV max_force_eV_per_A")
+        for frame in frames:
+            print("{step:>4} {energy_eV:>12.6f} {max_force_eV_per_A:>20.6f}".format(**frame))
+        return
+    if workflow == "vibration":
+        print("vibration summary")
+        latest = summary["latest"]
+        print(f"cache_name={summary['status']['cache_name']}")
+        print(f"valid_cache_files={latest['valid_cache_files']} invalid_cache_files={latest['invalid_cache_files']}")
+        if latest.get("zpe") is not None:
+            print(f"zpe={latest['zpe']}")
+        return
+    if workflow == "d2s":
+        print("d2s summary")
+        print(f"method={summary['status']['method']} complete={summary['status']['complete']}")
+        print("stage status source")
+        for name, stage in summary["stages"].items():
+            print(f"{name} {stage['status']} {stage['source']}")
+
+
+def _neb_summary_command(args):
+    if args.autoneb_prefix and args.autoneb_files:
+        raise SystemExit("Use only one of --autoneb-prefix or --autoneb-files")
+
+    def build():
+        if args.autoneb_prefix:
+            return summarize_autoneb(args.autoneb_prefix, n_max=args.n_max)
+        if args.autoneb_files:
+            return summarize_autoneb(args.autoneb_files, n_max=args.n_max)
+        if not args.traj_file:
+            raise SystemExit("atst neb summary requires TRAJ unless AutoNEB input is provided")
+        return summarize_neb_trajectory(args.traj_file, n_max=args.n_max, strict=args.strict)
+
+    return _run_summary_command(args, build)
+
+
 def _add_dimer_parser(subparsers):
     parser = subparsers.add_parser("dimer", help="Dimer preparation tools")
     dimer_subparsers = parser.add_subparsers(dest="dimer_command", required=True)
@@ -334,6 +474,11 @@ def _add_dimer_parser(subparsers):
     make.add_argument("--output-vector", default="displacement_vector.npy", help="Output displacement vector")
     make.add_argument("--norm", type=float, default=0.01, help="Displacement vector norm")
     make.set_defaults(func=_dimer_make_from_neb_command)
+
+    summary = dimer_subparsers.add_parser("summary", help="Summarize a Dimer trajectory")
+    summary.add_argument("traj_file", help="Dimer trajectory file")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=lambda args: _trajectory_summary_command(args, "dimer"))
 
 
 def _dimer_make_from_neb_command(args):
@@ -375,6 +520,11 @@ def _add_relax_parser(subparsers):
     post.add_argument("--output", help="Output structure path")
     post.set_defaults(func=_relax_post_command)
 
+    summary = relax_subparsers.add_parser("summary", help="Summarize a relaxation trajectory")
+    summary.add_argument("traj_file", help="Relax trajectory file")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=lambda args: _trajectory_summary_command(args, "relax"))
+
 
 def _max_force(atoms) -> float:
     try:
@@ -405,6 +555,10 @@ def _relax_post_command(args):
     print(f"Wrote {output}")
 
 
+def _trajectory_summary_command(args, workflow):
+    return _run_summary_command(args, lambda: summarize_trajectory(args.traj_file, workflow=workflow, tail=args.tail))
+
+
 def _add_vibration_parser(subparsers):
     parser = subparsers.add_parser("vibration", help="Vibration post-processing tools")
     vib_subparsers = parser.add_subparsers(dest="vibration_command", required=True)
@@ -414,6 +568,11 @@ def _add_vibration_parser(subparsers):
     post.add_argument("--write-modes", action="store_true", help="Write ASE vibration mode trajectories")
     post.add_argument("--output", default="vibration_results.json", help="Output JSON file")
     post.set_defaults(func=_vibration_post_command)
+
+    summary = vib_subparsers.add_parser("summary", help="Summarize vibration cache and results")
+    summary.add_argument("config", help="Vibration YAML configuration")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=_vibration_summary_command)
 
 
 def _vibration_post_command(args):
@@ -454,6 +613,33 @@ def _vibration_post_command(args):
     }
     Path(args.output).write_text(json.dumps(results, indent=4), encoding="utf-8")
     print(f"Wrote {args.output}")
+
+
+def _vibration_summary_command(args):
+    return _run_summary_command(args, lambda: summarize_vibration_config(args.config))
+
+
+def _add_single_ended_summary_parser(subparsers, name):
+    parser = subparsers.add_parser(name, help=f"{name.upper()} post-processing tools")
+    method_subparsers = parser.add_subparsers(dest=f"{name}_command", required=True)
+    summary = method_subparsers.add_parser("summary", help=f"Summarize a {name.upper()} trajectory")
+    summary.add_argument("traj_file", help=f"{name.upper()} trajectory file")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=lambda args, workflow=name: _trajectory_summary_command(args, workflow))
+
+
+def _add_d2s_parser(subparsers):
+    parser = subparsers.add_parser("d2s", help="D2S post-processing tools")
+    d2s_subparsers = parser.add_subparsers(dest="d2s_command", required=True)
+    summary = d2s_subparsers.add_parser("summary", help="Summarize D2S workflow stage outputs")
+    summary.add_argument("config", help="D2S YAML configuration")
+    summary.add_argument("--strict", action="store_true", help="Require all expected stage outputs")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=_d2s_summary_command)
+
+
+def _d2s_summary_command(args):
+    return _run_summary_command(args, lambda: summarize_d2s_config(args.config, strict=args.strict))
 
 
 def _add_traj_parser(subparsers):
@@ -529,6 +715,9 @@ def build_parser():
     _add_dimer_parser(subparsers)
     _add_relax_parser(subparsers)
     _add_vibration_parser(subparsers)
+    _add_single_ended_summary_parser(subparsers, "sella")
+    _add_single_ended_summary_parser(subparsers, "ccqn")
+    _add_d2s_parser(subparsers)
     _add_traj_parser(subparsers)
     return parser
 

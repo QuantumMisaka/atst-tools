@@ -1,6 +1,9 @@
 # Examples 复现复查与 abacuslite 审计
 
-日期：2026-05-24
+**Version**: 2.0.0
+**Date**: 2026-05-24
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 范围：基于已完成的 main 分支对比证据 `docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md`，复查当前 `examples/` 参考结果，确认示例预置参数是否可开箱即用，并审计验证过程是否要求对 vendored abacuslite 模块做关键修改。
 

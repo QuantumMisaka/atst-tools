@@ -1,0 +1,29 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "ccqn",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "ccqn",
+      "status": "complete"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "ccqn_auto_modes.traj"
+    },
+    {
+      "role": "ts_structure",
+      "path": "ccqn_auto_modes_final.extxyz"
+    },
+    {
+      "role": "ccqn_mode_manifest",
+      "path": "ccqn_auto_modes_mode_manifest.json"
+    },
+    {
+      "role": "ccqn_diagnostics",
+      "path": "ccqn_auto_diagnostics.json"
+    }
+  ]
+}

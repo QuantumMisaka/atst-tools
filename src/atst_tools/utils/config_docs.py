@@ -11,9 +11,8 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from atst_tools.utils.config_schema import (
-    CONFIG_VERSION,
-    ATSTConfig,
     AutoNEBCalculation,
+    CCQNCalculation,
     D2SCalculation,
     DimerCalculation,
     IRCCalculation,
@@ -29,6 +28,7 @@ CALCULATION_MODELS: tuple[type[BaseModel], ...] = (
     AutoNEBCalculation,
     DimerCalculation,
     SellaCalculation,
+    CCQNCalculation,
     D2SCalculation,
     RelaxCalculation,
     VibrationCalculation,
@@ -132,17 +132,6 @@ def _collect_model_rows(
 def generate_yaml_variable_markdown() -> str:
     """Return a markdown table of user-facing non-calculator YAML variables."""
     rows: list[dict[str, str]] = []
-    config_version_field = ATSTConfig.model_fields["config_version"]
-    rows.append(
-        {
-            "path": "config_version",
-            "level": "top-level",
-            "type": "str",
-            "default": repr(CONFIG_VERSION),
-            "description": config_version_field.description or "",
-        }
-    )
-
     for model in CALCULATION_MODELS:
         calc_type = get_args(model.model_fields["type"].annotation)[0]
         _collect_model_rows(model, f"calculation.{calc_type}", f"calculation.type={calc_type}", rows)

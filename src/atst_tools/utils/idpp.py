@@ -348,8 +348,8 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
 
     # 1. Read files
     print(f'Reading files: {is_file} and {fs_file}')
-    is_atom = read(is_file, format=format)
-    fs_atom = read(fs_file, format=format)
+    is_atom = read(is_file, format=format, parallel=False)
+    fs_atom = read(fs_file, format=format, parallel=False)
     
     # Store single point calculation results if available
     try:
@@ -389,7 +389,7 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
 
     if ts_file is not None:
         print(f'Using TS guess for segmented interpolation: {ts_file}')
-        ts_atom = read(ts_file, format=format)
+        ts_atom = read(ts_file, format=format, parallel=False)
         if not no_align:
             ts_atom = align_atom_indices(is_atom, ts_atom)
         left_count = n_images // 2
@@ -419,4 +419,4 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
 
     # 5. Write Output
     print(f'Writing path: {output_file}, Number of images: {len(ase_path)}')
-    write(output_file, ase_path)
+    write(output_file, ase_path, parallel=False)

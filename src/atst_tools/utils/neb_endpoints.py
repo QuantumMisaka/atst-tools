@@ -50,10 +50,9 @@ def freeze_current_results(atoms, status: str = ENDPOINT_COMPUTED):
     energy = float(atoms.get_potential_energy())
     forces = np.asarray(atoms.get_forces(), dtype=float)
     kwargs: dict[str, Any] = {"energy": energy, "forces": forces}
-    try:
-        kwargs["stress"] = atoms.get_stress()
-    except Exception:
-        pass
+    results = getattr(atoms.calc, "results", {}) if atoms.calc is not None else {}
+    if "stress" in results:
+        kwargs["stress"] = np.asarray(results["stress"], dtype=float)
     atoms.calc = SinglePointCalculator(atoms, **kwargs)
     mark_endpoint_result(atoms, status)
     return atoms

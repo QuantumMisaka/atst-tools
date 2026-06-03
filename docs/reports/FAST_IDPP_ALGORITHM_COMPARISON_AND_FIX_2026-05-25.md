@@ -1,6 +1,9 @@
 # FastIDPP 算法比对与 08_d2s_Cy-Pt 问题溯源报告
 
-日期：2026-05-25
+**Version**: 2.0.0
+**Date**: 2026-05-25
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
 
 ## 背景与结论
 

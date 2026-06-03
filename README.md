@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.0.1-blue)](pyproject.toml)
 [![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
@@ -13,12 +13,13 @@ collection into one governed command-line interface:
 atst run CONFIG.yaml
 ```
 
-Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, D2S, relaxation,
-vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
+Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, CCQN, D2S,
+relaxation, vibration, or IRC calculations driven by YAML instead of one-off
+Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.0.0 status |
+| Area | Current 2.0.1 status |
 | :--- | :--- |
 | Package | Installable Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
@@ -26,7 +27,7 @@ vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.0.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.0.md). |
+| Release | `2.0.1`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.1.md). |
 
 ## What You Can Run
 
@@ -34,9 +35,10 @@ vibration, or IRC calculations driven by YAML instead of one-off Python scripts.
 | :--- | :--- | :--- |
 | `neb` | NEB / DyNEB | Endpoint single-point governance is enabled by default. |
 | `autoneb` | AutoNEB | Adaptive image insertion plus final-chain post-processing. |
-| `d2s` | Double-ended to single-ended TS search | Rough NEB followed by Dimer or Sella. |
+| `d2s` | Double-ended to single-ended TS search | Rough NEB followed by Dimer, Sella, or CCQN. |
 | `dimer` | ASE Dimer | Single-ended transition-state search. |
 | `sella` | Sella saddle search | Uses the external `sella` package. |
+| `ccqn` | CCQN saddle search | Cone-shaped constrained quasi-Newton TS optimization. |
 | `relax` | Structure optimization | ASE optimizer based relaxation. |
 | `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
@@ -73,7 +75,7 @@ Build a local release artifact:
 
 ```bash
 python -m build
-pip install dist/atst_tools-2.0.0-py3-none-any.whl
+pip install dist/atst_tools-2.0.1-py3-none-any.whl
 ```
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
@@ -85,6 +87,18 @@ need the selected calculator runtime:
   outside git-tracked paths.
 
 ## Quick Start
+
+Choose the path that matches what you need:
+
+| Need | Start here |
+| :--- | :--- |
+| Run a workflow in 10 minutes | [Chinese user guide](docs/user/USER_GUIDE_CN.md) |
+| Pick an example | [Examples overview](examples/README.md) |
+| Check supported features | [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md) |
+| Look up YAML semantics | [Configuration reference](docs/user/CONFIG_REFERENCE.md) |
+| Look up every schema field | [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md) |
+| Use CLI helper commands | [CLI reference](docs/user/CLI_REFERENCE.md) |
+| Browse all documentation paths | [Documentation index](docs/index.md) |
 
 Run a small relaxation example:
 
@@ -166,7 +180,7 @@ calculator:
 ```
 
 ATST-Tools is a layered `abacuslite` wrapper. Calculator-backed workflows such
-as NEB, D2S, Dimer, Sella, Relax, Vibration, and IRC still run through
+as NEB, D2S, Dimer, Sella, CCQN, Relax, Vibration, and IRC still run through
 `atst run CONFIG.yaml`; local ABACUS helpers support safe input preparation and
 result collection:
 
@@ -193,8 +207,15 @@ calculator:
     share_calculator: true
 ```
 
-The 2.0.0 DP validation used DPA-3.1-3M with the `Omat24` head. Model files and
-runtime outputs are intentionally not tracked by git.
+The 2.0.0 DP validation used DPA-3.1-3M with the `Omat24` head. The pinned
+download source, checksum, expected size, and local path are recorded in
+`examples/dp_model_manifest.json`. Model files and runtime outputs are
+intentionally not tracked by git.
+
+```bash
+python scripts/download_dp_model.py
+python scripts/download_dp_model.py --check-only
+```
 
 ## Examples
 
@@ -214,15 +235,18 @@ project:
 | `examples/09_lightweight_cli` | Local helper command examples. |
 | `examples/10_irc_H2` | IRC YAML examples. |
 | `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
+| `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
+| `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
+| `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
 
 ## Validation
 
-The 2.0.0 README badges reflect the current governed project state:
+The 2.0.1 README badges reflect the current governed project state:
 
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.0`.
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.1`.
 - Unit test coverage badge: measured with
   `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
   `coverage report --omit='src/atst_tools/external/*'`.
@@ -246,18 +270,23 @@ The main extension points are deliberately small:
 | Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command modules |
 | Add examples | `examples/<case>/config.yaml` and curated `inputs/` |
 
-Developer documentation:
+Developer governance starts from these maintained entry points:
 
 - [Documentation index](docs/index.md)
+- [Handover checklist](docs/developer/HANDOVER.md)
 - [YAML input governance](docs/developer/YAML_INPUT_GOVERNANCE.md)
 - [Documentation standards](docs/developer/DOCUMENTATION_STANDARDS.md)
+- [Documentation architecture](docs/developer/DOCS_ARCHITECTURE.md)
 - [ABACUS wrapper guide](docs/user/ABACUSLITE_WRAPPER_GUIDE.md)
 - [Maintained atst-cli skill](docs/skills/atst-cli/SKILL.md)
-- [Refactor stage review](docs/reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md)
-- [User experience reinforcement report](docs/reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md)
+
+Project status and validation entry points:
+
 - [Feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md)
+- [Documentation governance report](docs/reports/DOCUMENTATION_STATUS_REPORT.md)
 - [DP validation report](docs/reports/DP_VALIDATION_2.0.0.md)
-- [IRC integration review](docs/reports/IRC_INTEGRATION_REVIEW.md)
+- [Issue #25 AutoNEB fmax fix report](docs/reports/ISSUE_25_AUTONEB_FMAX_FIX_REPORT_2026-05-22.md)
+- [MPI image-level NEB parallel summary](docs/reports/MPI4PY_ASE_NEB_PARALLEL_ATST_SUMMARY_2026-05-27.md)
 
 ## Version Governance
 
@@ -270,8 +299,8 @@ pyproject.toml -> [project].version
 Runtime entry points read that governed package version through
 `atst_tools.package_version()`. Source-tree runs read `pyproject.toml`, while
 installed-package runs use distribution metadata generated from the same field.
-The YAML `config_version` is a separate schema-compatibility marker and is also
-`2.0.0` for this release line.
+There is no YAML-level `config_version`; user YAML is governed directly by the
+installed package schema, and unknown top-level fields are rejected.
 
 ## Project Boundary
 

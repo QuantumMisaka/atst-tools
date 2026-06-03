@@ -68,6 +68,68 @@ def test_nebpost_recovers_info_energy_and_writes_latest(tmp_path, monkeypatch):
     assert len(read("latest.extxyz", index=":")) == 3
 
 
+def test_nebpost_equal_endpoint_barrier_and_plot_all_use_known_band_size(monkeypatch):
+    images = [
+        _atoms("H", 0.0, [[0.0, 0.0, 0.0]]),
+        _atoms("H", 1.0, [[1.0, 0.0, 0.0]]),
+        _atoms("H", 0.0, [[2.0, 0.0, 0.0]]),
+    ]
+    post = NEBPost(images, n_max=0)
+
+    barrier, delta_e = post.get_barrier()
+    assert barrier == pytest.approx(1.0)
+    assert delta_e == pytest.approx(0.0)
+
+    def fake_plot_bands(self, **kwargs):
+        assert kwargs["nimages"] == 3
+        return "figure"
+
+    monkeypatch.setattr("atst_tools.utils.post.NEBTools.plot_bands", fake_plot_bands)
+
+    assert post.plot_all_bands() == "figure"
+
+
+def test_nebpost_energy_profile_reports_absolute_and_relative_energies():
+    images = [
+        _atoms("H", 2.0, [[0.0, 0.0, 0.0]]),
+        _atoms("H", 3.5, [[1.0, 0.0, 0.0]]),
+        _atoms("H", 2.4, [[2.0, 0.0, 0.0]]),
+    ]
+
+    profile = NEBPost(images, n_max=0).energy_profile()
+
+    assert [row["image"] for row in profile] == [0, 1, 2]
+    assert [row["energy_eV"] for row in profile] == pytest.approx([2.0, 3.5, 2.4])
+    assert [row["rel_energy_eV"] for row in profile] == pytest.approx([0.0, 1.5, 0.4])
+    assert [row["max_force_eV_per_A"] for row in profile] == pytest.approx([0.0, 0.0, 0.0])
+
+
+def test_nebpost_nmax_zero_does_not_guess_band_size_twice(monkeypatch):
+    images = [
+        _atoms("H", 0.0, [[0.0, 0.0, 0.0]]),
+        _atoms("H", 1.0, [[1.0, 0.0, 0.0]]),
+        _atoms("H", 0.0, [[2.0, 0.0, 0.0]]),
+    ]
+
+    calls = []
+
+    class CountingNEBTools:
+        def __init__(self, images):
+            self.images = images
+
+        def _guess_nimages(self):
+            calls.append("_guess_nimages")
+            return 3
+
+    monkeypatch.setattr("atst_tools.utils.post.NEBTools", CountingNEBTools)
+
+    post = NEBPost(images, n_max=0)
+
+    assert calls == []
+    assert post.n_images == 3
+    assert post.neb_chain == images
+
+
 def test_read_structure_dispatches_abacus_stru(tmp_path):
     (tmp_path / "STRU").write_text(
         """ATOMIC_SPECIES

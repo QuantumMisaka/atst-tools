@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MACE-Reaction-Kit 到 ATST-Tools 的过渡态能力迁移研判 - 2026-05-27</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #52616f;
+      --line: #d8dee6;
+      --accent: #24577a;
+      --accent-2: #2f7d62;
+      --warn: #9a5b13;
+      --bad: #9b2c2c;
+      --code: #f1f4f7;
+      --soft: #eef5f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 72px;
+    }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 32px;
+    }
+    h1, h2, h3 { line-height: 1.25; margin: 0 0 14px; }
+    h1 { font-size: 30px; color: var(--accent); }
+    h2 { font-size: 22px; margin-top: 34px; padding-top: 8px; border-top: 1px solid var(--line); }
+    h3 { font-size: 17px; margin-top: 22px; color: var(--accent); }
+    p { margin: 10px 0; }
+    ul, ol { margin: 10px 0 10px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 6px;
+      overflow: auto;
+      padding: 12px 14px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    pre code { border: 0; padding: 0; background: transparent; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #eef3f7; color: #1b3446; }
+    a { color: #1f5f8b; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .lead {
+      margin: 18px 0 22px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    .card strong { display: block; color: var(--accent); margin-bottom: 6px; }
+    .ok { color: var(--accent-2); font-weight: 650; }
+    .warn { color: var(--warn); font-weight: 650; }
+    .bad { color: var(--bad); font-weight: 650; }
+    .small { color: var(--muted); font-size: 13px; }
+    .tag {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 8px;
+      margin-right: 4px;
+      background: #fbfcfd;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    @media (max-width: 820px) {
+      main { padding: 20px 12px 44px; }
+      article { padding: 20px; }
+      .cards { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+<main>
+<article>
+  <h1>MACE-Reaction-Kit 到 ATST-Tools 的过渡态能力迁移研判</h1>
+  <p class="small">Date: 2026-05-27. Repository: <code>/home/pku-jianghong/liuzhaoqing/work/deepmodeling/atst-tools</code>. Scope: ATST-Tools current tree and <code>temp_repos/mace-reaction-kit</code>. Status review updated: 2026-05-28.</p>
+
+  <div class="lead">
+    <p><strong>总论：</strong>不建议把 <code>mace-reaction-kit</code> 整体移植到 ATST-Tools。ATST-Tools 已覆盖 NEB、AutoNEB、Dimer、Sella、CCQN、D2S、Vibration 和 Sella IRC，真正值得吸收的是 MACE-Reaction-Kit 在“CCQN 自动化、TS 后验证流水线、结果产物治理”上的工程能力。迁移时应保持 ATST-Tools 的 CLI + YAML、ASE-native、ABACUS/DeePMD 后端定位。MACE model 可以作为可选 ASE calculator backend 评估，但不应引入 MACE 平台 runner 或默认 Torch/GPU 依赖。</p>
+    <p><strong>2026-06-02 更新：</strong><span class="ok">P0/P1 核心功能已完成。</span><span class="ok">P0 中的 CCQN 自动 reactive mode、product alignment、mode manifest、diagnostics、artifact manifest 与 TS validation 已在项目内落地，并已通过单元测试、DP smoke 与 ABACUS/SAI 示例验证。</span><span class="ok">P1 中的 NEB two-stage、普通 NEB endpoint relaxation 和 descent IRC backend 已落地。</span><span class="warn">TS search 后处理复合 pipeline、CCQN batch/job-array、完整 IS/TS/FS reaction thermo、HTML/CSV 汇总与 MACE calculator backend 不再作为本轮 P0/P1 完成范围，而是后续可独立立项的未来增强。</span></p>
+  </div>
+
+  <div class="cards">
+    <div class="card"><strong>优先吸收</strong><span class="ok">已完成：CCQN 自动化</span><br>自动枚举 reactive bond modes、product alignment、mode manifest、诊断日志。</div>
+    <div class="card"><strong>未来增强</strong><span class="warn">待独立立项：TS 后处理流水线</span><br>Vibration TS validation、artifact manifest 和 descent IRC 已完成；通用 <code>post</code> 复合流水线保留为后续增强。</div>
+    <div class="card"><strong>未来评估</strong><span class="warn">MACE 后端</span><br>可作为可选 calculator backend 独立评估；不迁移 Adam/form runner 或 GPU CCQN 整体实现。</div>
+  </div>
+
+  <h2>1. 审查范围与验证方法</h2>
+  <p>本报告只评估可迁移能力，不实施代码迁移。ATST-Tools 侧重点审查配置 schema、MEP 实现、workflow 编排、文档和测试；MACE-Reaction-Kit 侧重点审查主入口任务映射、NEB/Sella/CCQN/IRC workflow、Fake-IRC、CCQN GPU 组件、反应热力学分析和测试。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>对象</th>
+        <th>关键证据</th>
+        <th>验证内容</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ATST-Tools 方法注册</td>
+        <td><code>src/atst_tools/utils/config_schema.py</code></td>
+        <td><code>VALID_CALCULATION_TYPES</code> 包含 <code>neb</code>、<code>autoneb</code>、<code>dimer</code>、<code>sella</code>、<code>ccqn</code>、<code>d2s</code>、<code>vibration</code>、<code>irc</code>。</td>
+      </tr>
+      <tr>
+        <td>ATST-Tools CCQN</td>
+        <td><code>src/atst_tools/mep/ccqn.py</code></td>
+        <td>已有 CPU/Numpy/Scipy 版 CCQN optimizer，支持 <code>ic</code> 与 <code>interp</code> e-vector。</td>
+      </tr>
+      <tr>
+        <td>ATST-Tools D2S</td>
+        <td><code>src/atst_tools/workflows/d2s.py</code></td>
+        <td>已有 endpoint optimization、rough DyNEB、Dimer/Sella/CCQN 单端 refine 和可选 vibration。</td>
+      </tr>
+      <tr>
+        <td>MACE 任务入口</td>
+        <td><code>temp_repos/mace-reaction-kit/MACE_Reaction.py</code>、<code>config/input.json</code></td>
+        <td>用户级任务集中在 <code>neb</code>、<code>sella</code>、<code>ccqn</code>，通过 <code>enable_freq</code>、<code>enable_irc</code> 派生组合 workflow。</td>
+      </tr>
+      <tr>
+        <td>MACE CCQN</td>
+        <td><code>mace_asekit/workflows/ccqn_ts.py</code>、<code>algo/ccqn</code></td>
+        <td>提供 auto IC mode enumeration、batch pairs、GPU/Torch CCQN driver、多种 uphill solver 和 manifest/debug 输出。</td>
+      </tr>
+      <tr>
+        <td>MACE IRC 与 Fake-IRC</td>
+        <td><code>mace_asekit/workflows/irc.py</code>、<code>fake_irc.py</code>、<code>shared/descent_irc.py</code></td>
+        <td>Sella IRC 之外提供沿虚频方向双向下降的近似路径生成。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>测试验证记录</h3>
+  <p>ATST-Tools 侧，使用项目环境验证相关单元测试通过：</p>
+  <pre><code>conda run -n atst-dev pytest tests/unit/test_config.py tests/unit/test_cli.py tests/unit/test_ccqn.py tests/unit/test_workflows.py tests/unit/test_examples_reference_results.py -q</code></pre>
+  <p>MACE-Reaction-Kit 侧，CCQN batch、IC auto enumeration、bond canonicalization、GPU interp e-vector 以及 runner output flow 测试已分组验证通过。默认 Python 环境缺少 <code>atst_tools</code> / <code>ase</code>，相关验证应统一使用 <code>atst-dev</code>。</p>
+
+  <h2>2. 当前覆盖面对比</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>能力</th>
+        <th>ATST-Tools 当前状态</th>
+        <th>MACE-Reaction-Kit 当前状态</th>
+        <th>迁移判断</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>NEB / CI-NEB / DyNEB</td>
+        <td>支持 ASE NEB、DyNEB 与 <code>AbacusNEB</code> wrapper；<code>climb: true</code> 即启用 ASE 原生 CI-NEB；<span class="ok">已新增 two-stage CI-NEB、endpoint optimization 和 artifact manifest。</span></td>
+        <td>支持 ASE NEB，含 endpoint relax、atom index align、MIC、two-stage CI、TS frequency、reaction thermo。</td>
+        <td><span class="ok">已完成主要迁移。</span>two-stage 开关、第一阶段限步/力阈值和 endpoint relaxation 已落地；统一 post pipeline 仍独立推进。</td>
+      </tr>
+      <tr>
+        <td>AutoNEB</td>
+        <td>支持 <code>AbacusAutoNEB</code> 与 native ASE AutoNEB。</td>
+        <td>未发现用户级 AutoNEB。</td>
+        <td><span class="ok">ATST 保持领先。</span>无需从 MACE 迁移。</td>
+      </tr>
+      <tr>
+        <td>Dimer TS search</td>
+        <td>支持 ASE Dimer 单端鞍点搜索。</td>
+        <td><code>mace_asekit/workflows/dimer.py</code> 是 pair scan，不是真正 TS Dimer。</td>
+        <td><span class="ok">ATST 保持领先。</span>不迁移 MACE dimer。</td>
+      </tr>
+      <tr>
+        <td>Sella TS search</td>
+        <td>支持 Sella，暴露 <code>order</code>、<code>eta</code> 等关键参数。</td>
+        <td>支持 Sella，并可接频率验证和 IRC。</td>
+        <td><span class="warn">补流水线。</span>Sella 本体无需迁移，值得补 Sella 后接 vibration/IRC 的统一编排。</td>
+      </tr>
+      <tr>
+        <td>CCQN TS search</td>
+        <td>支持 CPU 版 CCQN，含 <code>ic</code> 与 <code>interp</code> e-vector，D2S 中可用 CCQN refine；<span class="ok">已新增 auto reactive mode、product alignment、mode manifest 和 diagnostics。</span></td>
+        <td>支持 GPU/Torch CCQN，含自动 reactive mode 枚举、batch、manifest、多 solver debug。</td>
+        <td><span class="ok">已完成重点吸收。</span>自动化与产物治理已迁入 CPU/ASE-native 路线；GPU/Torch 栈仍不迁移。</td>
+      </tr>
+      <tr>
+        <td>D2S</td>
+        <td>支持 endpoint optimization → rough DyNEB → Dimer/Sella/CCQN。</td>
+        <td>无同名通用 D2S；有 NEB → Sella → IRC 组合 pipeline。</td>
+        <td><span class="ok">ATST 保持主线。</span>可把 MACE pipeline 思想接入 D2S 后处理。</td>
+      </tr>
+      <tr>
+        <td>IRC</td>
+        <td>支持 Sella IRC，方向可选 <code>forward</code>、<code>reverse</code>、<code>both</code>；<span class="ok">已新增 <code>backend: descent</code> 近似下降路径。</span></td>
+        <td>支持 Sella IRC 与 Fake-IRC。</td>
+        <td><span class="ok">已完成。</span>Fake-IRC 思路以 <code>descent</code> backend 落地，并在文档中限定为非严格 IRC。</td>
+      </tr>
+      <tr>
+        <td>Vibration / TS validation</td>
+        <td>有独立 vibration workflow 和 D2S 可选 vibration；<span class="ok">已新增 <code>ts_validation.json</code>、vibration JSON 和 artifact manifest。</span></td>
+        <td>NEB/Sella/CCQN pipeline 可自动接 frequency，并为 Fake-IRC 选择虚频模式。</td>
+        <td><span class="ok">已完成核心能力。</span>统一 TS validation summary 已落地；自动串联 TS search 后处理仍未形成通用 <code>post</code> pipeline。</td>
+      </tr>
+      <tr>
+        <td>Reaction thermochemistry</td>
+        <td>已有结构级热力学输出能力，但不是完整 IS/TS/FS 反应报告主线。</td>
+        <td>支持 IS/TS/FS 反应热力学、温度网格、CSV/图表。</td>
+        <td><span class="warn">中期吸收。</span>应在 vibration/TS validation 稳定后实现。</td>
+      </tr>
+      <tr>
+        <td>Batch / high-throughput</td>
+        <td>当前过渡态任务以单任务 YAML 为主。</td>
+        <td>CCQN 支持 batch pairs 和 auto IC 多 mode 批处理。</td>
+        <td><span class="warn">中期吸收。</span>ABACUS 场景应结合 Slurm/job array，而不是简单串行循环。</td>
+      </tr>
+      <tr>
+        <td>Artifact manifest</td>
+        <td><span class="ok">已新增统一 artifact manifest。</span>NEB、CCQN、Vibration、D2S、IRC 等 workflow 可写出 <code>atst_artifacts.json</code>，summary 工具可回读 manifest。</td>
+        <td>runner 有明确 output map，CCQN mode manifest 更利于平台收集。</td>
+        <td><span class="ok">已完成基础迁移。</span>后端无关 manifest 已用于记录 trajectory、validation、diagnostics、mode manifest 和阶段状态。</td>
+      </tr>
+      <tr>
+        <td>ML potential calculator backend</td>
+        <td>正式支持 DP/DeepMD：<code>calculator.name: dp</code> 或 <code>deepmd</code>，通过 <code>deepmd.calculator.DP</code> 构造 ASE calculator，并有 schema、factory、单测、文档和 DP 验证报告。</td>
+        <td>以 MACE 为核心后端：workflow 通过 <code>MACECalculator</code>、<code>model_selection/custom_pes_model</code>、<code>device</code> 和 multi-head/device 逻辑运行。</td>
+        <td><span class="warn">可以吸收，但边界不同。</span>ATST 可新增可选 <code>calculator.name: mace</code> 后端；不应迁移 MACE-Reaction-Kit 的平台模型选择和展示逻辑。</td>
+      </tr>
+      <tr>
+        <td>任务运行信息收集与总结</td>
+        <td>有 read-only CLI：<code>neb summary</code>、<code>relax summary</code>、<code>dimer/sella/ccqn summary</code>、<code>vibration summary</code>、<code>d2s summary</code>、<code>abacus collect</code>、<code>traj collect/transform</code>。</td>
+        <td>每个 workflow 返回 <code>WorkflowResult(summary, generated_files, plots, gifs, visualize)</code>，主 runner 生成 <code>report.md</code>，并通过 output map 选择标准化文件路径返回给平台。</td>
+        <td><span class="ok">互补吸收。</span>ATST 的 CLI 更适合 Slurm 离线监控；MACE 的 output registry 更适合一键任务结果展示。建议 ATST 保留 summary CLI，并补统一 artifact manifest。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. ASE 3.28.0 中 CI-NEB 的启动机制与 two-stage 的意义</h2>
+  <p>本节专门回答三个容易混淆的问题：ATST-Tools 所称“支持 ASE NEB”是否包含 CI-NEB，ASE 是否原生内置“先跑几步普通 NEB 再开 CI-NEB”的调度，以及 MACE-Reaction-Kit 为什么还要额外写 two-stage NEB。结论是：ASE 3.28.0 的 <code>NEB(climb=True)</code> 已经原生支持 CI-NEB；但 ASE 原生 <code>NEB</code> 只提供 <code>climb</code> 开关，不自动执行 two-stage 调度。two-stage 的价值不是补齐 ASE 缺失算法，而是把“何时开启 climbing image”作为 workflow 策略管理起来。</p>
+
+  <h3>3.1 ASE 3.28.0 的 CI-NEB 机制</h3>
+  <p>在 <code>atst-dev</code> 环境中确认 ASE 版本为 <code>3.28.0</code>，源码文件为 <code>/home/pku-jianghong/liuzhaoqing/.conda/envs/atst-dev/lib/python3.10/site-packages/ase/mep/neb.py</code>。关键机制如下：</p>
+  <ul>
+    <li><code>NEB.__init__</code> 接收 <code>climb=False</code> 参数，docstring 明确其含义为 “Use a climbing image”。</li>
+    <li><code>BaseNEB.__init__</code> 将该参数保存为 <code>self.climb</code>。</li>
+    <li>每次 <code>get_forces()</code> 时，ASE 根据当前所有内点能量重新计算最高能量 image：<code>self.imax = state.imax</code>；<code>NEBState.imax</code> 的实现是对 <code>energies[1:-1]</code> 取最大值索引。</li>
+    <li>当循环到 <code>i == self.imax and self.climb</code> 时，ASE 不再对该 image 加普通 NEB spring force，而是使用 full PES-derived force，并反转沿 tangent 的力分量：非 legacy 方法下执行 <code>imgforce -= 2 * tangential_force * tangent</code>。</li>
+  </ul>
+  <p>因此，ATST-Tools 当前 <code>calculation.neb.climb: true</code> 的语义就是使用 ASE 原生 CI-NEB。ATST 的 <code>AbacusNEB</code> 继承 ASE <code>NEB</code>，并在自身 <code>get_forces()</code> 中保留了同样的 climbing-image 分支；这说明 ATST 对 ASE NEB 的支持包含 CI-NEB，而不是只支持普通 NEB。</p>
+
+  <h3>3.2 “先普通 NEB 3-5 步再 CI-NEB”在 ASE 与 MACE 中的实现状态</h3>
+  <p>从 ASE 3.28.0 源码看，原生 <code>NEB</code> 没有 <code>two_stage</code>、<code>stage1_steps</code> 或“先运行 3-5 步普通 NEB”的自动调度参数。ASE 的能力边界是：用户可以构造 <code>NEB(images, climb=False)</code>，用优化器先 <code>run(..., steps=3)</code> 或 <code>run(..., steps=5)</code>，随后手动设置 <code>neb.climb = True</code> 并继续优化。也就是说，ASE 支持这种做法所需的底层可变状态，但不把它封装成 workflow。</p>
+  <p>MACE-Reaction-Kit 则已经把这一实践封装成 workflow 级 two-stage。其 NEB workflow 先构造 <code>NEB(images, ..., climb=(False if two_stage else climb), method="improvedtangent")</code>；当 <code>two_stage</code> 启用时，第一阶段用普通 NEB 跑到 <code>neb_stage1_fmax</code> 或达到步数上限，然后执行 <code>neb.climb = climb</code>，再进入第二阶段 CI-NEB 精化。需要注意的是，MACE 的实现不是固定“3-5 步”，而是以较松 <code>stage1_fmax</code> 和全局 <code>steps</code> 为控制量；其 <code>config/input.json</code> 暴露了 <code>neb_two_stage</code> 和 <code>neb_stage1_fmax</code>，平台默认值为 <code>false</code>，workflow 代码在字段缺失时的 fallback 为 <code>true</code>。</p>
+
+  <h3>3.3 <code>stage1_fmax</code> 是否优于固定 3-5 步</h3>
+  <p><code>stage1_fmax</code> 比单纯固定 3-5 步更接近 NEB 的物理目标。第一阶段普通 NEB 的目的不是消耗固定步数，而是让 band 先形成较合理的 MEP 形状和能量排序；用较松的力阈值，例如 <code>0.1</code> 或 <code>0.2 eV/Ang</code>，比“无论情况如何只跑 3-5 步”更能表达这个目标。</p>
+  <p>但是，MACE 的控制方式不应原样照搬到 ATST-Tools。MACE 第一阶段调用 <code>dyn1.run(fmax=stage1_fmax, steps=self.steps)</code>，第二阶段再调用 <code>dyn2.run(fmax=fmax, steps=self.steps)</code>。对 MACE/ML 势这通常可接受；对 ATST-Tools 的 ABACUS 后端，第一阶段和第二阶段都允许消耗完整全局步数会放大计算成本，也会让 <code>max_steps</code> 的用户语义变得不清晰。</p>
+  <p>因此，ATST-Tools 更合适的方案是采用 <strong><code>stage1_fmax</code> + <code>stage1_steps</code> 双控制</strong>：<code>stage1_steps</code> 提供 3-5 步普通 NEB 预热的低成本默认行为，<code>stage1_fmax</code> 允许用户在愿意投入更多第一阶段步数时按较松力阈值停止。这个设计同时覆盖经验做法和收敛准则，也更符合 ABACUS 计算成本模型。</p>
+
+  <pre><code>calculation:
+  type: neb
+  climb: true
+  two_stage: true
+  stage1_steps: 5
+  stage1_fmax: 0.1
+  fmax: 0.05
+  max_steps: 100</code></pre>
+
+  <p>推荐执行语义为：构造 NEB 时第一阶段强制 <code>climb=False</code>，运行 <code>opt1.run(fmax=stage1_fmax, steps=stage1_steps)</code>；随后设置 <code>neb.climb = climb</code>，第二阶段运行 <code>opt2.run(fmax=fmax, steps=max_steps)</code>。这样 <code>max_steps</code> 仍清晰表示最终 CI-NEB 阶段的步数上限，第一阶段成本由 <code>stage1_steps</code> 单独控制。</p>
+
+  <h3>3.4 MACE-Reaction-Kit 为什么写 two-stage NEB</h3>
+  <p>这个设计的理由在于 CI-NEB 的 climbing image 是“当前最高能量内点”。在初始插值路径还很粗、IDPP 尚未充分改善、或某个内点存在异常高能构型时，过早启用 climb 会立刻把这个最高能量 image 作为 climbing image，移除其 spring force 并反转切向力。这样可能使路径还未成形就开始追 saddle，增加最高能量 image 选错、路径扭曲或优化不稳定的概率。</p>
+  <p>two-stage 的工程含义是：第一阶段让普通 NEB 先建立较合理的 MEP 带形和能量排序；第二阶段再开启 CI-NEB，把已经较可信的最高能量 image 推向一阶鞍点。这是稳定性策略，不是 ASE CI-NEB 功能缺失的替代实现。</p>
+
+  <h3>3.5 对 ATST-Tools 的迁移结论</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>结论</th>
+        <th>对报告路线的影响</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ATST 的 ASE NEB 是否支持 CI-NEB？</td>
+        <td><span class="ok">支持。</span><code>climb: true</code> 直接映射到 ASE 3.28.0 的 CI-NEB 机制。</td>
+        <td>报告中不应把 CI-NEB 作为待迁移算法，只应把 two-stage 作为可选稳定性策略。</td>
+      </tr>
+      <tr>
+        <td>MACE 的 two-stage 是否是新算法？</td>
+        <td><span class="warn">不是。</span>它是普通 NEB 预优化后再打开 ASE CI-NEB 的调度策略；MACE 已实现，但不是固定 3-5 步。</td>
+        <td>建议在 ATST 中新增 <code>neb.two_stage</code>、<code>neb.stage1_steps</code> 和 <code>neb.stage1_fmax</code>，而不是新增新的 NEB backend。</td>
+      </tr>
+      <tr>
+        <td>MACE 的 <code>stage1_fmax</code> 控制是否更好？</td>
+        <td><span class="ok">方向更好。</span>它比固定步数更接近“普通 NEB 先达到较松路径质量”的目标。</td>
+        <td>ATST 应吸收 <code>stage1_fmax</code>，但必须同时引入 <code>stage1_steps</code>，避免 ABACUS 第一阶段成本失控。</td>
+      </tr>
+      <tr>
+        <td>two-stage 是否应默认开启？</td>
+        <td>建议实现，但不建议立即改变 ATST 现有默认。ABACUS 场景计算成本高，且默认行为变化会影响既有 examples。</td>
+        <td>先作为显式 opt-in 选项加入；默认 <code>stage1_steps: 5</code>、<code>stage1_fmax: 0.1</code> 可作为模板推荐，而不是强行替代当前单阶段 CI-NEB。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. DP 与 MACE 模型后端支持研判</h2>
+  <p>ATST-Tools 当前已经把 DeePMD-kit / DP 作为正式 ML potential calculator backend 接入，而不是临时脚本级支持。相比之下，MACE-Reaction-Kit 的设计从一开始就围绕 MACE model 展开。是否在 ATST-Tools 中支持 MACE model，应按“新增一个可选 ASE calculator backend”来评估，而不是把 MACE-Reaction-Kit 的平台 runner 整体迁入。</p>
+
+  <h3>4.1 ATST-Tools 当前 DP 支持状态</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>层面</th>
+        <th>确认结果</th>
+        <th>证据</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>配置 schema</td>
+        <td><code>VALID_CALCULATORS</code> 包含 <code>dp</code> 和 <code>deepmd</code>；DP 配置要求 <code>calculator.dp.model</code>。</td>
+        <td><code>src/atst_tools/utils/config_schema.py</code>，以及 <code>tests/unit/test_config.py</code> 中 DP model 必填和默认值测试。</td>
+      </tr>
+      <tr>
+        <td>calculator factory</td>
+        <td><code>CalculatorFactory</code> 对 <code>dp/deepmd</code> 调用 <code>DeepPotentialFactory</code>，后者导入 <code>deepmd.calculator.DP</code>。</td>
+        <td><code>src/atst_tools/calculators/dp.py</code>、<code>src/atst_tools/calculators/factory.py</code>。</td>
+      </tr>
+      <tr>
+        <td>模型参数</td>
+        <td>支持 <code>model</code>、<code>head</code>、<code>type_map</code>、<code>type_dict</code>、<code>omp</code>、<code>share_calculator</code>；<code>type_map</code> 会转换为 deepmd-kit 所需 <code>type_dict</code>。</td>
+        <td><code>tests/unit/test_factory.py</code> 覆盖 head、type mapping、OMP、cache key 和 share policy。</td>
+      </tr>
+      <tr>
+        <td>workflow 覆盖</td>
+        <td>DP 后端已通过 <code>atst run</code> 接入 NEB、AutoNEB、Dimer、Sella、Relax、Vibration、D2S 和 IRC 边界处理。</td>
+        <td><code>docs/reports/DP_VALIDATION_2.0.0.md</code> 记录 SAI GPU 节点 DP 验证。</td>
+      </tr>
+      <tr>
+        <td>共享策略</td>
+        <td>串行 NEB/DyNEB/AutoNEB 可复用一个 DP calculator，避免 ML calculator 重复初始化；也可通过 <code>share_calculator: false</code> 关闭。</td>
+        <td><code>should_share_calculator()</code> 与 factory cache 测试。</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>结论：ATST-Tools 对 DP model 的支持已经是项目级正式能力，具备配置治理、calculator 构造、测试覆盖和实算验证。它不是只支持某个 DP 示例，而是通过 ASE calculator factory 对多个 workflow 统一开放。</p>
+
+  <h3>4.2 MACE-Reaction-Kit 的 MACE 后端能力</h3>
+  <p>MACE-Reaction-Kit 的模型后端集中在 <code>Workflow.create_mace_calc()</code>：根据 <code>model_selection</code> 或 <code>custom_pes_model</code> 选择模型，处理 <code>device</code>、dtype、multi-head、D3 修正等参数，然后构造 <code>mace.calculators.MACECalculator</code>。其配置表单还暴露了内置模型选项，例如 <code>mace-omat-0-small.model</code> 和 <code>mace-mh-1.model</code>。</p>
+  <p>这说明 MACE-Reaction-Kit 中的 MACE 支持很完整，但它和平台运行环境、内置模型路径、可视化输出、batch inference 以及 runner 表单高度耦合。ATST-Tools 若支持 MACE model，应抽取为轻量、后端无关的 calculator backend，而不是迁移这些平台绑定。</p>
+
+  <h3>4.3 ATST-Tools 是否有必要支持 MACE model</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>判断</th>
+        <th>建议</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>是否有必要？</td>
+        <td><span class="ok">有必要，但优先级应低于 CCQN 自动化和 TS validation。</span>MACE 是常见 ASE ML potential，适合作为 ABACUS 前筛、快速路径搜索和 TS guess 生成后端。</td>
+        <td>列入 P2 或独立 calculator-backend 小任务，不阻塞当前过渡态算法治理主线。</td>
+      </tr>
+      <tr>
+        <td>能否直接照搬 MACE-Reaction-Kit？</td>
+        <td><span class="bad">不建议。</span>MACE-Reaction-Kit 的模型选择、runner 输出和平台表单不符合 ATST CLI + YAML 架构。</td>
+        <td>只复用接口思想：通过 ASE <code>MACECalculator</code> 构造 calculator；不要迁移 Adam/form runner。</td>
+      </tr>
+      <tr>
+        <td>推荐接口</td>
+        <td>新增 <code>calculator.name: mace</code>，配置块为 <code>calculator.mace</code>。</td>
+        <td>最小字段为 <code>model</code>、<code>device</code>、<code>dtype</code>、<code>head</code>、<code>default_dtype</code>、<code>share_calculator</code>；高级特性如 D3、batched inference 后续再评估。</td>
+      </tr>
+      <tr>
+        <td>依赖治理</td>
+        <td>MACE 会引入 Torch/MACE 依赖，不能成为默认安装要求。</td>
+        <td>采用 optional extra，例如 <code>atst-tools[mace]</code>；缺依赖时报清晰 ImportError。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <pre><code>calculator:
+  name: mace
+  mace:
+    model: /path/to/mace.model
+    device: cuda
+    dtype: float32
+    head: null
+    share_calculator: true</code></pre>
+
+  <p>最终判断：DP 是 ATST 当前已验证的正式 ML 后端；MACE 值得作为可选 ML 后端支持，因为这与 ATST 的 ASE-native calculator factory 方向一致。但它应作为一个独立的、轻量的 calculator backend 进入，而不是作为 MACE-Reaction-Kit 子系统迁移。</p>
+
+  <h2>5. 任务运行信息收集与总结能力对比</h2>
+  <p>除过渡态算法本身外，任务运行信息的收集、监控和总结也是 ATST-Tools 与 MACE-Reaction-Kit 的重要差异。两者都有类似能力，但形态不同：ATST-Tools 面向命令行和 HPC 离线运行，强调只读 summary CLI；MACE-Reaction-Kit 面向平台 runner，强调运行结束时返回标准化结果对象和文件路径。</p>
+
+  <h3>4.1 ATST-Tools 当前 summary/collect 能力</h3>
+  <p>ATST-Tools 的轻量命令不创建 calculator，不运行 ABACUS/DP，适合 Slurm 任务运行中轮询和完成后归档。核心实现位于 <code>src/atst_tools/utils/summary.py</code> 与 <code>src/atst_tools/scripts/cli.py</code>，并在用户文档中明确为 read-only summary 命令。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>命令</th>
+        <th>收集对象</th>
+        <th>输出信息</th>
+        <th>定位</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>atst neb summary</code></td>
+        <td>普通 NEB trajectory 或 AutoNEB final chain。</td>
+        <td>band size、完整优化步数、frame remainder、每步 barrier、delta E、最高能量 image、最大力 image、projected NEB fmax；支持 JSON、tail、watch。</td>
+        <td>NEB/AutoNEB 运行监控与最终路径摘要。</td>
+      </tr>
+      <tr>
+        <td><code>atst relax summary</code></td>
+        <td>优化轨迹。</td>
+        <td>frame count、latest energy、latest max force、逐帧 energy/force trend。</td>
+        <td>结构优化收敛摘要。</td>
+      </tr>
+      <tr>
+        <td><code>atst dimer summary</code> / <code>sella summary</code> / <code>ccqn summary</code></td>
+        <td>单端 TS 优化轨迹。</td>
+        <td>复用通用 trajectory summary，报告 latest energy、latest max force 和逐帧趋势。</td>
+        <td>Dimer/Sella/CCQN 结果快速检查。</td>
+      </tr>
+      <tr>
+        <td><code>atst vibration summary</code></td>
+        <td>vibration config、ASE vibration cache、已有 vibration JSON。</td>
+        <td>valid/invalid cache files、频率数、虚频数、ZPE、thermo 摘要。</td>
+        <td>不重新计算 displacement 的振动结果审查。</td>
+      </tr>
+      <tr>
+        <td><code>atst d2s summary</code></td>
+        <td>D2S YAML 和阶段输出。</td>
+        <td>endpoint、rough NEB、single-ended refine、optional vibration 等阶段状态。</td>
+        <td>复合 workflow 的阶段级摘要。</td>
+      </tr>
+      <tr>
+        <td><code>atst abacus collect</code></td>
+        <td>ABACUS run directory。</td>
+        <td><code>INPUT</code>、<code>KPT</code>、<code>STRU</code>、<code>running*.log</code> 文件存在性；文件齐全时尝试解析最终结构、能量和 max force。</td>
+        <td>保守的 ABACUS 输出 JSON 摘要。</td>
+      </tr>
+      <tr>
+        <td><code>atst traj collect/transform</code></td>
+        <td>结构文件、trajectory、NEB latest band。</td>
+        <td>确定性收集多帧 trajectory；格式转换为 <code>traj</code>、<code>extxyz</code>、<code>stru</code>、<code>cif</code>。</td>
+        <td>结果归档和后续任务输入准备。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 MACE-Reaction-Kit 的类似能力</h3>
+  <p>MACE-Reaction-Kit 也有任务信息收集与总结能力，但它不是独立的离线 summary CLI，而是嵌入平台 runner 的结果返回机制。每个 workflow 返回 <code>WorkflowResult</code>，其中包含 <code>summary</code>、<code>generated_files</code>、<code>plot_files</code>、<code>gifs</code> 和 <code>visualize_files</code>。主 runner 随后生成 <code>report.md</code>，并按任务类型从 <code>generated_files</code> 中选择标准化输出，例如 TS 结构、trajectory、stream extxyz、IRC 两端、frequency report、mode table 和 CCQN mode manifest。</p>
+  <p>这个机制的优势是运行结束后平台可以直接展示状态和文件列表，且不同任务路线，例如 <code>neb</code>、<code>neb_irc</code>、<code>sella_irc</code>、<code>ccqn_freq</code>、<code>ccqn_sella_irc</code>，都有各自的 output map。其局限是它依赖 runner 调用链和约定文件名；对已经在 HPC 上独立运行、需要后续轮询或手动归档的任务，不如 ATST 的 read-only CLI 灵活。</p>
+
+  <h3>4.3 迁移判断</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>确认结果</th>
+        <th>建议</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ATST summary CLI 是否可收集各任务信息？</td>
+        <td><span class="ok">基本可以。</span>它覆盖 NEB/AutoNEB、Relax、Dimer、Sella、CCQN、Vibration、D2S、ABACUS run directory 和 trajectory 工具。</td>
+        <td>保持 read-only 设计，继续作为 Slurm 监控和离线后处理主入口。</td>
+      </tr>
+      <tr>
+        <td>MACE 是否有类似功能？</td>
+        <td><span class="ok">有，但形态不同。</span>MACE 通过 <code>WorkflowResult</code>、<code>report.md</code> 和 runner output map 完成运行结束时的结果注册与展示。</td>
+        <td>不要把 MACE runner 搬进 ATST；吸收其“标准化产物注册表”的思想。</td>
+      </tr>
+      <tr>
+        <td>ATST 还缺什么？</td>
+        <td><span class="ok">基础能力已补齐。</span>已新增跨 workflow artifact manifest 写出和 summary 回读；仍可继续扩展更多 summary JSON 与 reaction thermo 产物。</td>
+        <td>继续沿用后端无关 <code>atst_artifacts.json</code>，记录结构、轨迹、summary、validation、IRC、thermo、log 文件路径。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>6. 值得实现的内容分级</h2>
+  <h3>P0：近期最高优先级</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th>为什么值得做</th>
+        <th>ATST 中的建议落点</th>
+        <th>验收标准</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="ok">已完成</span><br>CCQN reactive bond modes 自动枚举</td>
+        <td>当前 ATST <code>ic</code> 模式要求用户手写 <code>reactive_bonds</code>，对表面催化反应门槛高。</td>
+        <td>新增 <code>atst_tools.utils.reactive_modes</code>，在 standalone CCQN 与 D2S-CCQN 中可选启用。</td>
+        <td>给定 molecule/support 划分、cutoff 和 max_modes 后，稳定生成去重排序的 1-bond/2-bond mode 列表。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>CCQN product alignment</td>
+        <td><code>interp</code> 模式依赖 product-like structure，原子顺序不一致会导致错误 e-vector。</td>
+        <td>扩展 CCQN config：<code>align_product_indices: true</code>，复用现有 atom alignment/MIC 工具。</td>
+        <td>相同元素计数但索引打乱的 product 能被重排；元素计数不一致时明确报错。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>CCQN mode manifest</td>
+        <td>多 mode 或自动枚举后必须知道每个候选尝试了什么、结果如何。</td>
+        <td>输出 <code>ccqn_mode_manifest.json</code>，记录 mode bonds、标签、energy、fmax、是否收敛、输出路径。</td>
+        <td>单 mode 和多 mode 均有 manifest；失败 mode 不吞错，记录异常摘要。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>统一 workflow artifact manifest</td>
+        <td>ATST 已有丰富 summary CLI，但缺少运行时统一产物索引；MACE 的 output map 对结果展示和平台集成很有启发。</td>
+        <td>每个 workflow 可选写出 <code>atst_artifacts.json</code>，summary CLI 优先读取并回退到现有路径推断。</td>
+        <td>NEB、D2S、CCQN、Vibration、IRC 至少记录主 trajectory、最终结构、summary JSON、validation JSON、log 和阶段状态。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>CCQN diagnostics</td>
+        <td>CCQN 失败往往需要判断 uphill/PRFO 切换、负本征值、trust radius 行为。</td>
+        <td>增强 <code>CCQNOptimizer</code> 日志和可选 JSON trace。</td>
+        <td>每步记录 mode、min eigenvalue、trust radius、rho、e-vector overlap、max force。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>统一 TS validation summary</td>
+        <td>Dimer/Sella/CCQN/NEB 产出的 TS 都需要一致判断“是否像一阶鞍点”。</td>
+        <td>在 vibration 基础上新增 <code>ts_validation.json</code> 生成器。</td>
+        <td>输出虚频数量、主虚频、最大力、能量、判断状态和主要文件路径。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>P1：有价值但需控制语义</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th>收益</th>
+        <th>风险控制</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="ok">已完成</span><br>Fake-IRC / descent backend</td>
+        <td>Sella IRC 不稳定或昂贵时，可沿虚频方向双向下降，快速得到路径端点猜测。</td>
+        <td>命名为 <code>descent</code> 或 <code>fake</code>，文档明确“近似路径，不等价于严格 IRC”。</td>
+      </tr>
+      <tr>
+        <td><span class="warn">未来增强</span><br>TS search → vibration → IRC 复合后处理</td>
+        <td>把用户常用的“找 TS、验虚频、跑 IRC”连成可复现工作流。</td>
+        <td>通过 <code>post</code> 段显式启用，不改变现有单任务默认行为。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>NEB two-stage CI</td>
+        <td>ASE 已原生支持 CI-NEB，但没有内置 two-stage workflow；MACE 已封装普通 NEB → CI-NEB，并用 <code>stage1_fmax</code> 表达第一阶段路径质量。</td>
+        <td>新增 <code>neb.two_stage</code>、<code>neb.stage1_steps</code>、<code>neb.stage1_fmax</code>；默认保持当前单阶段行为。不要照搬 MACE 的全局 <code>steps</code> 控制，ATST 第一阶段应单独限步。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成</span><br>endpoint relax 显式选项</td>
+        <td>对 ML 势和粗初猜更友好。</td>
+        <td>必须显式启用，并写清楚会改变端点结构；ABACUS 高成本场景要给出默认关闭策略。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>P2：中期增强</h3>
+  <ul>
+    <li><span class="warn">未来增强。</span><strong>CCQN batch/job-array：</strong>MACE 的 batch pairs 对高通量筛选有价值，但 ATST 的 ABACUS 场景不能简单串行照搬，应与 Slurm job array 或分任务 manifest 结合。</li>
+    <li><span class="warn">未来增强。</span><strong>IS/TS/FS reaction thermo：</strong>在 TS validation 稳定后，基于 vibration 结果生成反应能垒、ZPE 修正和温度网格自由能表。</li>
+    <li><span class="warn">未来增强。</span><strong>HTML/CSV summary：</strong>统一 examples 和生产任务的结果摘要，便于人工审查和文档归档。</li>
+    <li><span class="warn">未来评估。</span><strong>MACE calculator backend：</strong>作为可选 ML potential 后端支持 <code>calculator.name: mace</code>，复用 ATST calculator factory 和 workflow，不迁移平台 runner。</li>
+  </ul>
+
+  <h3>P3：不建议近期实现</h3>
+  <ul>
+    <li><strong>GPU/Torch CCQN 整体移植：</strong>ATST 的主要成本通常在 calculator，尤其是 ABACUS 调用；先引入 GPU optimizer 栈会增加依赖和维护面。</li>
+    <li><strong>MACE 平台 runner：</strong><code>task_family</code>、form config、output map 适合 Adam 平台，不符合 ATST 的 CLI + YAML 主接口。</li>
+    <li><strong>MACE-Reaction-Kit 的平台绑定模型选择逻辑：</strong>内置模型列表、平台路径和 <code>outputShow</code> 不应进入 ATST；只应保留 calculator backend 层。</li>
+    <li><strong>替换现有 IDPP/alignment：</strong>ATST 已有 <code>Fast_IDPPSolver</code> 和 atom alignment，可补质量检查，不应重写路线。</li>
+  </ul>
+
+  <h2>7. 推荐实施路线</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>阶段</th>
+        <th>目标</th>
+        <th>主要变更</th>
+        <th>建议测试</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="ok">已完成</span><br>Phase 1</td>
+        <td>CCQN 自动化增强</td>
+        <td>新增 reactive mode enumeration、product alignment、mode manifest、diagnostic trace；接入 standalone CCQN 与 D2S-CCQN。</td>
+        <td>单元测试覆盖 bond parser、mode 去重排序、alignment、manifest；用 mock calculator 做小体系 CCQN smoke。</td>
+      </tr>
+      <tr>
+        <td><span class="ok">已完成核心能力</span><br>Phase 2</td>
+        <td>TS validation 标准化</td>
+        <td>从 vibration 结果生成统一 <code>ts_validation.json</code>；同时引入 <code>atst_artifacts.json</code> 记录 workflow 产物索引。</td>
+        <td>虚频 0/1/多虚频案例；无频率结果时的错误信息；artifact manifest 路径存在性和 summary CLI 回读测试。</td>
+      </tr>
+      <tr>
+        <td><span class="warn">未来增强</span><br>Phase 3</td>
+        <td>复合 post pipeline</td>
+        <td><code>backend: descent</code> 已作为 IRC workflow 落地；通用 <code>post.vibration</code>、<code>post.irc</code>、<code>post.descent</code> 复合配置作为未来增强，不属于本轮 P0/P1 核心完成范围。</td>
+        <td>CLI/YAML schema 测试；Sella IRC mock 测试；产物路径和 summary 测试。</td>
+      </tr>
+      <tr>
+        <td><span class="warn">未来评估</span><br>Phase 4</td>
+        <td>高通量与性能评估</td>
+        <td>设计 CCQN batch/job-array manifest；评估 GPU CCQN 和 MACE calculator backend 是否需要成为可选 extra。</td>
+        <td>Slurm dry-run/job script 生成测试；多任务失败恢复测试；MACE calculator import/parameter/unit smoke；性能基准对比。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>7.1 代码推进状态（2026-05-28）</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>级别</th>
+        <th>功能点</th>
+        <th>当前落地状态</th>
+        <th>验证方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P0</td>
+        <td>CCQN 自动 reactive mode</td>
+        <td>已新增 <code>atst_tools.utils.reactive_modes</code>，standalone CCQN 可通过 <code>auto_reactive_bonds.enabled</code> 枚举 molecule-catalyst reactive bonds，并选择排序第一的 mode 运行。</td>
+        <td>单元测试覆盖 1-based index parsing、距离排序、manifest 写出和 CCQN runner 接入。</td>
+      </tr>
+      <tr>
+        <td>P0</td>
+        <td>CCQN product alignment、mode manifest、diagnostics</td>
+        <td>已新增 <code>align_product_indices</code>、<code>ccqn_mode_manifest.json</code> 和 <code>ccqn_diagnostics.json</code>。诊断记录 mode、能量、最大力、步长、最小 Hessian 本征值和 trust radius。</td>
+        <td>mock optimizer 和小体系 CCQN optimizer step 测试验证。</td>
+      </tr>
+      <tr>
+        <td>P0</td>
+        <td>统一 artifact manifest 与 TS validation</td>
+        <td>已新增 <code>atst_artifacts.json</code> 写出工具、summary 回读工具和 <code>ts_validation.json</code> 生成器；Vibration workflow 默认写出 vibration results、TS validation 和 artifact manifest。</td>
+        <td>manifest 文件存在性汇总、单虚频判定单元测试通过。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>NEB two-stage CI-NEB</td>
+        <td>已在普通 NEB 中加入 <code>two_stage</code>、<code>stage1_steps</code>、<code>stage1_fmax</code>。执行语义为第一阶段 <code>climb=False</code>，随后设置 <code>neb.climb = climb</code> 进入最终阶段。</td>
+        <td>测试确认初始化时关闭 climb，并按 <code>stage1_fmax/stage1_steps</code> 与 <code>fmax/max_steps</code> 分两阶段运行。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>普通 NEB endpoint relaxation</td>
+        <td>已新增 <code>endpoint_optimization</code>，可显式在 ordinary NEB 前优化两端点；默认关闭，避免改变既有工作流成本。</td>
+        <td>测试确认启用后两端点先调用 optimizer。</td>
+      </tr>
+      <tr>
+        <td>P1</td>
+        <td>Descent IRC backend</td>
+        <td>已在 <code>calculation.type=irc</code> 中新增 <code>backend: descent</code>、<code>mode_vector</code> 和 <code>descent_delta</code>。该路径是 mode-displaced downhill relaxation，不等同于严格 IRC。</td>
+        <td>mock FIRE 测试确认沿正反 mode 位移并分别优化。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>8. 建议接口形态</h2>
+  <p>建议延续 ATST 的 YAML 风格，在已有 <code>ccqn</code>、<code>d2s</code> 和未来 <code>post</code> 段上扩展，而不是引入 MACE 的 <code>task_family</code>。</p>
+  <pre><code>calculation:
+  type: ccqn
+  init_structure: ts_guess.traj
+  e_vector_method: ic
+  auto_reactive_bonds:
+    enabled: true
+    molecule_indices: "1-12"
+    cutoff_A: 3.0
+    max_modes: 20
+    max_bonds_per_mode: 2
+    debug_labels: true
+  post:
+    vibration:
+      enabled: true
+      imaginary_cutoff_cm1: 50.0
+    irc:
+      enabled: true
+      backend: sella</code></pre>
+  <p>对于近似路径，可显式使用 <code>backend: descent</code>，并在输出中写明它不是严格 IRC：</p>
+  <pre><code>calculation:
+  type: irc
+  init_structure: ts_opt.traj
+  backend: descent
+  mode_vector: first_imaginary_mode.npy
+  descent_delta: 0.1
+  direction: both</code></pre>
+
+  <h2>9. 文档与实现一致性问题</h2>
+  <p>在本次审查中还发现 ATST-Tools 当前文档有几处落后于实现，建议作为迁移前的文档治理任务先修正：</p>
+  <ul>
+    <li><span class="ok">已完成。</span><code>docs/reports/FEATURE_STATUS_MATRIX.md</code> 已补充 CCQN、D2S+CCQN、two-stage NEB、artifact manifest、descent IRC 和 MPI image-level parallelism。</li>
+    <li><span class="ok">已完成。</span><code>src/atst_tools/workflows/d2s.py</code> 顶部 docstring 已更新为 rough DyNEB → Dimer/Sella/CCQN。</li>
+    <li><span class="ok">已完成。</span><code>docs/user/CONFIG_REFERENCE.md</code> 的 D2S 参数表和主体段落已列出 <code>ccqn</code>。</li>
+    <li><span class="ok">已完成。</span><code>examples/08_d2s_Cy-Pt/config*.yaml</code> 的注释已列出 <code>dimer, sella, ccqn</code>。</li>
+  </ul>
+
+  <h2>10. 风险与边界</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>风险</th>
+        <th>说明</th>
+        <th>规避方式</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>科学语义混淆</td>
+        <td>Fake-IRC/descent path 容易被用户误认为严格 IRC。</td>
+        <td>接口命名、summary 和文档中明确标注 approximate descent path。</td>
+      </tr>
+      <tr>
+        <td>接口膨胀</td>
+        <td>MACE 的平台表单参数很多，直接搬入会破坏 ATST YAML 简洁性。</td>
+        <td>只暴露必要参数；高级参数放入嵌套段并保持默认关闭。</td>
+      </tr>
+      <tr>
+        <td>产物索引与 summary CLI 重复</td>
+        <td>新增 artifact manifest 后，若与现有 read-only summary 路径推断各自为政，会造成两套结果语义。</td>
+        <td>manifest 只记录产物位置和阶段状态；数值摘要仍由 summary 工具读取轨迹/cache 生成，必要时把 summary JSON 路径写入 manifest。</td>
+      </tr>
+      <tr>
+        <td>后端耦合</td>
+        <td>MACE-Reaction-Kit 的能力依赖 MACECalculator、平台模型路径和平台输出约定。</td>
+        <td>算法和 workflow 工具保持 calculator-neutral；MACE 只作为可选 ASE calculator backend 接入。</td>
+      </tr>
+      <tr>
+        <td>ML 后端依赖膨胀</td>
+        <td>DP 已依赖 deepmd-kit；MACE 会继续引入 Torch/MACE 栈。如果默认安装包含所有 ML 后端，会提高环境复杂度。</td>
+        <td>保持 DP/MACE 均为运行时可选依赖；MACE 使用 optional extra 和清晰 ImportError，不影响 ABACUS/DP 用户。</td>
+      </tr>
+      <tr>
+        <td>计算成本失控</td>
+        <td>auto mode enumeration 和 batch 容易产生大量 ABACUS 任务。</td>
+        <td>设置 <code>max_modes</code>、dry-run manifest、Slurm job-array 计划和失败恢复机制。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>11. 最终建议</h2>
+  <p>ATST-Tools 的近期演进应围绕“把已有过渡态算法变得更易用、更可验证、更可追踪”，而不是扩张算法名录。最值得从 MACE-Reaction-Kit 吸收的是 CCQN 自动 reactive mode、模式级 manifest、TS validation 和后处理 pipeline。GPU CCQN 和 MACE runner 不应进入近期路线；MACE model 支持可以作为独立的可选 calculator backend 任务评估。</p>
+  <p><span class="ok">2026-06-02 状态：</span>原建议中的 P0/P1 核心能力已经落地并进入项目主线；通用 <code>post</code> 复合后处理、CCQN batch/job-array、完整 reaction thermo、HTML/CSV summary 和 MACE calculator backend 均作为未来增强或未来评估项，不阻塞当前 2.0.x 主功能收口。</p>
+
+</article>
+</main>
+</body>
+</html>

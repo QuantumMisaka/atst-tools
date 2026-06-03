@@ -1,6 +1,8 @@
 # ATST-Tools NEB / AutoNEB / Dimer ASE Comparison Review
 
+**Version**: 2.0.0
 **Date**: 2026-05-18
+**Owner**: ATST-Tools maintainers
 **Scope**: `src/atst_tools/mep/neb.py`, `src/atst_tools/mep/autoneb.py`,
 `src/atst_tools/mep/dimer.py`
 **Status**: Updated review after upgrading `atst-dev` to ASE 3.28.0 and implementing the ATST-Tools alignment fixes

@@ -1,21 +1,34 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.0.0
-**Last Updated**: 2026-05-15
+**Version**: 2.0.1
+**Last Updated**: 2026-06-02
 **Status**: Maintained
 
-This document provides a comprehensive reference for the `config.yaml` file used by `atst run`. The configuration is divided into two main sections: `calculation` (task definition) and `calculator` (engine configuration). New configurations should use this two-section layout; root-level `abacus` is retained only as a migration path for legacy inputs.
+This document is the hand-written semantic reference for `config.yaml` files
+used by `atst run`. It explains workflow behavior, common configuration
+patterns, backend boundaries, and migration notes. The generated parameter
+table is maintained separately in
+[YAML_INPUT_VARIABLES.md](YAML_INPUT_VARIABLES.md), which is the main lookup
+entry for schema-governed non-calculator YAML fields.
 
-YAML variables are governed by the Pydantic schema in `src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the input before dispatching workflows, so optional variables get schema defaults before runtime. Use `atst config validate --print-normalized` to inspect the exact defaults that will be applied. The generated non-calculator variable table is maintained in `docs/user/YAML_INPUT_VARIABLES.md`.
+The configuration is divided into two main sections: `calculation` (task
+definition) and `calculator` (engine configuration). New configurations should
+use this two-section layout; root-level `abacus` is retained only as a
+migration path for legacy inputs.
+
+YAML variables are governed by the Pydantic schema in
+`src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the
+input before dispatching workflows, so optional variables get schema defaults
+before runtime. Use `atst config validate --print-normalized` to inspect the
+exact defaults that will be applied.
 
 ---
 
 ## 1. Top-Level Structure
 
 ```yaml
-config_version: "2.0.0"  # Optional. Defaults to the current schema version.
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, d2s, relax, vibration, irc
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc
   # ... task specific parameters ...
 
 calculator:
@@ -33,6 +46,10 @@ atst run --list-types
 atst run --show-template neb --calculator abacus
 ```
 
+There is no `config_version` field in ATST-Tools YAML. The active schema is the
+schema shipped with the installed package version, and unknown top-level fields
+are rejected.
+
 ---
 
 ## 2. Calculation Section
@@ -42,7 +59,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `d2s`, `relax`, `vibration`, `irc`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -54,16 +71,21 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 | :--- | :--- | :--- | :--- |
 | `init_chain` | string | One of `init_chain` / `make` | Path to the initial chain file (e.g., `init_neb_chain.traj`). |
 | `climb` | bool | `True` | Enable Climbing Image NEB (CI-NEB). |
+| `two_stage` | bool | `False` | Run a short ordinary NEB warm-up before enabling CI-NEB. |
+| `stage1_steps` | int | `5` | Maximum ordinary NEB warm-up steps when `two_stage: true`. |
+| `stage1_fmax` | float | `0.1` | Warm-up force threshold when `two_stage: true`. |
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `neb_backend` | string | `atst` | Experimental backend selector: `atst` uses the validated compatibility wrapper; `ase` uses native ASE NEB. |
 | `trajectory` | string | `neb.traj` | NEB trajectory. Restart uses the latest band from this file when available. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 | `parallel` | bool | `true` | Enable MPI image-level parallelism when available. |
 | `optimizer` | string | `FIRE` | ASE optimizer. |
 | `optimizer_kwargs` | dict | `{}` | Extra keyword arguments forwarded to the ASE optimizer constructor. |
 | `max_steps` | int | `100` | Maximum optimizer steps. |
 | `fmax` | float | `0.05` | Force convergence threshold. |
 | `endpoint_singlepoint` | string | `auto` | Endpoint result policy: `auto`, `always`, or `never`. |
+| `endpoint_optimization` | dict | disabled | Optional endpoint relaxation before ordinary NEB. |
 
 `init_chain` and `make` are mutually exclusive. Use `init_chain` when the chain already exists; use nested `make` when `atst run` should generate the chain immediately before launching NEB:
 
@@ -96,6 +118,24 @@ calculation:
 
 `auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
 
+For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. This mirrors the common 3-5 step pre-relaxation practice while keeping the first-stage ABACUS cost explicitly bounded.
+
+For MPI image-level NEB, launch the Python workflow itself under MPI and keep
+one Python rank per interior image:
+
+```bash
+mpirun -np <number-of-interior-images> atst run config.yaml
+```
+
+When `parallel: true` and ASE sees `world.size > 1`, ATST-Tools requires the MPI
+rank count to equal `len(init_chain) - 2`. Each active image gets its own ABACUS
+calculator directory such as `run_neb/image_001`, following the same
+image-isolated directory model used by the vendored abacuslite NEB example.
+This outer MPI layer is separate from `calculator.abacus.mpi`, which controls
+the ABACUS subprocess count for one image. ATST-Tools does not run or generate
+Slurm submission commands; use your site job script to launch the outer Python
+MPI command, and keep all ABACUS executable details in `calculator.abacus`.
+
 ### 2.3 AutoNEB
 **Type**: `autoneb`
 
@@ -103,7 +143,7 @@ calculation:
 | :--- | :--- | :--- | :--- |
 | `prefix` | string | `run_autoneb` | Prefix for output files and directories. |
 | `init_chain` | string | **Required** | Path to the initial guess chain. |
-| `n_simul` | int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
+| `n_simul` | positive int/null | `null` | Number of images to optimize simultaneously; null means `world.size`. |
 | `n_max` | int | `10` | Maximum number of images in the band. |
 | `neb_backend` | string | `atst` | Experimental backend selector: `atst` uses the validated compatibility wrapper; `ase` uses native ASE AutoNEB. |
 | `maxsteps` | int/list[int] | `100` | Maximum optimization steps per iteration; a two-value list follows ASE AutoNEB's normal/climbing-stage schedule. |
@@ -114,6 +154,11 @@ calculation:
 | `climb` | bool | `true` | Enable climbing image refinement. |
 | `fmax` | float/list[float] | `0.05` | Force threshold or AutoNEB threshold schedule. |
 | `endpoint_singlepoint` | string | `auto` | Same endpoint result policy as ordinary NEB. |
+
+For MPI AutoNEB, launch with one Python rank per simultaneously optimized
+image. If `n_simul` is set, `world.size` must equal `n_simul`; if `n_simul` is
+`null`, ATST-Tools uses `world.size`. The same outer/inner MPI distinction as
+ordinary NEB applies.
 
 ### 2.4 Dimer Method
 **Type**: `dimer`
@@ -143,7 +188,53 @@ calculation:
 | `max_steps` | int/null | `null` | Maximum optimizer steps; null lets Sella run until convergence. |
 | `directory` | string | `sella_run` | Calculator working directory. |
 
-### 2.6 Structure Relaxation (Relax)
+### 2.6 CCQN (Cone-Shaped Constrained Quasi-Newton)
+**Type**: `ccqn`
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `init_structure` | string | **Required** | Initial transition-state guess. |
+| `e_vector_method` | string | `ic` | Cone-axis method: `ic` from reactive bonds or `interp` from a product-like structure. |
+| `reactive_bonds` | string/list | `None` | Required for `ic`; 1-based pairs such as `"1-2,3-4"` or `[[1, 2], [3, 4]]`. |
+| `product_file` | string/null | `None` | Required for standalone `interp`; product-like structure with matching atom order. |
+| `align_product_indices` | bool | `false` | Reorder `product_file` atom indices to match the initial structure before interpolation. |
+| `auto_reactive_bonds` | dict | disabled | Enumerate ranked molecule-surface reactive bond candidates for `ic` mode. |
+| `mode_manifest` | string | `ccqn_mode_manifest.json` | JSON manifest for enumerated and selected CCQN modes. |
+| `diagnostics_file` | string/null | `ccqn_diagnostics.json` | Step-level CCQN diagnostics JSON. |
+| `ic_mode` | string | `democratic` | `democratic` normalizes each bond contribution; `sum` uses raw projected contributions. |
+| `cos_phi` | float | `0.5` | Cosine of the cone half angle. |
+| `trust_radius_uphill` | float | `0.1` | Fixed uphill trust radius. |
+| `trust_radius_saddle_initial` | float | `0.05` | Initial PRFO trust radius after entering the saddle region. |
+| `trajectory` | string | `ccqn.traj` | CCQN trajectory. Restart uses the last frame when available. |
+| `logfile` | string | `ccqn.log` | Optimizer log file. |
+| `final_structure` | string | `ccqn_final.extxyz` | Final optimized structure. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
+| `fmax` | float | `0.05` | Force convergence threshold. CCQN only declares convergence in PRFO mode. |
+| `max_steps` | int/null | `200` | Maximum optimizer steps. |
+| `hessian` | bool | `false` | Use calculator Hessian when available; ABACUS force-only use normally leaves this false. |
+| `accept_initial_converged` | bool | `false` | Accept an already force-converged TS guess before taking an uphill CCQN step. |
+| `directory` | string | `ccqn_run` | Calculator working directory. |
+
+CCQN is a single-ended transition-state optimizer. In `ic` mode, the user supplies chemically meaningful reactive bonds or enables `auto_reactive_bonds`. In `interp` mode, CCQN uses the displacement from the current structure to `product_file` as the cone axis. `accept_initial_converged` is intended for final-TS confirmation examples that start from a separately verified saddle point; keep it false for ordinary searches.
+
+Example automatic IC mode setup:
+
+```yaml
+calculation:
+  type: ccqn
+  init_structure: inputs/ts_guess.traj
+  e_vector_method: ic
+  auto_reactive_bonds:
+    enabled: true
+    molecule_indices: "1-12"
+    active_catalyst_indices: "13-40"
+    cutoff_A: 3.0
+    max_modes: 20
+  mode_manifest: ccqn_mode_manifest.json
+  diagnostics_file: ccqn_diagnostics.json
+```
+
+### 2.7 Structure Relaxation (Relax)
 **Type**: `relax`
 
 | Parameter | Type | Default | Description |
@@ -156,7 +247,7 @@ calculation:
 | `logfile` | string | `relax.log` | Optimizer log file. |
 | `directory` | string | `relax_run` | Calculator working directory. |
 
-### 2.7 Vibration Analysis
+### 2.8 Vibration Analysis
 **Type**: `vibration`
 
 | Parameter | Type | Default | Description |
@@ -166,6 +257,9 @@ calculation:
 | `nfree` | int | `2` | Number of displacements per degree of freedom (2 or 4). |
 | `indices` | list[int] | `None` | List of atom indices to vibrate. If None, all atoms are vibrated. |
 | `name` | string | `vib` | Name prefix for vibration files. |
+| `results_file` | string | `vibration_results.json` | Vibration JSON output. |
+| `validation_file` | string | `ts_validation.json` | Transition-state validation JSON output. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 | `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
 | `directory` | string | `vib_run` | Calculator working directory. |
 
@@ -200,20 +294,24 @@ thermochemistry:
 
 This uses ASE `IdealGasThermo` and includes translational, rotational, and vibrational degrees of freedom in the reported Gibbs free energy.
 
-### 2.8 D2S (Double-Ended to Single-Ended)
+After a vibration run, ATST-Tools writes `results_file`, a standardized `validation_file`, and an `atst_artifacts.json` manifest. The validation summary currently checks whether exactly one significant imaginary mode is present; it is intended as a machine-readable TS sanity check, not a substitute for chemical inspection.
+
+### 2.9 D2S (Double-Ended to Single-Ended)
 **Type**: `d2s`
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `method` | string | `dimer` | Single-ended method: `dimer` or `sella`. |
+| `method` | string | `dimer` | Single-ended method: `dimer`, `sella`, or `ccqn`. |
 | `init_file` | string | **Required** | Initial state structure file. |
 | `final_file` | string | **Required** | Final state structure file. |
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
+| `ccqn` | dict | `{}` | Configuration for CCQN phase (if method=ccqn). |
 | `endpoint_optimization` | dict | Enabled by default | Endpoint optimization policy before rough DyNEB. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 
-D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If input endpoints already carry energy/force results, this stage is skipped by default:
+D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If `method: ccqn`, the default `ccqn.e_vector_method: interp` uses the highest-energy rough NEB image and its neighboring image as a local product-like reference, so no user reactive-bond input is required. If `ccqn.e_vector_method: ic`, set `ccqn.reactive_bonds`. If input endpoints already carry energy/force results, this stage is skipped by default:
 
 ```yaml
 calculation:
@@ -241,6 +339,7 @@ calculation:
     nfree: 2
     name: d2s_vib
     results_file: d2s_vibration_results.json
+    validation_file: d2s_ts_validation.json
     thermochemistry:
       model: harmonic
       temperature: 300.0
@@ -250,17 +349,21 @@ calculation:
 
 `indices: auto` uses the rough NEB displacement analysis to select the main moving atoms. `indices: all` passes `None` to ASE `Vibrations`.
 
-### 2.9 IRC
+### 2.10 IRC
 **Type**: `irc`
 
-IRC follows the legacy main-branch `sella_IRC.py` behavior through YAML. It starts from a TS structure, runs Sella IRC forward, reverse, or both directions, and writes a normalized trajectory for the combined mode.
+IRC supports the Sella backend and an opt-in descent backend. The Sella backend follows the legacy main-branch `sella_IRC.py` behavior through YAML. It starts from a TS structure, runs Sella IRC forward, reverse, or both directions, and writes a normalized trajectory for the combined mode.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
+| `backend` | string | `sella` | `sella` for strict Sella IRC, or `descent` for mode-displaced downhill relaxation. |
 | `init_structure` | string | **Required** | TS structure used as the IRC starting point. |
 | `trajectory` | string | `irc_log.traj` | IRC trajectory. Restart appends from the last frame. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 | `normalized_trajectory` | string | `norm_<trajectory>` | Output for normalized forward/reverse trajectory when `direction: both`. |
 | `direction` | string | `both` | `both`, `forward`, or `reverse`. |
+| `mode_vector` | string/null | `None` | Required NumPy mode vector for `backend: descent`. |
+| `descent_delta` | float | `0.1` | Initial displacement along the normalized mode vector for descent backend. |
 | `fmax` | float | `0.05` | IRC convergence criterion. |
 | `max_steps` | int | `1000` | Steps per IRC direction. |
 | `dx` | float | `0.1` | IRC step size. |
@@ -294,6 +397,13 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 | `pseudo_dir` | string | `.` | Directory containing pseudopotential files. |
 | `orbital_dir` | string | `.` | Directory containing basis set files. |
 | `parameters` | dict | `{}` | Key-value pairs for ABACUS `INPUT` file (e.g., `ecutwfc`, `scf_thr`). |
+
+`command` may be a bare executable (`abacus`), an explicit launcher
+(`mpirun -np 4 abacus`, `srun -n 4 abacus`), or a template using `{mpi}` such
+as `mpirun -np {mpi} abacus`. This command is the inner ABACUS execution command
+for one image; it is not the outer image-level MPI launcher. In image-level MPI
+mode, a bare single-process ABACUS command is run with outer MPI launcher
+variables removed so ABACUS does not accidentally join the Python MPI world.
 
 The same `calculator.abacus` block can be used for local input preparation:
 

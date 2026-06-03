@@ -1,0 +1,21 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "irc",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "descent_irc",
+      "status": "complete"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "irc_trajectory",
+      "path": "irc_descent_dp.traj"
+    },
+    {
+      "role": "normalized_irc_trajectory",
+      "path": "norm_irc_descent_dp.traj"
+    }
+  ]
+}

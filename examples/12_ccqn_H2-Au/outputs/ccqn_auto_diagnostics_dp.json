@@ -1,0 +1,25 @@
+{
+  "schema_version": "atst-ccqn-diagnostics-v1",
+  "steps": [
+    {
+      "step": 0,
+      "mode": "uphill",
+      "energy_eV": -202.70739645510912,
+      "max_force_eV_per_A": 0.33279352392416894,
+      "step_norm_A": 0.05000000000117873,
+      "min_eigenvalue": 70.0,
+      "trust_radius_saddle_A": 0.03,
+      "trust_radius_uphill_A": 0.05
+    },
+    {
+      "step": 1,
+      "mode": "uphill",
+      "energy_eV": -202.74358759075403,
+      "max_force_eV_per_A": 0.39604954153461275,
+      "step_norm_A": 0.05000000000089132,
+      "min_eigenvalue": 2.5422091799132045,
+      "trust_radius_saddle_A": 0.03,
+      "trust_radius_uphill_A": 0.05
+    }
+  ]
+}

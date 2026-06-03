@@ -98,6 +98,34 @@ def test_ideal_gas_thermochemistry_reports_gibbs_free_energy():
     assert "gibbs_free_energy" in result
 
 
+def test_ideal_gas_thermochemistry_accepts_periodic_input_structure():
+    atoms = Atoms(
+        "H2",
+        positions=[[0.0, 0.0, 0.0], [0.75, 0.0, 0.0]],
+        cell=[10.0, 10.0, 10.0],
+        pbc=True,
+    )
+
+    result = compute_vibration_thermochemistry(
+        atoms,
+        np.array([0.1]),
+        {
+            "thermochemistry": {
+                "model": "ideal_gas",
+                "temperature": 298.15,
+                "pressure": 101325.0,
+                "geometry": "linear",
+                "symmetrynumber": 2,
+                "spin": 0,
+            }
+        },
+        zpe=0.05,
+    )
+
+    assert result["model"] == "ideal_gas"
+    assert "gibbs_free_energy" in result
+
+
 def test_ideal_gas_thermochemistry_filters_low_energy_noise():
     atoms = Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.75, 0.0, 0.0]])
 

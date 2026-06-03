@@ -1,0 +1,25 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "neb",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "ordinary_neb_warmup",
+      "status": "complete",
+      "fmax": 0.1,
+      "steps": 3
+    },
+    {
+      "name": "ci_neb",
+      "status": "complete",
+      "fmax": 0.05,
+      "steps": 3
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "neb_two_stage_dp.traj"
+    }
+  ]
+}
