@@ -1,7 +1,7 @@
 # Pending Delete Documentation
 
-**Version**: 2026-05-28
-**Date**: 2026-05-28
+**Version**: 2026-06-02
+**Date**: 2026-06-02
 **Status**: Pending deletion review
 **Owner**: ATST-Tools maintainers
 
@@ -57,3 +57,21 @@ Before deleting any file from this directory:
   superseded by the final Issue #25 fix report.
 - `reports/ISSUE_25_AUTONEB_SAI_VALIDATION_2026-05-18.md`: early SAI
   validation superseded by the final Issue #25 fix report.
+- `reports/ZN_MIGRATION_NEB_ABACUS_VALIDATION_2026-05-26.md`: initial Zn
+  migration validation superseded by the segmented Zn runtime status report.
+- `reports/EXAMPLES_INITIAL_GUESS_AUDIT_2026-05-26.md`: initial-guess audit
+  absorbed by perturbed-input validation, reference results, and tests.
+- `reports/UNIT_TEST_COVERAGE_REVIEW_2026-05-25.md`: coverage review now
+  lags the P0/P1, MPI parallel, and DP reference test additions.
+- `trae/documents/CCQN-plan.md`: temporary CCQN perturbed-input plan absorbed
+  by the maintained CCQN validation evidence.
+- `trae/documents/NEB_para_abacuslite.md`: temporary merge note superseded by
+  the NEB parallel plan and final MPI/E2E validation reports.
+- `trae/documents/NEB_parallel_imple.md`: temporary implementation plan now
+  covered by maintained MPI docs, examples, and tests.
+- `trae/documents/Zn-NEB.md`: initial Zn single-path plan superseded by the
+  segmented runtime report.
+- `trae/specs/plan-zn-neb-calculations/checklist.md`: superseded Zn checklist.
+- `trae/specs/plan-zn-neb-calculations/spec.md`: superseded Zn calculation
+  spec.
+- `trae/specs/plan-zn-neb-calculations/tasks.md`: superseded Zn task list.

@@ -1,4 +1,14 @@
- # Zn 迁移轨迹与能垒稳健计算方案
+# Zn Segmented NEB Runtime Status
+
+**Version**: 2.0.1
+**Date**: 2026-05-30
+**Status**: Maintained
+**Owner**: ATST-Tools maintainers
+**Original working note**: `.trae/documents/Zn-NEB-segments.md`
+
+This report preserves the active runtime evidence for the segmented Zn
+migration NEB/AutoNEB/D2S plan. It supersedes the initial single-path Zn
+validation report and the temporary `.trae` working note.
 
   ## Summary
 
