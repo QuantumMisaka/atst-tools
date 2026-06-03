@@ -69,9 +69,10 @@ Before deleting any file from this directory:
   the NEB parallel plan and final MPI/E2E validation reports.
 - `trae/documents/NEB_parallel_imple.md`: temporary implementation plan now
   covered by maintained MPI docs, examples, and tests.
-- `trae/documents/Zn-NEB.md`: initial Zn single-path plan superseded by the
+- `trae/zn-neb/README.md`: grouped entry for the superseded Zn planning
+  archive and link to the active segmented runtime report.
+- `trae/zn-neb/Zn-NEB.md`: initial Zn single-path plan superseded by the
   segmented runtime report.
-- `trae/specs/plan-zn-neb-calculations/checklist.md`: superseded Zn checklist.
-- `trae/specs/plan-zn-neb-calculations/spec.md`: superseded Zn calculation
-  spec.
-- `trae/specs/plan-zn-neb-calculations/tasks.md`: superseded Zn task list.
+- `trae/zn-neb/checklist.md`: superseded Zn checklist.
+- `trae/zn-neb/spec.md`: superseded Zn calculation spec.
+- `trae/zn-neb/tasks.md`: superseded Zn task list.
