@@ -1,0 +1,61 @@
+calculation:
+  type: neb
+  init_chain: inputs/init_neb_chain.traj
+  climb: true
+  two_stage: true
+  stage1_steps: 20
+  stage1_fmax: 0.20
+  fmax: 0.05
+  k: 0.1
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+  max_steps: 200
+  trajectory: neb_parallel_nested_mpi.traj
+
+calculator:
+  name: abacus
+  abacus:
+    command: env -u OMPI_COMM_WORLD_SIZE -u OMPI_COMM_WORLD_RANK -u OMPI_COMM_WORLD_LOCAL_RANK -u OMPI_COMM_WORLD_LOCAL_SIZE -u OMPI_UNIVERSE_SIZE -u PMI_SIZE -u PMI_RANK -u PMIX_RANK -u PMIX_NAMESPACE -u MPI_LOCALRANKID mpirun -np {mpi} --host localhost:{mpi} --oversubscribe -map-by slot --bind-to none -mca ras ^slurm -mca plm isolated -mca rmaps_base_oversubscribe 1 -mca coll_hcoll_enable 0 abacus
+    version_command: abacus --version
+    mpi: 4
+    omp: 8
+    directory: neb_parallel_nested_mpi
+    kpts: [3, 1, 3]
+    parameters:
+        calculation: scf
+        ecutwfc: 100
+        basis_type: lcao
+        ks_solver: cusolver
+        vdw_method: d3_bj
+        dft_functional: pbe
+        nspin: 2
+        symmetry: 1
+        scf_thr: 1e-06
+        scf_nmax: 300
+        smearing_method: mp
+        smearing_sigma: 0.002
+        mixing_type: broyden
+        cal_force: 1
+        cal_stress: 1
+        init_wfc: atomic
+        init_chg: atomic
+        out_stru: 1
+        out_chg: -1
+        out_mul: 1
+        out_bandgap: 1
+        out_wfc_lcao: 0
+        efield_flag: 1
+        dip_cor_flag: 1
+        efield_dir: 1
+        efield_pos_max: 0.8
+        efield_pos_dec: 0.1
+        efield_amp: 0.0
+        pseudo_dir: ../data
+        orbital_dir: ../data
+        pseudopotentials:
+           H: H_ONCV_PBE-1.0.upf
+           Au: Au_ONCV_PBE-1.0.upf
+        basissets:
+           H: H_gga_6au_100Ry_2s1p.orb
+           Au: Au_gga_7au_100Ry_4s2p2d1f.orb

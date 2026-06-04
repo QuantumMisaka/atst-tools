@@ -6,6 +6,7 @@
 **Owner**: ATST-Tools maintainers
 **Environment**: SAI 4V100, ABACUS LTS 3.10.1, `ks_solver=cusolver`, `atst-dev`
 **Runtime directory**: `validation_runs/two_stage_neb_lts3101_20260603/`
+**Tracked attachments**: `docs/reports/data/two_stage_neb_lts3101_20260603/`
 
 This report records the real-run validation of the two-stage NEB defaults on
 examples 01, 02, and 13. The tested workflow uses bounded ordinary NEB warm-up
@@ -27,6 +28,13 @@ Slurm state `COMPLETED` and exit code `0:0`.
 The 02 serial and parallel barriers differ by about `7.8e-7 eV`, confirming that
 the image-level parallel execution reproduces the serial energy profile within
 sub-meV precision for this run.
+
+The tracked attachment directory contains the lightweight reproducibility and
+audit files for each final 4V100 run: `config.yaml`, `submit.sbatch`,
+`summary.json`, and `atst_artifacts.json`. It also contains
+`sacct_4v100_jobs.txt` with the final Slurm completion state. Large raw runtime
+files under `validation_runs/`, such as ABACUS work directories, trajectory
+files, and GPU monitor logs, remain intentionally untracked.
 
 ## Barrier reproducibility
 

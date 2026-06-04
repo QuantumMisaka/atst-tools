@@ -1,0 +1,29 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "neb",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "ordinary_neb_warmup",
+      "status": "complete",
+      "fmax": 0.2,
+      "steps": 20,
+      "converged": true,
+      "actual_steps": 0
+    },
+    {
+      "name": "ci_neb",
+      "status": "complete",
+      "fmax": 0.12,
+      "steps": 10000,
+      "converged": true,
+      "actual_steps": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "neb_parallel_nested_mpi.traj"
+    }
+  ]
+}
