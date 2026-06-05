@@ -2,8 +2,10 @@
 
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 from ase import Atoms
+from ase.constraints import FixAtoms, FixCartesian
 
 from atst_tools.calculators import abacuslite_backend
 from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
@@ -125,6 +127,61 @@ def test_write_stru_preserves_first_occurrence_species_order(tmp_path):
     data = read_stru(tmp_path / "STRU")
     assert [species["symbol"] for species in data["species"]] == ["C", "Pt", "H"]
     assert [species["orb_file"] for species in data["species"]] == ["C.orb", "Pt.orb", "H.orb"]
+
+
+def test_write_stru_records_cartesian_coordinates_pp_basis_and_magmom(tmp_path):
+    """STRU writer covers core ABACUS input metadata and magnetic moments."""
+    atoms = Atoms(
+        symbols=["H", "He", "H"],
+        positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        cell=[5.0, 6.0, 7.0],
+        pbc=True,
+    )
+    atoms.set_initial_magnetic_moments([1.0, 0.0, 2.0])
+
+    write_stru(
+        atoms,
+        outdir=tmp_path,
+        pp_file={"H": "H.upf", "He": "He.upf"},
+        orb_file={"H": "H.orb", "He": "He.orb"},
+    )
+
+    data = read_stru(tmp_path / "STRU")
+
+    assert data["coord_type"] == "Cartesian"
+    assert [(species["symbol"], species["pp_file"], species["orb_file"]) for species in data["species"]] == [
+        ("H", "H.upf", "H.orb"),
+        ("He", "He.upf", "He.orb"),
+    ]
+    np.testing.assert_allclose(data["species"][0]["atom"][0]["coord"], [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(data["species"][0]["atom"][1]["coord"], [0.0, 1.0, 0.0])
+    assert data["species"][0]["atom"][0]["mag"] == 1.0
+    assert data["species"][0]["atom"][1]["mag"] == 2.0
+
+
+def test_write_stru_does_not_preserve_constraints_or_input_velocities(tmp_path):
+    """Current abacuslite writer emits default mobility and zero velocities."""
+    atoms = Atoms(
+        symbols=["H", "He", "H"],
+        positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        cell=[5.0, 6.0, 7.0],
+        pbc=True,
+    )
+    atoms.set_constraint([FixAtoms(indices=[0]), FixCartesian(1, [True, False, True])])
+    atoms.set_velocities([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]])
+
+    write_stru(
+        atoms,
+        outdir=tmp_path,
+        pp_file={"H": "H.upf", "He": "He.upf"},
+        orb_file={"H": "H.orb", "He": "He.orb"},
+    )
+
+    data = read_stru(tmp_path / "STRU")
+    atoms_in_stru = [atom for species in data["species"] for atom in species["atom"]]
+
+    assert [atom["m"] for atom in atoms_in_stru] == [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    assert [atom["v"] for atom in atoms_in_stru] == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
 
 
 def test_abacus_template_uses_first_occurrence_species_grouping(tmp_path):

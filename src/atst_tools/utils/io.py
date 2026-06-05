@@ -13,12 +13,12 @@ from ase.units import Bohr
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import read_stru
 
 
-def read_structure(filename: str | Path, format: str | None = None) -> Atoms:
+def read_structure(filename: str | Path, format: str | None = None, *, parallel: bool = True) -> Atoms:
     """Read a structure file, including ABACUS STRU files."""
     path = Path(filename)
     if format == "abacus" or path.name == "STRU" or path.suffix.lower() == ".stru":
         return read_abacus_stru(path)
-    return read(str(path), format=format)
+    return read(str(path), format=format, parallel=parallel)
 
 
 def read_abacus_stru(filename: str | Path) -> Atoms:

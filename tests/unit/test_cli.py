@@ -9,6 +9,8 @@ from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io import read, write
 
+from atst_tools.external.ASE_interface.abacuslite.io.generalio import write_stru
+
 
 def _atoms(energy=0.0, x=0.0):
     atoms = Atoms("H", positions=[[x, 0.0, 0.0]])
@@ -368,6 +370,49 @@ def test_neb_make_from_chain_writes_last_band(tmp_path, monkeypatch):
 
     frames = read("chain.traj", index=":")
     assert [atoms.get_potential_energy() for atoms in frames] == [2.0, 3.0, 4.0]
+
+
+def test_neb_make_accepts_stru_input_with_fix_and_mag(tmp_path):
+    from atst_tools.scripts import cli
+
+    start = Atoms(
+        ["H", "He"],
+        scaled_positions=[[0.0, 0.0, 0.1], [0.0, 0.0, 0.8]],
+        cell=[5.0, 5.0, 5.0],
+        pbc=True,
+    )
+    end = start.copy()
+    end.positions += [[0.5, 0.0, 0.0], [0.0, 0.5, 0.0]]
+    init_stru = tmp_path / "init.stru"
+    final_stru = tmp_path / "final.stru"
+    output = tmp_path / "chain.traj"
+    pp_files = {"H": "H.upf", "He": "He.upf"}
+    orb_files = {"H": "H.orb", "He": "He.orb"}
+    write_stru(start, str(tmp_path), pp_files, orb_files, fname=init_stru.name)
+    write_stru(end, str(tmp_path), pp_files, orb_files, fname=final_stru.name)
+
+    cli.main(
+        [
+            "neb",
+            "make",
+            str(init_stru),
+            str(final_stru),
+            "1",
+            "--method",
+            "linear",
+            "--fix",
+            "0.25:2",
+            "--mag",
+            "H:1.0",
+            "-o",
+            str(output),
+        ]
+    )
+
+    frames = read(output, index=":")
+    assert len(frames) == 3
+    assert frames[1].constraints
+    np.testing.assert_allclose(frames[1].get_initial_magnetic_moments(), [1.0, 0.0])
 
 
 def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):

@@ -4,7 +4,7 @@ from typing import List
 
 # ASE Imports
 from ase import Atoms
-from ase.io import read, write
+from ase.io import write
 from ase.constraints import FixAtoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from atst_tools.utils.neb_endpoints import (
@@ -12,6 +12,7 @@ from atst_tools.utils.neb_endpoints import (
     ENDPOINT_PROVIDED,
     mark_endpoint_result,
 )
+from atst_tools.utils.io import read_structure
 
 # Scipy Imports
 from scipy.optimize import linear_sum_assignment
@@ -162,15 +163,25 @@ class Fast_IDPPSolver:
     def _nearest_image(self, frac_i: np.ndarray, frac_j: np.ndarray) -> np.ndarray:
         best_shift = np.zeros(3, dtype=float)
         best_distance = np.inf
+        best_rank = (np.inf, (np.inf, np.inf, np.inf), (np.inf, np.inf, np.inf))
+        tie_tol = max(1e-8, 1e-9 * float(np.max(np.sum(np.asarray(self.cell) ** 2, axis=1))))
         for sx in (-1, 0, 1):
             for sy in (-1, 0, 1):
                 for sz in (-1, 0, 1):
                     shift = np.array([sx, sy, sz], dtype=float)
                     vector = np.dot(frac_j + shift - frac_i, self.cell)
                     distance = float(np.dot(vector, vector))
-                    if distance < best_distance:
+                    rank = (
+                        float(np.dot(shift, shift)),
+                        tuple(abs(int(value)) for value in shift),
+                        tuple(int(value) for value in shift),
+                    )
+                    if distance < best_distance - tie_tol or (
+                        abs(distance - best_distance) <= tie_tol and rank < best_rank
+                    ):
                         best_distance = distance
                         best_shift = shift
+                        best_rank = rank
         return best_shift
 
     def _get_funcs_and_forces(self, coords: np.ndarray):
@@ -260,7 +271,7 @@ class Fast_IDPPSolver:
         final_images = []
         for i, image in enumerate(self.images):
             new_image = image.copy()
-            new_image.set_positions(coords[i])
+            new_image.set_positions(coords[i], apply_constraint=False)
             final_images.append(new_image)
         return final_images
 
@@ -348,8 +359,8 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
 
     # 1. Read files
     print(f'Reading files: {is_file} and {fs_file}')
-    is_atom = read(is_file, format=format, parallel=False)
-    fs_atom = read(fs_file, format=format, parallel=False)
+    is_atom = read_structure(is_file, format=format, parallel=False)
+    fs_atom = read_structure(fs_file, format=format, parallel=False)
     
     # Store single point calculation results if available
     try:
@@ -389,7 +400,7 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
 
     if ts_file is not None:
         print(f'Using TS guess for segmented interpolation: {ts_file}')
-        ts_atom = read(ts_file, format=format, parallel=False)
+        ts_atom = read_structure(ts_file, format=format, parallel=False)
         if not no_align:
             ts_atom = align_atom_indices(is_atom, ts_atom)
         left_count = n_images // 2
