@@ -1,7 +1,7 @@
 # ATST-Tools Feature Status Matrix
 
-**Version**: 2.0.1
-**Last Updated**: 2026-06-02
+**Version**: 2.0.2
+**Last Updated**: 2026-06-05
 **Status**: Maintained
 **Owner**: ATST-Tools maintainers
 
@@ -9,7 +9,7 @@
 | :--- | :--- | :--- | :--- |
 | **Relax** | ✅ Supported | Geometry Optimization | Uses ASE optimizers. |
 | **Vibration** | ✅ Supported | Frequency Analysis and TS validation | Finite difference method with JSON results, TS validation, and artifact manifest support. |
-| **NEB** | ✅ Supported | Nudged Elastic Band | CI-NEB, two-stage NEB, endpoint single-point repair, optional endpoint relaxation, native ASE selector, artifact manifest, and MPI image-level parallelism are supported. |
+| **NEB** | ✅ Supported | Nudged Elastic Band | CI-NEB, two-stage NEB, endpoint single-point repair, optional endpoint relaxation, native ASE selector, artifact manifest, ABACUS STRU inputs for `atst neb make`, and MPI image-level parallelism are supported. |
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling, native ASE selector, endpoint single-point repair, and MPI image-level parallelism are supported. |
 | **Dimer** | ✅ Supported | TS Search | Min-mode following. |
 | **Sella** | ✅ Supported | Saddle Point Finder | Robust optimization. |

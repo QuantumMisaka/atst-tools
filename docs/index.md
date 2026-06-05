@@ -52,7 +52,7 @@ evidence, documentation health, release scope, or cleanup priorities.
 2. [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md) for
    the active documentation ledger, report levels, archive state, and
    pending-delete status.
-3. [2.0.1 release notes](releases/RELEASE_NOTES_2.0.1.md) for version-level
+3. [2.0.2 release notes](releases/RELEASE_NOTES_2.0.2.md) for version-level
    delivery scope.
 4. Current validation reports linked from the governance report when judging a
    specific feature, backend, or environment.

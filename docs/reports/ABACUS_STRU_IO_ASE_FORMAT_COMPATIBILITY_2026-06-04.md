@@ -1,6 +1,6 @@
 # ABACUS STRU I/O 与 ase-abacus fork 兼容性审查
 
-**版本**: 2.0.1
+**版本**: 2.0.2
 **日期**: 2026-06-05
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
