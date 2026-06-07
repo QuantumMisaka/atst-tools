@@ -11,10 +11,10 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
 - Primary trigger: publishing a GitHub Release.
 - Manual trigger: `workflow_dispatch` with a `v`-prefixed tag or ref, used for
-  already-created tags such as `v2.0.2`.
+  already-created tags such as `v2.1.0`.
 - Release guard: the workflow requires the release tag to match
-  `pyproject.toml` `[project].version`. For example, `v2.0.2` must match
-  `2.0.2`.
+  `pyproject.toml` `[project].version`. For example, `v2.1.0` must match
+  `2.1.0`.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
 
@@ -54,21 +54,21 @@ Recommended environment protection:
 - Limit deployment branches/tags to release tags if the repository policy
   supports it.
 
-## Publishing 2.0.2
+## Publishing 2.1.0
 
 After the release branch is verified and the PyPI/GitHub setup above is
 complete, publish with one of these paths:
 
-1. Create and publish a GitHub Release from tag `v2.0.2`.
+1. Create and publish a GitHub Release from tag `v2.1.0`.
 2. Or run `Publish Python package to PyPI` manually from the Actions tab with
-   input `v2.0.2`.
+   input `v2.1.0`.
 
 Verify the published package from a clean environment:
 
 ```bash
-python -m pip install --no-cache-dir atst-tools==2.0.2
+python -m pip install --no-cache-dir atst-tools==2.1.0
 python -c "import atst_tools; print(atst_tools.package_version())"
 atst --version
 ```
 
-Both version commands should report `2.0.2`.
+Both version commands should report `2.1.0`.
