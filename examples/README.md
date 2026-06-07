@@ -30,6 +30,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, summary commands, `atst dimer`, `atst relax post`, and `atst vibration post`.
 *   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, `reverse`, and descent-mode IRC via `config_descent*.yaml` plus `inputs/descent_mode.npy`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
+*   `15_md_Li-Si/`: Molecular dynamics templates for ASE-driven DP/ABACUS and ABACUS-native MD using the `01_neb_Li-Si` initial structure.
 
 ### 5. Classic Transition State Search (CO on Pt(111))
 *   `04_dimer_CO-Pt/`: **CO on Pt(111)**. A classic benchmark system for the **Dimer** method.
@@ -225,6 +226,7 @@ files and monitoring logs, remain under
 | `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
 | `13_neb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | NEB image-parallel |
 | `14_autoneb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | AutoNEB image-parallel |
+| `15_md_Li-Si` | Li in Si diamond structure from `01_neb_Li-Si` | Li, Si | MD |
 
 ## Reference Results
 

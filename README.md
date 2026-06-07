@@ -42,6 +42,7 @@ Python scripts.
 | `relax` | Structure optimization | ASE optimizer based relaxation. |
 | `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
+| `md` | Molecular dynamics | ASE-driven MD with ABACUS/DP calculators, or ABACUS native MD input/run/output orchestration. |
 
 Local pre/post-processing commands are intentionally lightweight. They do not
 construct calculators or submit expensive calculations:
@@ -241,6 +242,7 @@ project:
 | `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
 | `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
 | `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
+| `examples/15_md_Li-Si` | ASE-driven and ABACUS-native MD templates starting from the `01_neb_Li-Si` initial structure. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.

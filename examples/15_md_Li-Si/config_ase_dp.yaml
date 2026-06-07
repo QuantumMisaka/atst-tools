@@ -1,0 +1,22 @@
+calculation:
+  type: md
+  driver: ase
+  init_structure: inputs/init.traj
+  ensemble: nvt
+  algorithm: bussi
+  steps: 10
+  timestep_fs: 0.5
+  temperature_K: 300.0
+  taut_fs: 10.0
+  trajectory: md_li_si_dp.traj
+  logfile: md_li_si_dp.log
+  summary_file: md_li_si_dp_summary.json
+  final_structure: md_li_si_dp_final.traj
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true

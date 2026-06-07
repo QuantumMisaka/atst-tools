@@ -194,6 +194,14 @@
       "validation_partition": "4V100",
       "validation_node": "4v100n01",
       "validation_status": "SAI real-run validated with mpirun -np 4 atst run; each image used single-process ABACUS with omp=8"
+    },
+    "15_md_Li-Si": {
+      "reference_type": "non_ts",
+      "workflow": "md",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "schema_load_checked; initial structure copied from examples/01_neb_Li-Si/inputs/init_neb_chain.traj frame 0; no like-for-like TS/barrier baseline"
     }
   }
 }
