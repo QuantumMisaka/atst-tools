@@ -28,7 +28,7 @@ exact defaults that will be applied.
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md
   # ... task specific parameters ...
 
 calculator:
@@ -59,7 +59,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -159,6 +159,44 @@ For MPI AutoNEB, launch with one Python rank per simultaneously optimized
 image. If `n_simul` is set, `world.size` must equal `n_simul`; if `n_simul` is
 `null`, ATST-Tools uses `world.size`. The same outer/inner MPI distinction as
 ordinary NEB applies.
+
+### 2.3b Molecular Dynamics (MD)
+**Type**: `md`
+
+ATST-Tools supports two MD drivers:
+
+- `driver: ase`: ASE owns the MD integrator/thermostat/barostat while ABACUS or
+  DP provides forces through the normal ASE calculator interface.
+- `driver: abacus_native`: ABACUS owns the MD run. ATST-Tools uses abacuslite to
+  prepare `INPUT`, `KPT`, and `STRU`, starts the ABACUS command in the configured
+  directory, then collects `running_md.log` / `MD_dump` outputs.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `driver` | string | `ase` | `ase` or `abacus_native`. |
+| `init_structure` | string | **Required** | Initial structure file. |
+| `steps` | int | `100` | Number of MD steps. |
+| `ensemble` | string | `nvt` | ASE driver ensemble: `nve`, `nvt`, or `npt`. Ignored by `abacus_native`. |
+| `algorithm` | string | `bussi` | ASE algorithm: `velocityverlet`, `bussi`, `langevin`, `nvtberendsen`, or `nptberendsen`. |
+| `timestep_fs` | float | `1.0` | ASE timestep in fs. |
+| `temperature_K` | float | `300.0` | Initial or target temperature. |
+| `trajectory` | string | `md.traj` | ASE trajectory written by either driver. |
+| `logfile` | string | `md.log` | ASE MD log file for `driver: ase`. |
+| `summary_file` | string | `md_summary.json` | JSON summary output. |
+| `final_structure` | string | `md_final.traj` | Final structure output. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
+| `directory` | string | `md_run` | ASE calculator directory or ABACUS native run directory. |
+| `poll_interval_seconds` | float | `5.0` | ABACUS native process polling interval. |
+
+For `driver: ase`, algorithm compatibility is explicit: `nve` uses
+`velocityverlet`; `nvt` uses `bussi`, `langevin`, or `nvtberendsen`; `npt` uses
+`nptberendsen`. NPT requires calculator stress support. For ABACUS, set
+`cal_stress: 1`; for DP, use a model that provides virial/stress.
+
+For `driver: abacus_native`, `calculator.name` must be `abacus`, and ABACUS MD
+keywords are passed directly through `calculator.abacus.parameters`. ATST-Tools
+only requires `calculation: md` and does not rename ABACUS-specific MD INPUT
+variables.
 
 ### 2.4 Dimer Method
 **Type**: `dimer`

@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
-**版本**: 2026-06-05
-**日期**: 2026-06-05
+**版本**: 2026-06-07
+**日期**: 2026-06-07
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -17,8 +17,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 - 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.0.2.md`；2.0.0 和 2.0.1
   release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
-  Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、
-  artifact manifest、MPI image-level parallelism，并明确 MD 未支持。
+  Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
+  artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
 - `docs/archive/pending_delete/` 是待删除复核区；本轮只移动和记录，不最终删除。
 
 ## 2. 活跃 User 文档

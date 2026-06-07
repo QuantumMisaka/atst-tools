@@ -65,6 +65,7 @@ atst run config.yaml
 atst run --show-template neb --calculator abacus
 atst run --show-template ccqn --calculator abacus
 atst run --show-template d2s --calculator dp
+atst run --show-template md --calculator abacus
 ```
 
 更多示例学习路径见 [examples/README.md](../../examples/README.md)。完整功能状态见
@@ -85,6 +86,7 @@ atst run --show-template d2s --calculator dp
 | `relax` | 结构优化 | `atst run config.yaml` |
 | `vibration` | 振动频率和热化学校正 | `atst run config.yaml` |
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
+| `md` | 分子动力学；支持 ASE 驱动和 ABACUS 原生 MD | `atst run config.yaml` |
 
 D2S、CCQN 和 IRC 已纳入 2.0.x schema 与示例，不再是待集成状态。功能支持状态、
 验证边界和暂不支持项目以

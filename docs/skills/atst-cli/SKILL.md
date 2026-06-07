@@ -42,6 +42,7 @@ Use `atst run CONFIG.yaml` for calculator-backed workflows:
 - `relax`
 - `vibration`
 - `irc`
+- `md`
 
 ABACUS workflows use `calculator.name: abacus` and the active `abacuslite`
 backend. DP workflows use `calculator.name: dp` and `deepmd.calculator.DP`.

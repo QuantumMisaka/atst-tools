@@ -14,7 +14,7 @@ YAML file, and run a workflow.
 2. [Chinese user guide](user/USER_GUIDE_CN.md) for a 10-minute local/SAI
    onboarding path.
 3. [Examples overview](../examples/README.md) for runnable NEB, AutoNEB, Dimer,
-   Sella, CCQN, D2S, Relax, Vibration, IRC, DP, and MPI examples.
+   Sella, CCQN, D2S, Relax, Vibration, IRC, MD, DP, and MPI examples.
 4. [CLI reference](user/CLI_REFERENCE.md) for `atst run`, `atst config`,
    `atst abacus`, and lightweight helper commands.
 5. [Configuration reference](user/CONFIG_REFERENCE.md) for hand-written YAML

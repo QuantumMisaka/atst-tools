@@ -159,6 +159,7 @@ def test_atst_run_list_types_prints_supported_types(capsys):
     assert "neb" in output
     assert "vibration" in output
     assert "irc" in output
+    assert "md" in output
 
 
 def test_atst_run_show_template_prints_yaml(capsys):
@@ -237,6 +238,18 @@ def test_atst_run_show_irc_template_prints_yaml(capsys):
     output = capsys.readouterr().out
     assert "type: irc" in output
     assert "direction: both" in output
+
+
+def test_atst_run_show_md_template_prints_yaml(capsys):
+    from atst_tools.scripts import cli
+
+    cli.main(["run", "--show-template", "md", "--calculator", "abacus"])
+
+    output = capsys.readouterr().out
+    assert "type: md" in output
+    assert "driver: ase" in output
+    assert "algorithm: bussi" in output
+    assert "driver: abacus_native" in output
 
 
 def test_atst_run_show_ccqn_template_prints_yaml(capsys):

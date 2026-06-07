@@ -48,6 +48,7 @@ def test_validate_accepts_supported_calculation_types():
         "relax": {"init_structure": "init.stru"},
         "vibration": {"init_structure": "ts_opt.stru"},
         "irc": {"init_structure": "ts_opt.stru"},
+        "md": {"init_structure": "init.stru"},
     }
     for calc_type, fields in required_fields.items():
         config = {
@@ -167,6 +168,80 @@ def test_validate_rejects_zero_neb_stage1_steps():
                     "stage1_steps": 0,
                 },
                 "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_accepts_ase_md_defaults():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "md",
+                "driver": "ase",
+                "init_structure": "init.stru",
+                "steps": 5,
+                "temperature_K": 300.0,
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+        }
+    )
+
+    assert config["calculation"]["driver"] == "ase"
+    assert config["calculation"]["ensemble"] == "nvt"
+    assert config["calculation"]["algorithm"] == "bussi"
+    assert config["calculation"]["trajectory"] == "md.traj"
+
+
+def test_validate_accepts_abacus_native_md_only_with_abacus():
+    config = {
+        "calculation": {
+            "type": "md",
+            "driver": "abacus_native",
+            "init_structure": "init.stru",
+            "steps": 2,
+        },
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "parameters": {
+                    "calculation": "md",
+                    "basis_type": "lcao",
+                }
+            },
+        },
+    }
+
+    assert ConfigLoader.validate(config) is True
+
+
+def test_validate_rejects_abacus_native_md_with_dp():
+    with pytest.raises(ValueError, match="abacus_native"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "md",
+                    "driver": "abacus_native",
+                    "init_structure": "init.stru",
+                    "steps": 2,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+
+def test_validate_rejects_incompatible_md_algorithm():
+    with pytest.raises(ValueError, match="algorithm"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "md",
+                    "driver": "ase",
+                    "ensemble": "nve",
+                    "algorithm": "bussi",
+                    "init_structure": "init.stru",
+                    "steps": 2,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
             }
         )
 

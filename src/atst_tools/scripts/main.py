@@ -28,6 +28,7 @@ from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
+from atst_tools.workflows.md import MDWorkflow
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
     ENDPOINT_OPTIMIZED,
@@ -247,6 +248,27 @@ calculation:
   max_steps: 1000
   dx: 0.1
   eta: 0.002
+""",
+        "md": """\
+calculation:
+  type: md
+  driver: ase
+  init_structure: inputs/init.stru
+  ensemble: nvt
+  algorithm: bussi
+  steps: 100
+  timestep_fs: 1.0
+  temperature_K: 300.0
+  taut_fs: 10.0
+  trajectory: md.traj
+  logfile: md.log
+  loginterval: 1
+  summary_file: md_summary.json
+  final_structure: md_final.traj
+  # For ABACUS native MD use:
+  # driver: abacus_native
+  # calculator.name must be abacus, and ABACUS MD INPUT variables are passed
+  # through calculator.abacus.parameters with calculation: md.
 """,
     }
     return calculation_blocks[calculation_type] + "\n" + calculator
@@ -686,7 +708,7 @@ def _build_parser():
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc
+          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md
           calculator.name:  abacus | dp
 
         Common commands:
@@ -785,6 +807,9 @@ def run_from_args(args):
             workflow.run()
         except IRCBoundaryError as exc:
             raise SystemExit(str(exc)) from None
+    elif calc_type == 'md':
+        workflow = MDWorkflow(config, calc_name, calc_config)
+        workflow.run()
     else:
         raise ValueError(f"Unknown calculation type: {calc_type}")
 

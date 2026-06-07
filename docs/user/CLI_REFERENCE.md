@@ -12,13 +12,14 @@ atst run --list-types
 atst run --show-template neb --calculator abacus
 atst run --show-template ccqn --calculator abacus
 atst run --show-template irc --calculator abacus
+atst run --show-template md --calculator abacus
 ```
 
 `atst run` executes YAML-driven workflows. `--dry-run` validates the
 configuration without launching calculators. `--restart` temporarily sets
 `calculation.restart: true` without editing the YAML file. `--list-types`
 prints supported workflow types. `--show-template` accepts `neb`, `autoneb`,
-`dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, or `irc`; combine it with
+`dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, or `md`; combine it with
 `--calculator {abacus,dp}` to choose the template backend. `--log-level`
 accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR`.
 
@@ -132,4 +133,4 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 
 ## Workflow CLI Boundary
 
-`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, and IRC calculations remain YAML workflows through `atst run`.
+`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.

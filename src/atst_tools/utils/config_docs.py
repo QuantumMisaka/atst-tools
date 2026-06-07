@@ -16,6 +16,7 @@ from atst_tools.utils.config_schema import (
     D2SCalculation,
     DimerCalculation,
     IRCCalculation,
+    MDCalculation,
     NEBCalculation,
     RelaxCalculation,
     SellaCalculation,
@@ -33,6 +34,7 @@ CALCULATION_MODELS: tuple[type[BaseModel], ...] = (
     RelaxCalculation,
     VibrationCalculation,
     IRCCalculation,
+    MDCalculation,
 )
 
 
