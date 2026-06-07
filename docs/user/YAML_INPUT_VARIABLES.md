@@ -24,8 +24,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.restart | calculation.type=neb | `bool` | `False` | Restart from the latest complete trajectory band. |
 | calculation.neb.climb | calculation.type=neb | `bool` | `True` | Enable climbing-image NEB. |
 | calculation.neb.two_stage | calculation.type=neb | `bool` | `False` | Run a short ordinary NEB warm-up before CI-NEB. |
-| calculation.neb.stage1_steps | calculation.type=neb | `int` | `5` | Maximum ordinary NEB warm-up steps for two-stage NEB. |
-| calculation.neb.stage1_fmax | calculation.type=neb | `float` | `0.1` | Force threshold for ordinary NEB warm-up. |
+| calculation.neb.stage1_steps | calculation.type=neb | `int \| NoneType` | `20` | Maximum ordinary NEB warm-up steps for two-stage NEB; the warm-up stops when stage1_fmax is reached or this step limit is exhausted. Null uses the ASE optimizer default step limit. |
+| calculation.neb.stage1_fmax | calculation.type=neb | `float` | `0.2` | Force threshold for ordinary NEB warm-up. |
 | calculation.neb.fmax | calculation.type=neb | `float` | `0.05` | Force convergence threshold in eV/Ang. |
 | calculation.neb.k | calculation.type=neb | `float \| list[float]` | `0.1` | NEB spring constant(s) in eV/Ang^2. |
 | calculation.neb.algorism | calculation.type=neb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
@@ -43,7 +43,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.type | calculation.type=autoneb | `'autoneb'` | `required` | Select the AutoNEB workflow. |
 | calculation.autoneb.init_chain | calculation.type=autoneb | `str` | `required` | Initial NEB chain trajectory. |
 | calculation.autoneb.prefix | calculation.type=autoneb | `str` | `'run_autoneb'` | AutoNEB per-image output prefix. |
-| calculation.autoneb.n_simul | calculation.type=autoneb | `Annotated[int, FieldInfo(annotation=NoneType, required=True, metadata=[Gt(gt=0)])] \| NoneType` | `null` | Number of images optimized simultaneously. |
+| calculation.autoneb.n_simul | calculation.type=autoneb | `int \| NoneType` | `null` | Number of images optimized simultaneously. |
 | calculation.autoneb.n_max | calculation.type=autoneb | `int` | `10` | Maximum number of AutoNEB images. |
 | calculation.autoneb.algorism | calculation.type=autoneb | `str` | `'improvedtangent'` | ASE NEB tangent method. |
 | calculation.autoneb.neb_backend | calculation.type=autoneb | `'atst' \| 'ase'` | `'atst'` | AutoNEB implementation backend: ATST compatibility wrapper or native ASE. |
@@ -241,3 +241,41 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.irc.gamma | calculation.type=irc | `float` | `0.1` | Sella IRC gamma parameter. |
 | calculation.irc.irctol | calculation.type=irc | `float` | `0.01` | IRC tolerance. |
 | calculation.irc.keep_going | calculation.type=irc | `bool` | `False` | Forwarded to sella.IRC. |
+| calculation.md.type | calculation.type=md | `'md'` | `required` | Select the molecular dynamics workflow. |
+| calculation.md.driver | calculation.type=md | `'ase' \| 'abacus_native'` | `'ase'` | MD driver: ASE dynamics or ABACUS native MD. |
+| calculation.md.init_structure | calculation.type=md | `str` | `required` | Initial structure file. |
+| calculation.md.steps | calculation.type=md | `int` | `100` | Number of MD steps. |
+| calculation.md.ensemble | calculation.type=md | `'nve' \| 'nvt' \| 'npt'` | `'nvt'` | ASE MD ensemble. |
+| calculation.md.algorithm | calculation.type=md | `str` | `'bussi'` | ASE MD algorithm. |
+| calculation.md.timestep_fs | calculation.type=md | `float` | `1.0` | ASE MD timestep in fs. |
+| calculation.md.temperature_K | calculation.type=md | `float` | `300.0` | Target or initial temperature in K. |
+| calculation.md.seed | calculation.type=md | `int \| NoneType` | `null` | Random seed for initial velocities. |
+| calculation.md.force_temperature | calculation.type=md | `bool` | `False` | Rescale initial velocities to the exact target temperature. |
+| calculation.md.stationary | calculation.type=md | `bool` | `True` | Remove center-of-mass translation after velocity initialization. |
+| calculation.md.zero_rotation | calculation.type=md | `bool` | `False` | Remove angular momentum after velocity initialization. |
+| calculation.md.friction_fs_inv | calculation.type=md | `float` | `0.01` | Langevin friction in fs^-1. |
+| calculation.md.taut_fs | calculation.type=md | `float` | `10.0` | Thermostat time constant in fs. |
+| calculation.md.taup_fs | calculation.type=md | `float` | `1000.0` | Barostat time constant in fs. |
+| calculation.md.pressure_bar | calculation.type=md | `float` | `1.0` | Target pressure in bar for NPT. |
+| calculation.md.compressibility_bar_inv | calculation.type=md | `float \| NoneType` | `null` | Compressibility in bar^-1. |
+| calculation.md.trajectory | calculation.type=md | `str` | `'md.traj'` | MD trajectory output. |
+| calculation.md.logfile | calculation.type=md | `str` | `'md.log'` | MD log file. |
+| calculation.md.loginterval | calculation.type=md | `int` | `1` | MD logging interval in steps. |
+| calculation.md.summary_file | calculation.type=md | `str` | `'md_summary.json'` | MD JSON summary output. |
+| calculation.md.final_structure | calculation.type=md | `str` | `'md_final.traj'` | Final structure output. |
+| calculation.md.artifact_manifest | calculation.type=md | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
+| calculation.md.postprocess | calculation.type=md | `dict` | `schema defaults` | MD post-processing settings. |
+| calculation.md.postprocess.summary | calculation.md.postprocess | `dict` | `schema defaults` | MD summary settings. |
+| calculation.md.postprocess.summary.enabled | calculation.md.postprocess.summary | `bool` | `True` | Write MD post-processing summary after workflow completion. |
+| calculation.md.postprocess.summary.output | calculation.md.postprocess.summary | `str` | `'md_post_summary.json'` | MD post-processing summary JSON output. |
+| calculation.md.postprocess.summary.tail | calculation.md.postprocess.summary | `int \| NoneType` | `null` | Only include the last N frames in the summary table. |
+| calculation.md.postprocess.convert | calculation.md.postprocess | `dict` | `schema defaults` | MD conversion settings. |
+| calculation.md.postprocess.convert.enabled | calculation.md.postprocess.convert | `bool` | `False` | Convert MD trajectory after workflow completion. |
+| calculation.md.postprocess.convert.format | calculation.md.postprocess.convert | `'traj' \| 'extxyz' \| 'cif' \| 'stru' \| 'xyz'` | `'extxyz'` | ASE output format for MD trajectory conversion. |
+| calculation.md.postprocess.convert.output_prefix | calculation.md.postprocess.convert | `str` | `'md_post'` | Output prefix or directory for converted MD frames. |
+| calculation.md.postprocess.convert.frame | calculation.md.postprocess.convert | `int \| NoneType` | `null` | Optional single frame index to convert. |
+| calculation.md.postprocess.convert.stride | calculation.md.postprocess.convert | `int` | `1` | Frame stride for trajectory conversion. |
+| calculation.md.restart | calculation.type=md | `bool` | `False` | Restart from existing trajectory or native MD output. |
+| calculation.md.directory | calculation.type=md | `str` | `'md_run'` | Workflow run directory. |
+| calculation.md.poll_interval_seconds | calculation.type=md | `float` | `5.0` | ABACUS native MD process polling interval. |
+| calculation.md.timeout_seconds | calculation.type=md | `float \| NoneType` | `null` | Optional ABACUS native MD timeout. |

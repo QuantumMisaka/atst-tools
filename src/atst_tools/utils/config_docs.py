@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from types import UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -16,6 +16,7 @@ from atst_tools.utils.config_schema import (
     D2SCalculation,
     DimerCalculation,
     IRCCalculation,
+    MDCalculation,
     NEBCalculation,
     RelaxCalculation,
     SellaCalculation,
@@ -33,6 +34,7 @@ CALCULATION_MODELS: tuple[type[BaseModel], ...] = (
     RelaxCalculation,
     VibrationCalculation,
     IRCCalculation,
+    MDCalculation,
 )
 
 
@@ -52,6 +54,8 @@ def _type_name(annotation: Any) -> str:
 
     origin = get_origin(annotation)
     args = get_args(annotation)
+    if origin is Annotated:
+        return _type_name(args[0])
     if origin in (list, tuple):
         inner = ", ".join(_type_name(arg) for arg in args) if args else "any"
         name = "list" if origin is list else "tuple"

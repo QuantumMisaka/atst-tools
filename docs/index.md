@@ -14,7 +14,7 @@ YAML file, and run a workflow.
 2. [Chinese user guide](user/USER_GUIDE_CN.md) for a 10-minute local/SAI
    onboarding path.
 3. [Examples overview](../examples/README.md) for runnable NEB, AutoNEB, Dimer,
-   Sella, CCQN, D2S, Relax, Vibration, IRC, DP, and MPI examples.
+   Sella, CCQN, D2S, Relax, Vibration, IRC, MD, DP, and MPI examples.
 4. [CLI reference](user/CLI_REFERENCE.md) for `atst run`, `atst config`,
    `atst abacus`, and lightweight helper commands.
 5. [Configuration reference](user/CONFIG_REFERENCE.md) for hand-written YAML
@@ -52,7 +52,7 @@ evidence, documentation health, release scope, or cleanup priorities.
 2. [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md) for
    the active documentation ledger, report levels, archive state, and
    pending-delete status.
-3. [2.0.1 release notes](releases/RELEASE_NOTES_2.0.1.md) for version-level
+3. [2.1.0 release notes](releases/RELEASE_NOTES_2.1.0.md) for version-level
    delivery scope.
 4. Current validation reports linked from the governance report when judging a
    specific feature, backend, or environment.

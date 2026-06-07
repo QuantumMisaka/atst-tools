@@ -157,6 +157,25 @@ def test_artifact_manifest_summary_reports_existing_and_missing_files(tmp_path):
     assert summary["artifacts"][1]["exists"] is False
 
 
+def test_artifact_manifest_writes_numpy_scalars(tmp_path):
+    import json
+
+    import numpy as np
+
+    from atst_tools.utils.artifacts import write_artifact_manifest
+
+    write_artifact_manifest(
+        tmp_path / "atst_artifacts.json",
+        workflow="neb",
+        artifacts=[],
+        metadata={"parallel": np.bool_(True), "images": np.int64(5), "fmax": np.float64(0.12)},
+    )
+
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+
+    assert manifest["metadata"] == {"parallel": True, "images": 5, "fmax": 0.12}
+
+
 def test_ts_validation_summary_classifies_one_imaginary_mode():
     from atst_tools.utils.ts_validation import build_ts_validation_summary
 

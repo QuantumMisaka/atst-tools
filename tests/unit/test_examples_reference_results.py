@@ -170,6 +170,16 @@ def test_new_p0_p1_examples_exercise_new_yaml_interfaces():
     def load_example(relative_path):
         return yaml.safe_load((root / "examples" / relative_path).read_text(encoding="utf-8"))
 
+    neb_01 = load_example("01_neb_Li-Si/config.yaml")["calculation"]
+    neb_01_dp = load_example("01_neb_Li-Si/config_dp.yaml")["calculation"]
+    neb_02_main = load_example("02_neb_H2-Au/config.yaml")["calculation"]
+    neb_02_dp = load_example("02_neb_H2-Au/config_dp.yaml")["calculation"]
+    neb_13 = load_example("13_neb_parallel_Cy-Pt/config.yaml")["calculation"]
+    for calculation in (neb_01, neb_01_dp, neb_02_main, neb_02_dp, neb_13):
+        assert calculation["two_stage"] is True
+        assert calculation["stage1_steps"] == 20
+        assert calculation["stage1_fmax"] == pytest.approx(0.20)
+
     neb = load_example("02_neb_H2-Au/config_two_stage.yaml")["calculation"]
     neb_dp = load_example("02_neb_H2-Au/config_two_stage_dp.yaml")["calculation"]
     assert neb["type"] == "neb"

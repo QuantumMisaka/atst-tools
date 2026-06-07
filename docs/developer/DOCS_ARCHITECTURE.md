@@ -78,4 +78,4 @@ docs/
 - YAML 参数总表：[YAML_INPUT_VARIABLES.md](../user/YAML_INPUT_VARIABLES.md)
 - 功能矩阵：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md)
 - 文档治理账本：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
-- 发布说明：[RELEASE_NOTES_2.0.1.md](../releases/RELEASE_NOTES_2.0.1.md)
+- 发布说明：[RELEASE_NOTES_2.1.0.md](../releases/RELEASE_NOTES_2.1.0.md)

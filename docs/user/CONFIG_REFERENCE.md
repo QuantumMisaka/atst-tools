@@ -1,7 +1,7 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.0.1
-**Last Updated**: 2026-06-02
+**Version**: 2.1.0
+**Last Updated**: 2026-06-07
 **Status**: Maintained
 
 This document is the hand-written semantic reference for `config.yaml` files
@@ -28,7 +28,7 @@ exact defaults that will be applied.
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md
   # ... task specific parameters ...
 
 calculator:
@@ -59,7 +59,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -72,8 +72,8 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 | `init_chain` | string | One of `init_chain` / `make` | Path to the initial chain file (e.g., `init_neb_chain.traj`). |
 | `climb` | bool | `True` | Enable Climbing Image NEB (CI-NEB). |
 | `two_stage` | bool | `False` | Run a short ordinary NEB warm-up before enabling CI-NEB. |
-| `stage1_steps` | int | `5` | Maximum ordinary NEB warm-up steps when `two_stage: true`. |
-| `stage1_fmax` | float | `0.1` | Warm-up force threshold when `two_stage: true`. |
+| `stage1_steps` | int/null | `20` | Maximum ordinary NEB warm-up steps when `two_stage: true`; warm-up stops when `stage1_fmax` is reached or this limit is exhausted. `null` uses the ASE optimizer default step limit. |
+| `stage1_fmax` | float | `0.20` | Warm-up force threshold when `two_stage: true`. |
 | `k` | float | `0.1` | Spring constant for the band (eV/Å²). |
 | `algorism` | string | `improvedtangent` | Tangent method. |
 | `neb_backend` | string | `atst` | Experimental backend selector: `atst` uses the validated compatibility wrapper; `ase` uses native ASE NEB. |
@@ -118,7 +118,7 @@ calculation:
 
 `auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
 
-For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. This mirrors the common 3-5 step pre-relaxation practice while keeping the first-stage ABACUS cost explicitly bounded.
+For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. The first stage uses ASE optimizer stop semantics: it stops when either `stage1_fmax` is reached or `stage1_steps` is exhausted. The default `stage1_steps: 20` is a bounded warm-up, not a guarantee that the ordinary NEB stage will reach `stage1_fmax`. Set `stage1_steps: null` only when you intentionally want the first stage to rely on `stage1_fmax` and ASE's very large default optimizer step limit; this can be expensive for ABACUS.
 
 For MPI image-level NEB, launch the Python workflow itself under MPI and keep
 one Python rank per interior image:
@@ -159,6 +159,55 @@ For MPI AutoNEB, launch with one Python rank per simultaneously optimized
 image. If `n_simul` is set, `world.size` must equal `n_simul`; if `n_simul` is
 `null`, ATST-Tools uses `world.size`. The same outer/inner MPI distinction as
 ordinary NEB applies.
+
+### 2.3b Molecular Dynamics (MD)
+**Type**: `md`
+
+ATST-Tools supports two MD drivers:
+
+- `driver: ase`: ASE owns the MD integrator/thermostat/barostat while ABACUS or
+  DP provides forces through the normal ASE calculator interface.
+- `driver: abacus_native`: ABACUS owns the MD run. ATST-Tools uses abacuslite to
+  prepare `INPUT`, `KPT`, and `STRU`, starts the ABACUS command in the configured
+  directory, then collects `running_md.log` / `MD_dump` outputs.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `driver` | string | `ase` | `ase` or `abacus_native`. |
+| `init_structure` | string | **Required** | Initial structure file. |
+| `steps` | int | `100` | Number of MD steps. |
+| `ensemble` | string | `nvt` | ASE driver ensemble: `nve`, `nvt`, or `npt`. Ignored by `abacus_native`. |
+| `algorithm` | string | `bussi` | ASE algorithm: `velocityverlet`, `bussi`, `langevin`, `nvtberendsen`, or `nptberendsen`. |
+| `timestep_fs` | float | `1.0` | ASE timestep in fs. |
+| `temperature_K` | float | `300.0` | Initial or target temperature. |
+| `trajectory` | string | `md.traj` | ASE trajectory written by either driver. |
+| `logfile` | string | `md.log` | ASE MD log file for `driver: ase`. |
+| `summary_file` | string | `md_summary.json` | JSON summary output. |
+| `final_structure` | string | `md_final.traj` | Final structure output. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
+| `postprocess.summary.enabled` | bool | `true` | Write MD post-processing summary after a successful workflow. |
+| `postprocess.summary.output` | string | `md_post_summary.json` | MD post-processing summary JSON output. |
+| `postprocess.convert.enabled` | bool | `false` | Convert MD trajectory after a successful workflow. |
+| `postprocess.convert.format` | string | `extxyz` | Output format: `traj`, `extxyz`, `cif`, `stru`, or `xyz`. |
+| `postprocess.convert.output_prefix` | string | `md_post` | Output prefix or directory for converted MD frames. |
+| `postprocess.convert.frame` | int/null | `null` | Optional single frame index to convert. |
+| `postprocess.convert.stride` | int | `1` | Frame stride for conversion. |
+| `directory` | string | `md_run` | ASE calculator directory or ABACUS native run directory. |
+| `poll_interval_seconds` | float | `5.0` | ABACUS native process polling interval. |
+
+For `driver: ase`, algorithm compatibility is explicit: `nve` uses
+`velocityverlet`; `nvt` uses `bussi`, `langevin`, or `nvtberendsen`; `npt` uses
+`nptberendsen`. NPT requires calculator stress support. For ABACUS, set
+`cal_stress: 1`; for DP, use a model that provides virial/stress.
+
+For `driver: abacus_native`, `calculator.name` must be `abacus`, and ABACUS MD
+keywords are passed directly through `calculator.abacus.parameters`. ATST-Tools
+only requires `calculation: md` and does not rename ABACUS-specific MD INPUT
+variables.
+
+After successful MD workflows, ATST-Tools writes a post-processing summary by
+default. Trajectory conversion is opt-in in YAML or can be run later with
+`atst md post`.
 
 ### 2.4 Dimer Method
 **Type**: `dimer`

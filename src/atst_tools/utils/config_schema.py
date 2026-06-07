@@ -7,7 +7,7 @@ from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc")
+VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc", "md")
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
 
@@ -52,8 +52,15 @@ class NEBCalculation(StrictConfig):
     restart: bool = Field(default=False, description="Restart from the latest complete trajectory band.")
     climb: bool = Field(default=True, description="Enable climbing-image NEB.")
     two_stage: bool = Field(default=False, description="Run a short ordinary NEB warm-up before CI-NEB.")
-    stage1_steps: int = Field(default=5, gt=0, description="Maximum ordinary NEB warm-up steps for two-stage NEB.")
-    stage1_fmax: float = Field(default=0.1, gt=0, description="Force threshold for ordinary NEB warm-up.")
+    stage1_steps: Annotated[int, Field(gt=0)] | None = Field(
+        default=20,
+        description=(
+            "Maximum ordinary NEB warm-up steps for two-stage NEB; the warm-up "
+            "stops when stage1_fmax is reached or this step limit is exhausted. "
+            "Null uses the ASE optimizer default step limit."
+        ),
+    )
+    stage1_fmax: float = Field(default=0.20, gt=0, description="Force threshold for ordinary NEB warm-up.")
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     k: float | list[float] = Field(default=0.1, description="NEB spring constant(s) in eV/Ang^2.")
     algorism: str = Field(default="improvedtangent", description="ASE NEB tangent method.")
@@ -428,6 +435,87 @@ class IRCCalculation(StrictConfig):
         return self
 
 
+class MDPostSummaryConfig(StrictConfig):
+    """MD post-processing summary configuration."""
+
+    enabled: bool = Field(default=True, description="Write MD post-processing summary after workflow completion.")
+    output: str = Field(default="md_post_summary.json", description="MD post-processing summary JSON output.")
+    tail: int | None = Field(default=None, gt=0, description="Only include the last N frames in the summary table.")
+
+
+class MDPostConvertConfig(StrictConfig):
+    """MD post-processing trajectory conversion configuration."""
+
+    enabled: bool = Field(default=False, description="Convert MD trajectory after workflow completion.")
+    format: Literal["traj", "extxyz", "cif", "stru", "xyz"] = Field(
+        default="extxyz",
+        description="ASE output format for MD trajectory conversion.",
+    )
+    output_prefix: str = Field(default="md_post", description="Output prefix or directory for converted MD frames.")
+    frame: int | None = Field(default=None, description="Optional single frame index to convert.")
+    stride: int = Field(default=1, gt=0, description="Frame stride for trajectory conversion.")
+
+
+class MDPostprocessConfig(StrictConfig):
+    """MD post-processing configuration."""
+
+    summary: MDPostSummaryConfig = Field(default_factory=MDPostSummaryConfig, description="MD summary settings.")
+    convert: MDPostConvertConfig = Field(default_factory=MDPostConvertConfig, description="MD conversion settings.")
+
+
+class MDCalculation(StrictConfig):
+    """Molecular dynamics workflow configuration."""
+
+    type: Literal["md"] = Field(description="Select the molecular dynamics workflow.")
+    driver: Literal["ase", "abacus_native"] = Field(
+        default="ase",
+        description="MD driver: ASE dynamics or ABACUS native MD.",
+    )
+    init_structure: str = Field(description="Initial structure file.")
+    steps: int = Field(default=100, gt=0, description="Number of MD steps.")
+    ensemble: Literal["nve", "nvt", "npt"] = Field(default="nvt", description="ASE MD ensemble.")
+    algorithm: str = Field(default="bussi", description="ASE MD algorithm.")
+    timestep_fs: float = Field(default=1.0, gt=0, description="ASE MD timestep in fs.")
+    temperature_K: float = Field(default=300.0, gt=0, description="Target or initial temperature in K.")
+    seed: int | None = Field(default=None, description="Random seed for initial velocities.")
+    force_temperature: bool = Field(default=False, description="Rescale initial velocities to the exact target temperature.")
+    stationary: bool = Field(default=True, description="Remove center-of-mass translation after velocity initialization.")
+    zero_rotation: bool = Field(default=False, description="Remove angular momentum after velocity initialization.")
+    friction_fs_inv: float = Field(default=0.01, gt=0, description="Langevin friction in fs^-1.")
+    taut_fs: float = Field(default=10.0, gt=0, description="Thermostat time constant in fs.")
+    taup_fs: float = Field(default=1000.0, gt=0, description="Barostat time constant in fs.")
+    pressure_bar: float = Field(default=1.0, description="Target pressure in bar for NPT.")
+    compressibility_bar_inv: float | None = Field(default=None, gt=0, description="Compressibility in bar^-1.")
+    trajectory: str = Field(default="md.traj", description="MD trajectory output.")
+    logfile: str = Field(default="md.log", description="MD log file.")
+    loginterval: int = Field(default=1, gt=0, description="MD logging interval in steps.")
+    summary_file: str = Field(default="md_summary.json", description="MD JSON summary output.")
+    final_structure: str = Field(default="md_final.traj", description="Final structure output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
+    postprocess: MDPostprocessConfig = Field(
+        default_factory=MDPostprocessConfig,
+        description="MD post-processing settings.",
+    )
+    restart: bool = Field(default=False, description="Restart from existing trajectory or native MD output.")
+    directory: str = Field(default="md_run", description="Workflow run directory.")
+    poll_interval_seconds: float = Field(default=5.0, ge=0, description="ABACUS native MD process polling interval.")
+    timeout_seconds: float | None = Field(default=None, gt=0, description="Optional ABACUS native MD timeout.")
+
+    @model_validator(mode="after")
+    def _validate_driver_algorithm(self) -> "MDCalculation":
+        algorithm = self.algorithm.lower()
+        allowed = {
+            "nve": {"velocityverlet"},
+            "nvt": {"bussi", "langevin", "nvtberendsen"},
+            "npt": {"nptberendsen"},
+        }
+        if self.driver == "ase" and algorithm not in allowed[self.ensemble]:
+            raise ValueError(
+                f"calculation.algorithm={self.algorithm!r} is not supported for ensemble={self.ensemble!r}"
+            )
+        return self
+
+
 CalculationConfig = Annotated[
     Union[
         NEBCalculation,
@@ -439,6 +527,7 @@ CalculationConfig = Annotated[
         RelaxCalculation,
         VibrationCalculation,
         IRCCalculation,
+        MDCalculation,
     ],
     Field(discriminator="type"),
 ]
@@ -453,6 +542,7 @@ CALCULATION_SCHEMA_BY_TYPE: dict[str, type[StrictConfig]] = {
     "relax": RelaxCalculation,
     "vibration": VibrationCalculation,
     "irc": IRCCalculation,
+    "md": MDCalculation,
 }
 
 
@@ -591,6 +681,13 @@ class ATSTConfig(StrictConfig):
 
     calculation: CalculationConfig = Field(description="Workflow configuration.")
     calculator: CalculatorConfig = Field(description="Calculator configuration.")
+
+    @model_validator(mode="after")
+    def _validate_cross_section_rules(self) -> "ATSTConfig":
+        if isinstance(self.calculation, MDCalculation):
+            if self.calculation.driver == "abacus_native" and self.calculator.name != "abacus":
+                raise ValueError("calculation.driver=abacus_native requires calculator.name=abacus")
+        return self
 
 
 def _preprocess_legacy_config(config: Dict[str, Any]) -> Dict[str, Any]:

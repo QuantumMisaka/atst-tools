@@ -166,6 +166,119 @@ H
     np.testing.assert_allclose(parsed.get_initial_magnetic_moments(), [1.0, 0.0])
 
 
+def test_read_structure_supports_cartesian_stru_coordinates(tmp_path):
+    (tmp_path / "cartesian.stru").write_text(
+        """ATOMIC_SPECIES
+H 1.0 H.upf
+He 4.0 He.upf
+
+NUMERICAL_ORBITAL
+H.orb
+He.orb
+
+LATTICE_CONSTANT
+1.8897261258369282
+
+LATTICE_VECTORS
+5.0 0.0 0.0
+0.0 6.0 0.0
+0.0 0.0 7.0
+
+ATOMIC_POSITIONS
+Cartesian
+
+H
+0.0
+1
+1.0 0.0 0.0
+
+He
+0.0
+1
+0.0 2.0 0.0
+""",
+        encoding="utf-8",
+    )
+
+    parsed = read_structure(tmp_path / "cartesian.stru")
+
+    assert parsed.get_chemical_symbols() == ["H", "He"]
+    np.testing.assert_allclose(parsed.get_scaled_positions(), [[0.2, 0.0, 0.0], [0.0, 1 / 3, 0.0]])
+
+
+def test_read_structure_supports_vector_magnetic_moments(tmp_path):
+    (tmp_path / "vector_mag.stru").write_text(
+        """ATOMIC_SPECIES
+H 1.0 H.upf
+He 4.0 He.upf
+
+LATTICE_CONSTANT
+1.8897261258369282
+
+LATTICE_VECTORS
+5.0 0.0 0.0
+0.0 6.0 0.0
+0.0 0.0 7.0
+
+ATOMIC_POSITIONS
+Direct
+
+H
+0.0
+1
+0.0 0.0 0.0 mag 1.0 0.0 0.0
+
+He
+0.0
+1
+0.5 0.0 0.0 mag 0.0 2.0 0.0
+""",
+        encoding="utf-8",
+    )
+
+    parsed = read_structure(tmp_path / "vector_mag.stru")
+
+    np.testing.assert_allclose(parsed.get_initial_magnetic_moments(), [[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]])
+
+
+def test_read_structure_only_preserves_full_fixatoms_and_drops_velocities(tmp_path):
+    (tmp_path / "mobility_velocity.stru").write_text(
+        """ATOMIC_SPECIES
+H 1.0 H.upf
+He 4.0 He.upf
+
+LATTICE_CONSTANT
+1.8897261258369282
+
+LATTICE_VECTORS
+5.0 0.0 0.0
+0.0 6.0 0.0
+0.0 0.0 7.0
+
+ATOMIC_POSITIONS
+Direct
+
+H
+0.0
+1
+0.0 0.0 0.0 m 0 0 0 v 0.1 0.2 0.3
+
+He
+0.0
+1
+0.5 0.0 0.0 m 1 0 1 v 0.4 0.5 0.6
+""",
+        encoding="utf-8",
+    )
+
+    parsed = read_structure(tmp_path / "mobility_velocity.stru")
+
+    assert len(parsed.constraints) == 1
+    assert isinstance(parsed.constraints[0], FixAtoms)
+    np.testing.assert_array_equal(parsed.constraints[0].index, [0])
+    np.testing.assert_allclose(parsed.get_velocities(), np.zeros((2, 3)))
+
+
 def test_read_structure_uses_ase_for_non_stru(tmp_path):
     atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     structure = tmp_path / "h.xyz"

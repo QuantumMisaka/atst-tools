@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 
 from ruamel.yaml import YAML
+from ase.io import read
 
 from atst_tools.utils.config import ConfigLoader
 
@@ -56,6 +57,35 @@ def test_example_input_paths_exist():
                 assert (config_file.parent / value).exists(), f"{config_file}: calculation.make.{field}={value}"
 
 
+def test_md_example_uses_01_neb_li_si_initial_structure():
+    yaml = YAML(typ="safe")
+    md_dir = Path("examples/15_md_Li-Si")
+    source = Path("examples/01_neb_Li-Si/inputs/init_neb_chain.traj")
+
+    assert md_dir.is_dir()
+    assert not Path("examples/15_md_H2").exists()
+
+    reference = read(source, index=0)
+    md_initial = read(md_dir / "inputs" / "init.traj")
+    assert md_initial.get_chemical_formula() == reference.get_chemical_formula()
+    assert len(md_initial) == len(reference)
+    assert md_initial.cell.cellpar().tolist() == reference.cell.cellpar().tolist()
+    assert md_initial.positions.tolist() == reference.positions.tolist()
+
+    configs = {
+        "config_ase_dp.yaml": ("ase", "dp"),
+        "config_ase_abacus.yaml": ("ase", "abacus"),
+        "config_abacus_native.yaml": ("abacus_native", "abacus"),
+    }
+    for filename, (driver, calculator) in configs.items():
+        config = yaml.load(md_dir / filename)
+        assert config["calculation"]["type"] == "md"
+        assert config["calculation"]["driver"] == driver
+        assert config["calculation"]["init_structure"] == "inputs/init.traj"
+        assert config["calculator"]["name"] == calculator
+        assert ConfigLoader.validate(config) is True
+
+
 def test_cy_pt_parallel_neb_nested_mpi_example_is_sai_sized():
     yaml = YAML(typ="safe")
     config_file = Path("examples/13_neb_parallel_Cy-Pt/config.yaml")
@@ -68,6 +98,9 @@ def test_cy_pt_parallel_neb_nested_mpi_example_is_sai_sized():
     assert calculation["type"] == "neb"
     assert calculation["parallel"] is True
     assert calculation["init_chain"] == "inputs/cy_pt_neb_5_images.traj"
+    assert calculation["two_stage"] is True
+    assert calculation["stage1_steps"] == 20
+    assert calculation["stage1_fmax"] == 0.20
     assert calculation["fmax"] == 0.12
     assert abacus["mpi"] == 4
     assert abacus["omp"] == 8

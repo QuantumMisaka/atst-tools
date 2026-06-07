@@ -16,8 +16,8 @@ entry point remains:
 atst run CONFIG.yaml
 ```
 
-`neb`, `autoneb`, `d2s`, `dimer`, `sella`, `relax`, `vibration`, and `irc` can
-all use `calculator.name: abacus`.
+`neb`, `autoneb`, `d2s`, `dimer`, `sella`, `relax`, `vibration`, `irc`, and
+`md` can all use `calculator.name: abacus`.
 
 ## Wrapper Boundary
 

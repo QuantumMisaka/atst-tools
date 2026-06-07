@@ -48,6 +48,7 @@ def test_validate_accepts_supported_calculation_types():
         "relax": {"init_structure": "init.stru"},
         "vibration": {"init_structure": "ts_opt.stru"},
         "irc": {"init_structure": "ts_opt.stru"},
+        "md": {"init_structure": "init.stru"},
     }
     for calc_type, fields in required_fields.items():
         config = {
@@ -110,6 +111,166 @@ def test_validate_accepts_neb_two_stage_and_endpoint_optimization():
 
     assert config["calculation"]["two_stage"] is True
     assert config["calculation"]["endpoint_optimization"]["max_steps"] == 8
+
+
+def test_validate_neb_two_stage_defaults_and_unbounded_stage1_steps():
+    from atst_tools.utils.config_schema import apply_calculation_defaults
+
+    default_config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+    null_config = {
+        "calculation": {
+            "type": "neb",
+            "init_chain": "init_neb_chain.traj",
+            "two_stage": True,
+            "stage1_steps": None,
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    assert ConfigLoader.validate(null_config) is True
+    assert apply_calculation_defaults(null_config["calculation"])["stage1_steps"] is None
+    assert default_config["calculation"]["stage1_steps"] == 20
+    assert default_config["calculation"]["stage1_fmax"] == pytest.approx(0.20)
+
+
+def test_normalize_omits_null_neb_stage1_steps():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "neb",
+                "init_chain": "init_neb_chain.traj",
+                "two_stage": True,
+                "stage1_steps": None,
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert "stage1_steps" not in config["calculation"]
+
+
+def test_validate_rejects_zero_neb_stage1_steps():
+    with pytest.raises(ValueError, match="stage1_steps"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "neb",
+                    "init_chain": "init_neb_chain.traj",
+                    "two_stage": True,
+                    "stage1_steps": 0,
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_accepts_ase_md_defaults():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "md",
+                "driver": "ase",
+                "init_structure": "init.stru",
+                "steps": 5,
+                "temperature_K": 300.0,
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+        }
+    )
+
+    assert config["calculation"]["driver"] == "ase"
+    assert config["calculation"]["ensemble"] == "nvt"
+    assert config["calculation"]["algorithm"] == "bussi"
+    assert config["calculation"]["trajectory"] == "md.traj"
+    assert config["calculation"]["postprocess"]["summary"]["enabled"] is True
+    assert config["calculation"]["postprocess"]["convert"]["enabled"] is False
+
+
+def test_validate_accepts_md_postprocess_conversion_config():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "md",
+                "driver": "ase",
+                "init_structure": "init.stru",
+                "postprocess": {
+                    "summary": {"enabled": True, "output": "md_auto_summary.json"},
+                    "convert": {
+                        "enabled": True,
+                        "format": "extxyz",
+                        "output_prefix": "md_frames",
+                        "stride": 2,
+                    },
+                },
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+        }
+    )
+
+    assert config["calculation"]["postprocess"]["summary"]["output"] == "md_auto_summary.json"
+    assert config["calculation"]["postprocess"]["convert"]["output_prefix"] == "md_frames"
+
+
+def test_validate_accepts_abacus_native_md_only_with_abacus():
+    config = {
+        "calculation": {
+            "type": "md",
+            "driver": "abacus_native",
+            "init_structure": "init.stru",
+            "steps": 2,
+        },
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "parameters": {
+                    "calculation": "md",
+                    "basis_type": "lcao",
+                }
+            },
+        },
+    }
+
+    assert ConfigLoader.validate(config) is True
+
+
+def test_validate_rejects_abacus_native_md_with_dp():
+    with pytest.raises(ValueError, match="abacus_native"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "md",
+                    "driver": "abacus_native",
+                    "init_structure": "init.stru",
+                    "steps": 2,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+
+def test_validate_rejects_incompatible_md_algorithm():
+    with pytest.raises(ValueError, match="algorithm"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "md",
+                    "driver": "ase",
+                    "ensemble": "nve",
+                    "algorithm": "bussi",
+                    "init_structure": "init.stru",
+                    "steps": 2,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
 
 
 def test_validate_accepts_ccqn_auto_reactive_bonds_without_explicit_bonds():

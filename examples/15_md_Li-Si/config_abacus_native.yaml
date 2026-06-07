@@ -1,0 +1,57 @@
+calculation:
+  type: md
+  driver: abacus_native
+  init_structure: inputs/init.traj
+  steps: 10
+  directory: run_md_abacus_native
+  trajectory: md_li_si_abacus_native.traj
+  summary_file: md_li_si_abacus_native_summary.json
+  final_structure: md_li_si_abacus_native_final.traj
+  poll_interval_seconds: 5.0
+  postprocess:
+    summary:
+      enabled: true
+      output: md_li_si_abacus_native_post_summary.json
+    convert:
+      enabled: false
+      format: extxyz
+      output_prefix: md_li_si_abacus_native_post
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 4
+    omp: 1
+    directory: run_md_abacus_native
+    kpts: [2, 2, 2]
+    parameters:
+      calculation: md
+      basis_type: lcao
+      ks_solver: cusolver
+      dft_functional: pbe
+      symmetry: 0
+      ecutwfc: 100
+      scf_thr: 1e-6
+      scf_nmax: 100
+      smearing_method: gaussian
+      smearing_sigma: 0.001
+      mixing_type: broyden
+      cal_force: 1
+      cal_stress: 1
+      init_wfc: atomic
+      init_chg: atomic
+      pseudo_dir: ../data
+      orbital_dir: ../data
+      # ABACUS-native MD variables are intentionally passed through without
+      # ATST renaming. Adjust these keys to the ABACUS version in use.
+      md_type: nvt
+      md_nstep: 10
+      md_dt: 0.5
+      md_tfirst: 300
+      pseudopotentials:
+        Li: Li_ONCV_PBE-1.2.upf
+        Si: Si_ONCV_PBE-1.2.upf
+      basissets:
+        Li: Li_gga_8au_100Ry_4s1p.orb
+        Si: Si_gga_8au_100Ry_2s2p1d.orb

@@ -28,6 +28,7 @@ from atst_tools.workflows.relax import RelaxWorkflow
 from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
+from atst_tools.workflows.md import MDWorkflow
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
     ENDPOINT_OPTIMIZED,
@@ -106,9 +107,9 @@ calculation:
   fmax: 0.05
   max_steps: 100
   climb: true
-  two_stage: false
-  stage1_steps: 5
-  stage1_fmax: 0.1
+  two_stage: true
+  stage1_steps: 20
+  stage1_fmax: 0.2
   parallel: true
   endpoint_singlepoint: auto
   endpoint_optimization:
@@ -247,6 +248,35 @@ calculation:
   max_steps: 1000
   dx: 0.1
   eta: 0.002
+""",
+        "md": """\
+calculation:
+  type: md
+  driver: ase
+  init_structure: inputs/init.stru
+  ensemble: nvt
+  algorithm: bussi
+  steps: 100
+  timestep_fs: 1.0
+  temperature_K: 300.0
+  taut_fs: 10.0
+  trajectory: md.traj
+  logfile: md.log
+  loginterval: 1
+  summary_file: md_summary.json
+  final_structure: md_final.traj
+  postprocess:
+    summary:
+      enabled: true
+      output: md_post_summary.json
+    convert:
+      enabled: false
+      format: extxyz
+      output_prefix: md_post
+  # For ABACUS native MD use:
+  # driver: abacus_native
+  # calculator.name must be abacus, and ABACUS MD INPUT variables are passed
+  # through calculator.abacus.parameters with calculation: md.
 """,
     }
     return calculation_blocks[calculation_type] + "\n" + calculator
@@ -496,11 +526,19 @@ def run_neb(config, calc_name, calc_config):
 
     # Run
     opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
+    stage1_converged = None
+    stage1_actual_steps = None
     if two_stage:
-        opt.run(fmax=calc_config.get("stage1_fmax", 0.1), steps=calc_config.get("stage1_steps", 5))
+        stage1_steps = calc_config.get("stage1_steps", 20)
+        if stage1_steps is None:
+            stage1_converged = opt.run(fmax=calc_config.get("stage1_fmax", 0.20))
+        else:
+            stage1_converged = opt.run(fmax=calc_config.get("stage1_fmax", 0.20), steps=stage1_steps)
+        stage1_actual_steps = getattr(opt, "nsteps", None)
         neb.climb = climb
         opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
-    opt.run(fmax=fmax, steps=max_steps)
+    final_converged = opt.run(fmax=fmax, steps=max_steps)
+    final_actual_steps = getattr(opt, "nsteps", None)
     write_artifact_manifest(
         calc_config.get("artifact_manifest", "atst_artifacts.json"),
         workflow="neb",
@@ -509,10 +547,19 @@ def run_neb(config, calc_name, calc_config):
             {
                 "name": "ordinary_neb_warmup",
                 "status": "complete" if two_stage else "skipped",
-                "fmax": calc_config.get("stage1_fmax", 0.1),
-                "steps": calc_config.get("stage1_steps", 5),
+                "fmax": calc_config.get("stage1_fmax", 0.20),
+                "steps": calc_config.get("stage1_steps", 20),
+                "converged": stage1_converged,
+                "actual_steps": stage1_actual_steps,
             },
-            {"name": "ci_neb" if climb else "neb", "status": "complete", "fmax": fmax, "steps": max_steps},
+            {
+                "name": "ci_neb" if climb else "neb",
+                "status": "complete",
+                "fmax": fmax,
+                "steps": max_steps,
+                "converged": final_converged,
+                "actual_steps": final_actual_steps,
+            },
         ],
     )
     LOGGER.info("NEB calculation finished")
@@ -669,7 +716,7 @@ def _build_parser():
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc
+          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md
           calculator.name:  abacus | dp
 
         Common commands:
@@ -768,6 +815,9 @@ def run_from_args(args):
             workflow.run()
         except IRCBoundaryError as exc:
             raise SystemExit(str(exc)) from None
+    elif calc_type == 'md':
+        workflow = MDWorkflow(config, calc_name, calc_config)
+        workflow.run()
     else:
         raise ValueError(f"Unknown calculation type: {calc_type}")
 

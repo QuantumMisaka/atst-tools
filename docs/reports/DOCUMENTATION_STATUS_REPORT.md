@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
-**版本**: 2026-06-02
-**日期**: 2026-06-02
+**版本**: 2026-06-07
+**日期**: 2026-06-07
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -14,11 +14,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.0.1.md`；2.0.0
-  release notes 保留为历史版本说明。
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.1.0.md`；2.0.0、2.0.1 和
+  2.0.2 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
-  Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、
-  artifact manifest、MPI image-level parallelism，并明确 MD 未支持。
+  Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
+  artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
 - `docs/archive/pending_delete/` 是待删除复核区；本轮只移动和记录，不最终删除。
 
 ## 2. 活跃 User 文档
@@ -63,6 +63,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/P0_P1_EXAMPLE_RUNTIME_VALIDATION_2026-05-28.md` | P0/P1 示例 runtime 验证和当前示例扩展证据。 |
 | `docs/reports/NEB_IMAGE_PARALLEL_E2E_VALIDATION_2026-05-29.md` | Cy-Pt image-level NEB/AutoNEB SAI 端到端验证、barrier 对比和 nested MPI 证据。 |
 | `docs/reports/ZN_SEGMENTED_NEB_RUNTIME_STATUS_2026-05-30.md` | Zn migration 分段 NEB/AutoNEB runtime 状态和唯一运行证据。 |
+| `docs/reports/TWO_STAGE_NEB_LTS3101_VALIDATION_2026-06-04.md` | 01/02/13 two-stage NEB 在 ABACUS LTS 3.10.1 和 4V100 上的实算能垒复现、串并行一致性和迭代步数证据。 |
 
 ### L3: 当前主题审查
 
@@ -74,6 +75,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/FAST_IDPP_ALGORITHM_COMPARISON_AND_FIX_2026-05-25.md` | FastIDPP 修复依据和 D2S 路径生成边界。 |
 | `docs/reports/MACE_REACTION_KIT_TO_ATST_TOOLS_TRANSFER_REVIEW_2026-05-27.html` | MACE-Reaction-Kit P0/P1 核心完成状态和未来增强边界。 |
 | `docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md` | ASE 3.28.0 与 ATST NEB/AutoNEB/Dimer 对齐审查细节。 |
+| `docs/reports/ABACUS_STRU_IO_ASE_FORMAT_COMPATIBILITY_2026-06-04.md` | ABACUS STRU read/write 与 `ase-abacus` ASE I/O format 的 API/语义兼容性和功能点覆盖审查。 |
 
 ### L4: 历史或已被取代材料
 

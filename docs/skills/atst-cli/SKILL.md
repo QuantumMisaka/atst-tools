@@ -42,6 +42,7 @@ Use `atst run CONFIG.yaml` for calculator-backed workflows:
 - `relax`
 - `vibration`
 - `irc`
+- `md`
 
 ABACUS workflows use `calculator.name: abacus` and the active `abacuslite`
 backend. DP workflows use `calculator.name: dp` and `deepmd.calculator.DP`.
@@ -57,6 +58,8 @@ atst abacus collect RUN_DIR --output abacus_results.json
 atst neb make INIT FINAL N_IMAGES -o init_neb_chain.traj --method linear
 atst neb post neb.traj --n-max N --vib-analysis
 atst neb summary neb.traj --n-max N --tail 5
+atst md summary md.traj --tail 5
+atst md post md.traj --output-format extxyz --output-prefix md_post
 atst dimer make-from-neb neb.traj --n-max N --output-traj dimer_init.traj
 atst dimer summary dimer.traj --tail 5
 atst relax post relax.traj --output-format traj --output restart.traj

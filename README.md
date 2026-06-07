@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.0.1-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](pyproject.toml)
 [![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
@@ -19,7 +19,7 @@ Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.0.1 status |
+| Area | Current 2.1.0 status |
 | :--- | :--- |
 | Package | Installable Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
@@ -27,7 +27,7 @@ Python scripts.
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.0.1`, documented in [release notes](docs/releases/RELEASE_NOTES_2.0.1.md). |
+| Release | `2.1.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.0.md). |
 
 ## What You Can Run
 
@@ -42,6 +42,7 @@ Python scripts.
 | `relax` | Structure optimization | ASE optimizer based relaxation. |
 | `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
+| `md` | Molecular dynamics | ASE-driven MD with ABACUS/DP calculators, or ABACUS native MD input/run/output orchestration. |
 
 Local pre/post-processing commands are intentionally lightweight. They do not
 construct calculators or submit expensive calculations:
@@ -75,7 +76,7 @@ Build a local release artifact:
 
 ```bash
 python -m build
-pip install dist/atst_tools-2.0.1-py3-none-any.whl
+pip install dist/atst_tools-2.1.0-py3-none-any.whl
 ```
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
@@ -138,6 +139,9 @@ calculation:
   fmax: 0.05
   max_steps: 100
   climb: true
+  two_stage: true
+  stage1_steps: 20
+  stage1_fmax: 0.20
 
 calculator:
   name: abacus
@@ -238,15 +242,16 @@ project:
 | `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
 | `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
 | `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
+| `examples/15_md_Li-Si` | ASE-driven and ABACUS-native MD templates starting from the `01_neb_Li-Si` initial structure. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
 
 ## Validation
 
-The 2.0.1 README badges reflect the current governed project state:
+The 2.1.0 README badges reflect the current governed project state:
 
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.0.1`.
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.0`.
 - Unit test coverage badge: measured with
   `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
   `coverage report --omit='src/atst_tools/external/*'`.

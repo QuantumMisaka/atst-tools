@@ -13,10 +13,10 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, Slurm logs, and ABACUS/DP scratch files are ignored unless they are explicitly curated inputs or completed-run outputs.
 
 ### 1. Basic Examples (Li Diffusion)
-*   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started.
+*   `01_neb_Li-Si/`: **Li diffusion in Si**. A simple, fast-running NEB example suitable for quick testing and getting started; the main NEB configs use bounded two-stage CI-NEB warm-up.
 
 ### 2. Surface Reactions (H2 on Au(111))
-*   `02_neb_H2-Au/`: **H2 dissociation on Au(111)**. Demonstrates NEB on a metal surface, including two-stage NEB examples in `config_two_stage*.yaml`.
+*   `02_neb_H2-Au/`: **H2 dissociation on Au(111)**. Demonstrates NEB on a metal surface; the main configs use two-stage CI-NEB, and `config_two_stage*.yaml` are curated smoke fixtures.
 *   `05_sella_H2-Au/`: Sella method for the same system.
 *   `06_relax_H2-Au/`: Geometry optimization of the initial state.
 *   `07_vibration_H2-Au/`: Vibrational analysis of the Transition State.
@@ -30,6 +30,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `09_lightweight_cli/`: Local pre/post-processing examples for `atst neb`, summary commands, `atst dimer`, `atst relax post`, and `atst vibration post`.
 *   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, `reverse`, and descent-mode IRC via `config_descent*.yaml` plus `inputs/descent_mode.npy`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
+*   `15_md_Li-Si/`: Molecular dynamics templates for ASE-driven DP/ABACUS and ABACUS-native MD using the `01_neb_Li-Si` initial structure.
 
 ### 5. Classic Transition State Search (CO on Pt(111))
 *   `04_dimer_CO-Pt/`: **CO on Pt(111)**. A classic benchmark system for the **Dimer** method.
@@ -123,6 +124,12 @@ atst run config_auto_modes_dp.yaml
 The matching ABACUS-backed configs are `config_two_stage.yaml`,
 `config_descent.yaml`, and `config_auto_modes.yaml`.
 
+For ordinary NEB, the main 01/02 examples and the 13 image-parallel example
+enable `two_stage: true` with `stage1_fmax: 0.20` and a bounded
+`stage1_steps: 20`. The short `config_two_stage*.yaml` fixtures keep their
+smoke-test step counts because their curated outputs were validated with those
+settings.
+
 The completed P0/P1 validation artifacts are curated under:
 
 - `02_neb_H2-Au/outputs/`
@@ -168,8 +175,8 @@ cd ../14_autoneb_parallel_Cy-Pt
 sbatch submit_rush_gpu.sbatch
 ```
 
-`13_neb_parallel_Cy-Pt/config.yaml` runs ordinary NEB with five interior images
-from a prepared Cy-Pt double-end chain. The Slurm script uses the `8V100V0`
+`13_neb_parallel_Cy-Pt/config.yaml` runs two-stage ordinary NEB with five
+interior images from a prepared Cy-Pt double-end chain. The Slurm script uses the `8V100V0`
 partition with `huge-gpu` QOS and launches `mpirun -np 5 atst run ...`; each
 Python image rank then launches ABACUS with `calculator.abacus.mpi: 4` and an
 isolated local inner `mpirun` command.
@@ -179,7 +186,8 @@ with `n_simul: 4`. The Slurm script uses `rush-gpu` QOS and launches
 `mpirun -np 4 atst run ...`; each image uses a single ABACUS process with
 `calculator.abacus.mpi: 1`. Both configs set `calculator.abacus.omp: 8`. The
 example thresholds are tuned for SAI smoke validation against the 03 Cy-Pt
-AutoNEB barrier: `13` uses `fmax: 0.12`, and `14` uses `fmax: [0.20, 0.20]`.
+AutoNEB barrier: `13` uses `stage1_fmax: 0.20`, `stage1_steps: 20`, and
+`fmax: 0.12`, while `14` uses `fmax: [0.20, 0.20]`.
 
 Both examples include completed-run outputs from the final SAI validation:
 
@@ -218,6 +226,7 @@ files and monitoring logs, remain under
 | `12_ccqn_H2-Au` | H2 dissociation on Au(111) | H, Au | CCQN |
 | `13_neb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | NEB image-parallel |
 | `14_autoneb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | AutoNEB image-parallel |
+| `15_md_Li-Si` | Li in Si diamond structure from `01_neb_Li-Si` | Li, Si | MD |
 
 ## Reference Results
 
