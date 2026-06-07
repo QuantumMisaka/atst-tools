@@ -21,6 +21,7 @@ from atst_tools.utils.abacus_io import collect_abacus_output, prepare_abacus_inp
 from atst_tools.utils.config import ConfigLoader, VALID_CALCULATION_TYPES
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.md_post import post_md_trajectory, summarize_md_trajectory
 from atst_tools.utils.post import NEBPost
 from atst_tools.utils.restart_helpers import (
     check_cache_files,
@@ -416,16 +417,31 @@ def _print_summary_table(summary, tail=None):
         latest = summary.get("latest", {})
         print(f"n_frames={summary['status']['n_frames']}")
         if latest:
-            print(
-                f"latest_step={latest['step']} latest_energy_eV={latest['energy_eV']:.10f} "
-                f"latest_max_force_eV_per_A={latest['max_force_eV_per_A']:.10f}"
-            )
+            if workflow == "md":
+                print(
+                    f"latest_step={latest['step']} latest_energy_eV={latest['energy_eV']:.10f} "
+                    f"latest_temperature_K={latest['temperature_K']:.10f} "
+                    f"latest_max_force_eV_per_A={latest['max_force_eV_per_A']:.10f}"
+                )
+            else:
+                print(
+                    f"latest_step={latest['step']} latest_energy_eV={latest['energy_eV']:.10f} "
+                    f"latest_max_force_eV_per_A={latest['max_force_eV_per_A']:.10f}"
+                )
         frames = summary["frames"]
         if tail and tail > 0:
             frames = frames[-tail:]
-        print("step energy_eV max_force_eV_per_A")
-        for frame in frames:
-            print("{step:>4} {energy_eV:>12.6f} {max_force_eV_per_A:>20.6f}".format(**frame))
+        if workflow == "md":
+            print("step energy_eV temperature_K max_force_eV_per_A")
+            for frame in frames:
+                print(
+                    "{step:>4} {energy_eV:>12.6f} {temperature_K:>13.6f} "
+                    "{max_force_eV_per_A:>20.6f}".format(**frame)
+                )
+        else:
+            print("step energy_eV max_force_eV_per_A")
+            for frame in frames:
+                print("{step:>4} {energy_eV:>12.6f} {max_force_eV_per_A:>20.6f}".format(**frame))
         return
     if workflow == "vibration":
         print("vibration summary")
@@ -557,6 +573,50 @@ def _relax_post_command(args):
 
 def _trajectory_summary_command(args, workflow):
     return _run_summary_command(args, lambda: summarize_trajectory(args.traj_file, workflow=workflow, tail=args.tail))
+
+
+def _add_md_parser(subparsers):
+    parser = subparsers.add_parser("md", help="MD post-processing tools")
+    md_subparsers = parser.add_subparsers(dest="md_command", required=True)
+
+    summary = md_subparsers.add_parser("summary", help="Summarize an MD trajectory")
+    summary.add_argument("traj_file", help="MD trajectory file")
+    _add_summary_output_options(summary)
+    summary.set_defaults(func=_md_summary_command)
+
+    post = md_subparsers.add_parser("post", help="Summarize and convert an MD trajectory")
+    post.add_argument("traj_file", help="MD trajectory file")
+    post.add_argument("--output-prefix", default="md_post", help="Converted trajectory output prefix or directory")
+    post.add_argument(
+        "--output-format",
+        choices=("traj", "extxyz", "cif", "stru", "xyz"),
+        default="extxyz",
+        help="Converted trajectory format",
+    )
+    post.add_argument("--summary-output", default="md_post_summary.json", help="MD summary JSON output")
+    post.add_argument("--frame", type=int, help="Optional single frame index to convert")
+    post.add_argument("--stride", type=int, default=1, help="Frame stride for conversion")
+    _add_summary_output_options(post)
+    post.set_defaults(func=_md_post_command)
+
+
+def _md_summary_command(args):
+    return _run_summary_command(args, lambda: summarize_md_trajectory(args.traj_file, tail=args.tail))
+
+
+def _md_post_command(args):
+    result = post_md_trajectory(
+        args.traj_file,
+        output_prefix=args.output_prefix,
+        output_format=args.output_format,
+        summary_output=args.summary_output,
+        tail=args.tail,
+        frame=args.frame,
+        stride=args.stride,
+    )
+    _emit_summary(result["summary"], args)
+    print(f"Wrote {args.summary_output}")
+    print(f"Wrote {result['converted']['path']}")
 
 
 def _add_vibration_parser(subparsers):
@@ -718,6 +778,7 @@ def build_parser():
     _add_single_ended_summary_parser(subparsers, "sella")
     _add_single_ended_summary_parser(subparsers, "ccqn")
     _add_d2s_parser(subparsers)
+    _add_md_parser(subparsers)
     _add_traj_parser(subparsers)
     return parser
 

@@ -8,6 +8,14 @@ calculation:
   summary_file: md_li_si_abacus_native_summary.json
   final_structure: md_li_si_abacus_native_final.traj
   poll_interval_seconds: 5.0
+  postprocess:
+    summary:
+      enabled: true
+      output: md_li_si_abacus_native_post_summary.json
+    convert:
+      enabled: false
+      format: extxyz
+      output_prefix: md_li_si_abacus_native_post
 
 calculator:
   name: abacus

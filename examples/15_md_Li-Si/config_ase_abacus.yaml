@@ -12,6 +12,14 @@ calculation:
   logfile: md_li_si_abacus_ase.log
   summary_file: md_li_si_abacus_ase_summary.json
   final_structure: md_li_si_abacus_ase_final.traj
+  postprocess:
+    summary:
+      enabled: true
+      output: md_li_si_abacus_ase_post_summary.json
+    convert:
+      enabled: false
+      format: extxyz
+      output_prefix: md_li_si_abacus_ase_post
 
 calculator:
   name: abacus

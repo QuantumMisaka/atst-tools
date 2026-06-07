@@ -12,6 +12,15 @@ calculation:
   logfile: md_li_si_dp.log
   summary_file: md_li_si_dp_summary.json
   final_structure: md_li_si_dp_final.traj
+  postprocess:
+    summary:
+      enabled: true
+      output: md_li_si_dp_post_summary.json
+    convert:
+      enabled: false
+      # Set enabled: true to convert the trajectory after the workflow.
+      format: extxyz
+      output_prefix: md_li_si_dp_post
 
 calculator:
   name: dp

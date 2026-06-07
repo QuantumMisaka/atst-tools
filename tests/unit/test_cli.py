@@ -252,6 +252,48 @@ def test_atst_run_show_md_template_prints_yaml(capsys):
     assert "driver: abacus_native" in output
 
 
+def test_atst_md_summary_prints_trajectory_summary(tmp_path, capsys):
+    from ase import Atoms
+    from ase.calculators.singlepoint import SinglePointCalculator
+    from ase.io import write
+    from atst_tools.scripts import cli
+
+    atoms = Atoms("H", positions=[[0, 0, 0]], cell=[5, 5, 5], pbc=True)
+    atoms.calc = SinglePointCalculator(atoms, energy=-1.0, forces=[[0.1, 0.0, 0.0]])
+    traj = tmp_path / "md.traj"
+    write(traj, [atoms])
+
+    cli.main(["md", "summary", str(traj), "--format", "json"])
+
+    output = capsys.readouterr().out
+    assert '"workflow": "md"' in output
+    assert '"n_frames": 1' in output
+
+
+def test_atst_md_post_writes_summary_and_converted_trajectory(tmp_path):
+    from ase import Atoms
+    from ase.io import read, write
+    from atst_tools.scripts import cli
+
+    traj = tmp_path / "md.traj"
+    write(traj, [Atoms("H", positions=[[0, 0, 0]])])
+
+    cli.main(
+        [
+            "md",
+            "post",
+            str(traj),
+            "--output-prefix",
+            str(tmp_path / "converted"),
+            "--summary-output",
+            str(tmp_path / "summary.json"),
+        ]
+    )
+
+    assert (tmp_path / "summary.json").exists()
+    assert len(read(tmp_path / "converted.extxyz", index=":")) == 1
+
+
 def test_atst_run_show_ccqn_template_prints_yaml(capsys):
     from atst_tools.scripts import cli
 

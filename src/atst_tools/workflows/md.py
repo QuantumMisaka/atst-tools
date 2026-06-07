@@ -25,6 +25,7 @@ from atst_tools.utils.abacus_io import _as_mp_kpts, _input_parameters, _merged_a
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.md_post import run_md_workflow_postprocess
 from atst_tools.utils.restart_helpers import get_last_frame
 
 
@@ -200,6 +201,10 @@ class AseMDRunner:
         write(self.calc_config["final_structure"], atoms)
         summary = self._summary(atoms)
         _json_write(self.calc_config["summary_file"], summary)
+        postprocess = run_md_workflow_postprocess(
+            self.calc_config,
+            metadata={"driver": "ase", "algorithm": self.calc_config["algorithm"]},
+        )
         write_artifact_manifest(
             self.calc_config["artifact_manifest"],
             workflow="md",
@@ -208,6 +213,7 @@ class AseMDRunner:
                 {"role": "log", "path": self.calc_config["logfile"]},
                 {"role": "summary", "path": self.calc_config["summary_file"]},
                 {"role": "final_structure", "path": self.calc_config["final_structure"]},
+                *postprocess["artifacts"],
             ],
             stages=[{"name": "ase_md", "status": "complete", "steps": self.calc_config["steps"]}],
             metadata=summary,
@@ -370,7 +376,13 @@ class AbacusNativeMDRunner:
         _json_write(self.calc_config["summary_file"], summary)
         return summary
 
-    def _write_manifest(self, summary: dict[str, Any], *, status: str) -> None:
+    def _write_manifest(
+        self,
+        summary: dict[str, Any],
+        *,
+        status: str,
+        postprocess_artifacts: list[dict[str, Any]] | None = None,
+    ) -> None:
         write_artifact_manifest(
             self.calc_config["artifact_manifest"],
             workflow="md",
@@ -381,6 +393,7 @@ class AbacusNativeMDRunner:
                 {"role": "progress", "path": str(self.run_dir / "md_progress.json")},
                 {"role": "abacus_stdout", "path": str(self.run_dir / "atst_abacus_native_md.out")},
                 {"role": "abacus_stderr", "path": str(self.run_dir / "atst_abacus_native_md.err")},
+                *(postprocess_artifacts or []),
             ],
             stages=[
                 {
@@ -402,7 +415,18 @@ class AbacusNativeMDRunner:
             write(self.calc_config["trajectory"], frames)
             write(self.calc_config["final_structure"], frames[-1])
         summary = self._write_summary(returncode=process.returncode, frames=frames)
-        self._write_manifest(summary, status="failed" if process.returncode else "complete")
+        postprocess_artifacts = []
+        if not process.returncode and frames:
+            postprocess = run_md_workflow_postprocess(
+                self.calc_config,
+                metadata={"driver": "abacus_native", "run_dir": str(self.run_dir)},
+            )
+            postprocess_artifacts = postprocess["artifacts"]
+        self._write_manifest(
+            summary,
+            status="failed" if process.returncode else "complete",
+            postprocess_artifacts=postprocess_artifacts,
+        )
         if process.returncode:
             raise RuntimeError(
                 f"ABACUS native MD failed with return code {process.returncode}. "

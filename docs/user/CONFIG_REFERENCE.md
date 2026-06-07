@@ -185,6 +185,13 @@ ATST-Tools supports two MD drivers:
 | `summary_file` | string | `md_summary.json` | JSON summary output. |
 | `final_structure` | string | `md_final.traj` | Final structure output. |
 | `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
+| `postprocess.summary.enabled` | bool | `true` | Write MD post-processing summary after a successful workflow. |
+| `postprocess.summary.output` | string | `md_post_summary.json` | MD post-processing summary JSON output. |
+| `postprocess.convert.enabled` | bool | `false` | Convert MD trajectory after a successful workflow. |
+| `postprocess.convert.format` | string | `extxyz` | Output format: `traj`, `extxyz`, `cif`, `stru`, or `xyz`. |
+| `postprocess.convert.output_prefix` | string | `md_post` | Output prefix or directory for converted MD frames. |
+| `postprocess.convert.frame` | int/null | `null` | Optional single frame index to convert. |
+| `postprocess.convert.stride` | int | `1` | Frame stride for conversion. |
 | `directory` | string | `md_run` | ASE calculator directory or ABACUS native run directory. |
 | `poll_interval_seconds` | float | `5.0` | ABACUS native process polling interval. |
 
@@ -197,6 +204,10 @@ For `driver: abacus_native`, `calculator.name` must be `abacus`, and ABACUS MD
 keywords are passed directly through `calculator.abacus.parameters`. ATST-Tools
 only requires `calculation: md` and does not rename ABACUS-specific MD INPUT
 variables.
+
+After successful MD workflows, ATST-Tools writes a post-processing summary by
+default. Trajectory conversion is opt-in in YAML or can be run later with
+`atst md post`.
 
 ### 2.4 Dimer Method
 **Type**: `dimer`

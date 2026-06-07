@@ -265,6 +265,14 @@ calculation:
   loginterval: 1
   summary_file: md_summary.json
   final_structure: md_final.traj
+  postprocess:
+    summary:
+      enabled: true
+      output: md_post_summary.json
+    convert:
+      enabled: false
+      format: extxyz
+      output_prefix: md_post
   # For ABACUS native MD use:
   # driver: abacus_native
   # calculator.name must be abacus, and ABACUS MD INPUT variables are passed

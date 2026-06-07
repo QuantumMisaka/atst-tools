@@ -56,8 +56,9 @@ def test_ase_md_workflow_writes_trajectory_summary_and_manifest(monkeypatch, tmp
     assert summary["algorithm"] == "velocityverlet"
     assert summary["steps"] == 3
     assert summary["final_energy_eV"] == pytest.approx(1.5)
+    assert Path("md_post_summary.json").exists()
     assert manifest["workflow"] == "md"
-    assert {artifact["role"] for artifact in manifest["artifacts"]} >= {"trajectory", "summary"}
+    assert {artifact["role"] for artifact in manifest["artifacts"]} >= {"trajectory", "summary", "postprocess_summary"}
 
 
 def test_abacus_native_md_rejects_non_abacus_calculator(tmp_path):
@@ -143,6 +144,10 @@ def test_abacus_native_md_prepares_inputs_runs_process_and_collects(monkeypatch,
             "summary_file": str(tmp_path / "native" / "md_summary.json"),
             "artifact_manifest": str(tmp_path / "native" / "atst_artifacts.json"),
             "poll_interval_seconds": 0.0,
+            "postprocess": {
+                "summary": {"enabled": True, "output": str(tmp_path / "native" / "md_post_summary.json")},
+                "convert": {"enabled": True, "format": "extxyz", "output_prefix": str(tmp_path / "native" / "md_post")},
+            },
         },
     )
     workflow.run()
@@ -163,7 +168,14 @@ def test_abacus_native_md_prepares_inputs_runs_process_and_collects(monkeypatch,
     assert progress["frames"] == 2
     assert progress["returncode"] == 0
     assert manifest["stages"][0]["status"] == "complete"
-    assert {artifact["role"] for artifact in manifest["artifacts"]} >= {"progress", "abacus_stdout"}
+    assert {artifact["role"] for artifact in manifest["artifacts"]} >= {
+        "progress",
+        "abacus_stdout",
+        "postprocess_summary",
+        "postprocess_conversion",
+    }
+    assert (run_dir / "md_post_summary.json").exists()
+    assert (run_dir / "md_post.extxyz").exists()
     assert len(frames) == 2
 
 

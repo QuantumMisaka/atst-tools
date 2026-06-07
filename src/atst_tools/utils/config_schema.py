@@ -435,6 +435,34 @@ class IRCCalculation(StrictConfig):
         return self
 
 
+class MDPostSummaryConfig(StrictConfig):
+    """MD post-processing summary configuration."""
+
+    enabled: bool = Field(default=True, description="Write MD post-processing summary after workflow completion.")
+    output: str = Field(default="md_post_summary.json", description="MD post-processing summary JSON output.")
+    tail: int | None = Field(default=None, gt=0, description="Only include the last N frames in the summary table.")
+
+
+class MDPostConvertConfig(StrictConfig):
+    """MD post-processing trajectory conversion configuration."""
+
+    enabled: bool = Field(default=False, description="Convert MD trajectory after workflow completion.")
+    format: Literal["traj", "extxyz", "cif", "stru", "xyz"] = Field(
+        default="extxyz",
+        description="ASE output format for MD trajectory conversion.",
+    )
+    output_prefix: str = Field(default="md_post", description="Output prefix or directory for converted MD frames.")
+    frame: int | None = Field(default=None, description="Optional single frame index to convert.")
+    stride: int = Field(default=1, gt=0, description="Frame stride for trajectory conversion.")
+
+
+class MDPostprocessConfig(StrictConfig):
+    """MD post-processing configuration."""
+
+    summary: MDPostSummaryConfig = Field(default_factory=MDPostSummaryConfig, description="MD summary settings.")
+    convert: MDPostConvertConfig = Field(default_factory=MDPostConvertConfig, description="MD conversion settings.")
+
+
 class MDCalculation(StrictConfig):
     """Molecular dynamics workflow configuration."""
 
@@ -464,6 +492,10 @@ class MDCalculation(StrictConfig):
     summary_file: str = Field(default="md_summary.json", description="MD JSON summary output.")
     final_structure: str = Field(default="md_final.traj", description="Final structure output.")
     artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
+    postprocess: MDPostprocessConfig = Field(
+        default_factory=MDPostprocessConfig,
+        description="MD post-processing settings.",
+    )
     restart: bool = Field(default=False, description="Restart from existing trajectory or native MD output.")
     directory: str = Field(default="md_run", description="Workflow run directory.")
     poll_interval_seconds: float = Field(default=5.0, ge=0, description="ABACUS native MD process polling interval.")

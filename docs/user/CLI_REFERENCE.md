@@ -78,6 +78,22 @@ atst neb summary --autoneb-prefix run_autoneb --format json --output neb_summary
 
 `atst neb summary` is a read-only monitor/post-summary command. For ordinary NEB trajectories it reports the band size, complete optimization steps, incomplete frame remainder, per-step raw maximum-force image, image energy, barrier, and delta E. For AutoNEB it reads the current final chain from `--autoneb-prefix` or `--autoneb-files`. Use `--format json` and `--output` for machine-readable reports, `--tail N` for compact terminal output, and `--watch SEC` for polling a running job.
 
+## MD Tools
+
+```bash
+atst md summary md.traj --tail 5
+atst md summary md.traj --format json --output md_post_summary.json
+atst md post md.traj --output-format extxyz --output-prefix md_post
+atst md post md.traj --frame -1 --output-format xyz --output-prefix md_final
+```
+
+`atst md summary` reads an MD trajectory and reports frame count, latest energy,
+temperature, and maximum force when those quantities are available. `atst md
+post` writes the same summary and converts the trajectory to another ASE format.
+By default, MD workflows run the summary step automatically after successful
+completion; trajectory conversion is only run when requested by `atst md post`
+or by enabling `calculation.md.postprocess.convert.enabled`.
+
 ## Trajectory Tools
 
 ```bash
@@ -133,4 +149,4 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 
 ## Workflow CLI Boundary
 
-`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
+`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.

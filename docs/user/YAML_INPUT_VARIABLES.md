@@ -264,6 +264,17 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.md.summary_file | calculation.type=md | `str` | `'md_summary.json'` | MD JSON summary output. |
 | calculation.md.final_structure | calculation.type=md | `str` | `'md_final.traj'` | Final structure output. |
 | calculation.md.artifact_manifest | calculation.type=md | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
+| calculation.md.postprocess | calculation.type=md | `dict` | `schema defaults` | MD post-processing settings. |
+| calculation.md.postprocess.summary | calculation.md.postprocess | `dict` | `schema defaults` | MD summary settings. |
+| calculation.md.postprocess.summary.enabled | calculation.md.postprocess.summary | `bool` | `True` | Write MD post-processing summary after workflow completion. |
+| calculation.md.postprocess.summary.output | calculation.md.postprocess.summary | `str` | `'md_post_summary.json'` | MD post-processing summary JSON output. |
+| calculation.md.postprocess.summary.tail | calculation.md.postprocess.summary | `int \| NoneType` | `null` | Only include the last N frames in the summary table. |
+| calculation.md.postprocess.convert | calculation.md.postprocess | `dict` | `schema defaults` | MD conversion settings. |
+| calculation.md.postprocess.convert.enabled | calculation.md.postprocess.convert | `bool` | `False` | Convert MD trajectory after workflow completion. |
+| calculation.md.postprocess.convert.format | calculation.md.postprocess.convert | `'traj' \| 'extxyz' \| 'cif' \| 'stru' \| 'xyz'` | `'extxyz'` | ASE output format for MD trajectory conversion. |
+| calculation.md.postprocess.convert.output_prefix | calculation.md.postprocess.convert | `str` | `'md_post'` | Output prefix or directory for converted MD frames. |
+| calculation.md.postprocess.convert.frame | calculation.md.postprocess.convert | `int \| NoneType` | `null` | Optional single frame index to convert. |
+| calculation.md.postprocess.convert.stride | calculation.md.postprocess.convert | `int` | `1` | Frame stride for trajectory conversion. |
 | calculation.md.restart | calculation.type=md | `bool` | `False` | Restart from existing trajectory or native MD output. |
 | calculation.md.directory | calculation.type=md | `str` | `'md_run'` | Workflow run directory. |
 | calculation.md.poll_interval_seconds | calculation.type=md | `float` | `5.0` | ABACUS native MD process polling interval. |

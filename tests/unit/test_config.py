@@ -190,6 +190,33 @@ def test_validate_accepts_ase_md_defaults():
     assert config["calculation"]["ensemble"] == "nvt"
     assert config["calculation"]["algorithm"] == "bussi"
     assert config["calculation"]["trajectory"] == "md.traj"
+    assert config["calculation"]["postprocess"]["summary"]["enabled"] is True
+    assert config["calculation"]["postprocess"]["convert"]["enabled"] is False
+
+
+def test_validate_accepts_md_postprocess_conversion_config():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "md",
+                "driver": "ase",
+                "init_structure": "init.stru",
+                "postprocess": {
+                    "summary": {"enabled": True, "output": "md_auto_summary.json"},
+                    "convert": {
+                        "enabled": True,
+                        "format": "extxyz",
+                        "output_prefix": "md_frames",
+                        "stride": 2,
+                    },
+                },
+            },
+            "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+        }
+    )
+
+    assert config["calculation"]["postprocess"]["summary"]["output"] == "md_auto_summary.json"
+    assert config["calculation"]["postprocess"]["convert"]["output_prefix"] == "md_frames"
 
 
 def test_validate_accepts_abacus_native_md_only_with_abacus():
