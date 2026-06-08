@@ -7,6 +7,7 @@ name = "atst-tools"
 version = "2.1.0"
 description = "Advanced ASE Transition State Tools for ABACUS and Deep-Potential"
 readme = "README.md"
+license = {text = "LGPL-3.0-or-later"}
 requires-python = ">=3.9"
 dependencies = [
     "ase>=3.28.0",
