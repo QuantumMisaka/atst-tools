@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.1.1-blue)](pyproject.toml)
 [![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
@@ -19,15 +19,15 @@ Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.1.0 status |
+| Area | Current 2.1.1 status |
 | :--- | :--- |
-| Package | Installable Python package with the `atst` console command. |
+| Package | Installable Python package from PyPI with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.1.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.0.md). |
+| Release | `2.1.1`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.1.md). |
 
 ## What You Can Run
 
@@ -62,6 +62,12 @@ atst abacus collect ...
 
 ## Installation
 
+### From PyPI (Recommended)
+
+```bash
+pip install atst-tools
+```
+
 ### Development Install
 
 ```bash
@@ -76,7 +82,7 @@ Build a local release artifact:
 
 ```bash
 python -m build
-pip install dist/atst_tools-2.1.0-py3-none-any.whl
+pip install dist/atst_tools-2.1.1-py3-none-any.whl
 ```
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
@@ -249,9 +255,9 @@ Each calculation example uses `config.yaml` for ABACUS and, where available,
 
 ## Validation
 
-The 2.1.0 README badges reflect the current governed project state:
+The 2.1.1 README badges reflect the current governed project state:
 
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.0`.
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.1`.
 - Unit test coverage badge: measured with
   `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
   `coverage report --omit='src/atst_tools/external/*'`.
