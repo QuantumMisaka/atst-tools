@@ -8,34 +8,7 @@ import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 
-
-class DummyCalc(SinglePointCalculator):
-    def __init__(self, energy=0.0):
-        atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
-        super().__init__(atoms, energy=energy, forces=[[0.0, 0.0, 0.0]])
-
-
-class FakeWorld:
-    def __init__(self, size=1, rank=0):
-        self.size = size
-        self.rank = rank
-        self.barriers = 0
-
-    def barrier(self):
-        self.barriers += 1
-
-
-class FakeReducingWorld(FakeWorld):
-    def __init__(self, size=2, rank=0):
-        super().__init__(size=size, rank=rank)
-        self.sums = 0
-
-    def sum(self, value, root=-1):
-        self.sums += 1
-        return value if isinstance(value, float) else None
-
-    def broadcast(self, value, root):
-        raise AssertionError("parallel AbacusNEB should use reductions, not broadcasts")
+from helpers import DummyCalc, FakeReducingWorld, FakeWorld
 
 
 def _atoms(x: float) -> Atoms:
@@ -418,6 +391,39 @@ def test_autoneb_parallel_attaches_only_rank_owned_image(monkeypatch):
     assert active_images[0].calc is None
     assert active_images[1].calc is not None
     assert active_images[2].calc is None
+
+
+def test_autoneb_serial_attach_uses_active_autoneb_indices(monkeypatch):
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3)]
+    directories = []
+
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(autoneb, "get_ase_world", lambda: FakeWorld(size=1, rank=0))
+    monkeypatch.setattr(
+        autoneb.CalculatorFactory,
+        "get_calculator",
+        lambda *args, **kwargs: directories.append(kwargs["directory"]) or DummyCalc(),
+    )
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"directory": "autoneb_run", "parameters": {}}}},
+        "abacus",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "n_simul": 2,
+            "optimizer_kwargs": {"maxstep": 0.05},
+        },
+    )
+    runner._active_autoneb = type("FakeAutoNEBState", (), {"all_images": chain})()
+    runner.attach_calculators([chain[2]])
+    optimizer = runner._get_optimizer()
+
+    assert directories == ["autoneb_run/image_002"]
+    assert getattr(optimizer, "keywords", {}) == {"maxstep": 0.05}
 
 
 def test_run_neb_parallel_endpoint_preparation_only_on_rank_zero(monkeypatch, tmp_path):

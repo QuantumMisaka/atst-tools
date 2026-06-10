@@ -5,29 +5,16 @@ import types
 import json
 from contextlib import ExitStack
 from ase import Atoms
-from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.constraints import FixAtoms
+
+from helpers import DummyCalc
 
 
 def _atoms(energy=0.0):
     atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     atoms.calc = SinglePointCalculator(atoms, energy=energy, forces=np.zeros((1, 3)))
     return atoms
-
-
-class DummyCalc(Calculator):
-    implemented_properties = ["energy", "forces", "stress"]
-
-    def __init__(self, energy=3.0):
-        super().__init__()
-        self.energy = energy
-
-    def calculate(self, atoms=None, properties=("energy",), system_changes=all_changes):
-        super().calculate(atoms, properties, system_changes)
-        self.results["energy"] = self.energy
-        self.results["forces"] = np.zeros((len(atoms), 3))
-        self.results["stress"] = np.zeros(6)
 
 
 def _install_fake_sella(monkeypatch, fake_irc, failure_cls=None):
@@ -1162,7 +1149,7 @@ def test_dimer_displacement_mask_uses_all_vector_components():
     from atst_tools.mep.dimer import AbacusDimer
 
     dimer = AbacusDimer(
-        _atoms(),
+        Atoms("H4", positions=[[0.0, 0.0, 0.0], [0.7, 0.0, 0.0], [1.4, 0.0, 0.0], [2.1, 0.0, 0.0]]),
         {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
         "abacus",
         {"directory": "dimer_run"},
@@ -1177,6 +1164,82 @@ def test_dimer_displacement_mask_uses_all_vector_components():
     )
 
     assert dimer.set_d_mask_by_displacement() == [True, True, True, False]
+
+
+def test_dimer_displacement_mask_requires_one_vector_per_atom():
+    from atst_tools.mep.dimer import AbacusDimer
+
+    dimer = AbacusDimer(
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.7, 0.0, 0.0]]),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+        displacement_vector=np.array([[0.01, 0.0, 0.0]]),
+    )
+
+    with pytest.raises(ValueError, match="natoms"):
+        dimer.set_d_mask_by_displacement()
+
+
+def test_dimer_mask_helpers_respect_constraints_and_specified_indices():
+    from atst_tools.mep.dimer import AbacusDimer
+
+    atoms = Atoms("H3", positions=[[0.0, 0.0, 0.0], [0.7, 0.0, 0.0], [1.4, 0.0, 0.0]])
+    atoms.set_constraint(FixAtoms(indices=[0, 2]))
+    dimer = AbacusDimer(
+        atoms,
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+    )
+
+    assert dimer.set_d_mask_by_constraint() == [False, True, False]
+    assert dimer.set_d_mask_by_specified([0, 2]) == [True, False, True]
+
+
+def test_dimer_rejects_unsupported_eigenmode_after_calculator_setup(monkeypatch):
+    from atst_tools.mep import dimer as dimer_module
+
+    monkeypatch.setattr(dimer_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    dimer = dimer_module.AbacusDimer(
+        _atoms(),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "dimer_run"},
+        init_eigenmode_method="unknown",
+    )
+
+    with pytest.raises(ValueError, match="displacement or gauss"):
+        dimer.run(max_steps=0)
+
+
+def test_dimer_calculator_directory_precedence(monkeypatch):
+    from atst_tools.mep import dimer as dimer_module
+
+    directories = []
+    monkeypatch.setattr(
+        dimer_module.CalculatorFactory,
+        "get_calculator",
+        lambda *args, **kwargs: directories.append(kwargs["directory"]) or DummyCalc(),
+    )
+
+    with_specific = dimer_module.AbacusDimer(
+        _atoms(),
+        {"calculator": {"name": "abacus", "abacus": {"directory": "backend_run", "parameters": {}}}},
+        "abacus",
+        {"directory": "calc_run"},
+    )
+    from_backend = dimer_module.AbacusDimer(
+        _atoms(),
+        {"calculator": {"name": "abacus", "abacus": {"directory": "backend_run", "parameters": {}}}},
+        "abacus",
+        {},
+    )
+
+    with_specific.set_calculator()
+    from_backend.set_calculator()
+
+    assert directories == ["calc_run", "backend_run"]
 
 
 def test_dimer_passes_max_num_rot_to_dimer_control(monkeypatch, tmp_path):

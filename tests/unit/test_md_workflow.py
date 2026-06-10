@@ -141,6 +141,7 @@ def test_abacus_native_md_prepares_inputs_runs_process_and_collects(monkeypatch,
             "steps": 2,
             "directory": str(tmp_path / "native"),
             "trajectory": str(tmp_path / "native" / "native_md.traj"),
+            "final_structure": str(tmp_path / "native" / "md_final.traj"),
             "summary_file": str(tmp_path / "native" / "md_summary.json"),
             "artifact_manifest": str(tmp_path / "native" / "atst_artifacts.json"),
             "poll_interval_seconds": 0.0,
@@ -176,6 +177,8 @@ def test_abacus_native_md_prepares_inputs_runs_process_and_collects(monkeypatch,
     }
     assert (run_dir / "md_post_summary.json").exists()
     assert (run_dir / "md_post.extxyz").exists()
+    assert (run_dir / "md_final.traj").exists()
+    assert not Path("md_final.traj").exists()
     assert len(frames) == 2
 
 

@@ -37,6 +37,28 @@ def test_only_git_style_console_script_is_exposed():
     assert "atst-neb-post" not in text
 
 
+def test_legacy_neb_script_modules_are_not_packaged_entries():
+    script_dir = Path("src/atst_tools/scripts")
+
+    assert not (script_dir / "neb_make.py").exists()
+    assert not (script_dir / "neb_post.py").exists()
+
+
+def test_active_docs_do_not_present_legacy_neb_modules_as_current_entrypoints():
+    active_docs = [
+        *Path("docs/user").glob("*.md"),
+        *Path("docs/developer").glob("*.md"),
+        Path("README.md"),
+        Path("docs/index.md"),
+    ]
+    text = "\n".join(path.read_text(encoding="utf-8") for path in active_docs)
+
+    assert "python src/atst_tools/scripts/neb_make.py" not in text
+    assert "python src/atst_tools/scripts/neb_post.py" not in text
+    assert "atst-neb-make" not in text
+    assert "atst-neb-post" not in text
+
+
 def test_atst_version_uses_governed_package_version(capsys):
     from atst_tools import package_version
     from atst_tools.scripts import cli

@@ -130,6 +130,66 @@ def test_nebpost_nmax_zero_does_not_guess_band_size_twice(monkeypatch):
     assert post.neb_chain == images
 
 
+def test_nebpost_rejects_invalid_nmax_values():
+    images = [_atoms("H", 0.0), _atoms("H", 1.0)]
+
+    with pytest.raises(ValueError, match="n_max"):
+        NEBPost(images, n_max=-1)
+    with pytest.raises(ValueError, match="n_max"):
+        NEBPost(images, n_max=1.5)
+
+
+def test_nebpost_missing_energy_and_forces_recover_to_zero_defaults():
+    images = [
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        Atoms("H", positions=[[1.0, 0.0, 0.0]]),
+        Atoms("H", positions=[[2.0, 0.0, 0.0]]),
+    ]
+
+    profile = NEBPost(images, n_max=0).energy_profile()
+
+    assert [row["energy_eV"] for row in profile] == pytest.approx([0.0, 0.0, 0.0])
+    assert [row["max_force_eV_per_A"] for row in profile] == pytest.approx([0.0, 0.0, 0.0])
+
+
+def test_nebpost_ts_structure_keeps_cif_when_stru_writer_is_unavailable(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    images = [_atoms("H", 0.0), _atoms("H", 1.0), _atoms("H", 0.5)]
+    writes = []
+
+    def fake_write(filename, atoms, format=None):
+        writes.append((filename, format))
+        if format == "stru":
+            raise ValueError("unsupported format")
+        Path(filename).write_text("written\n", encoding="utf-8")
+
+    monkeypatch.setattr("atst_tools.utils.post.write", fake_write)
+
+    NEBPost(images, n_max=0).get_TS_stru("ts")
+
+    assert writes == [("ts.cif", "cif"), ("ts.stru", "stru")]
+    assert (tmp_path / "ts.cif").exists()
+    assert not (tmp_path / "ts.stru").exists()
+
+
+def test_nebpost_plot_and_view_fallbacks(monkeypatch):
+    images = [_atoms("H", 0.0), _atoms("H", 1.0), _atoms("H", 0.5)]
+    post = NEBPost(images, n_max=0)
+    commands = []
+
+    monkeypatch.setattr(
+        "atst_tools.utils.post.NEBTools.plot_bands",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("plot failed")),
+    )
+    monkeypatch.setattr("os.system", lambda command: commands.append(command) or 0)
+
+    assert post.plot_neb_bands() is None
+    assert post.plot_all_bands() is None
+
+    post.view_neb_bands("neb.traj")
+    assert commands == ["ase gui neb.traj@-3:"]
+
+
 def test_read_structure_dispatches_abacus_stru(tmp_path):
     (tmp_path / "STRU").write_text(
         """ATOMIC_SPECIES

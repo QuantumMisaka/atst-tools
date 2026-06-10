@@ -82,14 +82,19 @@ def test_post_md_trajectory_supports_frame_and_stride(tmp_path):
         traj,
         output_prefix=tmp_path / "last",
         output_format="xyz",
+        summary_output=tmp_path / "last_summary.json",
         frame=-1,
     )
     stride_result = post_md_trajectory(
         traj,
         output_prefix=tmp_path / "stride",
         output_format="extxyz",
+        summary_output=tmp_path / "stride_summary.json",
         stride=2,
     )
 
     assert len(read(frame_result["converted"]["path"], index=":")) == 1
     assert len(read(stride_result["converted"]["path"], index=":")) == 2
+    assert (tmp_path / "last_summary.json").exists()
+    assert (tmp_path / "stride_summary.json").exists()
+    assert not Path("md_post_summary.json").exists()

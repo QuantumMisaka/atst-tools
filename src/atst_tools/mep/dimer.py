@@ -107,9 +107,10 @@ class AbacusDimer:
         Returns:
             Calculator: Configured calculator instance.
         """
-        directory = self.calc_config.get('directory', 'dimer_run')
-        if 'abacus' in self.config:
-             directory = self.config['abacus'].get('directory', directory)
+        backend_config = self.config.get("calculator", {}).get(self.calc_name, {})
+        if self.calc_name in self.config:
+            backend_config = {**self.config[self.calc_name], **backend_config}
+        directory = self.calc_config.get("directory") or backend_config.get("directory", "dimer_run")
         
         return CalculatorFactory.get_calculator(
             self.calc_name, 
@@ -130,6 +131,8 @@ class AbacusDimer:
         displacement = np.asarray(self.displacement_vector)
         if displacement.ndim != 2 or displacement.shape[1] != 3:
             raise ValueError("displacement_vector must have shape (natoms, 3)")
+        if displacement.shape[0] != len(self.init_Atoms):
+            raise ValueError("displacement_vector must have one row per atom (natoms, 3)")
         d_mask = (np.linalg.norm(displacement, axis=1) > 0.0).tolist()
         return d_mask
     
