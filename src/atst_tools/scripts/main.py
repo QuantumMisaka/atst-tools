@@ -17,6 +17,7 @@ from atst_tools import package_version
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.abacus_io import run_abacus_check_input_dry_run
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.neb import AbacusNEB
@@ -767,6 +768,20 @@ def run_from_args(args):
         calc_type = config["calculation"]["type"]
         calc_name = config.get("calculator", {}).get("name", "abacus")
         LOGGER.info("Configuration is valid: calculation.type=%s, calculator.name=%s", calc_type, calc_name)
+        if getattr(args, "check_input", False):
+            if calc_name == "abacus":
+                result = run_abacus_check_input_dry_run(
+                    config,
+                    args.config,
+                    timeout_sec=getattr(args, "check_input_timeout", 120),
+                    abacus_executable=(
+                        getattr(args, "abacus_executable", None)
+                        or os.environ.get("ABACUS_EXECUTABLE", "abacus")
+                    ),
+                )
+                LOGGER.info("ABACUS check-input preflight passed: checked=%s", result["checked"])
+            else:
+                LOGGER.info("ABACUS check-input preflight skipped: calculator.name=%s", calc_name)
         return
     
     # New Config Structure Support

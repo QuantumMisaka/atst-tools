@@ -78,6 +78,47 @@ def test_abacus_factory_uses_explicit_version_command(monkeypatch):
     assert "version_command" not in calc.kwargs
 
 
+def test_abacus_factory_rejects_shell_style_omp_assignment(monkeypatch):
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "OMP_NUM_THREADS=6 abacus",
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    with pytest.raises(ValueError, match="calculator.abacus.omp"):
+        factory.CalculatorFactory.get_calculator("abacus", config)
+
+
+def test_abacus_factory_passes_omp_without_shell_assignment(monkeypatch):
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "abacus",
+                "mpi": 1,
+                "omp": 6,
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    profile_kwargs = calc.kwargs["profile"].kwargs
+    assert profile_kwargs["command"] == "abacus"
+    assert profile_kwargs["omp_num_threads"] == 6
+
+
 def test_abacus_factory_formats_mpi_placeholder(monkeypatch):
     monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
     monkeypatch.setattr(factory, "Abacus", FakeAbacus)
@@ -139,6 +180,29 @@ def test_abacus_factory_strips_outer_mpi_env_for_single_process_abacus(monkeypat
     command = calc.kwargs["profile"].kwargs["command"]
     assert command.startswith("env -u OMPI_COMM_WORLD_SIZE")
     assert command.endswith(" abacus")
+
+
+def test_abacus_factory_strips_outer_mpi_env_for_env_wrapped_single_process_abacus(monkeypatch):
+    monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "3")
+    monkeypatch.setattr(factory, "ATSTAbacusProfile", FakeProfile)
+    monkeypatch.setattr(factory, "Abacus", FakeAbacus)
+
+    config = {
+        "calculator": {
+            "name": "abacus",
+            "abacus": {
+                "command": "env FOO=1 abacus",
+                "mpi": 1,
+                "parameters": {"calculation": "scf"},
+            },
+        }
+    }
+
+    calc = factory.CalculatorFactory.get_calculator("abacus", config)
+
+    command = calc.kwargs["profile"].kwargs["command"]
+    assert command.startswith("env -u OMPI_COMM_WORLD_SIZE")
+    assert command.endswith(" env FOO=1 abacus")
 
 
 def test_dp_factory_uses_deepmd_calculator(monkeypatch):

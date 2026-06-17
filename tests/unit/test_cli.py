@@ -172,6 +172,80 @@ def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
     assert "Configuration is valid" in caplog.text
 
 
+def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog):
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    caplog.set_level("INFO")
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+    calls = []
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(
+        run_cli,
+        "run_abacus_check_input_dry_run",
+        lambda config, config_path, timeout_sec=120, abacus_executable="abacus": calls.append(
+            (config, config_path, timeout_sec, abacus_executable)
+        )
+        or {"checked": 1, "workdirs": ["tmp"]},
+    )
+
+    cli.main(
+        [
+            "run",
+            "--dry-run",
+            "--check-input",
+            "--check-input-timeout",
+            "7",
+            "--abacus-executable",
+            "abacus-lts",
+            "config.yaml",
+        ]
+    )
+
+    assert len(calls) == 1
+    called_config, called_path, called_timeout, called_executable = calls[0]
+    assert called_config["calculation"]["type"] == "relax"
+    assert called_config["calculation"]["init_structure"] == "init.stru"
+    assert called_config["calculator"]["name"] == "abacus"
+    assert called_path == "config.yaml"
+    assert called_timeout == 7
+    assert called_executable == "abacus-lts"
+    assert "ABACUS check-input preflight passed" in caplog.text
+
+
+def test_atst_run_check_input_requires_dry_run(monkeypatch):
+    from atst_tools.scripts import cli
+
+    with pytest.raises(SystemExit, match="--check-input requires --dry-run"):
+        cli.main(["run", "--check-input", "config.yaml"])
+
+
+def test_atst_run_dry_run_check_input_skips_non_abacus(monkeypatch, caplog):
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    caplog.set_level("INFO")
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+    }
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(
+        run_cli,
+        "run_abacus_check_input_dry_run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("DP dry-run must not call ABACUS preflight")),
+    )
+
+    cli.main(["run", "--dry-run", "--check-input", "config.yaml"])
+
+    assert "skipped" in caplog.text
+
+
 def test_atst_run_list_types_prints_supported_types(capsys):
     from atst_tools.scripts import cli
 

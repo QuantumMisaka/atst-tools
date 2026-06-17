@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import logging
 from typing import Any, Dict
@@ -29,6 +30,8 @@ _MPI_ENV_KEYS_TO_CLEAR = (
 )
 LOGGER = logging.getLogger(__name__)
 _ABACUS_BACKEND_LOGGED = False
+_SHELL_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
+_MPI_LAUNCHERS = {"mpirun", "mpiexec", "srun"}
 
 
 def _abacus_section(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,16 +55,57 @@ def _as_mp_kpts(kpts: Any) -> Any:
 
 
 def _build_abacus_command(command: str, mpi: int) -> str:
+    _validate_abacus_command(command)
     if "{mpi}" in command:
         return command.format(mpi=mpi)
 
-    executable = shlex.split(command)[0] if command.strip() else "abacus"
-    if mpi > 1 and executable not in {"mpirun", "mpiexec", "srun"}:
+    executable = _effective_abacus_executable(command)
+    if mpi > 1 and executable not in _MPI_LAUNCHERS:
         return f"mpirun -np {mpi} {command}"
-    if mpi == 1 and executable not in {"env", "mpirun", "mpiexec", "srun"} and mpi_launcher_detected():
+    if mpi == 1 and executable not in _MPI_LAUNCHERS and mpi_launcher_detected():
         clear_env = " ".join(f"-u {key}" for key in _MPI_ENV_KEYS_TO_CLEAR)
         return f"env {clear_env} {command or 'abacus'}"
     return command or "abacus"
+
+
+def _effective_abacus_executable(command: str) -> str:
+    parts = shlex.split(command)
+    if not parts:
+        return "abacus"
+    if parts[0] != "env":
+        return parts[0]
+
+    index = 1
+    while index < len(parts):
+        token = parts[index]
+        if token == "--":
+            index += 1
+            break
+        if token == "-u" and index + 1 < len(parts):
+            index += 2
+            continue
+        if token.startswith("--unset="):
+            index += 1
+            continue
+        if token in {"-i", "-0"}:
+            index += 1
+            continue
+        if _SHELL_ASSIGNMENT_RE.match(token):
+            index += 1
+            continue
+        break
+    return parts[index] if index < len(parts) else "env"
+
+
+def _validate_abacus_command(command: str) -> None:
+    parts = shlex.split(command)
+    if parts and _SHELL_ASSIGNMENT_RE.match(parts[0]):
+        raise ValueError(
+            "calculator.abacus.command is executed without a shell and cannot start with "
+            f"a shell-style environment assignment ({parts[0]!r}). Use calculator.abacus.omp "
+            "for OMP_NUM_THREADS, or wrap other environment variables with an explicit "
+            "`env VAR=value ...` command or site wrapper."
+        )
 
 
 def _resolve_directory(path: str | None) -> str | None:

@@ -1,7 +1,7 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.1.0
-**Last Updated**: 2026-06-07
+**Version**: 2.1.2
+**Last Updated**: 2026-06-17
 **Status**: Maintained
 
 This document is the hand-written semantic reference for `config.yaml` files
@@ -453,6 +453,11 @@ as `mpirun -np {mpi} abacus`. This command is the inner ABACUS execution command
 for one image; it is not the outer image-level MPI launcher. In image-level MPI
 mode, a bare single-process ABACUS command is run with outer MPI launcher
 variables removed so ABACUS does not accidentally join the Python MPI world.
+`command` is executed without a shell, so do not start it with shell-style
+environment assignments such as `OMP_NUM_THREADS=4 abacus`; use `omp: 4`
+instead. For other environment variables, use an explicit `env VAR=value ...`
+command or a site wrapper, and set `version_command` when version probing needs
+a different lightweight command.
 
 The same `calculator.abacus` block can be used for local input preparation:
 

@@ -57,6 +57,9 @@ def _add_run_parser(subparsers):
     )
     parser.add_argument("config", nargs="?", help="Path to configuration file (YAML)")
     parser.add_argument("--dry-run", action="store_true", help="Validate YAML and exit")
+    parser.add_argument("--check-input", action="store_true", help="With --dry-run, run ABACUS --check-input for ABACUS calculators")
+    parser.add_argument("--check-input-timeout", type=int, default=120, help="Timeout in seconds for ABACUS --check-input")
+    parser.add_argument("--abacus-executable", default=None, help="ABACUS executable used by --check-input; defaults to ABACUS_EXECUTABLE or abacus")
     parser.add_argument("--restart", action="store_true", help="Resume from checkpoints when supported")
     parser.add_argument("--list-types", action="store_true", help="Print supported calculation types")
     parser.add_argument("--show-template", choices=VALID_CALCULATION_TYPES, help="Print a YAML template")
@@ -68,6 +71,8 @@ def _add_run_parser(subparsers):
 def _run_command(args):
     if not args.config and not args.list_types and not args.show_template:
         raise SystemExit("atst run requires CONFIG unless --list-types or --show-template is used")
+    if args.check_input and not args.dry_run:
+        raise SystemExit("--check-input requires --dry-run")
     return run_cli.run_from_args(args)
 
 

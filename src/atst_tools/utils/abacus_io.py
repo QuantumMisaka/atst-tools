@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import shutil
+import subprocess
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +26,7 @@ _ABACUS_META_KEYS = {
     "mpi",
     "omp",
     "parameters",
+    "version_command",
 }
 _ABACUS_NON_INPUT_KEYS = {
     "basis",
@@ -61,14 +66,6 @@ def _as_mp_kpts(kpts: Any) -> dict[str, Any]:
     raise ValueError("ABACUS kpts must be a 3-item list or a KPT mapping")
 
 
-def _abacus_config(config_file: str) -> dict[str, Any]:
-    config = ConfigLoader.normalize(ConfigLoader.load(config_file))
-    calculator = config.get("calculator", {})
-    if calculator.get("name") != "abacus":
-        raise ValueError("ABACUS helpers require calculator.name: abacus")
-    return dict(calculator.get("abacus", {}))
-
-
 def _merged_abacus_parameters(abacus: dict[str, Any]) -> dict[str, Any]:
     parameters = {
         key: value
@@ -93,6 +90,153 @@ def _input_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _resolve_config_path(value: str | Path, *, base_dir: Path) -> str:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = base_dir / path
+    return str(path.resolve())
+
+
+def _absolutize_abacus_path_parameters(parameters: dict[str, Any], *, base_dir: Path) -> dict[str, Any]:
+    updated = dict(parameters)
+    for key in ("pseudo_dir", "orbital_dir", "basis_dir"):
+        value = updated.get(key)
+        if value:
+            updated[key] = _resolve_config_path(value, base_dir=base_dir)
+    return updated
+
+
+def _representative_structure_paths(config: dict[str, Any], *, base_dir: Path) -> list[str]:
+    calculation = dict(config.get("calculation", {}))
+    paths: list[str] = []
+    for key in ("init_structure", "init_chain", "init_file", "final_file", "product_file"):
+        if calculation.get(key):
+            paths.append(_resolve_config_path(calculation[key], base_dir=base_dir))
+    make = calculation.get("make")
+    if isinstance(make, dict):
+        for key in ("init_structure", "final_structure", "ts_guess"):
+            if make.get(key):
+                paths.append(_resolve_config_path(make[key], base_dir=base_dir))
+    unique: list[str] = []
+    seen = set()
+    for path in paths:
+        if path not in seen:
+            seen.add(path)
+            unique.append(path)
+    return unique
+
+
+def _tail(text: str, limit: int = 4000) -> str:
+    text = text or ""
+    if len(text) <= limit:
+        return text
+    return "...(truncated)...\n" + text[-limit:]
+
+
+def _abacus_check_command(abacus_executable: str) -> list[str]:
+    command = shlex.split(abacus_executable or "abacus")
+    if not command:
+        command = ["abacus"]
+    return [*command, "--check-input"]
+
+
+@contextmanager
+def _temporary_check_root(base_dir: Path):
+    try:
+        manager = tempfile.TemporaryDirectory(prefix=".atst_check_input_", dir=str(base_dir))
+    except OSError:
+        fallback_dir = tempfile.gettempdir()
+        manager = tempfile.TemporaryDirectory(prefix=".atst_check_input_", dir=fallback_dir)
+
+    with manager as tmp:
+        yield tmp
+
+
+def prepare_abacus_input_from_config(
+    config: dict[str, Any],
+    structure_file: str,
+    output_dir: str,
+    *,
+    config_base_dir: str | Path | None = None,
+    force: bool = False,
+) -> dict[str, str]:
+    calculator = config.get("calculator", {})
+    if calculator.get("name") != "abacus":
+        raise ValueError("ABACUS helpers require calculator.name: abacus")
+    abacus = dict(calculator.get("abacus", {}))
+    base_dir = Path(config_base_dir or Path.cwd()).resolve()
+    parameters = _absolutize_abacus_path_parameters(_merged_abacus_parameters(abacus), base_dir=base_dir)
+    destination = Path(output_dir)
+    targets = [destination / "INPUT", destination / "KPT", destination / "STRU"]
+    existing = [path for path in targets if path.exists()]
+    if existing and not force:
+        names = ", ".join(path.name for path in existing)
+        raise FileExistsError(f"Refusing to overwrite existing ABACUS file(s): {names}")
+
+    destination.mkdir(parents=True, exist_ok=True)
+    atoms = read_structure(structure_file)
+    generalio = _import_generalio()
+
+    kpts = _as_mp_kpts(parameters.get("kpts", abacus.get("kpts", [1, 1, 1])))
+    pseudopotentials = parameters.get("pseudopotentials")
+    basissets = parameters.get("basissets")
+
+    paths = {
+        "INPUT": generalio.write_input(_input_parameters(parameters), str(destination / "INPUT")),
+        "KPT": generalio.write_kpt(kpts, str(destination / "KPT")),
+        "STRU": generalio.write_stru(atoms, str(destination), pseudopotentials, basissets, "STRU"),
+    }
+    return paths
+
+
+def run_abacus_check_input_dry_run(
+    config: dict[str, Any],
+    config_path: str,
+    *,
+    timeout_sec: int = 120,
+    abacus_executable: str = "abacus",
+) -> dict[str, Any]:
+    base_dir = Path(config_path).expanduser().resolve().parent
+    structure_paths = _representative_structure_paths(config, base_dir=base_dir)
+    if not structure_paths:
+        raise ValueError("No representative structure path found for ABACUS check-input dry-run")
+
+    checked = 0
+    workdirs: list[str] = []
+    for index, structure_file in enumerate(structure_paths):
+        with _temporary_check_root(base_dir) as tmp:
+            check_dir = Path(tmp) / str(index)
+            prepare_abacus_input_from_config(
+                config,
+                structure_file,
+                str(check_dir),
+                config_base_dir=base_dir,
+                force=True,
+            )
+            env = os.environ.copy()
+            env["OMP_NUM_THREADS"] = "1"
+            proc = subprocess.run(
+                _abacus_check_command(abacus_executable),
+                cwd=str(check_dir),
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=int(timeout_sec),
+            )
+            workdirs.append(str(check_dir))
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    "abacus --check-input failed\n"
+                    f"structure={structure_file}\n"
+                    f"workdir={check_dir}\n"
+                    f"returncode={proc.returncode}\n"
+                    f"stdout:\n{_tail(proc.stdout)}\n"
+                    f"stderr:\n{_tail(proc.stderr)}"
+                )
+            checked += 1
+    return {"checked": checked, "workdirs": workdirs}
+
+
 def prepare_abacus_input(
     config_file: str,
     structure_file: str,
@@ -115,29 +259,14 @@ def prepare_abacus_input(
         FileExistsError: If output files exist and ``force`` is false.
         ValueError: If the configuration is not an ABACUS configuration.
     """
-    abacus = _abacus_config(config_file)
-    parameters = _merged_abacus_parameters(abacus)
-    destination = Path(output_dir)
-    targets = [destination / "INPUT", destination / "KPT", destination / "STRU"]
-    existing = [path for path in targets if path.exists()]
-    if existing and not force:
-        names = ", ".join(path.name for path in existing)
-        raise FileExistsError(f"Refusing to overwrite existing ABACUS file(s): {names}")
-
-    destination.mkdir(parents=True, exist_ok=True)
-    atoms = read_structure(structure_file)
-    generalio = _import_generalio()
-
-    kpts = _as_mp_kpts(parameters.get("kpts", abacus.get("kpts", [1, 1, 1])))
-    pseudopotentials = parameters.get("pseudopotentials")
-    basissets = parameters.get("basissets")
-
-    paths = {
-        "INPUT": generalio.write_input(_input_parameters(parameters), str(destination / "INPUT")),
-        "KPT": generalio.write_kpt(kpts, str(destination / "KPT")),
-        "STRU": generalio.write_stru(atoms, str(destination), pseudopotentials, basissets, "STRU"),
-    }
-    return paths
+    config = ConfigLoader.normalize(ConfigLoader.load(config_file))
+    return prepare_abacus_input_from_config(
+        config,
+        structure_file,
+        output_dir,
+        config_base_dir=Path(config_file).expanduser().resolve().parent,
+        force=force,
+    )
 
 
 def _find_running_logs(run_dir: Path) -> list[Path]:
