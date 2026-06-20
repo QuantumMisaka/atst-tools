@@ -1,3 +1,5 @@
+"""Configuration loader and schema tests for ATST workflow YAML contracts."""
+
 from pathlib import Path
 
 import pytest

@@ -1,3 +1,5 @@
+"""CLI contract tests for the unified `atst` command and its workflow/post-processing subcommands."""
+
 from pathlib import Path
 import json
 import re

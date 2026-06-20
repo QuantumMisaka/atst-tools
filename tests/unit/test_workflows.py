@@ -1,3 +1,5 @@
+"""Workflow orchestration tests for ATST NEB, AutoNEB, D2S, Dimer, Sella, IRC, and vibration paths."""
+
 import numpy as np
 import pytest
 import sys
