@@ -1,0 +1,9 @@
+reference_results: examples/reference_results.json
+dp_reference_results: examples/dp_reference_results.json
+cases:
+  - name: 01_neb_Li-Si
+    dmf_summary: examples/18_dmf_production_validation/runs/01_neb_Li-Si/dmf_summary.json
+    dmf_candidate: examples/18_dmf_production_validation/runs/01_neb_Li-Si/dmf_tmax.traj
+  - name: 02_neb_H2-Au
+    dmf_summary: examples/18_dmf_production_validation/runs/02_neb_H2-Au/dmf_summary.json
+    dmf_candidate: examples/18_dmf_production_validation/runs/02_neb_H2-Au/dmf_tmax.traj

@@ -14,8 +14,8 @@ atst run CONFIG.yaml
 ```
 
 Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, CCQN, D2S,
-relaxation, vibration, or IRC calculations driven by YAML instead of one-off
-Python scripts.
+relaxation, vibration, IRC, MD, or experimental DMF calculations driven by YAML
+instead of one-off Python scripts.
 
 ## At A Glance
 
@@ -43,6 +43,7 @@ Python scripts.
 | `vibration` | Vibrations and thermochemistry | Harmonic and ideal-gas helpers. |
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
 | `md` | Molecular dynamics | ASE-driven MD with ABACUS/DP calculators, or ABACUS native MD input/run/output orchestration. |
+| `dmf` | Direct MaxFlux | Experimental TS candidate/path optimizer; non-periodic first and not a validated TS result. |
 
 Local pre/post-processing commands are intentionally lightweight. They do not
 construct calculators or submit expensive calculations:
@@ -92,6 +93,8 @@ need the selected calculator runtime:
   files referenced by YAML.
 - **DP / DeePMD-kit**: a working DeePMD-kit Python installation and a model file
   outside git-tracked paths.
+- **DMF**: ATST-Tools vendors PyDMF, but runtime still requires `cyipopt` and
+  IPOPT, for example from conda-forge.
 
 ## Quick Start
 
@@ -126,6 +129,7 @@ Print a schema-governed template:
 ```bash
 atst run --show-template neb --calculator abacus
 atst run --show-template neb --calculator dp
+atst run --show-template dmf --calculator dp
 ```
 
 List available workflow types:

@@ -28,7 +28,7 @@ exact defaults that will be applied.
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md
+  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md, dmf
   # ... task specific parameters ...
 
 calculator:
@@ -59,7 +59,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`. |
+| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`, `dmf`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -209,6 +209,61 @@ After successful MD workflows, ATST-Tools writes a post-processing summary by
 default. Trajectory conversion is opt-in in YAML or can be run later with
 `atst md post`.
 
+### 2.3c Direct MaxFlux (DMF, experimental)
+**Type**: `dmf`
+
+DMF is an experimental standalone Direct MaxFlux path optimizer. It writes a
+transition-state candidate from the path maximum (`tmax`), not a validated TS.
+Use Dimer, Sella, CCQN, vibration, and IRC validation before reporting a final
+transition state.
+
+ATST-Tools vendors PyDMF under `atst_tools.external.pydmf`, but runtime still
+requires `cyipopt` and IPOPT in the active environment.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `init_file` | string | **Required** | Initial endpoint structure. |
+| `final_file` | string | **Required** | Final endpoint structure. |
+| `directory` | string | `dmf_run` | Calculator working directory. |
+| `trajectory` | string | `dmf_path.traj` | DMF evaluation path trajectory. |
+| `tmax_trajectory` | string | `dmf_tmax.traj` | Highest-energy candidate trajectory with single-point energy/forces attached. |
+| `summary_file` | string | `dmf_summary.json` | JSON summary with `experimental: true`, `result_type: ts_candidate`, `validated_ts: false`, `nmove`, and final `t_eval`. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
+| `initial_path` | string | `cfbenm` | Initial path generator: `linear`, `fbenm`, or `cfbenm`. |
+| `nsegs` | int | `4` | Number of B-spline segments. |
+| `dspl` | int | `3` | B-spline polynomial degree. |
+| `nmove` | int | `10` | Number of movable DMF evaluation images; the written path has `nmove + 2` images including endpoints. |
+| `beta` | float/null | `null` | Optional DirectMaxFlux beta override. |
+| `update_teval` | bool | `true` | Enable adaptive evaluation point updates. |
+| `tol` | string/float | `middle` | IPOPT tolerance preset or numeric value. |
+| `ipopt_options` | dict | `{}` | Additional IPOPT options forwarded to PyDMF, such as `max_iter` or `print_level`. |
+| `parallel` | bool | `false` | Enable PyDMF threaded energy/force evaluation. |
+| `remove_rotation_and_translation` | bool | `true` | Remove global translation/rotation for non-periodic systems. |
+| `pbc_mode` | string | `reject` | `reject` or experimental `cartesian_unwrapped`. |
+| `confirm_pbc_risk` | bool | `false` | Required for `pbc_mode: cartesian_unwrapped`. |
+
+Periodic endpoints are rejected by default. The experimental
+`cartesian_unwrapped` mode requires identical endpoint cell/PBC flags,
+`initial_path: linear`, `confirm_pbc_risk: true`, and
+`remove_rotation_and_translation: false`. It uses the current Cartesian
+positions as supplied and does not provide MIC-aware or fractional-coordinate
+DMF.
+
+```yaml
+calculation:
+  type: dmf
+  init_file: inputs/init.xyz
+  final_file: inputs/final.xyz
+  initial_path: cfbenm
+  pbc_mode: reject
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+```
+
 ### 2.4 Dimer Method
 **Type**: `dimer`
 
@@ -351,16 +406,34 @@ After a vibration run, ATST-Tools writes `results_file`, a standardized `validat
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `method` | string | `dimer` | Single-ended method: `dimer`, `sella`, or `ccqn`. |
+| `rough_method` | string | `neb` | Rough double-ended method. `neb` is the supported default; `dmf` enables the experimental DMF rough stage. |
 | `init_file` | string | **Required** | Initial state structure file. |
 | `final_file` | string | **Required** | Final state structure file. |
 | `neb` | dict | `{}` | Configuration for the rough DyNEB phase. |
+| `dmf` | dict | `{}` | Experimental rough DMF configuration used when `rough_method: dmf`. |
 | `dimer` | dict | `{}` | Configuration for Dimer phase (if method=dimer). |
 | `sella` | dict | `{}` | Configuration for Sella phase (if method=sella). |
 | `ccqn` | dict | `{}` | Configuration for CCQN phase (if method=ccqn). |
 | `endpoint_optimization` | dict | Enabled by default | Endpoint optimization policy before rough DyNEB. |
 | `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 
-D2S optimizes endpoints by default, then builds the rough DyNEB chain. `neb.idpp_maxiter` and `neb.idpp_tol` configure the in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough DyNEB FIRE optimizer. If `method: ccqn`, the default `ccqn.e_vector_method: interp` uses the highest-energy rough NEB image and its neighboring image as a local product-like reference, so no user reactive-bond input is required. If `ccqn.e_vector_method: ic`, set `ccqn.reactive_bonds`. If input endpoints already carry energy/force results, this stage is skipped by default:
+D2S optimizes endpoints by default, then builds the rough DyNEB chain when
+`rough_method: neb`. `neb.idpp_maxiter` and `neb.idpp_tol` configure the
+in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE
+`DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough
+DyNEB FIRE optimizer. With `rough_method: dmf`, D2S writes optimized endpoints
+for the standalone DMF runner, reads the DMF evaluation path, records
+`dmf_candidate -> single_ended -> validation` artifacts, and then continues to
+the selected Dimer/Sella/CCQN stage. When the DMF summary includes final
+`t_eval`, D2S selects neighboring rough-path images from the actual evaluation
+grid around `tmax`; legacy summaries without `t_eval` fall back to the uniform
+grid estimate. DMF remains experimental and is not the default production path
+until refinement plus vibration/IRC runtime validation is available. If
+`method: ccqn`, the default `ccqn.e_vector_method: interp` uses the
+highest-energy rough NEB image and its neighboring image as a local
+product-like reference, so no user reactive-bond input is required. If
+`ccqn.e_vector_method: ic`, set `ccqn.reactive_bonds`. If input endpoints
+already carry energy/force results, this stage is skipped by default:
 
 ```yaml
 calculation:

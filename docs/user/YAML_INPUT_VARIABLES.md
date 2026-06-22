@@ -110,6 +110,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.ccqn.directory | calculation.type=ccqn | `str` | `'ccqn_run'` | Calculator working directory. |
 | calculation.d2s.type | calculation.type=d2s | `'d2s'` | `required` | Select the double-ended to single-ended transition-state workflow. |
 | calculation.d2s.method | calculation.type=d2s | `'dimer' \| 'sella' \| 'ccqn'` | `'dimer'` | Single-ended refinement method. |
+| calculation.d2s.rough_method | calculation.type=d2s | `'neb' \| 'dmf'` | `'neb'` | Double-ended rough path method; dmf is experimental and neb remains the supported default. |
 | calculation.d2s.init_file | calculation.type=d2s | `str` | `required` | Initial-state structure file. |
 | calculation.d2s.final_file | calculation.type=d2s | `str` | `required` | Final-state structure file. |
 | calculation.d2s.directory | calculation.type=d2s | `str` | `'run_d2s'` | Base workflow directory. |
@@ -131,6 +132,24 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.neb.idpp_tol | calculation.d2s.neb | `float` | `0.0001` | Gradient tolerance for the rough-path Fast IDPP optimizer. |
 | calculation.d2s.neb.max_steps | calculation.d2s.neb | `int` | `200` | Rough DyNEB maximum steps. |
 | calculation.d2s.neb.optimizer_kwargs | calculation.d2s.neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the rough DyNEB FIRE optimizer. |
+| calculation.d2s.dmf | calculation.type=d2s | `dict` | `schema defaults` | Experimental rough DMF configuration. |
+| calculation.d2s.dmf.directory | calculation.d2s.dmf | `str` | `'dmf_run'` | Calculator working directory. |
+| calculation.d2s.dmf.trajectory | calculation.d2s.dmf | `str` | `'dmf_path.traj'` | DMF evaluation path trajectory output. |
+| calculation.d2s.dmf.tmax_trajectory | calculation.d2s.dmf | `str` | `'dmf_tmax.traj'` | Highest-energy DMF candidate trajectory output with single-point energy/forces. |
+| calculation.d2s.dmf.summary_file | calculation.d2s.dmf | `str` | `'dmf_summary.json'` | DMF JSON summary output. |
+| calculation.d2s.dmf.artifact_manifest | calculation.d2s.dmf | `str` | `'dmf_artifacts.json'` | Nested DMF artifact manifest JSON output. |
+| calculation.d2s.dmf.initial_path | calculation.d2s.dmf | `'linear' \| 'fbenm' \| 'cfbenm'` | `'cfbenm'` | Initial path generator before accurate DirectMaxFlux optimization. |
+| calculation.d2s.dmf.nsegs | calculation.d2s.dmf | `int` | `4` | Number of B-spline segments. |
+| calculation.d2s.dmf.dspl | calculation.d2s.dmf | `int` | `3` | B-spline polynomial degree. |
+| calculation.d2s.dmf.nmove | calculation.d2s.dmf | `int` | `10` | Number of movable DMF evaluation images; the written path has nmove + 2 images including endpoints. |
+| calculation.d2s.dmf.beta | calculation.d2s.dmf | `float \| NoneType` | `null` | Optional DirectMaxFlux beta override. |
+| calculation.d2s.dmf.update_teval | calculation.d2s.dmf | `bool` | `True` | Enable adaptive t_eval updates during DirectMaxFlux. |
+| calculation.d2s.dmf.tol | calculation.d2s.dmf | `float \| 'tight' \| 'middle' \| 'loose'` | `'middle'` | IPOPT dual tolerance preset or value. |
+| calculation.d2s.dmf.ipopt_options | calculation.d2s.dmf | `dict[str, Any]` | `schema defaults` | Additional IPOPT options forwarded to PyDMF, e.g. max_iter or print_level. |
+| calculation.d2s.dmf.parallel | calculation.d2s.dmf | `bool` | `False` | Enable PyDMF threaded energy/force evaluation. |
+| calculation.d2s.dmf.remove_rotation_and_translation | calculation.d2s.dmf | `bool` | `True` | Remove global translational and rotational degrees of freedom in non-periodic DMF. |
+| calculation.d2s.dmf.pbc_mode | calculation.d2s.dmf | `'reject' \| 'cartesian_unwrapped'` | `'reject'` | PBC handling mode; cartesian_unwrapped is experimental and assumes pre-unwrapped Cartesian endpoints. |
+| calculation.d2s.dmf.confirm_pbc_risk | calculation.d2s.dmf | `bool` | `False` | Required acknowledgement for experimental cartesian_unwrapped PBC mode. |
 | calculation.d2s.dimer | calculation.type=d2s | `dict` | `schema defaults` | Dimer refinement configuration. |
 | calculation.d2s.dimer.fmax | calculation.d2s.dimer | `float` | `0.05` | Dimer force threshold. |
 | calculation.d2s.dimer.max_steps | calculation.d2s.dimer | `int \| NoneType` | `null` | Dimer maximum steps. |
@@ -279,3 +298,23 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.md.directory | calculation.type=md | `str` | `'md_run'` | Workflow run directory. |
 | calculation.md.poll_interval_seconds | calculation.type=md | `float` | `5.0` | ABACUS native MD process polling interval. |
 | calculation.md.timeout_seconds | calculation.type=md | `float \| NoneType` | `null` | Optional ABACUS native MD timeout. |
+| calculation.dmf.directory | calculation.type=dmf | `str` | `'dmf_run'` | Calculator working directory. |
+| calculation.dmf.trajectory | calculation.type=dmf | `str` | `'dmf_path.traj'` | DMF evaluation path trajectory output. |
+| calculation.dmf.tmax_trajectory | calculation.type=dmf | `str` | `'dmf_tmax.traj'` | Highest-energy DMF candidate trajectory output with single-point energy/forces. |
+| calculation.dmf.summary_file | calculation.type=dmf | `str` | `'dmf_summary.json'` | DMF JSON summary output. |
+| calculation.dmf.artifact_manifest | calculation.type=dmf | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
+| calculation.dmf.initial_path | calculation.type=dmf | `'linear' \| 'fbenm' \| 'cfbenm'` | `'cfbenm'` | Initial path generator before accurate DirectMaxFlux optimization. |
+| calculation.dmf.nsegs | calculation.type=dmf | `int` | `4` | Number of B-spline segments. |
+| calculation.dmf.dspl | calculation.type=dmf | `int` | `3` | B-spline polynomial degree. |
+| calculation.dmf.nmove | calculation.type=dmf | `int` | `10` | Number of movable DMF evaluation images; the written path has nmove + 2 images including endpoints. |
+| calculation.dmf.beta | calculation.type=dmf | `float \| NoneType` | `null` | Optional DirectMaxFlux beta override. |
+| calculation.dmf.update_teval | calculation.type=dmf | `bool` | `True` | Enable adaptive t_eval updates during DirectMaxFlux. |
+| calculation.dmf.tol | calculation.type=dmf | `float \| 'tight' \| 'middle' \| 'loose'` | `'middle'` | IPOPT dual tolerance preset or value. |
+| calculation.dmf.ipopt_options | calculation.type=dmf | `dict[str, Any]` | `schema defaults` | Additional IPOPT options forwarded to PyDMF, e.g. max_iter or print_level. |
+| calculation.dmf.parallel | calculation.type=dmf | `bool` | `False` | Enable PyDMF threaded energy/force evaluation. |
+| calculation.dmf.remove_rotation_and_translation | calculation.type=dmf | `bool` | `True` | Remove global translational and rotational degrees of freedom in non-periodic DMF. |
+| calculation.dmf.pbc_mode | calculation.type=dmf | `'reject' \| 'cartesian_unwrapped'` | `'reject'` | PBC handling mode; cartesian_unwrapped is experimental and assumes pre-unwrapped Cartesian endpoints. |
+| calculation.dmf.confirm_pbc_risk | calculation.type=dmf | `bool` | `False` | Required acknowledgement for experimental cartesian_unwrapped PBC mode. |
+| calculation.dmf.type | calculation.type=dmf | `'dmf'` | `required` | Select the experimental standalone Direct MaxFlux workflow. |
+| calculation.dmf.init_file | calculation.type=dmf | `str` | `required` | Initial-state structure file. |
+| calculation.dmf.final_file | calculation.type=dmf | `str` | `required` | Final-state structure file. |

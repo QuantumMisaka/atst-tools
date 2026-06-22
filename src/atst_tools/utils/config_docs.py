@@ -14,6 +14,7 @@ from atst_tools.utils.config_schema import (
     AutoNEBCalculation,
     CCQNCalculation,
     D2SCalculation,
+    DMFCalculation,
     DimerCalculation,
     IRCCalculation,
     MDCalculation,
@@ -35,6 +36,7 @@ CALCULATION_MODELS: tuple[type[BaseModel], ...] = (
     VibrationCalculation,
     IRCCalculation,
     MDCalculation,
+    DMFCalculation,
 )
 
 

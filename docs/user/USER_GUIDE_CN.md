@@ -5,7 +5,7 @@
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
 当前 2.1.2 版本把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
-D2S、结构优化、振动分析和 IRC 任务。
+D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
 
 ATST-Tools 的边界是工作流编排、配置校验、calculator 构造、轨迹命名、
 重启辅助、ABACUS 常见前后处理和示例文档。ABACUS、DeePMD-kit、ASE、Sella
@@ -33,6 +33,7 @@ ATST-Tools 只安装工作流层。真实计算还需要后端运行时：
 
 - ABACUS 工作流需要可执行的 `abacus`、赝势、数值轨道和可用计算资源。
 - DP 工作流需要 `deepmd-kit` Python 包和外部模型文件。
+- DMF 工作流 vendored 了 PyDMF 源码，但运行时仍需要 `cyipopt` 和 IPOPT。
 - SAI GPU 节点上的 ABACUS LCAO 示例通常需要在 `calculator.abacus.parameters`
   中设置 `ks_solver: cusolver`。
 
@@ -66,6 +67,7 @@ atst run --show-template neb --calculator abacus
 atst run --show-template ccqn --calculator abacus
 atst run --show-template d2s --calculator dp
 atst run --show-template md --calculator abacus
+atst run --show-template dmf --calculator dp
 ```
 
 更多示例学习路径见 [examples/README.md](../../examples/README.md)。完整功能状态见
@@ -87,7 +89,14 @@ atst run --show-template md --calculator abacus
 | `vibration` | 振动频率和热化学校正 | `atst run config.yaml` |
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
 | `md` | 分子动力学；支持 ASE 驱动和 ABACUS 原生 MD | `atst run config.yaml` |
+| `dmf` | Direct MaxFlux 实验性 TS candidate / path optimizer | `atst run config.yaml` |
 
+DMF 当前是 experimental：默认只面向非周期基线，输出 `tmax` TS candidate，
+不能表述为已验证 TS；周期输入默认拒绝，只有显式设置
+`pbc_mode: cartesian_unwrapped`、`initial_path: linear`、确认风险并关闭
+rotation/translation removal 时才进入实验路径。D2S 默认仍使用 rough NEB；
+`rough_method: dmf` 可作为实验性 rough stage 生成候选后接 Dimer/Sella/CCQN，
+但在 refinement、vibration/IRC runtime 验收完成前不能视为 supported 生产路径。
 D2S、CCQN 和 IRC 已纳入 2.0.x schema 与示例，不再是待集成状态。功能支持状态、
 验证边界和暂不支持项目以
 [FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 为准。

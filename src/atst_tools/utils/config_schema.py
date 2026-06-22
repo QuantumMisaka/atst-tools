@@ -7,7 +7,19 @@ from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-VALID_CALCULATION_TYPES = ("neb", "autoneb", "dimer", "sella", "ccqn", "d2s", "relax", "vibration", "irc", "md")
+VALID_CALCULATION_TYPES = (
+    "neb",
+    "autoneb",
+    "dimer",
+    "sella",
+    "ccqn",
+    "d2s",
+    "relax",
+    "vibration",
+    "irc",
+    "md",
+    "dmf",
+)
 VALID_CALCULATORS = ("abacus", "dp", "deepmd")
 
 
@@ -291,6 +303,77 @@ class VibrationCalculation(StrictConfig):
     )
 
 
+class DMFSettings(StrictConfig):
+    """Direct MaxFlux method settings shared by standalone DMF and D2S."""
+
+    directory: str = Field(default="dmf_run", description="Calculator working directory.")
+    trajectory: str = Field(default="dmf_path.traj", description="DMF evaluation path trajectory output.")
+    tmax_trajectory: str = Field(
+        default="dmf_tmax.traj",
+        description="Highest-energy DMF candidate trajectory output with single-point energy/forces.",
+    )
+    summary_file: str = Field(default="dmf_summary.json", description="DMF JSON summary output.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
+    initial_path: Literal["linear", "fbenm", "cfbenm"] = Field(
+        default="cfbenm",
+        description="Initial path generator before accurate DirectMaxFlux optimization.",
+    )
+    nsegs: int = Field(default=4, gt=0, description="Number of B-spline segments.")
+    dspl: int = Field(default=3, gt=0, description="B-spline polynomial degree.")
+    nmove: int = Field(
+        default=10,
+        gt=0,
+        description="Number of movable DMF evaluation images; the written path has nmove + 2 images including endpoints.",
+    )
+    beta: float | None = Field(default=None, gt=0, description="Optional DirectMaxFlux beta override.")
+    update_teval: bool = Field(default=True, description="Enable adaptive t_eval updates during DirectMaxFlux.")
+    tol: float | Literal["tight", "middle", "loose"] = Field(default="middle", description="IPOPT dual tolerance preset or value.")
+    ipopt_options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional IPOPT options forwarded to PyDMF, e.g. max_iter or print_level.",
+    )
+    parallel: bool = Field(default=False, description="Enable PyDMF threaded energy/force evaluation.")
+    remove_rotation_and_translation: bool = Field(
+        default=True,
+        description="Remove global translational and rotational degrees of freedom in non-periodic DMF.",
+    )
+    pbc_mode: Literal["reject", "cartesian_unwrapped"] = Field(
+        default="reject",
+        description="PBC handling mode; cartesian_unwrapped is experimental and assumes pre-unwrapped Cartesian endpoints.",
+    )
+    confirm_pbc_risk: bool = Field(
+        default=False,
+        description="Required acknowledgement for experimental cartesian_unwrapped PBC mode.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_pbc_mode_options(self) -> "DMFSettings":
+        if self.pbc_mode == "cartesian_unwrapped":
+            if not self.confirm_pbc_risk:
+                raise ValueError("calculation.confirm_pbc_risk=true is required for pbc_mode=cartesian_unwrapped")
+            if self.remove_rotation_and_translation:
+                raise ValueError(
+                    "calculation.remove_rotation_and_translation=false is required for pbc_mode=cartesian_unwrapped"
+                )
+            if self.initial_path != "linear":
+                raise ValueError("calculation.initial_path=linear is required for pbc_mode=cartesian_unwrapped")
+        return self
+
+
+class DMFCalculation(DMFSettings):
+    """Standalone experimental Direct MaxFlux transition-state candidate workflow."""
+
+    type: Literal["dmf"] = Field(description="Select the experimental standalone Direct MaxFlux workflow.")
+    init_file: str = Field(description="Initial-state structure file.")
+    final_file: str = Field(description="Final-state structure file.")
+
+
+class D2SDMFConfig(DMFSettings):
+    """D2S rough Direct MaxFlux phase configuration."""
+
+    artifact_manifest: str = Field(default="dmf_artifacts.json", description="Nested DMF artifact manifest JSON output.")
+
+
 class EndpointOptimizationConfig(StrictConfig):
     """D2S endpoint optimization configuration."""
 
@@ -389,6 +472,10 @@ class D2SCalculation(StrictConfig):
 
     type: Literal["d2s"] = Field(description="Select the double-ended to single-ended transition-state workflow.")
     method: Literal["dimer", "sella", "ccqn"] = Field(default="dimer", description="Single-ended refinement method.")
+    rough_method: Literal["neb", "dmf"] = Field(
+        default="neb",
+        description="Double-ended rough path method; dmf is experimental and neb remains the supported default.",
+    )
     init_file: str = Field(description="Initial-state structure file.")
     final_file: str = Field(description="Final-state structure file.")
     directory: str = Field(default="run_d2s", description="Base workflow directory.")
@@ -400,6 +487,7 @@ class D2SCalculation(StrictConfig):
         description="Endpoint optimization policy.",
     )
     neb: D2SNEBConfig = Field(default_factory=D2SNEBConfig, description="Rough DyNEB configuration.")
+    dmf: D2SDMFConfig = Field(default_factory=D2SDMFConfig, description="Experimental rough DMF configuration.")
     dimer: D2SDimerConfig = Field(default_factory=D2SDimerConfig, description="Dimer refinement configuration.")
     sella: D2SSellaConfig = Field(default_factory=D2SSellaConfig, description="Sella refinement configuration.")
     ccqn: D2SCCQNConfig = Field(default_factory=D2SCCQNConfig, description="CCQN refinement configuration.")
@@ -528,6 +616,7 @@ CalculationConfig = Annotated[
         VibrationCalculation,
         IRCCalculation,
         MDCalculation,
+        DMFCalculation,
     ],
     Field(discriminator="type"),
 ]
@@ -543,6 +632,7 @@ CALCULATION_SCHEMA_BY_TYPE: dict[str, type[StrictConfig]] = {
     "vibration": VibrationCalculation,
     "irc": IRCCalculation,
     "md": MDCalculation,
+    "dmf": DMFCalculation,
 }
 
 

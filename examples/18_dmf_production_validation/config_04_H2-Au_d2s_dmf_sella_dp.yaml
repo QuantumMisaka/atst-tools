@@ -1,0 +1,45 @@
+calculation:
+  type: d2s
+  method: sella
+  rough_method: dmf
+  init_file: inputs/02_neb_H2-Au_init.extxyz
+  final_file: inputs/02_neb_H2-Au_final.extxyz
+  directory: runs/04_H2-Au_d2s_dmf
+  artifact_manifest: runs/04_H2-Au_d2s_dmf/atst_artifacts.json
+  endpoint_optimization:
+    enabled: false
+  dmf:
+    directory: runs/04_H2-Au_d2s_dmf/dmf_run
+    trajectory: runs/04_H2-Au_d2s_dmf/dmf_path.traj
+    tmax_trajectory: runs/04_H2-Au_d2s_dmf/dmf_tmax.traj
+    summary_file: runs/04_H2-Au_d2s_dmf/dmf_summary.json
+    artifact_manifest: runs/04_H2-Au_d2s_dmf/dmf_artifacts.json
+    initial_path: linear
+    nsegs: 4
+    dspl: 3
+    nmove: 10
+    update_teval: true
+    tol: middle
+    ipopt_options:
+      max_iter: 80
+      print_level: 0
+    parallel: false
+    remove_rotation_and_translation: false
+    pbc_mode: cartesian_unwrapped
+    confirm_pbc_risk: true
+  sella:
+    fmax: 0.05
+    max_steps: 20
+    eta: 0.005
+    trajectory: runs/04_H2-Au_d2s_dmf/sella.traj
+    directory: runs/04_H2-Au_d2s_dmf/SELLA
+  vibration:
+    enabled: false
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: false

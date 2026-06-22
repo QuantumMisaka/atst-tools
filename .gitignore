@@ -44,6 +44,7 @@ STRU
 STRU.bak.*
 submit_atst_abacus.sbatch
 validation_runs/
+examples/18_dmf_production_validation/runs/
 
 # Keep curated examples and test fixtures versioned.
 !examples/**/config*.yaml

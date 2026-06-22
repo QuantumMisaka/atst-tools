@@ -35,6 +35,7 @@ from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.ts_validation import build_ts_validation_summary
+from atst_tools.workflows.dmf import DMFWorkflow
 
 
 class D2SWorkflow:
@@ -51,13 +52,21 @@ class D2SWorkflow:
         self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.method = calc_config["method"].lower()
+        self.rough_method = calc_config.get("rough_method", "neb").lower()
         self.neb_config = calc_config["neb"]
+        self.dmf_config = calc_config["dmf"]
         self.single_config = calc_config[self.method]
         self.base_directory = self._base_directory()
         self.restart = calc_config["restart"]
+        self._rough_stage_artifacts: list[dict[str, Any]] = []
+        self._rough_stage_record = {"name": "rough_neb", "status": "complete"}
+        self._rough_ts_guess = None
+        self._rough_candidate_index = None
 
         if self.method not in {"dimer", "sella", "ccqn"}:
             raise ValueError("D2S method must be 'dimer', 'sella', or 'ccqn'")
+        if self.rough_method not in {"neb", "dmf"}:
+            raise ValueError("D2S rough_method must be 'neb' or 'dmf'")
 
     def _base_directory(self) -> str:
         if "calculator" in self.config:
@@ -135,6 +144,10 @@ class D2SWorkflow:
 
     def run_rough_neb(self, init_atoms, final_atoms):
         print("=== Step 2: Running Rough NEB ===")
+        self._rough_stage_artifacts = [{"role": "rough_neb_trajectory", "path": "neb_rough.traj"}]
+        self._rough_stage_record = {"name": "rough_neb", "status": "complete"}
+        self._rough_ts_guess = None
+        self._rough_candidate_index = None
         if self.restart and os.path.exists("neb_rough.traj"):
             return get_last_neb_band("neb_rough.traj", self.neb_config["n_images"] + 2)
 
@@ -197,6 +210,56 @@ class D2SWorkflow:
         opt = FIRE(neb, trajectory="neb_rough.traj", **self.neb_config.get("optimizer_kwargs", {}))
         opt.run(fmax=fmax, steps=max_steps)
         return images
+
+    def _dmf_candidate_index(self, summary: dict[str, Any], chain_length: int) -> int | None:
+        tmax = summary.get("tmax")
+        if tmax is None or chain_length <= 0:
+            return None
+
+        tmax_value = float(tmax)
+        t_eval = summary.get("t_eval")
+        if t_eval is not None and len(t_eval) == chain_length:
+            values = np.asarray(t_eval, dtype=float)
+            if values.shape == (chain_length,) and np.all(np.isfinite(values)):
+                return int(np.argmin(np.abs(values - tmax_value)))
+
+        index = int(round(tmax_value * max(chain_length - 1, 0)))
+        return min(max(index, 0), chain_length - 1)
+
+    def run_rough_dmf(self, init_atoms, final_atoms):
+        """Run the experimental DMF rough stage and return the sampled path."""
+        print("=== Step 2: Running Rough DMF (experimental) ===")
+        dmf_config = deepcopy(self.dmf_config)
+        dmf_config["type"] = "dmf"
+        dmf_config.setdefault("init_file", "dmf_endpoint_initial.traj")
+        dmf_config.setdefault("final_file", "dmf_endpoint_final.traj")
+
+        for key in ("init_file", "final_file", "trajectory", "tmax_trajectory", "summary_file", "artifact_manifest"):
+            parent = os.path.dirname(dmf_config[key])
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+
+        write(dmf_config["init_file"], init_atoms)
+        write(dmf_config["final_file"], final_atoms)
+
+        summary = DMFWorkflow(self.config, self.calc_name, dmf_config).run()
+        chain = read(dmf_config["trajectory"], index=":")
+        self._rough_ts_guess = read(dmf_config["tmax_trajectory"])
+        tmax = summary.get("tmax")
+        self._rough_candidate_index = self._dmf_candidate_index(summary, len(chain))
+        self._rough_stage_artifacts = [
+            {"role": "dmf_path", "path": dmf_config["trajectory"]},
+            {"role": "dmf_candidate", "path": dmf_config["tmax_trajectory"]},
+            {"role": "dmf_summary", "path": dmf_config["summary_file"]},
+            {"role": "dmf_artifact_manifest", "path": dmf_config["artifact_manifest"]},
+        ]
+        self._rough_stage_record = {
+            "name": "rough_dmf",
+            "status": "complete",
+            "experimental": True,
+            "tmax": tmax,
+        }
+        return chain
 
     def _single_config_with_directory(self, dirname: str) -> Dict[str, Any]:
         config = deepcopy(self.single_config)
@@ -279,6 +342,8 @@ class D2SWorkflow:
     def _vibration_indices(self, neb_chain, vib_config):
         indices = vib_config["indices"]
         if indices in (None, "auto"):
+            if self._rough_candidate_index is not None:
+                return self._displacement_indices_at(neb_chain, self._rough_candidate_index, vib_config["threshold"])
             _, selected, _ = get_displacement_analysis(
                 neb_chain,
                 thr=vib_config["threshold"],
@@ -287,6 +352,20 @@ class D2SWorkflow:
         if indices == "all":
             return None
         return indices
+
+    def _displacement_indices_at(self, chain, index: int, threshold: float):
+        if len(chain) < 2:
+            return []
+        idx_before = max(0, index - 1)
+        idx_after = min(len(chain) - 1, index + 1)
+        if idx_before == idx_after:
+            return []
+        displacement = chain[idx_before].positions - chain[idx_after].positions
+        length = np.linalg.norm(displacement)
+        if length < 1e-6:
+            return []
+        magnitudes = np.linalg.norm(displacement, axis=1) / length
+        return [int(atom_index) for atom_index, value in enumerate(magnitudes) if value > threshold]
 
     def run_vibration(self, neb_chain, ts_guess, single_traj):
         """Run the optional D2S vibration stage."""
@@ -341,20 +420,28 @@ class D2SWorkflow:
         final_atoms = read_structure(final_file)
         init_atoms, final_atoms = self.optimize_endpoints(init_atoms, final_atoms)
 
-        neb_chain = self.run_rough_neb(init_atoms, final_atoms)
+        if self.rough_method == "dmf":
+            neb_chain = self.run_rough_dmf(init_atoms, final_atoms)
+        else:
+            neb_chain = self.run_rough_neb(init_atoms, final_atoms)
 
         print("=== Step 3: Analyzing Rough NEB ===")
-        energies = [image.get_potential_energy() for image in neb_chain]
-        max_idx = int(np.argmax(energies))
-        ts_guess = neb_chain[max_idx].copy()
+        if self.rough_method == "dmf" and self._rough_candidate_index is not None:
+            max_idx = self._rough_candidate_index
+        else:
+            try:
+                energies = [image.get_potential_energy() for image in neb_chain]
+                max_idx = int(np.argmax(energies))
+            except Exception:
+                if self._rough_candidate_index is None:
+                    raise
+                max_idx = self._rough_candidate_index
+        ts_guess = self._rough_ts_guess.copy() if self._rough_ts_guess is not None else neb_chain[max_idx].copy()
         print(f"  Highest energy image index: {max_idx}")
 
         single_traj = self.run_single_ended(neb_chain, max_idx, ts_guess)
         self.run_vibration(neb_chain, ts_guess, single_traj)
-        artifacts = [
-            {"role": "rough_neb_trajectory", "path": "neb_rough.traj"},
-            {"role": "single_ended_trajectory", "path": single_traj},
-        ]
+        artifacts = [*self._rough_stage_artifacts, {"role": "single_ended_trajectory", "path": single_traj}]
         vibration_config = self.calc_config.get("vibration", {})
         if vibration_config.get("enabled"):
             artifacts.append({"role": "vibration_results", "path": vibration_config["results_file"]})
@@ -365,7 +452,7 @@ class D2SWorkflow:
             artifacts=artifacts,
             stages=[
                 {"name": "endpoint_optimization", "status": "complete"},
-                {"name": "rough_neb", "status": "complete"},
+                self._rough_stage_record,
                 {"name": self.method, "status": "complete"},
                 {"name": "vibration", "status": "complete" if vibration_config.get("enabled") else "skipped"},
             ],

@@ -1,0 +1,21 @@
+calculation:
+  type: irc
+  backend: descent
+  init_structure: runs/08_H2-Au_d2s_dmf_irc/ts.extxyz
+  mode_vector: runs/08_H2-Au_d2s_dmf_irc/mode.npy
+  trajectory: runs/08_H2-Au_d2s_dmf_irc/irc_descent.traj
+  normalized_trajectory: runs/08_H2-Au_d2s_dmf_irc/norm_irc_descent.traj
+  artifact_manifest: runs/08_H2-Au_d2s_dmf_irc/atst_artifacts.json
+  direction: both
+  descent_delta: 0.10
+  fmax: 0.05
+  max_steps: 200
+  directory: runs/08_H2-Au_d2s_dmf_irc/IRC
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: true
