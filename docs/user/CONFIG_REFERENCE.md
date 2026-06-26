@@ -105,7 +105,7 @@ calculation:
   fmax: 0.05
 ```
 
-The nested NEB `make.method` value accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository `Fast_IDPPSolver`; `linear` writes the aligned linear interpolation directly. `sort_tol` / pymatgen autosort is intentionally dropped.
+The nested NEB `make.method` value accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository `Fast_IDPPSolver`; `linear` writes the aligned linear interpolation directly. `init_structure`, `final_structure`, and `ts_guess` may be ABACUS `STRU` / `.stru` files. Their mobility flags are preserved as ASE constraints in the generated chain and in ABACUS image input writing, including full `m 0 0 0` fixed atoms and partial Cartesian mobility such as `m 1 0 1`. `sort_tol` / pymatgen autosort is intentionally dropped.
 
 ASE NEB/DyNEB does not optimize endpoint images, but tangent and barrier analysis use endpoint energies. If a chain was made from pure structures, `atst neb make` writes placeholder endpoint results. `atst run` repairs these by default with endpoint single-point calculations before constructing NEB:
 

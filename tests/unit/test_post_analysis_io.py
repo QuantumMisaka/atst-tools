@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
-from ase.constraints import FixAtoms
+from ase.constraints import FixAtoms, FixCartesian
 from ase.io import read, write
 
 from atst_tools.utils.analysis import get_displacement_analysis
@@ -301,7 +301,7 @@ He
     np.testing.assert_allclose(parsed.get_initial_magnetic_moments(), [[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]])
 
 
-def test_read_structure_only_preserves_full_fixatoms_and_drops_velocities(tmp_path):
+def test_read_structure_preserves_mobility_constraints_and_drops_velocities(tmp_path):
     (tmp_path / "mobility_velocity.stru").write_text(
         """ATOMIC_SPECIES
 H 1.0 H.upf
@@ -333,9 +333,12 @@ He
 
     parsed = read_structure(tmp_path / "mobility_velocity.stru")
 
-    assert len(parsed.constraints) == 1
+    assert len(parsed.constraints) == 2
     assert isinstance(parsed.constraints[0], FixAtoms)
     np.testing.assert_array_equal(parsed.constraints[0].index, [0])
+    assert isinstance(parsed.constraints[1], FixCartesian)
+    np.testing.assert_array_equal(parsed.constraints[1].index, [1])
+    np.testing.assert_array_equal(parsed.constraints[1].mask, [False, True, False])
     np.testing.assert_allclose(parsed.get_velocities(), np.zeros((2, 3)))
 
 
