@@ -324,6 +324,22 @@ documentation. Numerical engines remain external:
 - ASE owns the core optimizer and transition-state method implementations.
 - Sella owns its saddle-search and IRC algorithms.
 
+## References
+
+If you publish work that uses the transition-state workflows in ATST-Tools,
+please cite the underlying methods alongside ATST-Tools itself:
+
+- Sella saddle-point search:
+  Ásgeirsson, V.; Birgisson, B. O.; Bjornsson, R.; Becker, U.; Neese, F.;
+  Jónsson, H. *Sella, an Open-Source Chemical Kinetics Environment.*
+  J. Chem. Theory Comput. **18** (8), 4914-4930 (2022).
+  <https://doi.org/10.1021/acs.jctc.2c00395>
+- CCQN (cone-shaped constrained quasi-Newton) transition-state optimization:
+  Wu, Y.; Wang, H. *Cone-Shaped Constrained Quasi-Newton Method: Efficient
+  and Robust Single-Ended Transition State Optimization Algorithm.*
+  J. Chem. Theory Comput. (2025).
+  <https://doi.org/10.1021/acs.jctc.5c01015>
+
 ## License
 
 LGPL-v3 License.

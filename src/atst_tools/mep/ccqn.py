@@ -1,4 +1,11 @@
-"""Cone-shaped constrained quasi-Newton transition-state optimizer."""
+"""Cone-shaped constrained quasi-Newton transition-state optimizer.
+
+References:
+    Wu, Y.; Wang, H. Cone-Shaped Constrained Quasi-Newton Method: Efficient
+    and Robust Single-Ended Transition State Optimization Algorithm.
+    J. Chem. Theory Comput. (2025).
+    https://doi.org/10.1021/acs.jctc.5c01015
+"""
 
 from __future__ import annotations
 
@@ -436,7 +443,14 @@ class CCQNOptimizer(Optimizer):
 
 
 class AbacusCCQN:
-    """Run CCQN with an ATST calculator backend."""
+    """Run CCQN with an ATST calculator backend.
+
+    References:
+        Wu, Y.; Wang, H. Cone-Shaped Constrained Quasi-Newton Method:
+        Efficient and Robust Single-Ended Transition State Optimization
+        Algorithm. J. Chem. Theory Comput. (2025).
+        https://doi.org/10.1021/acs.jctc.5c01015
+    """
 
     def __init__(
         self,

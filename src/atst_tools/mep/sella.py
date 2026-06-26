@@ -1,5 +1,12 @@
 # AbacusSella implementation
 # part of ATST-Tools
+#
+# References:
+#     Sella transition-state search algorithm:
+#     Ásgeirsson, V.; Birgisson, B. O.; Bjornsson, R.; Becker, U.; Neese, F.;
+#     Jónsson, H. Sella, an Open-Source Chemical Kinetics Environment.
+#     J. Chem. Theory Comput. 18 (8), 4914-4930 (2022).
+#     https://doi.org/10.1021/acs.jctc.2c00395
 
 from ase.io import Trajectory
 from sella import Sella
@@ -9,7 +16,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 class AbacusSella:
     """
     Customize Sella calculation workflow by using ABACUS.
-    
+
     This class manages the setup and execution of the Sella method for finding
     saddle points (Transition States) using ABACUS as the force calculator.
 
@@ -21,6 +28,12 @@ class AbacusSella:
         traj_file (str): Output trajectory file.
         sella_eta (float): Sella eta parameter.
         fmax (float): Force convergence criterion.
+
+    References:
+        Ásgeirsson, V.; Birgisson, B. O.; Bjornsson, R.; Becker, U.; Neese, F.;
+        Jónsson, H. Sella, an Open-Source Chemical Kinetics Environment.
+        J. Chem. Theory Comput. 18 (8), 4914-4930 (2022).
+        https://doi.org/10.1021/acs.jctc.2c00395
     """
     
     def __init__(self, init_Atoms, config, calc_name, calc_config,

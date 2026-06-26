@@ -227,6 +227,10 @@ default. Trajectory conversion is opt-in in YAML or can be run later with
 ### 2.5 Sella (Saddle Point Finder)
 **Type**: `sella`
 
+Reference: Ásgeirsson, V.; Birgisson, B. O.; Bjornsson, R.; Becker, U.; Neese, F.;
+Jónsson, H. *Sella, an Open-Source Chemical Kinetics Environment.*
+J. Chem. Theory Comput. **18** (8), 4914-4930 (2022). <https://doi.org/10.1021/acs.jctc.2c00395>
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Path to the initial structure. |
@@ -239,6 +243,10 @@ default. Trajectory conversion is opt-in in YAML or can be run later with
 
 ### 2.6 CCQN (Cone-Shaped Constrained Quasi-Newton)
 **Type**: `ccqn`
+
+Reference: Wu, Y.; Wang, H. *Cone-Shaped Constrained Quasi-Newton Method:
+Efficient and Robust Single-Ended Transition State Optimization Algorithm.*
+J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
