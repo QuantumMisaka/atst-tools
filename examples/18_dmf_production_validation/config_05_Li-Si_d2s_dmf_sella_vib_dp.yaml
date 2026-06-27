@@ -1,0 +1,53 @@
+calculation:
+  type: d2s
+  method: sella
+  rough_method: dmf
+  init_file: inputs/01_neb_Li-Si_init.extxyz
+  final_file: inputs/01_neb_Li-Si_final.extxyz
+  directory: runs/05_Li-Si_d2s_dmf_vib
+  artifact_manifest: runs/05_Li-Si_d2s_dmf_vib/atst_artifacts.json
+  endpoint_optimization:
+    enabled: false
+  dmf:
+    directory: runs/05_Li-Si_d2s_dmf_vib/dmf_run
+    trajectory: runs/05_Li-Si_d2s_dmf_vib/dmf_path.traj
+    tmax_trajectory: runs/05_Li-Si_d2s_dmf_vib/dmf_tmax.traj
+    summary_file: runs/05_Li-Si_d2s_dmf_vib/dmf_summary.json
+    artifact_manifest: runs/05_Li-Si_d2s_dmf_vib/dmf_artifacts.json
+    initial_path: linear
+    nsegs: 4
+    dspl: 3
+    nmove: 10
+    update_teval: true
+    tol: middle
+    ipopt_options:
+      max_iter: 80
+      print_level: 0
+    parallel: false
+    remove_rotation_and_translation: false
+    pbc_mode: cartesian_unwrapped
+    confirm_pbc_risk: true
+  sella:
+    fmax: 0.05
+    max_steps: 20
+    eta: 0.005
+    trajectory: runs/05_Li-Si_d2s_dmf_vib/sella.traj
+    directory: runs/05_Li-Si_d2s_dmf_vib/SELLA
+  vibration:
+    enabled: true
+    indices: auto
+    threshold: 0.10
+    delta: 0.01
+    nfree: 2
+    name: runs/05_Li-Si_d2s_dmf_vib/d2s_vib
+    results_file: runs/05_Li-Si_d2s_dmf_vib/d2s_vibration_results.json
+    validation_file: runs/05_Li-Si_d2s_dmf_vib/d2s_ts_validation.json
+    directory: runs/05_Li-Si_d2s_dmf_vib/VIBRATION
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: false

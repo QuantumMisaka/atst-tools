@@ -6,9 +6,11 @@ import sys
 import types
 import json
 from contextlib import ExitStack
+from pathlib import Path
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.constraints import FixAtoms
+from ase.io import write
 
 from helpers import DummyCalc
 
@@ -60,6 +62,260 @@ def test_d2s_workflow_uses_unified_constructor(monkeypatch, tmp_path):
     workflow.run()
 
     assert calls == [(1, "dp")]
+
+
+def test_d2s_rough_method_dmf_feeds_single_ended_stage(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            calls.append(("dmf_init", calc_name, calc_config["init_file"], calc_config["final_file"]))
+            self.calc_config = calc_config
+
+        def run(self):
+            chain = [_atoms(0.0), _atoms(2.0), _atoms(0.5)]
+            write(self.calc_config["trajectory"], chain)
+            write(self.calc_config["tmax_trajectory"], chain[1])
+            return {"tmax": 0.5, "tmax_candidate": {"energy": 2.0, "fmax": 0.0}}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_single_ended",
+        lambda self, chain, idx, guess: calls.append(("single", idx, len(chain), chain[idx].get_potential_energy())) or "single.traj",
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "dmf": {"initial_path": "linear"},
+        },
+    )
+    workflow.run()
+
+    assert calls[0][0] == "dmf_init"
+    assert Path(calls[0][2]).name == "dmf_endpoint_initial.traj"
+    assert Path(calls[0][3]).name == "dmf_endpoint_final.traj"
+    assert ("single", 1, 3, 2.0) in calls
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert {item["role"] for item in manifest["artifacts"]} >= {
+        "dmf_candidate",
+        "dmf_path",
+        "single_ended_trajectory",
+    }
+
+
+def test_d2s_rough_method_dmf_uses_tmax_candidate_as_ts_guess(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            self.calc_config = calc_config
+
+        def run(self):
+            chain = [_atoms(0.0), _atoms(1.0), _atoms(0.5)]
+            candidate = _atoms(2.0)
+            candidate.positions[:] = [[9.0, 0.0, 0.0]]
+            write(self.calc_config["trajectory"], chain)
+            write(self.calc_config["tmax_trajectory"], candidate)
+            return {"tmax": 0.5, "tmax_candidate": {"energy": 2.0, "fmax": 0.0}}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_single_ended",
+        lambda self, chain, idx, guess: calls.append(("single", idx, guess.positions[0, 0])) or "single.traj",
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+        },
+    )
+    workflow.run()
+
+    assert ("single", 1, 9.0) in calls
+
+
+def test_d2s_rough_method_dmf_uses_tmax_index_when_path_energies_are_missing(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            self.calc_config = calc_config
+
+        def run(self):
+            chain = [Atoms("H", positions=[[0.0, 0.0, 0.0]]) for _ in range(5)]
+            candidate = _atoms(2.0)
+            write(self.calc_config["trajectory"], chain)
+            write(self.calc_config["tmax_trajectory"], candidate)
+            return {"tmax": 0.75, "tmax_candidate": {"energy": 2.0, "fmax": 0.0}}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_single_ended",
+        lambda self, chain, idx, guess: calls.append(("single", idx, len(chain))) or "single.traj",
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+        },
+    )
+    workflow.run()
+
+    assert ("single", 3, 5) in calls
+
+
+def test_d2s_rough_method_dmf_uses_summary_t_eval_for_candidate_index(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            self.calc_config = calc_config
+
+        def run(self):
+            chain = [_atoms(0.0), _atoms(4.0), _atoms(1.0), _atoms(2.0), _atoms(0.5)]
+            candidate = _atoms(2.0)
+            write(self.calc_config["trajectory"], chain)
+            write(self.calc_config["tmax_trajectory"], candidate)
+            return {
+                "tmax": 0.6,
+                "t_eval": [0.0, 0.1, 0.35, 0.6, 1.0],
+                "tmax_candidate": {"energy": 2.0, "fmax": 0.0},
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_single_ended",
+        lambda self, chain, idx, guess: calls.append(("single", idx, len(chain))) or "single.traj",
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+        },
+    )
+    workflow.run()
+
+    assert ("single", 3, 5) in calls
+
+
+def test_d2s_rough_method_dmf_falls_back_to_uniform_index_for_legacy_summary(monkeypatch, tmp_path):
+    from atst_tools.workflows import d2s
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            self.calc_config = calc_config
+
+        def run(self):
+            chain = [Atoms("H", positions=[[0.0, 0.0, 0.0]]) for _ in range(5)]
+            candidate = _atoms(2.0)
+            write(self.calc_config["trajectory"], chain)
+            write(self.calc_config["tmax_trajectory"], candidate)
+            return {"tmax": 0.6, "tmax_candidate": {"energy": 2.0, "fmax": 0.0}}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_single_ended",
+        lambda self, chain, idx, guess: calls.append(("single", idx, len(chain))) or "single.traj",
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+        },
+    )
+    workflow.run()
+
+    assert ("single", 2, 5) in calls
+
+
+def test_d2s_vibration_auto_indices_use_dmf_tmax_index_when_path_energies_missing(monkeypatch):
+    from atst_tools.workflows import d2s
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "method": "sella",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+        },
+    )
+    workflow._rough_candidate_index = 2
+    chain = [
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        Atoms("H2", positions=[[1.0, 0.0, 0.0], [0.0, 0.01, 0.0]]),
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    ]
+    chain[2].calc = SinglePointCalculator(chain[2], forces=np.zeros((2, 3)))
+
+    indices = workflow._vibration_indices(chain, {"indices": "auto", "threshold": 0.10})
+
+    assert indices == [0]
 
 
 def test_run_neb_reuses_shared_dp_calculator(monkeypatch, tmp_path):

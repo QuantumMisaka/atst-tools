@@ -13,7 +13,7 @@
       "workflow": "neb",
       "forward_barrier_eV": 0.618346,
       "main_forward_barrier_eV": 0.618327,
-      "barrier_delta_eV": 0.000019,
+      "barrier_delta_eV": 1.9e-05,
       "transition_state_index": 2,
       "transition_state_fmax_eV_per_A": 0.048031,
       "band_fmax_eV_per_A": 0.771472,
@@ -105,7 +105,7 @@
       "workflow": "d2s",
       "forward_barrier_eV": 2.678812,
       "main_forward_barrier_eV": 2.678795,
-      "barrier_delta_eV": 0.000017,
+      "barrier_delta_eV": 1.7e-05,
       "transition_state_index": 6,
       "transition_state_fmax_eV_per_A": 3.531348,
       "transition_state_structure": "examples/reference_structures/08_d2s_Cy-Pt_rough_ts.extxyz",
@@ -170,7 +170,7 @@
       "workflow": "neb_image_parallel",
       "forward_barrier_eV": 1.322675,
       "reference_03_forward_barrier_eV": 1.322675,
-      "barrier_delta_to_03_eV": -0.000000,
+      "barrier_delta_to_03_eV": -0.0,
       "transition_state_index": 4,
       "projected_neb_fmax_eV_per_A": 0.114133,
       "transition_state_structure": null,
@@ -187,7 +187,7 @@
       "reference_03_forward_barrier_eV": 1.322675,
       "barrier_delta_to_03_eV": -0.000576,
       "transition_state_index": 5,
-      "projected_neb_fmax_eV_per_A": 0.184590,
+      "projected_neb_fmax_eV_per_A": 0.18459,
       "transition_state_structure": null,
       "validation_job_id": 462244,
       "validation_elapsed": "00:37:16",
@@ -202,6 +202,30 @@
       "forward_barrier_eV": null,
       "transition_state_structure": null,
       "validation_status": "schema_load_checked; initial structure copied from examples/01_neb_Li-Si/inputs/init_neb_chain.traj frame 0; no like-for-like TS/barrier baseline"
+    },
+    "16_dmf_nonperiodic": {
+      "reference_type": "experimental_dmf_smoke",
+      "workflow": "dmf",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "experimental DMF non-periodic smoke example; dependency/runtime smoke documented in docs/reports/DMF_ENVIRONMENT_SMOKE_2026-06-18.md; no ABACUS TS/barrier baseline"
+    },
+    "17_dmf_pbc_cartesian_unwrapped": {
+      "reference_type": "experimental_dmf_pbc_smoke",
+      "workflow": "dmf",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "experimental DMF PBC guard example for fixed-cell pre-unwrapped Cartesian inputs; no ABACUS TS/barrier baseline"
+    },
+    "18_dmf_production_validation": {
+      "reference_type": "experimental_dmf_validation_staging",
+      "workflow": "dmf_validation_suite",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "P3 staging harness for DMF candidate comparison against existing 01_neb_Li-Si and 02_neb_H2-Au ABACUS/DP references; runtime validation report not yet complete"
     }
   }
 }

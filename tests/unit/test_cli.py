@@ -105,6 +105,51 @@ def test_atst_run_dispatches_d2s(monkeypatch):
     assert calls == [("init", "abacus", "d2s"), ("run",)]
 
 
+def test_d2s_rough_method_dmf_is_constructible():
+    from atst_tools.workflows.d2s import D2SWorkflow
+
+    config = {
+        "calculation": {
+            "type": "d2s",
+            "rough_method": "dmf",
+            "init_file": "init.stru",
+            "final_file": "final.stru",
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    workflow = D2SWorkflow(config, "abacus", config["calculation"])
+
+    assert workflow.rough_method == "dmf"
+
+
+def test_atst_run_dispatches_dmf(monkeypatch):
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    calls = []
+
+    class FakeDMFWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            calls.append(("init", calc_name, calc_config["type"]))
+
+        def run(self):
+            calls.append(("run",))
+
+    config = {
+        "calculation": {"type": "dmf", "init_file": "init.xyz", "final_file": "final.xyz"},
+        "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+    }
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli.ConfigLoader, "normalize", lambda config: config)
+    monkeypatch.setattr(run_cli, "DMFWorkflow", FakeDMFWorkflow)
+
+    cli.main(["run", "config.yaml"])
+
+    assert calls == [("init", "dp", "dmf"), ("run",)]
+
+
 def test_atst_run_reports_irc_boundary_without_traceback(monkeypatch):
     from atst_tools.scripts import main as run_cli
     from atst_tools.scripts import cli
@@ -259,6 +304,7 @@ def test_atst_run_list_types_prints_supported_types(capsys):
     assert "vibration" in output
     assert "irc" in output
     assert "md" in output
+    assert "dmf" in output
 
 
 def test_atst_run_show_template_prints_yaml(capsys):
@@ -349,6 +395,18 @@ def test_atst_run_show_md_template_prints_yaml(capsys):
     assert "driver: ase" in output
     assert "algorithm: bussi" in output
     assert "driver: abacus_native" in output
+
+
+def test_atst_run_show_dmf_template_prints_experimental_pbc_warning(capsys):
+    from atst_tools.scripts import cli
+
+    cli.main(["run", "--show-template", "dmf", "--calculator", "dp"])
+
+    output = capsys.readouterr().out
+    assert "type: dmf" in output
+    assert "experimental" in output
+    assert "pbc_mode: reject" in output
+    assert "cartesian_unwrapped" in output
 
 
 def test_atst_md_summary_prints_trajectory_summary(tmp_path, capsys):

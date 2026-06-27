@@ -51,6 +51,7 @@ def test_validate_accepts_supported_calculation_types():
         "vibration": {"init_structure": "ts_opt.stru"},
         "irc": {"init_structure": "ts_opt.stru"},
         "md": {"init_structure": "init.stru"},
+        "dmf": {"init_file": "init.stru", "final_file": "final.stru"},
     }
     for calc_type, fields in required_fields.items():
         config = {
@@ -68,6 +69,98 @@ def test_validate_rejects_unknown_calculation_type():
                 "calculator": {"name": "abacus"},
             }
         )
+
+
+def test_validate_accepts_dmf_defaults():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "dmf", "init_file": "init.xyz", "final_file": "final.xyz"},
+            "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+        }
+    )
+
+    calc = config["calculation"]
+    assert calc["initial_path"] == "cfbenm"
+    assert calc["pbc_mode"] == "reject"
+    assert calc["confirm_pbc_risk"] is False
+    assert calc["remove_rotation_and_translation"] is True
+    assert calc["summary_file"] == "dmf_summary.json"
+    assert calc["artifact_manifest"] == "atst_artifacts.json"
+    assert calc["ipopt_options"] == {}
+
+
+def test_validate_rejects_dmf_unknown_fields():
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "dmf",
+                    "init_file": "init.xyz",
+                    "final_file": "final.xyz",
+                    "unknown": True,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+
+def test_validate_dmf_pbc_cartesian_requires_confirmation_pair():
+    with pytest.raises(ValueError, match="confirm_pbc_risk"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "dmf",
+                    "init_file": "init.xyz",
+                    "final_file": "final.xyz",
+                    "pbc_mode": "cartesian_unwrapped",
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+    with pytest.raises(ValueError, match="remove_rotation_and_translation=false"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "dmf",
+                    "init_file": "init.xyz",
+                    "final_file": "final.xyz",
+                    "pbc_mode": "cartesian_unwrapped",
+                    "confirm_pbc_risk": True,
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+
+def test_validate_dmf_pbc_cartesian_requires_linear_initial_path():
+    with pytest.raises(ValueError, match="initial_path=linear"):
+        ConfigLoader.validate(
+            {
+                "calculation": {
+                    "type": "dmf",
+                    "init_file": "init.xyz",
+                    "final_file": "final.xyz",
+                    "pbc_mode": "cartesian_unwrapped",
+                    "confirm_pbc_risk": True,
+                    "remove_rotation_and_translation": False,
+                    "initial_path": "cfbenm",
+                },
+                "calculator": {"name": "dp", "dp": {"model": "model.pb"}},
+            }
+        )
+
+
+def test_validate_d2s_rough_method_defaults_to_neb():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "d2s", "init_file": "init.stru", "final_file": "final.stru"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["rough_method"] == "neb"
+    assert config["calculation"]["dmf"]["pbc_mode"] == "reject"
 
 
 def test_validate_requires_workflow_inputs():

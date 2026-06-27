@@ -18,7 +18,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   2.1.0、2.1.1 和 2.1.2 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
-  artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
+  experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
 - `docs/archive/pending_delete/` 是待删除复核区；本轮只移动和记录，不最终删除。
 
 ## 2. 活跃 User 文档
@@ -64,6 +64,14 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/NEB_IMAGE_PARALLEL_E2E_VALIDATION_2026-05-29.md` | Cy-Pt image-level NEB/AutoNEB SAI 端到端验证、barrier 对比和 nested MPI 证据。 |
 | `docs/reports/ZN_SEGMENTED_NEB_RUNTIME_STATUS_2026-05-30.md` | Zn migration 分段 NEB/AutoNEB runtime 状态和唯一运行证据。 |
 | `docs/reports/TWO_STAGE_NEB_LTS3101_VALIDATION_2026-06-04.md` | 01/02/13 two-stage NEB 在 ABACUS LTS 3.10.1 和 4V100 上的实算能垒复现、串并行一致性和迭代步数证据。 |
+| `docs/reports/DMF_ENVIRONMENT_SMOKE_2026-06-18.md` | DMF cache-local 环境、`cyipopt`/IPOPT、vendored PyDMF NumPy/torch import 和 EMT runtime smoke 证据；不作为 P3 生产验证。 |
+| `docs/reports/DMF_P3_VALIDATION_STAGING_2026-06-18.md` | DMF P3 两案例 production-validation staging、候选结构对比脚本、SAI sbatch 入口和剩余 runtime 验证要求；不作为完成证据。 |
+| `docs/reports/DMF_P3_RUNTIME_VALIDATION_2026-06-18.md` | DMF P3 两案例 SAI runtime candidate-comparison 证据、Slurm job 525521、ABACUS/DP reference RMSD 对比和剩余 refinement/vibration/IRC 缺口。 |
+| `docs/reports/DMF_P4_D2S_RUNTIME_SMOKE_2026-06-18.md` | DMF-D2S `rough_method: dmf` 两案例 SAI runtime smoke 证据、Slurm job 526327、Sella refinement 接通和剩余 vibration/IRC/ABACUS 验证缺口。 |
+| `docs/reports/DMF_P4_D2S_VIBRATION_VALIDATION_2026-06-18.md` | DMF-D2S `rough_method: dmf` 两案例 SAI focused vibration 验证证据、Slurm job 526601、Sella 后局域一虚频检查和剩余 IRC/ABACUS 验证缺口。 |
+| `docs/reports/DMF_P4_D2S_IRC_ENDPOINT_VALIDATION_2026-06-18.md` | DMF-D2S `rough_method: dmf` 两案例 SAI descent-IRC endpoint connection 证据、Slurm job 526657、局域反应原子端点 RMSD 检查和剩余 ABACUS 验证缺口。 |
+| `docs/reports/DMF_P4_D2S_ABACUS_COMPARISON_2026-06-18.md` | DMF-D2S `rough_method: dmf` 两案例 ABACUS LTS 3.10.1 single-point comparison 证据；记录 job 526738 的初始 H2-Au raw-force failure、job 526921 的 H2-Au ABACUS Sella corrective refinement，以及 job 527093 的 refined constrained-force comparison pass。 |
+| `docs/reports/DMF_RISK_REVIEW_2026-06-19.md` | DMF 风险审查和 DP Slurm 复现实证；记录 job 529051 中 wrapped endpoint、H index swap、fixed slab endpoint 三个 H2-Au 风险案例的 600 秒 timeout，以及 PBC+CFBENM schema guard 和 tmax rounded-index 未触发风险。 |
 
 ### L3: 当前主题审查
 
@@ -74,6 +82,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/EXAMPLES_REPRODUCTION_RECHECK_AND_ABACUSLITE_AUDIT_2026-05-24.md` | examples 复现复查和 abacuslite fallback 审计。 |
 | `docs/reports/FAST_IDPP_ALGORITHM_COMPARISON_AND_FIX_2026-05-25.md` | FastIDPP 修复依据和 D2S 路径生成边界。 |
 | `docs/reports/MACE_REACTION_KIT_TO_ATST_TOOLS_TRANSFER_REVIEW_2026-05-27.html` | MACE-Reaction-Kit P0/P1 核心完成状态和未来增强边界。 |
+| `docs/reports/DMF_DIRECT_MAXFLUX_RESEARCH_2026-06-17.html` | Direct MaxFlux/PyDMF 算法、周期体系边界和 ATST-Tools 实验性集成可行性研判。 |
 | `docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md` | ASE 3.28.0 与 ATST NEB/AutoNEB/Dimer 对齐审查细节。 |
 | `docs/reports/ABACUS_STRU_IO_ASE_FORMAT_COMPATIBILITY_2026-06-04.md` | ABACUS STRU read/write 与 `ase-abacus` ASE I/O format 的 API/语义兼容性和功能点覆盖审查。 |
 | `docs/reports/UNIT_TEST_MAINTENANCE_2026-06-10.md` | 单元测试维护、legacy NEB script 清理和默认测试边界审查。 |

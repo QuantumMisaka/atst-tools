@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Direct MaxFlux 方法与 ATST-Tools 集成可行性调研 - 2026-06-17</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #52616f;
+      --line: #d8dee6;
+      --accent: #24577a;
+      --accent-2: #2f7d62;
+      --warn: #9a5b13;
+      --bad: #9b2c2c;
+      --code: #f1f4f7;
+      --soft: #eef5f8;
+      --soft-warn: #fff7e8;
+      --soft-bad: #fff0f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 72px;
+    }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 32px;
+    }
+    h1, h2, h3 { line-height: 1.25; margin: 0 0 14px; }
+    h1 { font-size: 30px; color: var(--accent); }
+    h2 { font-size: 22px; margin-top: 34px; padding-top: 8px; border-top: 1px solid var(--line); }
+    h3 { font-size: 17px; margin-top: 22px; color: var(--accent); }
+    p { margin: 10px 0; }
+    ul, ol { margin: 10px 0 10px 22px; padding: 0; }
+    li { margin: 5px 0; }
+    a { color: #1f5f8b; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      background: var(--code);
+      border: 1px solid #e3e8ef;
+      border-radius: 6px;
+      overflow: auto;
+      padding: 12px 14px;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    pre code { border: 0; padding: 0; background: transparent; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #eef3f7; color: #1b3446; }
+    .lead {
+      margin: 18px 0 22px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+    }
+    .warning {
+      margin: 14px 0;
+      padding: 12px 14px;
+      border-left: 4px solid var(--warn);
+      background: var(--soft-warn);
+    }
+    .risk {
+      margin: 14px 0;
+      padding: 12px 14px;
+      border-left: 4px solid var(--bad);
+      background: var(--soft-bad);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfd;
+    }
+    .card strong { display: block; color: var(--accent); margin-bottom: 6px; }
+    .ok { color: var(--accent-2); font-weight: 650; }
+    .warn { color: var(--warn); font-weight: 650; }
+    .bad { color: var(--bad); font-weight: 650; }
+    .small { color: var(--muted); font-size: 13px; }
+    .tag {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 8px;
+      margin-right: 4px;
+      background: #fbfcfd;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    @media (max-width: 820px) {
+      main { padding: 20px 12px 44px; }
+      article { padding: 20px; }
+      .cards { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+<main>
+<article>
+  <h1>Direct MaxFlux 方法与 ATST-Tools 集成可行性调研</h1>
+  <p class="small">
+    <span class="tag">Version: 2026-06-17</span>
+    <span class="tag">Updated evidence: 2026-06-19</span>
+    <span class="tag">Branch: feat/dmf</span>
+    <span class="tag">Scope: research report</span>
+    <span class="tag">DMF source: temp_repos/dmf @ ed7ed53</span>
+  </p>
+
+  <div class="lead">
+    <p><strong>结论摘要。</strong>Direct MaxFlux（DMF）是值得 ATST-Tools 跟进的双端过渡态候选结构生成方法，但不应立即替代当前生产级 NEB/CI-NEB/AutoNEB 工作流。短期更合理的定位是：先作为可选依赖的研究性 double-ended TS guess workflow 建立非周期基线，再尽早验证 ATST 核心周期体系风险；D2S 集成应放在 PBC 语义和生产级案例证据稳定之后。其输出最高能点仍需接 Dimer/Sella/CCQN、频率分析和 IRC 验证。</p>
+    <p><strong>周期性体系判断。</strong>当前 PyDMF 与原始论文口径不能被视为严格支持周期性体系。论文摘要页明确说明当前只支持非周期体系；源码虽通过 ASE <code>Atoms.copy()</code> 保留 cell/PBC 元数据，但路径变量、FB-ENM/CFB-ENM 距离、速度约束和旋转/平动处理均基于未显式 minimum-image 的 Cartesian positions。固定晶胞、端点已 unwrap 到同一周期图像、且路径不跨 cell 分支的 slab/扩散案例可以实验性尝试；锂离子跨周期边界迁移、表面吸附解离、晶胞变化或需要 fractional-coordinate 连续性的案例，必须先补 ATST 侧 PBC 适配和验证。</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <strong>方法定位</strong>
+      <p>DMF 是 double-ended variational path optimization，不是最终一阶鞍点优化器。</p>
+    </div>
+    <div class="card">
+      <strong>工程价值</strong>
+      <p>以少量 evaluation points 优化 B-spline 路径，适合昂贵 DFT/MLP 后端生成 TS 初猜。</p>
+    </div>
+    <div class="card">
+      <strong>ATST 建议</strong>
+      <p>按“非周期基线 -> PBC 实验 -> 生产案例 -> D2S 支持”推进；周期语义先于高层编排固化。</p>
+    </div>
+  </div>
+
+  <h2>0. 当前实现与验证状态（2026-06-21）</h2>
+  <div class="warning">
+    <p><strong>当前状态。</strong>DMF 已在 ATST-Tools 中完成实验性集成，但仍不是 NEB/CI-NEB/AutoNEB 的生产级替代。当前定位是 <strong>experimental TS candidate / rough path generator</strong>：可独立运行 <code>calculation.type: dmf</code>，也可在 D2S 中作为 opt-in <code>rough_method: dmf</code> 接 Sella、局域振动、descent-IRC 和 ABACUS 单点对照。2026-06-21 修复后，ATST 会把 YAML <code>nmove</code> 传给最终 <code>DirectMaxFlux</code>，summary 记录最终 <code>t_eval</code>；D2S rough-DMF 也按实际 <code>t_eval</code> 选择 <code>tmax</code> 邻域。</p>
+  </div>
+
+  <h3>0.1 实现现状</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>模块/能力</th>
+        <th>当前状态</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PyDMF 来源</td>
+        <td><span class="ok">已 vendored</span></td>
+        <td>上游 PyDMF 以 <code>atst_tools.external.pydmf.dmf</code> 命名空间引入，避免污染顶层 <code>dmf</code> 包名；<code>cyipopt</code>/IPOPT 仍是运行环境前提。</td>
+      </tr>
+      <tr>
+        <td>Standalone DMF</td>
+        <td><span class="ok">已实现，experimental</span></td>
+        <td>支持 <code>calculation.type: dmf</code>，输出 DMF path、<code>tmax</code> candidate、summary JSON 和 artifact manifest；summary 标记 <code>experimental=true</code>、<code>result_type=ts_candidate</code>、<code>validated_ts=false</code>，并记录 <code>nmove</code> 与最终 <code>t_eval</code>。</td>
+      </tr>
+      <tr>
+        <td>PBC guard</td>
+        <td><span class="ok">已实现基础防护</span></td>
+        <td><code>pbc_mode: reject</code> 默认拒绝周期端点；<code>cartesian_unwrapped</code> 必须显式确认风险、关闭旋转/平动移除，并要求 <code>initial_path: linear</code>。这不是 MIC/fractional-coordinate 支持。</td>
+      </tr>
+      <tr>
+        <td>D2S rough-DMF</td>
+        <td><span class="warn">已接通，仍 experimental</span></td>
+        <td><code>d2s.rough_method: dmf</code> 可把 DMF <code>tmax</code> candidate 交给 Sella，再进入局域振动、IRC 和 ABACUS comparison；D2S 使用 DMF summary 的最终 <code>t_eval</code> 选择邻域，默认 rough method 仍应保持 NEB。</td>
+      </tr>
+      <tr>
+        <td>生产支持状态</td>
+        <td><span class="bad">未 supported</span></td>
+        <td>目前只有两例 DP/ABACUS 对照和风险审查，不足以宣称通用周期体系或复杂表面反应生产级支持。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>0.2 成功案例与质量证据</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>证据层级</th>
+        <th>案例</th>
+        <th>运行结果</th>
+        <th>质量指标</th>
+        <th>解释</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P3 standalone candidate</td>
+        <td><code>01_neb_Li-Si</code>、<code>02_neb_H2-Au</code></td>
+        <td>Slurm job <code>525521</code> 完成，DP 后端，两案例合计 elapsed <code>00:02:41</code>。</td>
+        <td>Li-Si: RMSD to ABACUS TS <code>0.0128 A</code>；H2-Au: RMSD to ABACUS TS <code>0.0552 A</code>。</td>
+        <td>说明 DMF 能在既有 ATST 周期示例上生成接近参考 TS 的 candidate，但此阶段尚未完成 TS refinement 和验证。</td>
+      </tr>
+      <tr>
+        <td>P4 D2S + Sella</td>
+        <td><code>03_Li-Si_d2s_dmf</code>、<code>04_H2-Au_d2s_dmf</code></td>
+        <td>Slurm job <code>526327</code> 完成，elapsed <code>00:02:56</code>。</td>
+        <td>Sella 后 Li-Si <code>fmax=0.0196 eV/A</code>，H2-Au <code>fmax=0.0362 eV/A</code>。</td>
+        <td>证明 DMF candidate 可以作为 D2S rough stage 接入现有单端优化器。</td>
+      </tr>
+      <tr>
+        <td>P4 局域振动</td>
+        <td><code>05_Li-Si_d2s_dmf_vib</code>、<code>06_H2-Au_d2s_dmf_vib</code></td>
+        <td>Slurm job <code>526601</code> 完成，elapsed <code>00:02:32</code>。</td>
+        <td>两例均通过一虚频局域检查；Li-Si <code>314.1 cm^-1</code>，H2-Au <code>758.6 cm^-1</code>。</td>
+        <td>证明 refined candidate 具有局域 TS-like 曲率；不是全体系频率生产验收。</td>
+      </tr>
+      <tr>
+        <td>P4 endpoint connection</td>
+        <td><code>07_Li-Si_d2s_dmf_irc</code>、<code>08_H2-Au_d2s_dmf_irc</code></td>
+        <td>Slurm job <code>526657</code> 完成，elapsed <code>00:02:07</code>。</td>
+        <td>两例 reactive-atom endpoint RMSD 均低于 <code>0.25 A</code> 阈值。</td>
+        <td>证明 DP-backed DMF-D2S 路径能连接原始端点；仍是 focused descent-IRC，不是完整 ABACUS IRC。</td>
+      </tr>
+      <tr>
+        <td>P4 ABACUS comparison</td>
+        <td>refined Li-Si、H2-Au</td>
+        <td>job <code>526738</code> 初始 comparison，job <code>527093</code> refined comparison 通过。</td>
+        <td>Li-Si barrier delta <code>-0.0019 eV</code>、RMSD <code>0.0032 A</code>；H2-Au refined barrier delta <code>0.0747 eV</code>、RMSD <code>0.0317 A</code>、free-coordinate <code>fmax=0.0993 eV/A</code>。</td>
+        <td>两例 refined DMF-D2S candidate 达到当前 ABACUS 单点 comparison gate；这支持“可用作 TS guess”，但还不足以把 DMF 标为 production supported。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>0.3 计算效率：是否快于传统 CI-NEB？</h3>
+  <p><strong>短答：</strong>在已有两例验证中，DMF 作为 <em>candidate/rough-stage generator</em> 的 walltime 明显短于传统 ABACUS two-stage NEB/CI-NEB；但这不是严格 apples-to-apples 的“同后端完整 TS workflow”比较，因为 DMF 主要用 DP 生成候选，再用 Sella/validation/ABACUS comparison 补证据，而 CI-NEB 是 ABACUS 路径优化本体。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>案例/路径</th>
+        <th>传统 NEB/CI-NEB 证据</th>
+        <th>DMF 证据</th>
+        <th>效率判断</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>01_neb_Li-Si</code></td>
+        <td>ABACUS two-stage NEB serial job <code>479036</code>: <code>00:08:12</code>，warm-up 3 + CI 10 steps。</td>
+        <td>P3 两案例合计 DP-DMF candidate job <code>525521</code>: <code>00:02:41</code>；后续 D2S/Sella/vib/IRC 单项均约 2-3 分钟级。</td>
+        <td><span class="ok">候选生成更快</span>，且 refined ABACUS comparison 通过；但完整生产验收仍需结合 refinement/validation 成本。</td>
+      </tr>
+      <tr>
+        <td><code>02_neb_H2-Au</code></td>
+        <td>ABACUS two-stage NEB parallel job <code>479014</code>: <code>01:46:33</code>；serial job <code>479037</code>: <code>17:14:06</code>。</td>
+        <td>P3 DP-DMF candidate 两案例合计 <code>00:02:41</code>；H2-Au ABACUS corrective Sella <code>00:15:46</code>，refined ABACUS comparison <code>00:03:47</code>。</td>
+        <td><span class="ok">作为初猜路线明显更省 walltime</span>；但 H2-Au 需要额外 ABACUS Sella refinement，说明 DMF raw candidate 不是最终 TS。</td>
+      </tr>
+      <tr>
+        <td>结论口径</td>
+        <td>CI-NEB 是完整路径优化基线，可直接给 barrier/path evidence。</td>
+        <td>DMF 是少点数候选生成器，必须接 refinement、频率、IRC 或 ABACUS comparison。</td>
+        <td><span class="warn">可以说“有加速潜力且两例候选路线更快”，不能说“已全面快于并替代 CI-NEB”。</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>0.4 失败案例与失败原因</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>失败/风险案例</th>
+        <th>现象</th>
+        <th>原因归类</th>
+        <th>当前处理</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>H2-Au_wrapped_final_image</code></td>
+        <td>job <code>529051</code> 中 600 秒 timeout，无 <code>summary/path/tmax</code> 完整产物。</td>
+        <td>端点同一物理图像被写成跨 cell Cartesian 位移；DMF 当前按原始 Cartesian positions 走长路，没有 MIC/unwrap 自动修正。</td>
+        <td>风险已复现。应增加 endpoint displacement outlier / unwrap preflight，而不是静默修正。</td>
+      </tr>
+      <tr>
+        <td><code>H2-Au_swapped_H_indices</code></td>
+        <td>job <code>529051</code> 中 600 秒 timeout，无完整产物。</td>
+        <td>两个等价 H 原子在 final endpoint 中交换，DMF 仍按 same-order atom mapping 优化，等价置换被解释为不合理长路径。</td>
+        <td>风险已复现。应在输入层检查 atom order/mapping；自动重排会改变路径定义，不能默认做。</td>
+      </tr>
+      <tr>
+        <td><code>H2-Au_inconsistent_fixed_slab</code></td>
+        <td>job <code>529051</code> 中 600 秒 timeout，无完整产物。</td>
+        <td>固定 Au slab 原子在两端点间被人为移动 <code>0.10 A</code>；当前 DMF workflow 未在优化前拒绝固定原子端点不一致。</td>
+        <td>风险已复现。应增加 constraints-aware endpoint consistency preflight。</td>
+      </tr>
+      <tr>
+        <td><code>Li-Si_pbc_cfbenm</code></td>
+        <td>未进入 DMF 运行，schema validation 拒绝。</td>
+        <td>PBC <code>cartesian_unwrapped</code> 下 FBENM/CFBENM 距离语义不可靠。</td>
+        <td><span class="ok">guard covered</span>：当前要求 <code>initial_path: linear</code>。</td>
+      </tr>
+      <tr>
+        <td>H2-Au raw ABACUS force gate</td>
+        <td>初始 ABACUS comparison 中 raw candidate force <code>0.5578 eV/A</code> 未过 <code>0.10 eV/A</code> gate。</td>
+        <td>DMF raw <code>tmax</code> 是 TS candidate，不是已收敛鞍点；constrained slab raw forces 也需要区分固定自由度。</td>
+        <td>经 H2-Au ABACUS Sella corrective refinement 后，free-coordinate <code>fmax=0.0993 eV/A</code>，refined comparison 通过。</td>
+      </tr>
+      <tr>
+        <td>环境/工程失败</td>
+        <td><code>cyipopt</code>/IPOPT 安装、pip build isolation、JSON serialization、ABACUS collector 解析曾失败。</td>
+        <td>依赖和产物治理问题，不是 DMF 算法物理失败。</td>
+        <td>已通过 offline conda constraints、summary normalizer、ABACUS log fallback 和单元测试覆盖。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>0.5 方法特点与边界</h3>
+  <ul>
+    <li><strong>特点：</strong>少量 B-spline/evaluation points 生成 TS candidate，适合昂贵后端前的 MLP/DP 预筛选和 D2S rough stage。</li>
+    <li><strong>输出语义：</strong>DMF 输出的是 <code>tmax</code> candidate，不是严格 saddle；必须接 Sella/Dimer/CCQN、振动和 IRC/endpoint validation。</li>
+    <li><strong>PBC 边界：</strong>当前只承认固定 cell、端点已预 unwrap 到同一周期图像、Cartesian positions 连续的实验路径；不支持自动 MIC、fractional-coordinate path、跨边界迁移自动识别或 variable-cell path。</li>
+    <li><strong>输入边界：</strong>必须保证 atom order/mapping、constraints、端点图像和固定原子位置一致；失败案例显示这些不一致会导致 IPOPT 长时间迭代且无产物。</li>
+    <li><strong>支持边界：</strong>DMF 和 DMF-D2S 保持 experimental；成功案例说明“值得作为 TS guess accelerator 使用”，失败案例说明“不能直接替代 CI-NEB 的稳健生产路径”。</li>
+  </ul>
+
+  <h2>1. 调研范围与证据来源</h2>
+  <p>本报告基于四类证据交叉确认：</p>
+  <ul>
+    <li>用户既有调研稿：<code>docs/developer/plans/Direct-MaxFlux-方法调研.md</code>。</li>
+    <li>本地克隆的 PyDMF 仓库：<code>temp_repos/dmf</code>，远端为 <code>git@github.com:shin1koda/dmf.git</code>，当前提交 <code>ed7ed53</code>。</li>
+    <li>PyDMF 官方 README、JOSS paper draft、API 文档与源码：<code>src/dmf/dmf.py</code>、<code>src/dmf/fbenm.py</code>、<code>src/dmf/interpolate.py</code>。</li>
+    <li>公开文献入口：Koda 与 Saito 的 DMF、FB-ENM、CFB-ENM 论文 DOI 页面，以及 PyDMF/dmf-g16/ColabReaction 生态资料。</li>
+    <li>后续 ATST 实证报告：<code>DMF_P3_RUNTIME_VALIDATION_2026-06-18.md</code>、<code>DMF_P4_D2S_RUNTIME_SMOKE_2026-06-18.md</code>、<code>DMF_P4_D2S_VIBRATION_VALIDATION_2026-06-18.md</code>、<code>DMF_P4_D2S_IRC_ENDPOINT_VALIDATION_2026-06-18.md</code>、<code>DMF_P4_D2S_ABACUS_COMPARISON_2026-06-18.md</code>、<code>DMF_RISK_REVIEW_2026-06-19.md</code>。</li>
+  </ul>
+  <p>用户给出的 ChatGPT share 链接当前只能访问登录壳层，未能直接读取正文；本报告改以用户放入仓库的 Markdown 调研稿作为可核验输入。</p>
+
+  <h2>2. DMF 算法定位</h2>
+  <p>DMF 的核心不是从单个结构沿负曲率方向收敛到鞍点，而是给定反应物和产物两端结构后，优化一条连续反应路径。路径最高能点在 large-&beta; 极限下成为 transition-state candidate，再进入精确 TS optimization、虚频分析和 IRC 验证。</p>
+  <p>PyDMF 文档和源码将路径写为 B-spline 展开，优化变量是内部 B-spline 控制点。其 Direct MaxFlux 泛函为：</p>
+  <pre><code>I[x] = integral_0^1 |dx/dt| exp(beta E(x(t))) dt
+objective = beta^-1 log I[x]</code></pre>
+  <p>当 <code>beta</code> 较大时，指数项强调路径上的高能区域；优化该泛函等价于压低路径最大能量，同时速度约束保持路径参数化合理。PyDMF 实现中 <code>DirectMaxFlux._get_objective()</code> 返回 <code>log(action) / beta</code>，<code>_get_func_en()</code> 返回 <code>exp(beta * en)</code> 及其导数。</p>
+
+  <h3>2.1 典型工作流</h3>
+  <ol>
+    <li>准备 reactant/product 两端结构，要求原子顺序、映射、电荷/自旋和构象选择合理。</li>
+    <li>用 FB-ENM 或 CFB-ENM 生成 chemically plausible initial path，避免线性插值碰撞。</li>
+    <li>把初始 B-spline coefficients 传入 <code>DirectMaxFlux</code>，配置 ASE calculators。</li>
+    <li>用 IPOPT/cyipopt 求解非线性约束优化问题。</li>
+    <li>通过 energy interpolation 找到 <code>tmax</code>，输出路径最高能结构。</li>
+    <li>用 Dimer、Sella、CCQN 或后端原生 TS optimizer 做最终鞍点优化和验证。</li>
+  </ol>
+
+  <h3>2.2 DMF 与 MaxFlux 传统来源</h3>
+  <p>DMF 源自 MaxFlux reaction path 思想，但 PyDMF 中面向实际 TS 搜索的实现已转化为一个低温极限下的变分路径优化问题。相比传统 MaxFlux 的有限温度扩散通量解释，当前 PyDMF 的工程目标更明确：用较少能量/力评估点定位靠近 TS 的路径最高能结构。</p>
+
+  <h2>3. DMF 与 CI-NEB 的比较</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>CI-NEB / NEB</th>
+        <th>DMF / PyDMF</th>
+        <th>对 ATST-Tools 的含义</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>路径表示</td>
+        <td>离散 images 加弹簧和投影力；CI image 沿路径上坡、垂直方向下降。</td>
+        <td>B-spline 连续路径；优化内部控制点和少量 evaluation points。</td>
+        <td>DMF 更像曲线优化器，不能直接复用 ATST 当前 NEB trajectory 语义。</td>
+      </tr>
+      <tr>
+        <td>目标函数</td>
+        <td>NEB 力投影规则，不是普通标量目标函数最小化。</td>
+        <td>显式 MaxFlux 泛函，交给 IPOPT 做非线性约束优化。</td>
+        <td>需要引入 cyipopt/IPOPT 依赖和 optimizer diagnostics。</td>
+      </tr>
+      <tr>
+        <td>计算点数量</td>
+        <td>通常需要较多 images 保证路径分辨率；CI-NEB 生产经验成熟。</td>
+        <td>默认 <code>nmove=5</code>，总评估点 <code>nmove + 2</code>，可自适应集中到高能区。</td>
+        <td>对 ABACUS/DFT 后端有潜在节省，但收益需用 ATST 案例实测。</td>
+      </tr>
+      <tr>
+        <td>最终 TS 可靠性</td>
+        <td>CI image 可接近 saddle，但仍常需 Dimer/Sella/frequency/IRC 验证。</td>
+        <td>最高能点是 TS candidate，不是严格鞍点收敛结果。</td>
+        <td>应接入现有 D2S/TS validation，而不是单独给出最终结论。</td>
+      </tr>
+      <tr>
+        <td>PBC 生产经验</td>
+        <td>ASE NEB 与 ATST 当前 Li-Si、H2-Au、Cy-Pt、Zn migration 案例已形成验证链。</td>
+        <td>公开论文口径和源码实现均未给出严格 PBC 支持。</td>
+        <td>周期体系不能直接宣传为 supported，必须先做受控实验性功能。</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>因此，DMF 对 ATST 的价值不是“替换 CI-NEB”，而是先作为独立 TS-guess accelerator 验证其对 ATST 核心案例的适用性；只有当 PBC 语义和生产级对照案例稳定后，才适合补充当前 D2S 工作流，用更少路径点生成 TS 初猜并进入 ATST 已有单端 TS refinement 与验证链。</p>
+
+  <h2>4. PyDMF 当前源码实现</h2>
+  <h3>4.1 包结构与依赖</h3>
+  <p>PyDMF 当前 <code>pyproject.toml</code> 显示包名为 <code>pydmf</code>，版本 <code>1.2.1</code>，基础依赖为 <code>ase&gt;=3.22</code>；<code>cyipopt</code> 是 optional dependency，但 <code>src/dmf/dmf.py</code> 顶层直接 <code>import cyipopt</code>，实际使用 <code>DirectMaxFlux</code> 时需要可用 IPOPT/cyipopt 环境。官方 README 推荐 conda 安装，这是 ATST 集成时必须保留为 optional extra 的原因。</p>
+  <table>
+    <thead>
+      <tr>
+        <th>模块</th>
+        <th>职责</th>
+        <th>关键观察</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>src/dmf/dmf.py</code></td>
+        <td><code>VariationalPathOpt</code> 和 <code>DirectMaxFlux</code>。</td>
+        <td>B-spline basis、速度/平动/转动约束、energy/force evaluation、IPOPT callbacks、<code>tmax</code> 历史记录。</td>
+      </tr>
+      <tr>
+        <td><code>src/dmf/interpolate.py</code></td>
+        <td><code>interpolate_fbenm()</code>。</td>
+        <td>先用 FB-ENM/CFB-ENM 做路径生成，再返回可复用的 coefficients。</td>
+      </tr>
+      <tr>
+        <td><code>src/dmf/fbenm.py</code></td>
+        <td>FB-ENM、FB_ENM_Bonds、CFB_ENM calculators。</td>
+        <td>基于 pair distances、covalent/vdW radii、bond graph、quartets 和 planar fragments 构造路径约束。</td>
+      </tr>
+      <tr>
+        <td><code>src/dmf/torch/*</code></td>
+        <td>PyTorch/GPU 版本。</td>
+        <td>API 与 NumPy 版本相近，但依赖 torch；可作为未来加速方向，不建议首轮接入。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_dmf.py</code></td>
+        <td>基础 import、FB-ENM coefficients、EMT DirectMaxFlux smoke。</td>
+        <td>测试覆盖非周期小分子；没有 PBC/ABACUS/DP calculator 验证。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 路径与优化变量</h3>
+  <p><code>VariationalPathOpt.__init__</code> 以 <code>ref_images[0].copy()</code> 生成 <code>self.images</code>，因此 cell/PBC 元数据会随 ASE Atoms 被复制。但优化变量是 <code>coefs[1:-1]</code> 的 Cartesian coordinates；端点 coefficients 固定，若启用 <code>remove_rotation_and_translation</code>，还会把最终端点旋转角作为优化变量。</p>
+  <p>这套设计对分子体系很合理：它通过 mass center 平移和逐帧旋转对齐移除刚体冗余。但对周期 slab 或晶体，默认旋转/平动冗余处理并不自然：晶胞方向本身有物理意义，表面法向和吸附位点不应被全局旋转消除。</p>
+
+  <h3>4.3 能量/力评估与并行</h3>
+  <p><code>_get_forces_by_img_idxs()</code> 支持 serial 或 Python thread-based parallel evaluation；README_PARALLEL 明确要求用户为每个 image 分配独立 calculator 资源和输出目录。ATST 当前 NEB/AutoNEB image-level MPI 已有“每个 image 独立 calculator directory”的治理经验，这一点可复用；但 PyDMF 的并行粒度是线程并发，不等同于 ATST 当前 MPI world 分配。</p>
+
+  <h3>4.4 FB-ENM / CFB-ENM 路径生成</h3>
+  <p><code>FB_ENM</code> 和 <code>CFB_ENM</code> 是 ASE calculators，用 flat-bottom pair potentials 构造无碰撞且保留非反应结构的路径。<code>FB_ENM_Bonds</code> 基于 covalent radii 识别 bonds，并给强约束和弱约束设置 <code>d_min/d_max</code>；<code>CFB_ENM</code> 进一步识别断键/成键 pair quartets，调控成键断键时机。</p>
+  <p>这一实现对有机/分子反应特别有价值，但对周期体系需要谨慎：源码中距离主要来自 <code>atoms.get_positions()</code>、手写 Cartesian pair differences 或默认 <code>atoms.get_all_distances()</code>。报告期未发现 <code>mic=True</code>、scaled coordinates、wrap/unwrap 或 fractional displacement 的显式处理。</p>
+
+  <h2>5. 周期性体系适用性</h2>
+  <div class="risk">
+    <p><strong>核心判断：</strong>DMF 的思想可以被扩展到周期体系，但当前 PyDMF 实现和原始论文口径不构成严格周期体系支持。对 ATST-Tools 来说，周期体系 DMF 必须先作为实验性功能处理。</p>
+  </div>
+
+  <h3>5.1 外部证据</h3>
+  <p>Koda 与 Saito 2024 年 JCTC 论文 DOI 页面摘要/说明中明确指出当前仅支持非周期体系。该表述与本地 PyDMF 源码观察一致：虽然文档字符串说 <code>ref_images[0]</code> 会保留 cell 和 PBC settings，但核心几何操作仍在 Cartesian positions 上进行。</p>
+
+  <h3>5.2 源码层面的 PBC 风险</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>问题</th>
+        <th>源码证据</th>
+        <th>周期案例风险</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>路径坐标不是 fractional coordinates</td>
+        <td><code>get_positions()</code>、<code>set_positions()</code>、B-spline coefficients 全部基于 Cartesian positions。</td>
+        <td>离子跨边界迁移会出现走长路或穿越错误周期镜像的问题。</td>
+      </tr>
+      <tr>
+        <td>未显式 minimum-image 距离</td>
+        <td>FB-ENM/CFB-ENM 使用 <code>get_positions()</code> 手写 pair differences，或默认 <code>get_all_distances()</code>。</td>
+        <td>表面 adsorbate 与 slab、扩散离子与邻近晶胞原子的约束可能错误。</td>
+      </tr>
+      <tr>
+        <td>默认旋转/平动冗余处理适合孤立分子</td>
+        <td><code>remove_rotation_and_translation=True</code> 时会平移质心并用 <code>Rotation.align_vectors</code> 对齐结构。</td>
+        <td>晶体/slab 的 cell orientation 和 substrate reference frame 不应被任意旋转。</td>
+      </tr>
+      <tr>
+        <td>没有 cell path 或 variable-cell 支持</td>
+        <td>路径变量只包含 atomic positions 和可选旋转角。</td>
+        <td>相变、应变辅助迁移、可变晶胞 NEB 不适用。</td>
+      </tr>
+      <tr>
+        <td>并行模型不是 Slurm/MPI first-class</td>
+        <td>PyDMF 并行是 Python threads 调 calculator。</td>
+        <td>ABACUS nested MPI、V100 分配和 image directories 需要 ATST wrapper 额外治理。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>5.3 对典型 ATST 周期案例的判断</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>案例类型</th>
+        <th>是否可直接使用 PyDMF</th>
+        <th>建议</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>孤立分子反应、小分子重排、cluster 催化模型</td>
+        <td><span class="ok">较适合</span></td>
+        <td>可以优先作为 ATST DMF smoke/reference 案例，接 EMT/DP 或小规模 ABACUS。</td>
+      </tr>
+      <tr>
+        <td>固定 slab 上吸附/解离，adsorbate 不跨 cell 边界</td>
+        <td><span class="warn">可实验性尝试</span></td>
+        <td>关闭旋转/平动消除，固定 slab 原子或使用 constraints，并要求端点处于同一 cell 图像。</td>
+      </tr>
+      <tr>
+        <td>Li/Na 离子迁移，端点可能跨周期边界</td>
+        <td><span class="bad">不建议直接宣称支持</span></td>
+        <td>必须先做 unwrap/映射，最好在 fractional coordinate 或 MIC-aware displacement 中构造路径。</td>
+      </tr>
+      <tr>
+        <td>晶胞变化、相变、应变耦合路径</td>
+        <td><span class="bad">当前不适用</span></td>
+        <td>需要 cell degrees of freedom 和 metric-aware path formulation，超出 PyDMF 当前实现。</td>
+      </tr>
+      <tr>
+        <td>复杂表面反应伴随 slab 大重构</td>
+        <td><span class="warn">高风险实验性</span></td>
+        <td>可作为 TS guess 工具，但必须用 NEB/TS refinement/IRC 复核，且 FB-ENM 参数需人工审查。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>6. ATST-Tools 加入 DMF 的可行性</h2>
+  <h3>6.1 有利条件</h3>
+  <ul>
+    <li>ATST-Tools 已以 ASE 为核心抽象，PyDMF 也以 ASE calculators 为后端接口，二者技术边界一致。</li>
+    <li>ATST 已具备 calculator factory、ABACUS/DP backend、per-image directory、endpoint single-point governance、artifact manifest、trajectory summary 和 TS validation 等通用能力。</li>
+    <li>D2S 工作流已经形成“double-ended rough path + single-ended refinement”的架构；在 DMF 的 PBC 语义和生产级案例证据稳定后，可插入为 rough path / TS guess generator。</li>
+    <li>DMF 对昂贵后端可能减少 evaluation points，适合 ABACUS/DFT 或 MLP 预筛选。</li>
+  </ul>
+
+  <h3>6.2 主要成本</h3>
+  <ul>
+    <li><strong>依赖成本：</strong><code>cyipopt</code> 和 IPOPT 安装复杂，不能成为 ATST 默认依赖。应使用 optional extra 或运行时友好报错。</li>
+    <li><strong>并行成本：</strong>PyDMF thread parallel 与 SAI/Slurm/MPI resource model 不完全匹配，需要 ATST 包装 calculator directory 和资源声明。</li>
+    <li><strong>语义成本：</strong>DMF 输出的是 B-spline 路径和 <code>tmax</code> 历史，不是 NEB band；ATST 需要定义新的 artifact manifest 语义。</li>
+    <li><strong>PBC 成本：</strong>周期体系需要 endpoint mapping、unwrap、MIC-aware distance、关闭刚体旋转和平动、constraints 传播等额外设计。</li>
+  </ul>
+
+  <h3>6.3 推荐集成路线</h3>
+  <ol>
+    <li><strong>P0: 文档和实验分支。</strong>保留本报告，明确 DMF 暂不在 feature matrix 标记为 supported。</li>
+    <li><strong>P1: 非周期基线。</strong>新增可选 standalone workflow，例如 <code>calculation.type: dmf</code>，先只承诺非周期小分子/cluster smoke；验证 PyDMF import guard、EMT/DP 后端、<code>tmax</code> 输出、trajectory 和 artifact manifest。</li>
+    <li><strong>P2: PBC 实验层。</strong>在 standalone DMF 中验证固定晶胞周期体系，支持 <code>pbc_mode: cartesian_unwrapped</code> 或等价显式端点映射策略，强制用户确认同一周期图像，默认关闭 rotation/translation removal，并记录 MIC/unwrap 限制。</li>
+    <li><strong>P3: 生产级案例验收。</strong>用 Li migration、H2/Au adsorbate dissociation、Cy/Pt 或 Zn migration 类案例做 ABACUS/DP 与 CI-NEB 对照；DMF TS guess + refinement 必须能给出可比 barrier、合理 reaction mode、endpoint connection 和 walltime 证据。</li>
+    <li><strong>P4: D2S 支持。</strong>在 P2/P3 证明 PBC 语义和生产案例可靠后，再把 DMF 接入 <code>d2s.rough_method: dmf</code> 或等价接口，复用 Dimer/Sella/CCQN、vibration 和 IRC validation。</li>
+  </ol>
+
+  <h2>7. 是否应支持到 ATST-Tools</h2>
+  <p><strong>建议支持，但采用分级、可选、实验性路线。</strong>DMF 与 ATST 的目标高度相关：ATST 已经是 ASE-native transition-state workflow toolkit，DMF 正好是 ASE calculator 生态中的新型 double-ended TS guess/path optimizer。将 DMF 纳入调研和实验 workflow 有明确价值。</p>
+  <p>但当前不应把 DMF 标记为与 NEB/AutoNEB 同等级的生产级周期体系方法，原因有三点：</p>
+  <ol>
+    <li>官方论文口径和源码实现都没有严格周期体系支持。</li>
+    <li>ATST 现有核心用户案例大量是 ABACUS/DP 周期体系，包括 Li 迁移、surface reaction 和 slab catalysis。</li>
+    <li>DMF 最高能点仍是 TS candidate，必须纳入 ATST 已有 refinement/validation 链，而不是单独作为最终答案。</li>
+  </ol>
+  <p>因此，最稳妥的产品定位是：<strong>DMF as an optional TS-guess accelerator for double-ended workflows</strong>。推进顺序应先证明非周期 API 和 PBC 语义，再用生产级案例决定是否进入 D2S；在文档和 CLI 中应明确“experimental”“non-periodic first”“PBC requires pre-unwrapped endpoints and validation”。</p>
+
+  <h2>8. 推荐验收清单</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>阶段</th>
+        <th>验收内容</th>
+        <th>最低证据</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P1 非周期</td>
+        <td>PyDMF import guard、EMT sample、trajectory/tmax/artifact 输出。</td>
+        <td>单元测试 + lightweight example。</td>
+      </tr>
+      <tr>
+        <td>P2 PBC experimental</td>
+        <td>固定 cell、同一周期图像、关闭 rotation/translation removal。</td>
+        <td>DP calculator 快速验证，路径不跨错误镜像。</td>
+      </tr>
+      <tr>
+        <td>P3 production candidate</td>
+        <td>Li migration、H2/Au 或 Cy/Pt 类案例与 CI-NEB 对照。</td>
+        <td>barrier、TS mode、IRC/endpoint connection 和 walltime 记录。</td>
+      </tr>
+      <tr>
+        <td>P4 D2S integration</td>
+        <td>DMF 输出 TS guess 可接 Dimer/Sella/CCQN，并作为 D2S rough stage 候选。</td>
+        <td>与现有 D2S smoke 和生产级 PBC 证据对齐，artifact manifest 完整。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9. 参考资料</h2>
+  <ol>
+    <li>用户调研稿：<code>docs/developer/plans/Direct-MaxFlux-方法调研.md</code>。</li>
+    <li>PyDMF GitHub repository: <a href="https://github.com/shin1koda/dmf">https://github.com/shin1koda/dmf</a>。</li>
+    <li>PyDMF API documentation: <a href="https://shin1koda.github.io/dmf/">https://shin1koda.github.io/dmf/</a>。</li>
+    <li>S.-i. Koda and S. Saito, <em>Locating Transition States by Variational Reaction Path Optimization with an Energy-Derivative-Free Objective Function</em>, JCTC 20, 2798-2811 (2024), DOI <a href="https://doi.org/10.1021/acs.jctc.3c01246">10.1021/acs.jctc.3c01246</a>。</li>
+    <li>S.-i. Koda and S. Saito, <em>Flat-Bottom Elastic Network Model for Generating Improved Plausible Reaction Paths</em>, JCTC 20, 7176-7187 (2024), DOI <a href="https://doi.org/10.1021/acs.jctc.4c00792">10.1021/acs.jctc.4c00792</a>。</li>
+    <li>S.-i. Koda and S. Saito, <em>Correlated Flat-Bottom Elastic Network Model for Improved Bond Rearrangement in Reaction Paths</em>, JCTC 21, 3513-3522 (2025), DOI <a href="https://doi.org/10.1021/acs.jctc.4c01549">10.1021/acs.jctc.4c01549</a>。</li>
+    <li>dmf-g16 GitHub repository: <a href="https://github.com/shin1koda/dmf-g16">https://github.com/shin1koda/dmf-g16</a>。</li>
+    <li>Local PyDMF source inspected in <code>temp_repos/dmf/src/dmf/dmf.py</code>, <code>fbenm.py</code>, <code>interpolate.py</code>, <code>README_PARALLEL.md</code>, and <code>tests/test_dmf.py</code>。</li>
+  </ol>
+</article>
+</main>
+</body>
+</html>

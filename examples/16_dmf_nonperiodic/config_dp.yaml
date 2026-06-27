@@ -1,0 +1,31 @@
+calculation:
+  type: dmf
+  init_file: inputs/init.xyz
+  final_file: inputs/final.xyz
+  directory: dmf_run
+  trajectory: dmf_path.traj
+  tmax_trajectory: dmf_tmax.traj
+  summary_file: dmf_summary.json
+  artifact_manifest: atst_artifacts.json
+  initial_path: cfbenm
+  nsegs: 4
+  dspl: 3
+  nmove: 10
+  beta: null
+  update_teval: true
+  tol: middle
+  ipopt_options:
+    max_iter: 50
+    print_level: 0
+  parallel: false
+  remove_rotation_and_translation: true
+  pbc_mode: reject
+  confirm_pbc_risk: false
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: false

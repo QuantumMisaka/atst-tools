@@ -1,0 +1,32 @@
+calculation:
+  type: dmf
+  init_file: risk_cases/H2-Au_inconsistent_fixed_slab/inputs/init.extxyz
+  final_file: risk_cases/H2-Au_inconsistent_fixed_slab/inputs/final.extxyz
+  directory: risk_cases/H2-Au_inconsistent_fixed_slab/dmf_run
+  trajectory: risk_cases/H2-Au_inconsistent_fixed_slab/dmf_path.traj
+  tmax_trajectory: risk_cases/H2-Au_inconsistent_fixed_slab/dmf_tmax.traj
+  summary_file: risk_cases/H2-Au_inconsistent_fixed_slab/dmf_summary.json
+  artifact_manifest:
+    risk_cases/H2-Au_inconsistent_fixed_slab/atst_artifacts.json
+  initial_path: linear
+  nsegs: 4
+  dspl: 3
+  nmove: 10
+  beta:
+  update_teval: true
+  tol: middle
+  ipopt_options:
+    max_iter: 80
+    print_level: 0
+  parallel: false
+  remove_rotation_and_translation: false
+  pbc_mode: cartesian_unwrapped
+  confirm_pbc_risk: true
+
+calculator:
+  name: dp
+  dp:
+    model: ../../temp_repos/dp_model/DPA-3.1-3M.pt
+    head: Omat24
+    omp: 4
+    share_calculator: false

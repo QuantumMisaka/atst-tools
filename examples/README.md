@@ -31,6 +31,9 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `10_irc_H2/`: IRC YAML examples for `direction: both`, `forward`, `reverse`, and descent-mode IRC via `config_descent*.yaml` plus `inputs/descent_mode.npy`.
 *   `11_vibration_ideal_gas_H2/`: Small-molecule vibration thermochemistry with `thermochemistry.model: ideal_gas`.
 *   `15_md_Li-Si/`: Molecular dynamics templates for ASE-driven DP/ABACUS and ABACUS-native MD using the `01_neb_Li-Si` initial structure.
+*   `16_dmf_nonperiodic/`: Experimental non-periodic Direct MaxFlux smoke configuration. DMF writes a TS candidate only and requires follow-up validation.
+*   `17_dmf_pbc_cartesian_unwrapped/`: Experimental fixed-cell PBC DMF guard example using `cartesian_unwrapped`; this is not production PBC validation.
+*   `18_dmf_production_validation/`: P3 staging harness for running two DMF candidate comparisons against existing Li-Si and H2-Au ABACUS/DP references on SAI.
 
 ### 5. Classic Transition State Search (CO on Pt(111))
 *   `04_dimer_CO-Pt/`: **CO on Pt(111)**. A classic benchmark system for the **Dimer** method.
@@ -105,6 +108,64 @@ atst run examples/08_d2s_Cy-Pt/config.yaml
 
 D2S uses the configured calculator backend through `atst run`: rough NEB first,
 then Dimer, Sella, or CCQN, with optional vibration follow-up.
+
+### Experimental DMF candidate path
+
+```bash
+atst config validate examples/16_dmf_nonperiodic/config_dp.yaml --print-normalized
+atst run --dry-run examples/16_dmf_nonperiodic/config_dp.yaml
+```
+
+`calculation.type: dmf` is experimental. It uses vendored PyDMF through the
+ATST-Tools namespace, but still requires `cyipopt` and IPOPT at runtime. The
+written `dmf_tmax.traj` is a TS candidate, not a validated TS. Periodic inputs
+are rejected unless the experimental `pbc_mode: cartesian_unwrapped` risk
+acknowledgement is set with fixed-cell, pre-unwrapped Cartesian endpoints.
+`nmove` controls the final DMF evaluation grid, so a default standalone run
+writes `nmove + 2` path images and records the final `t_eval` grid in
+`dmf_summary.json`.
+
+For the P2 PBC guard path:
+
+```bash
+atst config validate examples/17_dmf_pbc_cartesian_unwrapped/config_dp.yaml --print-normalized
+atst run --dry-run examples/17_dmf_pbc_cartesian_unwrapped/config_dp.yaml
+```
+
+The PBC example requires `initial_path: linear`, identical endpoint cells/PBC
+flags, `confirm_pbc_risk: true`, and `remove_rotation_and_translation: false`.
+It is a configuration and guard smoke, not production evidence for periodic
+DMF.
+
+For the P3 production-validation staging path:
+
+```bash
+cd examples/18_dmf_production_validation
+export ATST_DMF_ATST=/path/to/atst
+sbatch submit_dmf_dp_rush_1gpu.sbatch
+```
+
+The submission script runs the two staged DP-backed DMF cases and then writes
+`dmf_validation_report.json` with `scripts/validate_dmf_candidates.py`. This is
+candidate-comparison evidence only; `rough_method: dmf` is available in D2S as
+an experimental rough stage, and the later P4 scripts in the same directory add
+Sella, vibration, descent-IRC endpoint, and ABACUS comparison evidence.
+For D2S-DMF, ATST uses the final DMF `t_eval` grid from the summary when
+choosing the `tmax` neighborhood for displacement vectors, CCQN references, and
+automatic vibration indices.
+The same directory also includes
+`submit_d2s_dmf_sella_dp_rush_1gpu.sbatch` for a short D2S
+`rough_method: dmf` -> Sella runtime smoke and
+`submit_d2s_dmf_sella_vib_dp_rush_1gpu.sbatch` for focused local vibration
+validation after Sella. `submit_d2s_dmf_irc_dp_rush_1gpu.sbatch` then derives
+local descent-IRC modes from the DMF path and validates endpoint connection on
+the selected reactive atoms. `submit_d2s_dmf_abacus_compare_rush_gpu.sbatch`
+runs the initial ABACUS single-point comparison, and
+`submit_d2s_dmf_abacus_refined_compare_rush_gpu.sbatch` reruns the comparison
+after targeted H2-Au ABACUS Sella refinement. Current evidence keeps DMF-D2S
+experimental even though the refined two-case comparison passes, because the
+DMF rough stage is still opt-in and has not replaced the default NEB rough
+stage.
 
 ### P0/P1 workflow smoke examples
 
@@ -229,6 +290,9 @@ files and monitoring logs, remain under
 | `13_neb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | NEB image-parallel |
 | `14_autoneb_parallel_Cy-Pt` | Cyclohexane dehydrogenation on Pt@Graphene | C, H, Pt | AutoNEB image-parallel |
 | `15_md_Li-Si` | Li in Si diamond structure from `01_neb_Li-Si` | Li, Si | MD |
+| `16_dmf_nonperiodic` | H2 non-periodic endpoint pair | H | DMF |
+| `17_dmf_pbc_cartesian_unwrapped` | H2 fixed-cell toy endpoint pair | H | DMF PBC guard |
+| `18_dmf_production_validation` | Li-Si and H2-Au staged P3 validation cases | Li, Si, H, Au | DMF validation |
 
 ## Reference Results
 

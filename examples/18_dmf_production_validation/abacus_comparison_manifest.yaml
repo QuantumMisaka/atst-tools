@@ -1,0 +1,17 @@
+reference_results: examples/reference_results.json
+barrier_tolerance_eV: 0.50
+rmsd_threshold_A: 0.20
+fmax_threshold_eV_per_A: 0.10
+cases:
+  - name: 09_Li-Si_d2s_dmf_abacus
+    reference_case: 01_neb_Li-Si
+    config: examples/01_neb_Li-Si/config.yaml
+    initial_structure: examples/18_dmf_production_validation/inputs/01_neb_Li-Si_init.extxyz
+    candidate_structure: examples/18_dmf_production_validation/runs/07_Li-Si_d2s_dmf_irc/ts.extxyz
+    output_dir: examples/18_dmf_production_validation/runs/09_Li-Si_d2s_dmf_abacus
+  - name: 10_H2-Au_d2s_dmf_abacus
+    reference_case: 02_neb_H2-Au
+    config: examples/02_neb_H2-Au/config.yaml
+    initial_structure: examples/18_dmf_production_validation/inputs/02_neb_H2-Au_init.extxyz
+    candidate_structure: examples/18_dmf_production_validation/runs/08_H2-Au_d2s_dmf_irc/ts.extxyz
+    output_dir: examples/18_dmf_production_validation/runs/10_H2-Au_d2s_dmf_abacus

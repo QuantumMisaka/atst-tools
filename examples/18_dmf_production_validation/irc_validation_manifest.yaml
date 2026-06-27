@@ -1,0 +1,12 @@
+rmsd_threshold: 0.25
+cases:
+  - name: 07_Li-Si_d2s_dmf_irc
+    irc_trajectory: examples/18_dmf_production_validation/runs/07_Li-Si_d2s_dmf_irc/norm_irc_descent.traj
+    init_structure: examples/18_dmf_production_validation/inputs/01_neb_Li-Si_init.extxyz
+    final_structure: examples/18_dmf_production_validation/inputs/01_neb_Li-Si_final.extxyz
+    indices: [0]
+  - name: 08_H2-Au_d2s_dmf_irc
+    irc_trajectory: examples/18_dmf_production_validation/runs/08_H2-Au_d2s_dmf_irc/norm_irc_descent.traj
+    init_structure: examples/18_dmf_production_validation/inputs/02_neb_H2-Au_init.extxyz
+    final_structure: examples/18_dmf_production_validation/inputs/02_neb_H2-Au_final.extxyz
+    indices: [0, 1]

@@ -187,6 +187,24 @@
       "slurm_job_id": "461564",
       "status": "yellow",
       "workflow": "vibration_ideal_gas"
+    },
+    "16_dmf_nonperiodic": {
+      "status": "yellow",
+      "workflow": "dmf",
+      "metrics": {
+        "runtime_validated": 0.0
+      },
+      "comparison": {},
+      "validation_status": "experimental DMF non-periodic DP example; no curated DP production reference yet"
+    },
+    "17_dmf_pbc_cartesian_unwrapped": {
+      "status": "yellow",
+      "workflow": "dmf",
+      "metrics": {
+        "runtime_validated": 0.0
+      },
+      "comparison": {},
+      "validation_status": "experimental DMF PBC Cartesian-unwrapped DP example; no curated DP production reference yet"
     }
   },
   "generated_at": "2026-05-28T00:00:00+08:00",

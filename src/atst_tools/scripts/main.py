@@ -30,6 +30,7 @@ from atst_tools.workflows.vibration import VibrationWorkflow
 from atst_tools.workflows.d2s import D2SWorkflow
 from atst_tools.workflows.irc import IRCBoundaryError, IRCWorkflow
 from atst_tools.workflows.md import MDWorkflow
+from atst_tools.workflows.dmf import DMFWorkflow
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
     ENDPOINT_OPTIMIZED,
@@ -179,6 +180,8 @@ calculation:
 calculation:
   type: d2s
   method: dimer
+  # Keep neb for supported production runs; dmf is an experimental rough-stage option.
+  rough_method: neb
   init_file: inputs/init.stru
   final_file: inputs/final.stru
   endpoint_optimization:
@@ -191,6 +194,11 @@ calculation:
     n_images: 8
     fmax: 0.20
     max_steps: 100
+  dmf:
+    initial_path: linear
+    pbc_mode: reject
+    confirm_pbc_risk: false
+    remove_rotation_and_translation: true
   dimer:
     fmax: 0.05
     max_steps: 100
@@ -278,6 +286,40 @@ calculation:
   # driver: abacus_native
   # calculator.name must be abacus, and ABACUS MD INPUT variables are passed
   # through calculator.abacus.parameters with calculation: md.
+""",
+        "dmf": """\
+calculation:
+  type: dmf
+  # Experimental Direct MaxFlux TS candidate workflow.
+  # PBC is rejected by default. The cartesian_unwrapped mode is experimental,
+  # assumes fixed-cell pre-unwrapped Cartesian endpoints, and does not provide
+  # MIC or fractional-coordinate support.
+  init_file: inputs/init.xyz
+  final_file: inputs/final.xyz
+  directory: dmf_run
+  trajectory: dmf_path.traj
+  tmax_trajectory: dmf_tmax.traj
+  summary_file: dmf_summary.json
+  artifact_manifest: atst_artifacts.json
+  initial_path: cfbenm
+  nsegs: 4
+  dspl: 3
+  nmove: 10
+  beta: null
+  update_teval: true
+  tol: middle
+  ipopt_options:
+    max_iter: 50
+    print_level: 0
+  parallel: false
+  remove_rotation_and_translation: true
+  pbc_mode: reject
+  confirm_pbc_risk: false
+  # To opt in to the experimental PBC path:
+  # initial_path: linear
+  # pbc_mode: cartesian_unwrapped
+  # confirm_pbc_risk: true
+  # remove_rotation_and_translation: false
 """,
     }
     return calculation_blocks[calculation_type] + "\n" + calculator
@@ -717,7 +759,7 @@ def _build_parser():
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md
+          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md | dmf
           calculator.name:  abacus | dp
 
         Common commands:
@@ -817,6 +859,9 @@ def run_from_args(args):
         run_ccqn(config, calc_name, calc_config)
     elif calc_type == 'd2s':
         workflow = D2SWorkflow(config, calc_name, calc_config)
+        workflow.run()
+    elif calc_type == 'dmf':
+        workflow = DMFWorkflow(config, calc_name, calc_config)
         workflow.run()
     elif calc_type == 'relax':
         workflow = RelaxWorkflow(config, calc_name, calc_config)
