@@ -9,6 +9,7 @@ import pytest
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import FixAtoms, FixCartesian
 from ase.io import read, write
 
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import write_stru
@@ -566,6 +567,57 @@ def test_neb_make_accepts_stru_input_with_fix_and_mag(tmp_path):
     assert len(frames) == 3
     assert frames[1].constraints
     np.testing.assert_allclose(frames[1].get_initial_magnetic_moments(), [1.0, 0.0])
+
+
+def test_neb_make_preserves_constraints_from_stru_mobility(tmp_path):
+    from atst_tools.scripts import cli
+
+    def write_endpoint(path, h_x):
+        path.write_text(
+            f"""ATOMIC_SPECIES
+H 1.0 H.upf
+He 4.0 He.upf
+
+LATTICE_CONSTANT
+1.8897261258369282
+
+LATTICE_VECTORS
+5.0 0.0 0.0
+0.0 5.0 0.0
+0.0 0.0 5.0
+
+ATOMIC_POSITIONS
+Direct
+
+H
+0.0
+1
+{h_x} 0.0 0.0 m 0 0 0
+
+He
+0.0
+1
+0.5 0.0 0.0 m 1 0 1
+""",
+            encoding="utf-8",
+        )
+
+    init_stru = tmp_path / "init.stru"
+    final_stru = tmp_path / "final.stru"
+    output = tmp_path / "chain.traj"
+    write_endpoint(init_stru, 0.0)
+    write_endpoint(final_stru, 0.2)
+
+    cli.main(["neb", "make", str(init_stru), str(final_stru), "1", "--method", "linear", "-o", str(output)])
+
+    frames = read(output, index=":")
+    assert len(frames) == 3
+    for frame in frames:
+        assert isinstance(frame.constraints[0], FixAtoms)
+        np.testing.assert_array_equal(frame.constraints[0].index, [0])
+        assert isinstance(frame.constraints[1], FixCartesian)
+        np.testing.assert_array_equal(frame.constraints[1].index, [1])
+        np.testing.assert_array_equal(frame.constraints[1].mask, [False, True, False])
 
 
 def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):

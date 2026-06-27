@@ -159,8 +159,8 @@ def test_write_stru_records_cartesian_coordinates_pp_basis_and_magmom(tmp_path):
     assert data["species"][0]["atom"][1]["mag"] == 2.0
 
 
-def test_write_stru_does_not_preserve_constraints_or_input_velocities(tmp_path):
-    """Current abacuslite writer emits default mobility and zero velocities."""
+def test_write_stru_preserves_constraints_as_mobility_and_zeroes_velocities(tmp_path):
+    """ASE constraints should round-trip to ABACUS mobility flags."""
     atoms = Atoms(
         symbols=["H", "He", "H"],
         positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
@@ -180,7 +180,7 @@ def test_write_stru_does_not_preserve_constraints_or_input_velocities(tmp_path):
     data = read_stru(tmp_path / "STRU")
     atoms_in_stru = [atom for species in data["species"] for atom in species["atom"]]
 
-    assert [atom["m"] for atom in atoms_in_stru] == [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    assert [atom["m"] for atom in atoms_in_stru] == [[0, 0, 0], [1, 1, 1], [0, 1, 0]]
     assert [atom["v"] for atom in atoms_in_stru] == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
 
 

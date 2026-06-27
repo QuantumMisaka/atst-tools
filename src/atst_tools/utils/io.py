@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from ase import Atoms
-from ase.constraints import FixAtoms
+from ase.constraints import FixAtoms, FixCartesian
 from ase.io import read
 from ase.units import Bohr
 
@@ -31,6 +31,7 @@ def read_abacus_stru(filename: str | Path) -> Atoms:
     symbols = []
     coords = []
     fixed_indices = []
+    cartesian_constraints = []
     magmoms = []
 
     for species in data["species"]:
@@ -39,8 +40,13 @@ def read_abacus_stru(filename: str | Path) -> Atoms:
             symbols.append(symbol)
             coords.append(atom["coord"])
             mobility = atom.get("m")
-            if mobility is not None and not any(int(value) for value in mobility):
-                fixed_indices.append(len(symbols) - 1)
+            if mobility is not None:
+                mobility = [int(value) for value in mobility]
+                if not any(mobility):
+                    fixed_indices.append(len(symbols) - 1)
+                elif not all(mobility):
+                    mask = [not bool(value) for value in mobility]
+                    cartesian_constraints.append(FixCartesian(len(symbols) - 1, mask))
             mag = atom.get("mag", species.get("mag_each", 0.0))
             if isinstance(mag, tuple):
                 magmoms.append(mag[1])
@@ -54,8 +60,12 @@ def read_abacus_stru(filename: str | Path) -> Atoms:
     else:
         atoms.set_positions(coords_array * scale)
 
+    constraints = []
     if fixed_indices:
-        atoms.set_constraint(FixAtoms(indices=fixed_indices))
+        constraints.append(FixAtoms(indices=fixed_indices))
+    constraints.extend(cartesian_constraints)
+    if constraints:
+        atoms.set_constraint(constraints)
     if magmoms:
         atoms.set_initial_magnetic_moments(magmoms)
     return atoms
