@@ -37,7 +37,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 
 ## Usage
 
-1.  **Environment**: Ensure `atst-tools` is installed and you have access to `abacus` or `deepmd-kit`.
+1.  **Environment**: Ensure `atst-tools` is installed with Python 3.10 or newer, and that you have access to `abacus` or the optional calculator stack needed by the example.
 2.  **Inputs**: Each example keeps runnable inputs under `inputs/`; generated trajectories and ABACUS scratch directories are ignored.
 3.  **Data**: The shared `data/` directory is referenced by relative paths (e.g., `../data`) in `config.yaml`.
 4.  **Validate first**:
@@ -51,8 +51,9 @@ The examples are organized by chemical system and method to demonstrate the vers
     atst run config.yaml
     ```
 
-    To run the DP variant, make sure deepmd-kit is available. From the
-    repository root, fetch the pinned DPA-3.1-3M model first:
+    To run the DP variant, install `atst-tools[dp]` or provide an equivalent
+    DeePMD-kit environment. From the repository root, fetch the pinned
+    DPA-3.1-3M model first:
 
     ```bash
     python scripts/download_dp_model.py
@@ -139,8 +140,9 @@ The completed P0/P1 validation artifacts are curated under:
 ### NEB image-level MPI smoke
 
 Image-level NEB parallelism requires Python itself to be MPI-aware. On SAI, use
-an environment with `mpi4py` compiled after loading
-`abacus/LTSv3.10.1-sm70-auto`, then launch one Python rank per active image:
+`atst-tools[parallel]` or an equivalent environment with `mpi4py` compiled
+after loading `abacus/LTSv3.10.1-sm70-auto`, then launch one Python rank per
+active image:
 
 ```bash
 module load abacus/LTSv3.10.1-sm70-auto

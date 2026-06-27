@@ -1,7 +1,7 @@
 # 文档系统交接与维护
 
-**版本**: 2026-05-28
-**日期**: 2026-05-28
+**版本**: 2026-06-27
+**日期**: 2026-06-27
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -50,14 +50,27 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 更新 feature/status reports 和 calculator factory tests。
 - 若 backend 涉及 ABACUS/DP 环境，补充验证报告或在现有报告中记录边界。
 
-## 6. 新增或修改 example
+## 6. 新增或修改依赖
+
+- 默认 `dependencies` 只放普通安装必须具备的轻量运行时依赖；重型后端、
+  MPI、绘图和发布工具优先进入 `[project.optional-dependencies]`。
+- Sella 是一等 workflow backend，默认依赖需保持 `sella>=2.5,<3`，除非有
+  明确兼容性回退证据。
+- DP 工作流使用 `dp` extra，MPI image-level parallelism 使用 `parallel`
+  extra，NEB plotting helper 使用 `plot` extra。
+- 修改依赖范围时，更新 README、`docs/user/USER_GUIDE_CN.md` 和本文件。
+- 添加或更新 package metadata 测试，并运行构建检查：
+  `pytest tests/unit/test_package_metadata.py -q`、`python -m build` 和
+  `python -m twine check --strict dist/*`。
+
+## 7. 新增或修改 example
 
 - 更新 `examples/README.md` 的学习路径、目录说明和 chemical systems 表。
 - 更新 `examples/reference_results.json`，或明确该 example 暂无 reference 结果。
 - 保证新增输入在 `inputs/` 或受控路径下，生成输出不进入 git。
 - 运行 example 解析、dry-run 或 reference-result 测试。
 
-## 7. 新增 report 或移动旧 report
+## 8. 新增 report 或移动旧 report
 
 - 判断 report 级别：L1 状态入口、L2 当前证据、L3 当前主题审查、L4 历史材料。
 - 更新 `docs/reports/DOCUMENTATION_STATUS_REPORT.md`。
@@ -65,7 +78,7 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 被取代的 report 先吸收结论，再移到 `docs/archive/` 或
   `docs/archive/pending_delete/`。
 
-## 8. 准备 release
+## 9. 准备 release
 
 - 更新 `docs/releases/RELEASE_NOTES_<version>.md`。
 - 更新 README badge、版本说明和 release scope。
@@ -73,7 +86,7 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 复核 `docs/archive/pending_delete/README.md`，确认是否最终删除待删除文件。
 - 运行文档链接、格式和相关测试。
 
-## 9. 最小检查
+## 10. 最小检查
 
 ```bash
 git diff --check -- README.md docs examples/README.md

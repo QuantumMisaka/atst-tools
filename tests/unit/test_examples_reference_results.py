@@ -3,9 +3,16 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import yaml
+from ruamel.yaml import YAML
 
 from atst_tools.utils.io import read_structure
+
+YAML_LOADER = YAML(typ="safe", pure=True)
+
+
+def load_yaml(path: Path):
+    """Load a YAML file with the project's runtime parser dependency."""
+    return YAML_LOADER.load(path.read_text(encoding="utf-8"))
 
 
 REFERENCE_CASES = {
@@ -144,10 +151,8 @@ def test_h2_au_sella_and_ccqn_examples_use_perturbed_inputs():
     reference = read_structure(root / "examples" / "reference_structures" / "05_sella_H2-Au_final_ts.extxyz")
     sella_input = read_structure(root / "examples" / "05_sella_H2-Au" / "inputs" / "sella_init.stru")
     ccqn_input = read_structure(root / "examples" / "12_ccqn_H2-Au" / "inputs" / "ccqn_init.stru")
-    config = yaml.safe_load((root / "examples" / "12_ccqn_H2-Au" / "config.yaml").read_text(encoding="utf-8"))
-    smoke_config = yaml.safe_load(
-        (root / "examples" / "12_ccqn_H2-Au" / "config_smoke.yaml").read_text(encoding="utf-8")
-    )
+    config = load_yaml(root / "examples" / "12_ccqn_H2-Au" / "config.yaml")
+    smoke_config = load_yaml(root / "examples" / "12_ccqn_H2-Au" / "config_smoke.yaml")
 
     def rmsd(atoms_a, atoms_b):
         delta = atoms_a.get_positions() - atoms_b.get_positions()
@@ -168,7 +173,7 @@ def test_new_p0_p1_examples_exercise_new_yaml_interfaces():
     root = Path(__file__).resolve().parents[2]
 
     def load_example(relative_path):
-        return yaml.safe_load((root / "examples" / relative_path).read_text(encoding="utf-8"))
+        return load_yaml(root / "examples" / relative_path)
 
     neb_01 = load_example("01_neb_Li-Si/config.yaml")["calculation"]
     neb_01_dp = load_example("01_neb_Li-Si/config_dp.yaml")["calculation"]
