@@ -19,6 +19,26 @@ atst run CONFIG.yaml
 `neb`, `autoneb`, `d2s`, `dimer`, `sella`, `relax`, `vibration`, `irc`, and
 `md` can all use `calculator.name: abacus`.
 
+## Tested Vendored Backend Fixes
+
+ATST-Tools still resolves an independently installed `abacuslite` package before
+the vendored fallback. The fixes below are tested in the vendored snapshot; an
+external `abacuslite` package may differ unless the installed package already
+includes the same fixes.
+
+As of 2026-07-02, the vendored snapshot intentionally preserves these local
+differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`:
+
+- Relative imports so the package works under `atst_tools.external`.
+- First-occurrence species grouping for generated STRU files.
+- ASE `FixAtoms` and `FixCartesian` constraints written as ABACUS mobility flags.
+- Tolerant legacy ABACUS band-row parsing.
+
+The vendored snapshot also fixes three upstream issue paths: numbered backup
+rotation preserves older backups, property-derived ABACUS keyword conflicts now
+raise `ValueError`, and the unsupported TDDFT `dipole` ASE property is no longer
+advertised until abacuslite has a complete TDDFT input and output path.
+
 ## Wrapper Boundary
 
 ATST-Tools is a layered wrapper around abacuslite:

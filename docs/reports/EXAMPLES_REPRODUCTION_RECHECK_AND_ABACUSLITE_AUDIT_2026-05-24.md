@@ -77,8 +77,39 @@
 
 当前不建议把完整 `abacus-develop` 作为 git submodule 引入本项目。该仓库体量和演进范围远大于 ATST-Tools 实际需要的 `interfaces/ASE_interface`，会增加 clone、CI、版本固定和用户安装成本。更合适的机制是保留 vendored copy，并建立轻量同步流程：周期性对比 `temp_repos/abacus-develop/interfaces/ASE_interface` 或上游指定 commit，只挑选 ASE interface 相关更新；每次同步必须附带 diff 审计、单元测试和 examples smoke/reproduction 验证。若未来同步频率显著增加，可以考虑 git subtree 或专门的 sync script，而不是直接引入完整 submodule。
 
+## 2026-07-02 上游 issue 复查
+
+本次代码对比基于本地 `temp_repos/abacus-develop` 的 `develop` checkout
+`33a7acdf4`；远端 `develop` 可能继续演进，后续向 `abacus-develop`
+提交 PR 前需要重新 fetch/rebase 并复核 `ASE_interface` 差异。当前
+vendored abacuslite 与上游参考实现仍只有四个 Python
+文件存在差异：`core.py`、`io/generalio.py`、`io/latestio.py` 和
+`io/legacyio.py`。
+
+已确认的 ATST-Tools 本地保留差异包括：
+
+- vendored 包内使用相对导入，避免在 `atst_tools.external` 命名空间下误导入外部包。
+- STRU writer 和 calculator template 按 ASE `Atoms` 中元素首次出现顺序分组，而不是按字母顺序排序。
+- STRU writer 将 ASE `FixAtoms` / `FixCartesian` 转写为 ABACUS mobility flags。
+- legacy 输出 reader 对 band energy / occupation 表有更宽容的行解析。
+
+本次已在 vendored snapshot 中修复并由单元测试覆盖的上游 issue 是：
+
+- `https://github.com/deepmodeling/abacus-develop/issues/7540`：
+  `file_safe_backup()` 应按真实整数后缀倒序轮转，避免覆盖旧备份。
+- `https://github.com/deepmodeling/abacus-develop/issues/7544`：
+  在 TDDFT 写入和 dipole 输出读取完整支持前，不再向 ASE 宣称支持 `dipole`。
+- `https://github.com/deepmodeling/abacus-develop/issues/7546`：
+  `get_property_keywords()` 应同时检查 property-property 冲突和 property 覆盖用户显式关键词的冲突。
+
+该修复集保持 ATST-Tools 当前边界：运行环境解析、MPI command 和 version probe
+策略仍由 `ATSTAbacusProfile` / `AbacusFactory` 管理；vendored abacuslite
+只承担 ASE calculator 与 ABACUS 输入输出转换。后续向 `abacus-develop` 提交
+PR 时，需要把相同功能改动移植到上游绝对导入布局中，不应携带 ATST-Tools
+命名空间相关改动。
+
 ## 结论
 
 对于具备 main 分支 TS/能垒基线的 examples，已有完成的验证证据表明这些案例可复现。当前仓库已经在 `examples/reference_results.json` 和 `examples/reference_structures/` 中保存了明确的能垒、过渡态 index、过渡态结构、最终 TS 结构和验证 job 元数据参考值。
 
-abacuslite 模块在验证期确实有兼容性修复；本次复查后的关键调整是：`version()` fallback 已从 vendored abacuslite 内部移除，并迁移到 ATST-Tools 的 `ATSTAbacusProfile` 设计中。当前仍保留在 vendored abacuslite 中的关键差异主要是确定性的 STRU 元素顺序保留，以及同步自 abacus-develop 参考实现的 I/O backend version switch 逻辑。ABACUS LTS 3.10.1 banner 解析和裸 `abacus --version` probe 均由 ATST-Tools adapter/factory 层负责。
+abacuslite 模块在验证期确实有兼容性修复；本次复查后的关键调整是：`version()` fallback 已从 vendored abacuslite 内部移除，并迁移到 ATST-Tools 的 `ATSTAbacusProfile` 设计中。当前 vendored abacuslite 的保留差异和已测试修复以 `2026-07-02 上游 issue 复查` 小节为准：保留差异包括相对导入、STRU 元素首次出现顺序、ASE constraint mobility flags 和 legacy band-row 容错解析；另有 I/O backend version switch 逻辑已同步自上游参考实现。本次 vendored snapshot 还包含并由单元测试覆盖三个 issue 修复：numbered backup rotation、property keyword conflict validation 和 unsupported `dipole` de-advertising。ABACUS LTS 3.10.1 banner 解析和裸 `abacus --version` probe 均由 ATST-Tools adapter/factory 层负责。
