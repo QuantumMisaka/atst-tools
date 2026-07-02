@@ -260,3 +260,40 @@ def test_abacus_template_uses_first_occurrence_species_grouping(tmp_path):
     data = read_stru(tmp_path / "STRU")
     assert [species["symbol"] for species in data["species"]] == ["C", "Pt", "H"]
     assert template.atomorder == [0, 2, 3, 1, 4]
+
+
+class _ConflictingKeywordTemplate(AbacusTemplate):
+    implemented_properties = [*AbacusTemplate.implemented_properties, "mock_a", "mock_b"]
+
+    @staticmethod
+    def get_mock_a_keywords(parameters):
+        return {"cal_force": "1"}
+
+    @staticmethod
+    def get_mock_b_keywords(parameters):
+        return {"cal_force": "0"}
+
+
+def test_property_keywords_raise_when_properties_disagree_on_same_keyword():
+    """Two requested properties should not silently overwrite the same keyword."""
+    template = _ConflictingKeywordTemplate()
+
+    with pytest.raises(ValueError, match="cal_force=0"):
+        template.get_property_keywords({"calculation": "scf"}, ["mock_a", "mock_b"])
+
+
+def test_property_keywords_raise_when_property_overwrites_user_keyword():
+    """Property-derived keywords should not silently overwrite explicit user input."""
+    template = AbacusTemplate()
+
+    with pytest.raises(ValueError, match="nspin=2"):
+        template.get_property_keywords({"calculation": "scf", "nspin": "1"}, ["magmom"])
+
+
+def test_property_keywords_accept_equivalent_user_keyword_values():
+    """Equivalent int/string user keywords should not be false conflicts."""
+    template = AbacusTemplate()
+
+    parameters = template.get_property_keywords({"calculation": "scf", "nspin": 2}, ["magmom"])
+
+    assert parameters["nspin"] == "2"

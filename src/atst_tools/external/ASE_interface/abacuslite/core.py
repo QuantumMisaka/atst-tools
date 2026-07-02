@@ -195,7 +195,7 @@ class AbacusTemplate(CalculatorTemplate):
                               properties: List[str]) -> Dict[str, str]:
         '''Connect the relationship between the properties calculation and
         the ABACUS keywords. May be more complicated in the future, therefore
-        it is better to have a seperate mapping function instead of 
+        it is better to have a seperate mapping function instead of
         implementing in some other functions.
         
         Parameters
@@ -205,28 +205,36 @@ class AbacusTemplate(CalculatorTemplate):
         properties : list of str
             The list of properties to calculate
         '''
-        # update the parameters with the keywords for the properties
-        # however, one should also consider that there may be the case that
-        # contradictory keywords are needed. In this kind of cases, 
-        # we should raise a ValueError
-        param_cache_ = {}
+        def normalize_keyword_value(value):
+            if isinstance(value, (list, tuple, set)):
+                return ' '.join(str(i) for i in value)
+            return str(value)
+
+        param_cache_ = {
+            key: normalize_keyword_value(value)
+            for key, value in parameters.items()
+            if value is not None
+        }
+
         def counter(param_new: Dict[str, str]) -> Dict[str, str]:
-            info = 'desired properties required contradictory keywords'
+            info = 'desired properties or explicit parameters required contradictory keywords'
+            staged = {}
             for k, v in param_new.items():
-                if k in param_cache_ and param_cache_[k] != v:
+                if v is None:
+                    continue
+                normalized_value = normalize_keyword_value(v)
+                if k in param_cache_ and param_cache_[k] != normalized_value:
                     raise ValueError(f'{info}: {k}={v} (now), {param_cache_[k]} (before)')
-            # if it is alright, pass through
+                staged[k] = normalized_value
+            param_cache_.update(staged)
             return param_new
 
-        # update the parameters with the keywords for the properties
         for p in properties:
             assert p in self.implemented_properties
             parameters.update(counter(getattr(self, f'get_{p}_keywords')(parameters)))
-        
-        # from the parameters, get the file path
+
         self.suffix = parameters.get('suffix', 'ABACUS')
         self.calculation = parameters.get('calculation', 'scf')
-        # with the above two, the running log file can be positioned.
         return parameters
 
     def write_input(self, 
