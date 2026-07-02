@@ -10,7 +10,7 @@ from ase.constraints import FixAtoms, FixCartesian
 from atst_tools.calculators import abacuslite_backend
 from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
 from atst_tools.external.ASE_interface.abacuslite.core import AbacusProfile, AbacusTemplate
-from atst_tools.external.ASE_interface.abacuslite.io.generalio import read_stru, write_stru
+from atst_tools.external.ASE_interface.abacuslite.io.generalio import file_safe_backup, read_stru, write_stru
 
 
 def test_parse_version_accepts_legacy_abacus_version_line():
@@ -101,6 +101,51 @@ def test_vendored_abacusprofile_version_keeps_native_probe(monkeypatch):
 
     assert profile.version() == "v3.9.0.17"
     assert calls == [["mpirun", "-np", "4", "abacus", "--version"]]
+
+
+def test_file_safe_backup_rotates_existing_integer_backups_without_clobber(tmp_path):
+    """Existing numbered backups should move up one slot before live file backup."""
+    live = tmp_path / "STRU"
+    backup0 = tmp_path / "STRU.bak.0"
+    backup1 = tmp_path / "STRU.bak.1"
+    non_integer_backup = tmp_path / "STRU.bak.note"
+
+    live.write_text("live\n", encoding="utf-8")
+    backup0.write_text("old-zero\n", encoding="utf-8")
+    backup1.write_text("old-one\n", encoding="utf-8")
+    non_integer_backup.write_text("keep-me\n", encoding="utf-8")
+
+    file_safe_backup(live)
+
+    assert not live.exists()
+    assert backup0.read_text(encoding="utf-8") == "live\n"
+    assert backup1.read_text(encoding="utf-8") == "old-zero\n"
+    assert (tmp_path / "STRU.bak.2").read_text(encoding="utf-8") == "old-one\n"
+    assert non_integer_backup.read_text(encoding="utf-8") == "keep-me\n"
+
+
+def test_file_safe_backup_preserves_noncanonical_numeric_suffixes(tmp_path):
+    """Only canonical non-negative backup indexes should be rotated."""
+    live = tmp_path / "STRU"
+    backup0 = tmp_path / "STRU.bak.0"
+    leading_zero_backup = tmp_path / "STRU.bak.01"
+    signed_positive_backup = tmp_path / "STRU.bak.+1"
+    signed_negative_backup = tmp_path / "STRU.bak.-1"
+
+    live.write_text("live\n", encoding="utf-8")
+    backup0.write_text("old-zero\n", encoding="utf-8")
+    leading_zero_backup.write_text("leading-zero\n", encoding="utf-8")
+    signed_positive_backup.write_text("signed-positive\n", encoding="utf-8")
+    signed_negative_backup.write_text("signed-negative\n", encoding="utf-8")
+
+    file_safe_backup(live)
+
+    assert not live.exists()
+    assert backup0.read_text(encoding="utf-8") == "live\n"
+    assert (tmp_path / "STRU.bak.1").read_text(encoding="utf-8") == "old-zero\n"
+    assert leading_zero_backup.read_text(encoding="utf-8") == "leading-zero\n"
+    assert signed_positive_backup.read_text(encoding="utf-8") == "signed-positive\n"
+    assert signed_negative_backup.read_text(encoding="utf-8") == "signed-negative\n"
 
 
 def test_write_stru_preserves_first_occurrence_species_order(tmp_path):

@@ -73,7 +73,7 @@ def file_safe_backup(fn: Path, suffix: str = 'bak'):
     add a suffix to the file name, like `STRU.bak.0`. If there are
     already `STRU.bak.0`, rename the elder to `STRU.bak.1` and let
     the latest one be `STRU.bak.0`.
-    
+
     Parameters
     ----------
     fn : Path
@@ -85,18 +85,19 @@ def file_safe_backup(fn: Path, suffix: str = 'bak'):
     '''
     assert isinstance(fn, Path)
     where = fn.parent
+    prefix = f'{fn.name}.{suffix}.'
+    indexed_backups = []
 
-    # get the backup files
-    fbak = sorted(list(where.glob(f'{fn.name}.{suffix}.*')),
-                  key=lambda p: int(p.name.split('.')[-1]))
-    if fbak:
-        # rename the elder by adding 1 to the suffix
-        for i, f in enumerate(fbak[::-1]): # reverse order, to avoid overwrite
-            j = len(fbak) - i + 1 #: STRU.bak.i -> STRU.bak.i+1
-            fname = f.name.replace(f'.{j}', f'.{j+1}')
-            f.rename(f.parent / fname)
-    
-    # backup the latest file, if there is one
+    for backup in where.glob(f'{fn.name}.{suffix}.*'):
+        index_text = backup.name.removeprefix(prefix)
+        if not re.fullmatch(r'0|[1-9][0-9]*', index_text):
+            continue
+        backup_index = int(index_text)
+        indexed_backups.append((backup_index, backup))
+
+    for backup_index, backup in sorted(indexed_backups, key=lambda item: item[0], reverse=True):
+        backup.rename(backup.parent / f'{fn.name}.{suffix}.{backup_index + 1}')
+
     if fn.exists():
         fn.rename(fn.parent / f'{fn.name}.{suffix}.0')
 
