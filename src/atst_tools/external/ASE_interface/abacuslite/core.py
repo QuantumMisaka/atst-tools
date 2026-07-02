@@ -143,7 +143,7 @@ class AbacusProfile(BaseProfile):
 class AbacusTemplate(CalculatorTemplate):
     
     implemented_properties = [
-        'energy', 'forces', 'stress', 'free_energy', 'magmom', 'dipole'
+        'energy', 'forces', 'stress', 'free_energy', 'magmom'
     ]
     _label = 'abacus'
 
@@ -185,10 +185,6 @@ class AbacusTemplate(CalculatorTemplate):
     @staticmethod
     def get_magmom_keywords(self) -> Dict[str, str]:
         return {'nspin': '2'}
-    
-    @staticmethod
-    def get_dipole_keywords(self) -> Dict[str, str]:
-        return {'esolver_type': 'tddft', 'out_dipole': '1'}
 
     def get_property_keywords(self,
                               parameters: Dict[str, str],

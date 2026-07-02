@@ -290,6 +290,19 @@ def test_property_keywords_raise_when_property_overwrites_user_keyword():
         template.get_property_keywords({"calculation": "scf", "nspin": "1"}, ["magmom"])
 
 
+def test_abacus_template_does_not_advertise_dipole_until_tddft_is_supported():
+    """The ASE property list should not include a property the writer rejects."""
+    assert "dipole" not in AbacusTemplate.implemented_properties
+
+
+def test_abacus_template_rejects_dipole_property_keyword_request():
+    """Direct keyword mapping should reject dipole after it is removed from support."""
+    template = AbacusTemplate()
+
+    with pytest.raises(AssertionError):
+        template.get_property_keywords({"calculation": "scf"}, ["dipole"])
+
+
 def test_property_keywords_accept_equivalent_user_keyword_values():
     """Equivalent int/string user keywords should not be false conflicts."""
     template = AbacusTemplate()
