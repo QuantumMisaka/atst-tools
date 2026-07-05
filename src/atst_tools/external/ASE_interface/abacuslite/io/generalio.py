@@ -92,8 +92,7 @@ def file_safe_backup(fn: Path, suffix: str = 'bak'):
         index_text = backup.name.removeprefix(prefix)
         if not re.fullmatch(r'0|[1-9][0-9]*', index_text):
             continue
-        backup_index = int(index_text)
-        indexed_backups.append((backup_index, backup))
+        indexed_backups.append((int(index_text), backup))
 
     for backup_index, backup in sorted(indexed_backups, key=lambda item: item[0], reverse=True):
         backup.rename(backup.parent / f'{fn.name}.{suffix}.{backup_index + 1}')
