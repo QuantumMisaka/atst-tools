@@ -507,7 +507,7 @@ def read_abacus_out(fileobj,
         calc = SinglePointDFTCalculator(atoms=atoms, energy=ener['E_KohnSham'],
                                         free_energy=ener['E_KohnSham'],
                                         forces=frs, stress=strs,
-                                        magmoms=mag, efermi=ener['E_Fermi'],
+                                        magmoms=mag[ind], efermi=ener['E_Fermi'],
                                         ibzkpts=kvecd, dipole=None)
         # import the eigenvalues and occupations kpoint-by-kpoint
         calc.kpts = []
