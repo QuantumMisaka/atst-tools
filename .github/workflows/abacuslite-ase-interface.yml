@@ -4,18 +4,27 @@ on:
   pull_request:
     paths:
       - ".github/workflows/abacuslite-ase-interface.yml"
+      - "scripts/check_abacuslite_snapshot.py"
       - "src/atst_tools/calculators/**"
       - "src/atst_tools/external/ASE_interface/**"
       - "src/atst_tools/utils/abacus_io.py"
       - "tests/unit/test_abacus_io.py"
       - "tests/unit/test_abacuslite_ci.py"
+      - "tests/unit/test_abacuslite_io_reorder.py"
       - "tests/unit/test_abacuslite_profile.py"
+      - "tests/unit/test_abacuslite_snapshot_ci.py"
       - "pyproject.toml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 defaults:
   run:
     shell: bash
+
+env:
+  ABACUS_DEVELOP_REF: 762919f6421dc1b79f9213e902a79b37b66db937
 
 jobs:
   abacuslite-unit:
@@ -25,6 +34,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Checkout ABACUS upstream reference
+        uses: actions/checkout@v4
+        with:
+          repository: deepmodeling/abacus-develop
+          ref: ${{ env.ABACUS_DEVELOP_REF }}
+          path: abacus-develop
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,11 +52,19 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
 
+      - name: Check vendored abacuslite snapshot drift
+        run: |
+          python scripts/check_abacuslite_snapshot.py \
+            --upstream abacus-develop/interfaces/ASE_interface \
+            --vendored src/atst_tools/external/ASE_interface
+
       - name: Run ATST abacuslite regression tests
         run: |
           python -m pytest \
             tests/unit/test_abacuslite_profile.py \
             tests/unit/test_abacus_io.py \
+            tests/unit/test_abacuslite_io_reorder.py \
+            tests/unit/test_abacuslite_snapshot_ci.py \
             tests/unit/test_abacuslite_ci.py \
             -q
 
