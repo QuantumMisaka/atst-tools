@@ -78,6 +78,31 @@ def test_atst_version_uses_governed_package_version(capsys):
     assert capsys.readouterr().out.strip() == f"atst {package_version()}"
 
 
+def test_atst_banner_prints_ascii_and_contributor_references(capsys):
+    from atst_tools.scripts import cli
+    from atst_tools.utils.banner import ATST_ASCII
+
+    cli.main(["banner"])
+
+    output = capsys.readouterr().out
+    assert ATST_ASCII in output
+    assert "Core developer: @QuantumMisaka" in output
+    assert "Contributors: @Jerry, @MoseyQAQ, and the ATST-Tools contributors" in output
+
+
+def test_atst_help_includes_banner_and_banner_command(capsys):
+    from atst_tools.scripts import cli
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--help"])
+
+    assert excinfo.value.code == 0
+    output = capsys.readouterr().out
+    assert "Core developer: @QuantumMisaka" in output
+    assert "atst banner" in output
+    assert "Run a YAML-driven workflow" in output
+
+
 def test_atst_run_dispatches_d2s(monkeypatch):
     from atst_tools.scripts import main as run_cli
     from atst_tools.scripts import cli

@@ -18,6 +18,7 @@ from ase.vibrations import Vibrations
 from atst_tools.scripts import main as run_cli
 from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.abacus_io import collect_abacus_output, prepare_abacus_input
+from atst_tools.utils.banner import render_banner
 from atst_tools.utils.config import ConfigLoader, VALID_CALCULATION_TYPES
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.io import read_structure
@@ -38,6 +39,21 @@ from atst_tools.utils.summary import (
     write_summary_json,
 )
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
+
+
+def _banner_command(args):
+    """Print the ATST-Tools project banner."""
+    print(render_banner(), end="")
+
+
+def _add_banner_parser(subparsers):
+    parser = subparsers.add_parser(
+        "banner",
+        help="Print the ATST-Tools banner and contributor credits",
+        description=render_banner(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.set_defaults(func=_banner_command)
 
 
 def _add_run_parser(subparsers):
@@ -759,10 +775,11 @@ def _traj_transform_command(args):
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="atst",
-        description="ATST-Tools: ASE workflows and lightweight helpers",
+        description=f"{render_banner()}\nATST-Tools: ASE workflows and lightweight helpers",
         epilog=dedent(
             """\
             Examples:
+              atst banner
               atst run config.yaml
               atst config validate config.yaml --print-normalized
               atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
@@ -773,6 +790,7 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {run_cli._package_version()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_banner_parser(subparsers)
     _add_run_parser(subparsers)
     _add_config_parser(subparsers)
     _add_abacus_parser(subparsers)
