@@ -310,3 +310,49 @@ def test_property_keywords_accept_equivalent_user_keyword_values():
     parameters = template.get_property_keywords({"calculation": "scf", "nspin": 2}, ["magmom"])
 
     assert parameters["nspin"] == "2"
+
+    parameters = template.get_property_keywords(
+        {"calculation": "scf", "cal_force": True, "cal_stress": True},
+        ["forces", "stress"],
+    )
+
+    assert parameters["cal_force"] == "1"
+    assert parameters["cal_stress"] == "1"
+
+
+@pytest.mark.parametrize(
+    ("parameters", "properties", "message"),
+    [
+        ({"cal_force": False}, ["forces"], "cal_force=1"),
+        ({"cal_stress": False}, ["stress"], "cal_stress=1"),
+    ],
+)
+def test_property_keywords_reject_conflicting_boolean_user_keyword_values(
+    parameters, properties, message
+):
+    """False boolean user keywords still conflict with requested properties."""
+    template = AbacusTemplate()
+
+    with pytest.raises(ValueError, match=message):
+        template.get_property_keywords(parameters, properties)
+
+
+def test_property_keywords_treat_string_values_as_scalars():
+    """String keyword values should not be handled as character iterables."""
+    template = AbacusTemplate()
+    template.implemented_properties = ["probe"]
+    template.get_probe_keywords = lambda parameters: {"custom_switch": "true"}
+
+    parameters = template.get_property_keywords({"custom_switch": "true"}, ["probe"])
+
+    assert parameters["custom_switch"] == "true"
+
+
+def test_property_keywords_compare_iterables_like_input_writer():
+    """Iterable keyword comparison should match the final INPUT serialization."""
+    template = AbacusTemplate()
+    template.implemented_properties = ["probe"]
+    template.get_probe_keywords = lambda parameters: {"custom_vector": [1, "true"]}
+
+    with pytest.raises(ValueError, match="custom_vector"):
+        template.get_property_keywords({"custom_vector": [True, "true"]}, ["probe"])

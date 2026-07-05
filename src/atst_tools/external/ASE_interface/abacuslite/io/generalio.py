@@ -560,7 +560,6 @@ def _read_kline(raw: List[str]) -> Dict[str, Any]:
     assert all(m for m in mymatch), \
              'Invalid KPT file, expected the k-points to be in the format ' \
              '"x y z n # comment"'
-    print(raw)
     return {
         'mode': 'line',
         'coordinate': 'Cartesian' if raw[2].lower().endswith('cartesian') else 'Direct', 
@@ -705,14 +704,14 @@ class TestAbacusCalculatorIOUtil(unittest.TestCase):
                 self.assertEqual(a['m'], [1, 1, 1])
                 self.assertEqual(a['v'], [0.0, 0.0, 0.0])
                 
-        self.assertEqual(stru_['species'][0]['symbol'], 'Cl')
-        self.assertEqual(stru_['species'][1]['symbol'], 'Na')
-        self.assertEqual(stru_['species'][0]['mass'], ATOM_MASS['Cl'])
-        self.assertEqual(stru_['species'][1]['mass'], ATOM_MASS['Na'])
-        self.assertEqual(stru_['species'][0]['pp_file'], 'Cl.pz-bhs.UPF')
-        self.assertEqual(stru_['species'][1]['pp_file'], 'Na.pz-bhs.UPF')
-        self.assertEqual(stru_['species'][0]['orb_file'], 'Cl_gga_6au_100Ry_2s2p1d.orb')
-        self.assertEqual(stru_['species'][1]['orb_file'], 'Na_gga_6au_100Ry_2s2p1d.orb')
+        self.assertEqual(stru_['species'][0]['symbol'], 'Na')
+        self.assertEqual(stru_['species'][1]['symbol'], 'Cl')
+        self.assertEqual(stru_['species'][0]['mass'], ATOM_MASS['Na'])
+        self.assertEqual(stru_['species'][1]['mass'], ATOM_MASS['Cl'])
+        self.assertEqual(stru_['species'][0]['pp_file'], 'Na.pz-bhs.UPF')
+        self.assertEqual(stru_['species'][1]['pp_file'], 'Cl.pz-bhs.UPF')
+        self.assertEqual(stru_['species'][0]['orb_file'], 'Na_gga_6au_100Ry_2s2p1d.orb')
+        self.assertEqual(stru_['species'][1]['orb_file'], 'Cl_gga_6au_100Ry_2s2p1d.orb')
 
     def test_kpt_io(self):
         kpt = {
