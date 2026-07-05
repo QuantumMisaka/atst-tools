@@ -152,6 +152,12 @@ List available workflow types:
 atst run --list-types
 ```
 
+Print the project banner and contributor credits:
+
+```bash
+atst banner
+```
+
 ## Minimal YAML Shape
 
 Every production workflow uses the same top-level structure:

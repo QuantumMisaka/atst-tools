@@ -2,6 +2,19 @@
 
 ATST-Tools exposes one console command: `atst`. The previous standalone commands are removed; their behavior is now available through git-style subcommands under this entry point.
 
+## Project Banner
+
+```bash
+atst banner
+atst --help
+```
+
+`atst banner` prints the ATST ASCII-art banner and contributor credits for
+@QuantumMisaka, @Jerry, @MoseyQAQ, and the wider ATST-Tools contributor
+community. `atst --help` shows the same banner above the command overview.
+Workflow, post-processing, JSON, YAML, and `--version` outputs remain
+machine-readable and do not print the banner by default.
+
 ## Workflow Execution
 
 ```bash

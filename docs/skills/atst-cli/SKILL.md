@@ -22,6 +22,7 @@ Use this skill for ATST-Tools CLI work in this repository.
 git branch --show-current
 git status --short
 atst --version
+atst banner
 atst --help
 ```
 
@@ -52,6 +53,7 @@ backend. DP workflows use `calculator.name: dp` and `deepmd.calculator.DP`.
 These do not launch ABACUS or DP:
 
 ```bash
+atst banner
 atst config validate CONFIG.yaml --print-normalized
 atst abacus prepare CONFIG.yaml --structure STRUCTURE --output-dir DIR
 atst abacus collect RUN_DIR --output abacus_results.json
