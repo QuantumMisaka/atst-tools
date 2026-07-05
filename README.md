@@ -291,6 +291,11 @@ The 2.1.3 README badges reflect the current governed project state:
 
 The vendored `src/atst_tools/external/ASE_interface` tree is kept for ABACUS
 backend reproducibility and is not treated as first-party ATST-Tools coverage.
+Pull requests run the maintained unit suite through `.github/workflows/tests.yml`.
+Changes touching the vendored ABACUS ASE interface also run
+`.github/workflows/abacuslite-ase-interface.yml`, which checks ATST regression
+tests, package-mode abacuslite unittests, and snapshot drift against the pinned
+`deepmodeling/abacus-develop` ASE interface reference.
 
 ## For Developers
 

@@ -26,7 +26,7 @@ the vendored fallback. The fixes below are tested in the vendored snapshot; an
 external `abacuslite` package may differ unless the installed package already
 includes the same fixes.
 
-As of 2026-07-02, the vendored snapshot intentionally preserves these local
+As of 2026-07-05, the vendored snapshot intentionally preserves these local
 differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`:
 
 - Relative imports so the package works under `atst_tools.external`.
@@ -34,10 +34,13 @@ differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`
 - ASE `FixAtoms` and `FixCartesian` constraints written as ABACUS mobility flags.
 - Tolerant legacy ABACUS band-row parsing.
 
-The vendored snapshot also fixes three upstream issue paths: numbered backup
-rotation preserves older backups, property-derived ABACUS keyword conflicts now
-raise `ValueError`, and the unsupported TDDFT `dipole` ASE property is no longer
-advertised until abacuslite has a complete TDDFT input and output path.
+The vendored snapshot also carries tested upstream-sync fixes for numbered
+backup rotation, property-derived ABACUS keyword conflict detection,
+unsupported TDDFT `dipole` de-advertising, and `read_abacus_out` calculator
+`magmoms` reordering when atoms are sorted during result parsing. The dedicated
+abacuslite CI compares implementation files against a pinned
+`deepmodeling/abacus-develop` ASE interface checkout after normalizing ATST's
+package-layout differences.
 
 ## Wrapper Boundary
 

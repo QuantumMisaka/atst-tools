@@ -50,9 +50,14 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 更新 feature/status reports 和 calculator factory tests。
 - 若 backend 涉及 ABACUS/DP 环境，补充验证报告或在现有报告中记录边界。
 - `abacuslite` vendored ASE interface 变更需同步运行
-  `.github/workflows/abacuslite-ase-interface.yml` 覆盖的 pytest 回归测试和
-  package-mode upstream-style parser tests；不要直接使用上游 `xtest.sh`，因为
-  ATST vendored copy 使用包内相对导入，直接脚本模式会绕过包上下文。
+  `.github/workflows/abacuslite-ase-interface.yml` 覆盖的 pytest 回归测试、
+  package-mode upstream-style parser tests 和 snapshot drift check；不要直接使用
+  上游 `xtest.sh`，因为 ATST vendored copy 使用包内相对导入，直接脚本模式会
+  绕过包上下文。
+- 同步 `temp_repos/abacus-develop/interfaces/ASE_interface` 时，先运行
+  `conda run -n atst-dev python scripts/check_abacuslite_snapshot.py --upstream temp_repos/abacus-develop/interfaces/ASE_interface --vendored src/atst_tools/external/ASE_interface`。
+  若上游 reference commit 更新，同步更新
+  `.github/workflows/abacuslite-ase-interface.yml` 的 `ABACUS_DEVELOP_REF`。
 - 维护 `abacuslite` property-derived keywords 时，显式用户输入与自动派生值需按
   ABACUS 开关语义比较，例如 `True`、`1`、`"1"` 等价；但 `False`/`0` 与请求
   `forces` 或 `stress` 自动需要的 `"1"` 仍应作为冲突报错。
