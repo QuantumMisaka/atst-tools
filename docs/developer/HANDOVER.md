@@ -49,6 +49,13 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 更新 `docs/user/USER_GUIDE_CN.md` 的运行时依赖和环境边界。
 - 更新 feature/status reports 和 calculator factory tests。
 - 若 backend 涉及 ABACUS/DP 环境，补充验证报告或在现有报告中记录边界。
+- `abacuslite` vendored ASE interface 变更需同步运行
+  `.github/workflows/abacuslite-ase-interface.yml` 覆盖的 pytest 回归测试和
+  package-mode upstream-style parser tests；不要直接使用上游 `xtest.sh`，因为
+  ATST vendored copy 使用包内相对导入，直接脚本模式会绕过包上下文。
+- 维护 `abacuslite` property-derived keywords 时，显式用户输入与自动派生值需按
+  ABACUS 开关语义比较，例如 `True`、`1`、`"1"` 等价；但 `False`/`0` 与请求
+  `forces` 或 `stress` 自动需要的 `"1"` 仍应作为冲突报错。
 
 ## 6. 新增或修改依赖
 

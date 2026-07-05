@@ -1,0 +1,52 @@
+name: abacuslite ASE Interface Tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/abacuslite-ase-interface.yml"
+      - "src/atst_tools/calculators/**"
+      - "src/atst_tools/external/ASE_interface/**"
+      - "src/atst_tools/utils/abacus_io.py"
+      - "tests/unit/test_abacus_io.py"
+      - "tests/unit/test_abacuslite_ci.py"
+      - "tests/unit/test_abacuslite_profile.py"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  abacuslite-unit:
+    name: abacuslite vendored interface
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ATST-Tools test environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Run ATST abacuslite regression tests
+        run: |
+          python -m pytest \
+            tests/unit/test_abacuslite_profile.py \
+            tests/unit/test_abacus_io.py \
+            tests/unit/test_abacuslite_ci.py \
+            -q
+
+      - name: Run vendored abacuslite package unit tests
+        run: |
+          python -m unittest atst_tools.external.ASE_interface.abacuslite.io.generalio -v
+          python -m unittest atst_tools.external.ASE_interface.abacuslite.io.legacyio -v
+          python -m unittest atst_tools.external.ASE_interface.abacuslite.io.latestio -v
+          python -m unittest atst_tools.external.ASE_interface.abacuslite.utils.ksampling -v
