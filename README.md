@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.1.3-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.1.4-blue)](pyproject.toml)
 [![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
@@ -19,7 +19,7 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.1.3 status |
+| Area | Current 2.1.4 status |
 | :--- | :--- |
 | Package | Installable Python package from PyPI with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
@@ -27,7 +27,7 @@ instead of one-off Python scripts.
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
 | Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.1.3`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.3.md). |
+| Release | `2.1.4`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.4.md). |
 
 ## What You Can Run
 
@@ -95,7 +95,7 @@ Build a local release artifact:
 
 ```bash
 python -m build
-pip install dist/atst_tools-2.1.3-py3-none-any.whl
+pip install dist/atst_tools-2.1.4-py3-none-any.whl
 ```
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
@@ -279,9 +279,9 @@ Each calculation example uses `config.yaml` for ABACUS and, where available,
 
 ## Validation
 
-The 2.1.3 README badges reflect the current governed project state:
+The 2.1.4 README badges reflect the current governed project state:
 
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.3`.
+- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.4`.
 - Unit test coverage badge: measured with
   `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
   `coverage report --omit='src/atst_tools/external/*'`.
