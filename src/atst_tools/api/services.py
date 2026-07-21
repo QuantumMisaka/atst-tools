@@ -41,6 +41,15 @@ def _read_manifest(path: str | Path) -> dict[str, Any]:
     return read_artifact_manifest(path)
 
 
+def _manifest_signature(path: str | Path) -> tuple[int, int, int, int] | None:
+    """Capture filesystem identity used to detect a runner-written manifest."""
+    try:
+        stat = Path(path).stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+
+
 def validate_config(config_source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
     """Return a detached schema-normalized ATST configuration."""
     return _load_and_normalize(config_source)
@@ -211,7 +220,12 @@ def _synchronize_rank_failure(
         )
 
 
-def _ensure_completed_manifest(config: dict[str, Any], value: Any, world: Any) -> None:
+def _ensure_completed_manifest(
+    config: dict[str, Any],
+    value: Any,
+    world: Any,
+    previous_signature: tuple[int, int, int, int] | None = None,
+) -> None:
     """Guarantee that a completed API outcome has an accurate durable manifest."""
     calculation = config["calculation"]
     workflow = calculation["type"]
@@ -219,16 +233,22 @@ def _ensure_completed_manifest(config: dict[str, Any], value: Any, world: Any) -
     failure = None
     if int(world.rank) == 0:
         try:
+            current_signature = _manifest_signature(manifest_path)
+            runner_wrote_manifest = (
+                previous_signature is not None
+                and current_signature != previous_signature
+            ) or (previous_signature is None and current_signature is not None)
             matching_manifest = (
-                manifest_path.exists()
+                current_signature is not None
                 and _read_manifest(manifest_path).get("workflow") == workflow
             )
-            if not matching_manifest:
+            if not (runner_wrote_manifest and matching_manifest):
                 write_artifact_manifest(
                     manifest_path,
                     workflow=workflow,
                     artifacts=_synthesized_artifacts(config, value),
                     stages=[{"name": workflow, "status": "complete"}],
+                    metadata={"manifest_source": "api_synthesized"},
                 )
         except Exception as exc:
             failure = WorkflowExecutionError(
@@ -322,6 +342,8 @@ def run_workflow(
     if options.dry_run:
         return _result_from_manifest(config, None, world, "validated")
     workflow = config["calculation"]["type"]
+    manifest_path = config["calculation"].get("artifact_manifest", "atst_artifacts.json")
+    previous_signature = _manifest_signature(manifest_path)
     value = None
     failure = None
     try:
@@ -332,7 +354,7 @@ def run_workflow(
         failure = WorkflowExecutionError(str(exc), workflow=workflow)
         failure.__cause__ = exc
     _synchronize_rank_failure(world, workflow, failure)
-    _ensure_completed_manifest(config, value, world)
+    _ensure_completed_manifest(config, value, world, previous_signature)
     return _result_from_manifest(config, value, world, "complete")
 
 

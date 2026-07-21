@@ -185,6 +185,31 @@ def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_pa
     ]
 
 
+def test_run_workflow_refreshes_synthesized_manifest_on_repeated_run(monkeypatch, tmp_path):
+    """A second same-workflow run must not reuse the first API manifest."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda *args: None)
+    base = {
+        "calculation": {"type": "relax", "init_structure": "initial.traj"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    first = run_workflow(
+        {**base, "calculation": {**base["calculation"], "trajectory": "first.traj"}},
+        RunOptions(world=FakeWorld()),
+    )
+    second = run_workflow(
+        {**base, "calculation": {**base["calculation"], "trajectory": "second.traj"}},
+        RunOptions(world=FakeWorld()),
+    )
+
+    assert first.artifacts[0]["path"] == "first.traj"
+    assert second.artifacts[0]["path"] == "second.traj"
+
+
 def test_completed_manifest_uses_identical_barriers_on_every_rank(tmp_path):
     """A root-created manifest cannot make a later rank skip a collective."""
     from atst_tools.api import services
