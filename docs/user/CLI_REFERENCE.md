@@ -36,6 +36,10 @@ prints supported workflow types. `--show-template` accepts `neb`, `autoneb`,
 `--calculator {abacus,dp}` to choose the template backend. `--log-level`
 accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR`.
 
+The command adapter preserves established workflow filesystem behavior. In
+particular, it does not create or replace an artifact manifest for workflows
+that did not previously write one themselves.
+
 ## Configuration Tools
 
 ```bash

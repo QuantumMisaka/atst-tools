@@ -227,6 +227,64 @@ def test_atst_run_restart_overrides_config(monkeypatch):
     assert seen["restart"] is True
 
 
+def test_atst_run_restart_overrides_invalid_yaml_restart_before_validation(monkeypatch):
+    """The legacy CLI applies its temporary restart option before schema parsing."""
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    seen = {}
+    config = {
+        "calculation": {
+            "type": "relax",
+            "init_structure": "init.stru",
+            "restart": "not-a-bool",
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    class FakeRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            seen["restart"] = calc_config["restart"]
+
+        def run(self):
+            return None
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FakeRelaxWorkflow)
+
+    cli.main(["run", "--restart", "config.yaml"])
+
+    assert seen["restart"] is True
+
+
+def test_atst_run_does_not_synthesize_or_overwrite_legacy_manifest(monkeypatch, tmp_path):
+    """CLI runs keep workflows without manifests from gaining one through the API."""
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    class FakeRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            return None
+
+        def run(self):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FakeRelaxWorkflow)
+    manifest = tmp_path / "atst_artifacts.json"
+    manifest.write_text("legacy caller-owned data", encoding="utf-8")
+
+    cli.main(["run", "config.yaml"])
+
+    assert manifest.read_text(encoding="utf-8") == "legacy caller-owned data"
+
+
 def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
     from atst_tools.scripts import main as run_cli
     from atst_tools.scripts import cli
@@ -267,7 +325,7 @@ def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
     seen = {}
     monkeypatch.setattr(
         main,
-        "run_workflow",
+        "run_workflow_from_cli",
         lambda source, options: seen.update(source=source, options=options)
         or type("Result", (), {"workflow": "relax"})(),
     )
@@ -436,9 +494,35 @@ def test_atst_run_unwraps_api_mpi_configuration_error_for_cli_users(monkeypatch)
         except ValueError as exc:
             raise MPIConfigurationError(str(exc), workflow="neb") from exc
 
-    monkeypatch.setattr(run_cli, "run_workflow", fail_with_mpi_configuration_error)
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_mpi_configuration_error)
 
     with pytest.raises(ValueError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
+
+
+def test_atst_run_unwraps_api_dependency_error_for_cli_users(monkeypatch):
+    """Dependency errors keep the command path's original exception surface."""
+    from atst_tools.api.models import UnsupportedDependencyError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ModuleNotFoundError("No module named 'cyipopt'")
+    legacy_error.name = "cyipopt"
+
+    def fail_with_dependency_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ModuleNotFoundError as exc:
+            raise UnsupportedDependencyError(
+                str(exc), workflow="dmf", context={"dependency": "cyipopt"}
+            ) from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_dependency_error)
+
+    with pytest.raises(ModuleNotFoundError) as excinfo:
         cli.main(["run", "config.yaml"])
 
     assert excinfo.value is legacy_error

@@ -14,10 +14,12 @@ import os
 from textwrap import dedent
 
 from atst_tools import package_version
-from atst_tools.api import RunOptions, run_workflow, validate_config
+from atst_tools.api import RunOptions, validate_config
+from atst_tools.api.services import run_workflow_from_cli
 from atst_tools.api.models import (
     ConfigValidationError,
     MPIConfigurationError,
+    UnsupportedDependencyError,
     WorkflowExecutionError,
 )
 from atst_tools.utils.config import ConfigLoader
@@ -827,13 +829,17 @@ def run_from_args(args):
                 config["calculation"]["type"],
                 config.get("calculator", {}).get("name", "abacus"),
             )
-        result = run_workflow(args.config, options)
+        result = run_workflow_from_cli(args.config, options)
     except ConfigValidationError as exc:
         raise ValueError(str(exc)) from None
     except MPIConfigurationError as exc:
         if exc.__cause__ is not None:
             raise exc.__cause__ from None
         raise ValueError(str(exc)) from None
+    except UnsupportedDependencyError as exc:
+        if exc.__cause__ is not None:
+            raise exc.__cause__ from None
+        raise RuntimeError(str(exc)) from None
     except WorkflowExecutionError as exc:
         if isinstance(exc.__cause__, IRCBoundaryError):
             raise SystemExit(str(exc.__cause__)) from None

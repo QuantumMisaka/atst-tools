@@ -74,6 +74,9 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 添加或更新 package metadata 测试，并运行构建检查：
   `pytest tests/unit/test_package_metadata.py -q`、`python -m build` 和
   `python -m twine check --strict dist/*`。
+- 对包含稳定 Python API 的 release，运行
+  `python scripts/verify_wheel_api.py`；它在临时目录构建 wheel、在临时 venv
+  clean-install，并验证六个稳定 root imports，不在工作树保留 build artifact。
 
 ## 7. 新增或修改 example
 

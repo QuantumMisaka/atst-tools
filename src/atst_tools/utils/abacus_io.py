@@ -191,12 +191,16 @@ def prepare_abacus_input_from_config(
 
 def run_abacus_check_input_dry_run(
     config: dict[str, Any],
-    config_path: str,
+    config_path: str | None,
     *,
     timeout_sec: int = 120,
     abacus_executable: str = "abacus",
 ) -> dict[str, Any]:
-    base_dir = Path(config_path).expanduser().resolve().parent
+    base_dir = (
+        Path(config_path).expanduser().resolve().parent
+        if config_path is not None
+        else Path.cwd().resolve()
+    )
     structure_paths = _representative_structure_paths(config, base_dir=base_dir)
     if not structure_paths:
         raise ValueError("No representative structure path found for ABACUS check-input dry-run")

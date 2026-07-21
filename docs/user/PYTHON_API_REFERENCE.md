@@ -122,10 +122,12 @@ ABACUS as a package dependency for this API.
 `WorkflowResult` is a frozen container with `workflow`, `status`, `is_root`,
 `artifact_manifest`, `artifacts`, `metadata`, `final_atoms`, `final_images`,
 and `ts_atoms` fields. The artifact manifest is the durable, restart-safe
-record; `artifacts` is its structured output list and `metadata` includes the
-backend provenance. After a successful run, a stale or unreadable pre-existing
-manifest is replaced with a synthesized completion manifest, while a valid
-manifest written by that run is preserved.
+record for the Python API; `artifacts` is its structured output list and
+`metadata` includes the backend provenance. After a successful API run, a stale
+or unreadable pre-existing manifest is replaced with a synthesized completion
+manifest, while a valid manifest written by that run is preserved. The CLI
+adapter deliberately does not synthesize or replace manifests for legacy
+workflows that did not write them themselves.
 
 The container is immutable, but ASE objects are mutable. `final_atoms`,
 `final_images`, and `ts_atoms` are caller-owned snapshots: modifying one does
@@ -167,10 +169,15 @@ Backend delegation has four invariants:
 
 Public API failures derive from `ATSTAPIError`. The companion model module
 defines `ConfigValidationError` for schema/path problems,
+`UnsupportedDependencyError` for unavailable optional runtime dependencies
+(including DMF's `cyipopt`/IPOPT requirement),
 `MPIConfigurationError` for image-parallel topology problems, and
 `WorkflowExecutionError` for a workflow or runtime failure. Each carries an
 optional workflow name and diagnostic context; the original failure is chained
-as its cause where available.
+as its cause where available. These error types are available from
+`atst_tools.api.models`; they are intentionally not additional stable root
+imports beyond the six names listed above. The CLI unwraps them to retain its
+existing exception and message surface.
 
 DMF remains experimental. `run_workflow()` preserves its current dependency
 requirements and safety guards; it does not make DMF a general production PBC

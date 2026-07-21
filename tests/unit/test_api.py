@@ -48,6 +48,42 @@ def test_public_api_has_only_the_supported_contract():
     ]
 
 
+def test_public_dependency_error_is_typed_without_expanding_root_imports():
+    """Optional runtime dependencies have a dedicated API error type."""
+    from atst_tools.api.models import ATSTAPIError, UnsupportedDependencyError
+
+    assert issubclass(UnsupportedDependencyError, ATSTAPIError)
+
+
+def test_run_workflow_maps_missing_cyipopt_to_dependency_error(monkeypatch, tmp_path):
+    """DMF dependency import failures remain distinguishable to API callers."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import UnsupportedDependencyError
+
+    dependency_error = ModuleNotFoundError("No module named 'cyipopt'")
+    dependency_error.name = "cyipopt"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: (_ for _ in ()).throw(dependency_error),
+    )
+
+    with pytest.raises(UnsupportedDependencyError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "initial.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.workflow == "relax"
+    assert excinfo.value.context == {"dependency": "cyipopt"}
+    assert excinfo.value.__cause__ is dependency_error
+
+
 def test_validate_config_normalizes_mapping_without_mutating_input():
     from atst_tools.api import validate_config
 
@@ -60,6 +96,33 @@ def test_validate_config_normalizes_mapping_without_mutating_input():
 
     assert normalized["calculation"]["restart"] is False
     assert "restart" not in raw["calculation"]
+
+
+def test_run_workflow_restart_override_precedes_schema_normalization(monkeypatch, tmp_path):
+    """CLI-equivalent restart can supersede an invalid YAML restart value."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    seen = {}
+    monkeypatch.chdir(tmp_path)
+
+    def dispatch(config, options):
+        seen["restart"] = config["calculation"]["restart"]
+
+    monkeypatch.setattr(services, "_dispatch_normalized", dispatch)
+    run_workflow(
+        {
+            "calculation": {
+                "type": "relax",
+                "init_structure": "initial.traj",
+                "restart": "not-a-bool",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(restart=True, world=FakeWorld()),
+    )
+
+    assert seen["restart"] is True
 
 
 def test_validate_config_reads_yaml_path_with_current_directory_semantics(tmp_path: Path):
@@ -213,6 +276,30 @@ def test_run_workflow_wraps_check_input_preflight_error(monkeypatch):
 
     assert excinfo.value.workflow == "relax"
     assert excinfo.value.__cause__ is preflight_error
+
+
+def test_mapping_check_input_preflight_uses_current_working_directory(monkeypatch, tmp_path):
+    """Mappings must not be coerced to their repr as a fictitious config path."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.scripts import main as run_cli
+
+    monkeypatch.chdir(tmp_path)
+    observed = {}
+
+    def preflight(config, config_path, **kwargs):
+        observed["config_path"] = config_path
+        return {"checked": 1, "workdirs": []}
+
+    monkeypatch.setattr(run_cli, "run_abacus_check_input_dry_run", preflight)
+    run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(dry_run=True, check_input=True, world=FakeWorld()),
+    )
+
+    assert observed["config_path"] is None
 
 
 def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_path):

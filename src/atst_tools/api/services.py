@@ -14,6 +14,7 @@ from atst_tools.api.models import (
     ConfigValidationError,
     MPIConfigurationError,
     RunOptions,
+    UnsupportedDependencyError,
     WorkflowExecutionError,
     WorkflowResult,
 )
@@ -27,7 +28,9 @@ from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.mpi import get_ase_world
 
 
-def _load_and_normalize(config_source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
+def _load_and_normalize(
+    config_source: str | Path | Mapping[str, Any], *, restart_override: bool = False
+) -> dict[str, Any]:
     """Load and normalize a copied configuration source through the schema."""
     try:
         raw = (
@@ -35,6 +38,9 @@ def _load_and_normalize(config_source: str | Path | Mapping[str, Any]) -> dict[s
             if isinstance(config_source, (str, Path))
             else deepcopy(dict(config_source))
         )
+        if restart_override and isinstance(raw.get("calculation"), Mapping):
+            raw["calculation"] = dict(raw["calculation"])
+            raw["calculation"]["restart"] = True
         return ConfigLoader.normalize(raw)
     except (OSError, ValueError, TypeError) as exc:
         raise ConfigValidationError(
@@ -96,7 +102,7 @@ def _run_abacus_check_input_preflight(
 
     result = run_abacus_check_input_dry_run(
         config,
-        str(config_source),
+        str(config_source) if isinstance(config_source, (str, Path)) else None,
         timeout_sec=options.check_input_timeout,
         abacus_executable=(
             options.abacus_executable
@@ -104,6 +110,19 @@ def _run_abacus_check_input_preflight(
         ),
     )
     return {"status": "passed", "checked": result["checked"]}
+
+
+def _optional_dependency_name(exc: BaseException) -> str | None:
+    """Return the known optional dependency missing from an exception chain."""
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        dependency = getattr(current, "name", None)
+        if dependency == "cyipopt" or "cyipopt" in str(current):
+            return "cyipopt"
+        current = current.__cause__ or current.__context__
+    return None
 
 
 def _dispatch_normalized(config: dict[str, Any], options: RunOptions) -> Any:
@@ -146,6 +165,11 @@ def _dispatch_normalized(config: dict[str, Any], options: RunOptions) -> Any:
             raise MPIConfigurationError(str(exc), workflow=workflow) from exc
         raise WorkflowExecutionError(str(exc), workflow=workflow) from exc
     except Exception as exc:
+        dependency = _optional_dependency_name(exc)
+        if dependency is not None:
+            raise UnsupportedDependencyError(
+                str(exc), workflow=workflow, context={"dependency": dependency}
+            ) from exc
         raise WorkflowExecutionError(str(exc), workflow=workflow) from exc
 
 
@@ -407,15 +431,29 @@ def _validated_result(config: dict[str, Any], world: Any) -> WorkflowResult:
     )
 
 
-def run_workflow(
-    config_source: str | Path | Mapping[str, Any], options: RunOptions = RunOptions()
+def _result_without_manifest(
+    config: dict[str, Any], world: Any, status: str
 ) -> WorkflowResult:
-    """Run one YAML-equivalent workflow without changing current-directory semantics.
+    """Build the legacy CLI result without reading or writing artifact manifests."""
+    calculation = config["calculation"]
+    return WorkflowResult(
+        workflow=calculation["type"],
+        status=status,
+        is_root=int(world.rank) == 0,
+        artifact_manifest=str(calculation.get("artifact_manifest", "atst_artifacts.json")),
+        artifacts=(),
+        metadata={},
+    )
 
-    The supplied communicator is used as-is; this service never launches MPI,
-    a scheduler, or a nested calculator process.
-    """
-    config = validate_config(config_source)
+
+def _run_workflow(
+    config_source: str | Path | Mapping[str, Any],
+    options: RunOptions,
+    *,
+    ensure_completed_manifest: bool,
+) -> WorkflowResult:
+    """Execute the shared workflow path with an explicit caller compatibility mode."""
+    config = _load_and_normalize(config_source, restart_override=options.restart)
     world = options.world if options.world is not None else get_ase_world()
     if options.dry_run:
         workflow = config["calculation"]["type"]
@@ -441,11 +479,41 @@ def run_workflow(
     except ATSTAPIError as exc:
         failure = exc
     except Exception as exc:
-        failure = WorkflowExecutionError(str(exc), workflow=workflow)
+        dependency = _optional_dependency_name(exc)
+        if dependency is not None:
+            failure = UnsupportedDependencyError(
+                str(exc), workflow=workflow, context={"dependency": dependency}
+            )
+        else:
+            failure = WorkflowExecutionError(str(exc), workflow=workflow)
         failure.__cause__ = exc
     _synchronize_rank_failure(world, workflow, failure)
+    if not ensure_completed_manifest:
+        return _result_without_manifest(config, world, "complete")
     _ensure_completed_manifest(config, value, world, previous_signature)
     return _result_from_manifest(config, value, world, "complete")
+
+
+def run_workflow(
+    config_source: str | Path | Mapping[str, Any], options: RunOptions = RunOptions()
+) -> WorkflowResult:
+    """Run one YAML-equivalent workflow with API-owned durable artifacts.
+
+    The supplied communicator is used as-is; this service never launches MPI,
+    a scheduler, or a nested calculator process.
+    """
+    return _run_workflow(
+        config_source, options, ensure_completed_manifest=True
+    )
+
+
+def run_workflow_from_cli(
+    config_source: str | Path | Mapping[str, Any], options: RunOptions
+) -> WorkflowResult:
+    """Run the legacy command adapter without synthesizing API artifact files."""
+    return _run_workflow(
+        config_source, options, ensure_completed_manifest=False
+    )
 
 
 def _ccqn_options_to_config(options: CCQNOptions) -> dict[str, Any]:

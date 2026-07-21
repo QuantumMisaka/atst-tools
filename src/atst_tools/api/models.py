@@ -31,6 +31,10 @@ class ConfigValidationError(ATSTAPIError):
     """Raised when a YAML path or mapping fails ATST schema validation."""
 
 
+class UnsupportedDependencyError(ATSTAPIError):
+    """Raised when an optional workflow dependency is unavailable at runtime."""
+
+
 class MPIConfigurationError(ATSTAPIError):
     """Raised when image-parallel communicator topology is invalid."""
 

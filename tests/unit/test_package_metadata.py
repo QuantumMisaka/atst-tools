@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
+import sys
 
 try:
     import tomllib
@@ -48,3 +50,18 @@ def test_optional_dependency_groups_cover_feature_specific_stacks() -> None:
         "build>=1.5,<2",
         "twine>=6.2,<7",
     ]
+
+
+def test_wheel_release_gate_script_exposes_a_clean_install_check() -> None:
+    """Release verification is available without leaving build artifacts in-tree."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "--wheel" in result.stdout
