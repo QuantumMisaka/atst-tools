@@ -24,7 +24,7 @@ from ase.io import read
 from atst_tools.api import CCQNOptions, run_ccqn
 
 
-atoms = read("inputs/ccqn_init.stru")
+atoms = read("inputs/ccqn_init.extxyz")
 result = run_ccqn(
     atoms,
     EMT(),

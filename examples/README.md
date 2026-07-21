@@ -188,8 +188,9 @@ The matching ABACUS-backed configs are `config_two_stage.yaml`,
 
 `12_ccqn_H2-Au/ccqn_api_auto_modes.py` is the ATST-specific Python API
 companion to `config_auto_modes.yaml`. It uses a lightweight ASE EMT fixture so
-the public-import example is structurally executable in tests; it is not an
-ABACUS production input. For a production calculator, create and configure the
+the public-import example is structurally executable in tests; it loads the
+repository-committed ASE-native `inputs/ccqn_init.extxyz` and is not an ABACUS
+production input. For a production calculator, create and configure the
 calculator in the calling application, then pass it to `run_ccqn()` as defined
 in the [Python API reference](../docs/user/PYTHON_API_REFERENCE.md). Production
 ABACUS CCQN injection requires a caller-created, correctly configured

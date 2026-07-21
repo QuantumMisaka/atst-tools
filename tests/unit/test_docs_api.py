@@ -81,8 +81,7 @@ def test_ccqn_api_example_has_required_header_and_automatic_mode_options():
 
 
 def test_ccqn_api_example_executes_through_public_api_import_only(monkeypatch):
-    from ase import Atoms
-    import ase.io
+    from ase.io import read
     import atst_tools.api as api
 
     calls = []
@@ -92,7 +91,6 @@ def test_ccqn_api_example_executes_through_public_api_import_only(monkeypatch):
         return SimpleNamespace(status="complete", metadata={"backend_source": "provided"})
 
     monkeypatch.setattr(api, "run_ccqn", fake_run_ccqn)
-    monkeypatch.setattr(ase.io, "read", lambda path: Atoms("H2Au64"))
     monkeypatch.chdir(API_EXAMPLE.parent)
     runpy.run_path(str(API_EXAMPLE), run_name="__main__")
 
@@ -104,4 +102,7 @@ def test_ccqn_api_example_executes_through_public_api_import_only(monkeypatch):
     ]
     assert atst_imports == ["atst_tools.api"]
     assert len(calls) == 1
+    expected = read(API_EXAMPLE.parent / "inputs" / "ccqn_init.extxyz")
+    assert calls[0][0].get_chemical_formula() == expected.get_chemical_formula()
+    assert calls[0][0].get_positions().tolist() == expected.get_positions().tolist()
     assert calls[0][2].auto_reactive_bonds["enabled"] is True
