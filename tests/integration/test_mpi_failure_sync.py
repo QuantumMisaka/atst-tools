@@ -483,10 +483,11 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_native_autoneb_optimizer_construction_failure_releases_every_rank(
-    tmp_path: Path,
+@pytest.mark.parametrize("backend", ["atst", "ase"])
+def test_autoneb_inner_neb_construction_failure_releases_every_rank(
+    tmp_path: Path, backend: str
 ) -> None:
-    """The supported native ASE AutoNEB backend shares pre-run failures too."""
+    """Actual inner AutoNEB setup releases peers before optimizer collectives."""
     if not _mpi_test_enabled():
         pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
     launcher = shutil.which("mpiexec") or str(Path(sys.executable).with_name("mpiexec"))
@@ -495,19 +496,18 @@ def test_native_autoneb_optimizer_construction_failure_releases_every_rank(
 
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(ROOT / "src")
-    smoke = """
+    smoke = f"""
 from contextlib import ExitStack
 from mpi4py import MPI
 from ase import Atoms
 from ase.parallel import world
-from atst_tools.mep.autoneb import SynchronizedAutoNEB
+from atst_tools.mep import autoneb
 
 rank = MPI.COMM_WORLD.rank
 
-class RankLocalFailingOptimizer:
+class PeerCollectiveOptimizer:
     def __init__(self, *args, **kwargs):
-        if rank == 0:
-            raise RuntimeError('injected native optimizer construction failure')
+        MPI.COMM_WORLD.Barrier()
 
     def __enter__(self):
         return self
@@ -521,12 +521,27 @@ class RankLocalFailingOptimizer:
     def run(self, *args, **kwargs):
         MPI.COMM_WORLD.Barrier()
 
-auto = SynchronizedAutoNEB(
+class RankLocalFailingNEB:
+    def __init__(self, *args, **kwargs):
+        if rank == 0:
+            try:
+                raise ValueError('injected AutoNEB NEB construction cause')
+            except ValueError as cause:
+                raise RuntimeError('injected AutoNEB NEB construction failure') from cause
+
+if {backend!r} == 'ase':
+    autoneb.NEB = RankLocalFailingNEB
+    engine_type = autoneb.SynchronizedAutoNEB
+else:
+    autoneb.AbacusNEB = RankLocalFailingNEB
+    engine_type = autoneb.AbacusAutoNEB
+
+auto = engine_type(
     attach_calculators=lambda images: None,
     prefix='native_run',
     n_simul=2,
     n_max=4,
-    optimizer=RankLocalFailingOptimizer,
+    optimizer=PeerCollectiveOptimizer,
     parallel=True,
     world=world,
 )
@@ -536,7 +551,10 @@ auto.iteration = 0
 try:
     with ExitStack() as stack:
         auto._execute_one_neb(stack, n_cur=4, to_run=[0, 1, 2, 3])
-except RuntimeError:
+except RuntimeError as error:
+    if rank == 0:
+        assert str(error) == 'injected AutoNEB NEB construction failure'
+        assert isinstance(error.__cause__, ValueError)
     failed = 1
 else:
     failed = 0

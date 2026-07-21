@@ -140,6 +140,71 @@ def test_native_autoneb_pre_run_construction_synchronizes_optimizer_failure(
     assert ran_optimizer == []
 
 
+@pytest.mark.parametrize(
+    ("engine_name", "engine_context"),
+    [
+        ("AbacusAutoNEB", "AutoNEB"),
+        ("SynchronizedAutoNEB", "native AutoNEB"),
+    ],
+)
+def test_autoneb_stages_each_pre_collective_construction(
+    monkeypatch, tmp_path, engine_name, engine_context
+):
+    """Both inner AutoNEB implementations synchronize each setup boundary."""
+    from atst_tools.mep import autoneb
+
+    contexts = []
+
+    class FakeNEB:
+        def __init__(self, *args, **kwargs):
+            return None
+
+    class StopOptimizer:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def attach(self, *args, **kwargs):
+            return None
+
+        def run(self, *args, **kwargs):
+            raise RuntimeError("stop after pre-run construction")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(autoneb, "NEB", FakeNEB)
+    monkeypatch.setattr(
+        autoneb,
+        "run_pre_run_construction",
+        lambda world, operation, **kwargs: contexts.append(kwargs["context"]) or operation(),
+    )
+    engine = getattr(autoneb, engine_name)(
+        attach_calculators=lambda images: None,
+        prefix="run_staged",
+        n_simul=2,
+        n_max=4,
+        optimizer=StopOptimizer,
+        parallel=True,
+        world=FakeWorld(size=2, rank=0),
+    )
+    engine.all_images = [_atoms(float(index)) for index in range(4)]
+    engine.k = [0.1, 0.1, 0.1]
+    engine.iteration = 0
+
+    with pytest.raises(RuntimeError, match="stop after pre-run construction"):
+        engine._execute_one_neb(
+            type("FakeStack", (), {"enter_context": staticmethod(lambda value: value)})(),
+            n_cur=4,
+            to_run=[0, 1, 2, 3],
+        )
+
+    assert contexts == [
+        f"{engine_context} calculator attachment",
+        f"{engine_context} NEB construction",
+        f"{engine_context} optimizer construction",
+        f"{engine_context} trajectory writer attachment",
+    ]
+
+
 def test_native_autoneb_passes_supplied_world_to_ase_neb(monkeypatch, tmp_path):
     """Native AutoNEB engine construction retains an embedding communicator."""
     from atst_tools.mep import autoneb

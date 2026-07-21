@@ -229,13 +229,13 @@ class AbacusAutoNEB(AutoNEB):
         if self.world.rank == 0:
             print('Now starting iteration %d on ' % self.iteration, to_run)
 
-        def construct_pre_run():
-            """Create all rank-local state needed before optimizer collectives."""
+        def attach_iteration_calculators():
             for image_index in to_run[1:-1]:
                 self.all_images[image_index].info["_atst_autoneb_index"] = image_index
             self.attach_calculators([self.all_images[i] for i in to_run[1: -1]])
 
-            neb = AbacusNEB(
+        def construct_neb():
+            return AbacusNEB(
                 [self.all_images[i] for i in to_run],
                 k=[self.k[i] for i in to_run[0:-1]],
                 method=self.method,
@@ -245,9 +245,12 @@ class AbacusAutoNEB(AutoNEB):
                 world=self.world,
                 allow_shared_calculator=self.allow_shared_calculator,
             )
-            logpath = self.iter_folder / f'{self.prefix.name}_log_iter{self.iteration:03d}.log'
-            qn = closelater(self.optimizer(neb, logfile=logpath))
 
+        def construct_optimizer(neb):
+            logpath = self.iter_folder / f'{self.prefix.name}_log_iter{self.iteration:03d}.log'
+            return closelater(self.optimizer(neb, logfile=logpath))
+
+        def attach_trajectory_writers(qn):
             if self.parallel:
                 nneb = to_run[0]
                 nim = len(to_run) - 2
@@ -282,16 +285,33 @@ class AbacusAutoNEB(AutoNEB):
                     ))
                     qn.attach(seriel_writer(traj, i, num).write)
                     num += 1
-            return neb, qn
 
         if self.parallel:
-            neb, qn = run_pre_run_construction(
+            run_pre_run_construction(
                 self.world,
-                construct_pre_run,
-                context="AutoNEB pre-run construction",
+                attach_iteration_calculators,
+                context="AutoNEB calculator attachment",
+            )
+            neb = run_pre_run_construction(
+                self.world,
+                construct_neb,
+                context="AutoNEB NEB construction",
+            )
+            qn = run_pre_run_construction(
+                self.world,
+                lambda: construct_optimizer(neb),
+                context="AutoNEB optimizer construction",
+            )
+            run_pre_run_construction(
+                self.world,
+                lambda: attach_trajectory_writers(qn),
+                context="AutoNEB trajectory writer attachment",
             )
         else:
-            neb, qn = construct_pre_run()
+            attach_iteration_calculators()
+            neb = construct_neb()
+            qn = construct_optimizer(neb)
+            attach_trajectory_writers(qn)
 
         # 6. Run Optimizer
         if isinstance(self.maxsteps, (list, tuple)) and many_steps:
@@ -530,9 +550,11 @@ class SynchronizedAutoNEB(AutoNEB):
         if self.world.rank == 0:
             print("Now starting iteration %d on " % self.iteration, to_run)
 
-        def construct_pre_run():
+        def attach_iteration_calculators():
             self.attach_calculators([self.all_images[i] for i in to_run[1:-1]])
-            neb = NEB(
+
+        def construct_neb():
+            return NEB(
                 [self.all_images[i] for i in to_run],
                 k=[self.k[i] for i in to_run[0:-1]],
                 method=self.method,
@@ -541,9 +563,12 @@ class SynchronizedAutoNEB(AutoNEB):
                 climb=climb,
                 world=self.world,
             )
-            logpath = self.iter_folder / f"{self.prefix.name}_log_iter{self.iteration:03d}.log"
-            qn = closelater(self.optimizer(neb, logfile=logpath))
 
+        def construct_optimizer(neb):
+            logpath = self.iter_folder / f"{self.prefix.name}_log_iter{self.iteration:03d}.log"
+            return closelater(self.optimizer(neb, logfile=logpath))
+
+        def attach_trajectory_writers(qn):
             if self.parallel:
                 nneb = to_run[0]
                 nim = len(to_run) - 2
@@ -578,16 +603,33 @@ class SynchronizedAutoNEB(AutoNEB):
                     ))
                     qn.attach(seriel_writer(traj, i, num).write)
                     num += 1
-            return neb, qn
 
         if self.parallel:
-            neb, qn = run_pre_run_construction(
+            run_pre_run_construction(
                 self.world,
-                construct_pre_run,
-                context="native AutoNEB pre-run construction",
+                attach_iteration_calculators,
+                context="native AutoNEB calculator attachment",
+            )
+            neb = run_pre_run_construction(
+                self.world,
+                construct_neb,
+                context="native AutoNEB NEB construction",
+            )
+            qn = run_pre_run_construction(
+                self.world,
+                lambda: construct_optimizer(neb),
+                context="native AutoNEB optimizer construction",
+            )
+            run_pre_run_construction(
+                self.world,
+                lambda: attach_trajectory_writers(qn),
+                context="native AutoNEB trajectory writer attachment",
             )
         else:
-            neb, qn = construct_pre_run()
+            attach_iteration_calculators()
+            neb = construct_neb()
+            qn = construct_optimizer(neb)
+            attach_trajectory_writers(qn)
 
         steps = (
             self.maxsteps[1]
