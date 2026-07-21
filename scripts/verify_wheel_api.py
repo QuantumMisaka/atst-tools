@@ -66,8 +66,12 @@ def _run_mpi_command(command: list[str], *, cwd: Path, timeout: int) -> None:
     try:
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        finally:
+            process.communicate()
         raise
     if process.returncode:
         if stdout:

@@ -237,3 +237,46 @@ def test_wheel_mpi_command_kills_and_waits_for_the_process_group_on_timeout(
     assert popen_calls[0][1]["start_new_session"] is True
     assert killpg_calls == [(process.pid, signal.SIGKILL)]
     assert process.communicate_calls == 2
+
+
+def test_wheel_mpi_command_reaps_launcher_when_process_group_already_exited(
+    monkeypatch, tmp_path
+) -> None:
+    """A vanished process group must not mask or skip cleanup after timeout."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+
+    class AlreadyExitedProcess:
+        pid = 27182
+        returncode = None
+
+        def __init__(self):
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if timeout is not None:
+                raise subprocess.TimeoutExpired(["mpiexec"], timeout)
+            self.returncode = -signal.SIGKILL
+            return "", ""
+
+    process = AlreadyExitedProcess()
+    monkeypatch.setattr(gate.subprocess, "Popen", lambda *args, **kwargs: process)
+
+    def killpg(_pid, _sig):
+        raise ProcessLookupError
+
+    monkeypatch.setattr(gate.os, "killpg", killpg)
+
+    try:
+        gate._run_mpi_command(["mpiexec", "-n", "2", "python"], cwd=tmp_path, timeout=3)
+    except subprocess.TimeoutExpired as error:
+        assert error.cmd == ["mpiexec"]
+        assert error.timeout == 3
+    else:
+        raise AssertionError("MPI timeout should be propagated after cleanup")
+
+    assert process.communicate_calls == 2
