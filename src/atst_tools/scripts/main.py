@@ -532,6 +532,7 @@ def run_neb(config, calc_name, calc_config, world=None):
     neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
     neb = neb_class(init_chain, 
                     parallel=effective_parallel,
+                    world=world,
                     method=algorism, 
                     k=k,
                     climb=False if two_stage else climb,

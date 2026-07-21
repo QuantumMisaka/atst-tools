@@ -15,7 +15,7 @@ from atst_tools.api.models import (
     WorkflowResult,
 )
 from atst_tools.calculators.abacuslite_backend import BACKEND_SOURCE
-from atst_tools.utils.artifacts import read_artifact_manifest
+from atst_tools.utils.artifacts import read_artifact_manifest, write_artifact_manifest
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.mpi import get_ase_world
 
@@ -96,6 +96,108 @@ def _stored_energy(atoms: Any) -> float | None:
     return float(energy) if energy is not None else None
 
 
+def _synthesized_artifacts(
+    config: dict[str, Any], value: Any
+) -> list[dict[str, str]]:
+    """Describe established outputs for runners that did not write a manifest."""
+    calculation = config["calculation"]
+    workflow = calculation["type"]
+    artifact_fields = {
+        "neb": (("trajectory", "trajectory"),),
+        "dimer": (("trajectory", "trajectory"),),
+        "sella": (("trajectory", "trajectory"),),
+        "ccqn": (
+            ("trajectory", "trajectory"),
+            ("ts_structure", "final_structure"),
+            ("ccqn_mode_manifest", "mode_manifest"),
+            ("ccqn_diagnostics", "diagnostics_file"),
+        ),
+        "relax": (
+            ("trajectory", "trajectory"),
+            ("log", "logfile"),
+        ),
+        "vibration": (
+            ("vibration_results", "results_file"),
+            ("ts_validation", "validation_file"),
+        ),
+        "irc": (
+            ("irc_trajectory", "trajectory"),
+            ("normalized_irc_trajectory", "normalized_trajectory"),
+        ),
+        "md": (
+            ("trajectory", "trajectory"),
+            ("log", "logfile"),
+            ("summary", "summary_file"),
+            ("final_structure", "final_structure"),
+        ),
+        "dmf": (
+            ("evaluation_path", "trajectory"),
+            ("tmax_candidate", "tmax_trajectory"),
+            ("summary", "summary_file"),
+        ),
+    }
+    if workflow == "autoneb":
+        return [
+            {
+                "role": "image_trajectory",
+                "path": f"{calculation['prefix']}{index:03d}.traj",
+            }
+            for index, _ in enumerate(value or ())
+        ]
+    if workflow == "d2s":
+        method = calculation["method"]
+        artifacts = [
+            {"role": "rough_neb_trajectory", "path": "neb_rough.traj"},
+            {
+                "role": "single_ended_trajectory",
+                "path": calculation[method]["trajectory"],
+            },
+        ]
+        if calculation["vibration"]["enabled"]:
+            artifacts.extend(
+                [
+                    {
+                        "role": "vibration_results",
+                        "path": calculation["vibration"]["results_file"],
+                    },
+                    {
+                        "role": "ts_validation",
+                        "path": calculation["vibration"]["validation_file"],
+                    },
+                ]
+            )
+        return artifacts
+
+    artifacts = [
+        {"role": role, "path": calculation[field]}
+        for role, field in artifact_fields[workflow]
+        if calculation.get(field) is not None
+    ]
+    if workflow == "relax":
+        artifacts.append({"role": "final_structure", "path": "final_relaxed.traj"})
+    return artifacts
+
+
+def _ensure_completed_manifest(config: dict[str, Any], value: Any, world: Any) -> None:
+    """Guarantee that a completed API outcome has an accurate durable manifest."""
+    calculation = config["calculation"]
+    workflow = calculation["type"]
+    manifest_path = Path(calculation.get("artifact_manifest", "atst_artifacts.json"))
+    if manifest_path.exists() and _read_manifest(manifest_path).get("workflow") == workflow:
+        return
+    if hasattr(world, "barrier"):
+        world.barrier()
+    if int(world.rank) == 0:
+        write_artifact_manifest(
+            manifest_path,
+            workflow=workflow,
+            artifacts=_synthesized_artifacts(config, value),
+            stages=[{"name": workflow, "status": "complete"}],
+        )
+    if hasattr(world, "barrier"):
+        world.barrier()
+
+
 def _result_from_manifest(
     config: dict[str, Any], value: Any, world: Any, status: str
 ) -> WorkflowResult:
@@ -163,6 +265,7 @@ def run_workflow(
     if options.dry_run:
         return _result_from_manifest(config, None, world, "validated")
     value = _dispatch_normalized(config, options)
+    _ensure_completed_manifest(config, value, world)
     return _result_from_manifest(config, value, world, "complete")
 
 

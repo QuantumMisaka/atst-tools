@@ -182,6 +182,45 @@ def test_run_neb_parallel_logs_world_size(monkeypatch, tmp_path, caplog):
     assert "world.size=2" in caplog.text
 
 
+def test_run_neb_passes_supplied_world_to_constructed_engine(monkeypatch, tmp_path):
+    """The caller-provided communicator must reach the NEB implementation."""
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3)]
+    supplied_world = FakeWorld(size=1, rank=0)
+    constructed = []
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            constructed.append(kwargs)
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "get_ase_world", lambda: pytest.fail("looked up a new world"))
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "neb", "init_chain": "chain.traj", "parallel": True},
+        world=supplied_world,
+    )
+
+    assert constructed[0]["world"] is supplied_world
+
+
 def test_autoneb_parallel_requires_world_size_equal_n_simul(monkeypatch):
     from atst_tools.mep import autoneb
 

@@ -133,6 +133,33 @@ def test_run_workflow_dry_run_returns_no_in_memory_atoms(monkeypatch):
     assert result.final_atoms is None
 
 
+def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_path):
+    """Completed API calls never advertise a manifest the runner did not write."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda *args: None)
+
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    manifest_path = tmp_path / result.artifact_manifest
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest["workflow"] == "relax"
+    assert manifest["artifacts"] == [
+        {"role": "trajectory", "path": "relax.traj"},
+        {"role": "log", "path": "relax.log"},
+        {"role": "final_structure", "path": "final_relaxed.traj"},
+    ]
+
+
 def test_path_result_is_root_only(monkeypatch, tmp_path):
     from ase import Atoms
     from ase.calculators.singlepoint import SinglePointCalculator
