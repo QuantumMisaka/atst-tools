@@ -20,8 +20,8 @@ def test_run_workflow_preserves_falsey_supplied_world(monkeypatch, tmp_path):
     monkeypatch.setattr(services, "get_ase_world", lambda: pytest.fail("looked up a new world"))
     monkeypatch.setattr(
         services,
-        "_result_from_manifest",
-        lambda config, value, world, status: world,
+        "_validated_result",
+        lambda config, world: world,
     )
 
     result = run_workflow(
@@ -156,6 +156,51 @@ def test_run_workflow_dry_run_returns_no_in_memory_atoms(monkeypatch):
 
     assert result.status == "validated"
     assert result.final_atoms is None
+
+
+def test_run_workflow_dry_run_ignores_stale_malformed_manifest(monkeypatch, tmp_path):
+    """Validation results never consume artifacts from an earlier execution."""
+    from atst_tools.api import RunOptions, run_workflow
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "atst_artifacts.json").write_text("not valid JSON", encoding="utf-8")
+
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "x.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(dry_run=True),
+    )
+
+    assert result.status == "validated"
+    assert result.artifacts == ()
+
+
+def test_run_workflow_wraps_check_input_preflight_error(monkeypatch):
+    """The public API represents preflight failures with its stable error type."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api.models import WorkflowExecutionError
+    from atst_tools.scripts import main as run_cli
+
+    preflight_error = RuntimeError("ABACUS check-input failed")
+    monkeypatch.setattr(
+        run_cli,
+        "run_abacus_check_input_dry_run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(preflight_error),
+    )
+
+    with pytest.raises(WorkflowExecutionError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "x.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(dry_run=True, check_input=True),
+        )
+
+    assert excinfo.value.workflow == "relax"
+    assert excinfo.value.__cause__ is preflight_error
 
 
 def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_path):

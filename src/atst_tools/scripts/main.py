@@ -15,7 +15,11 @@ from textwrap import dedent
 
 from atst_tools import package_version
 from atst_tools.api import RunOptions, run_workflow, validate_config
-from atst_tools.api.models import ConfigValidationError, WorkflowExecutionError
+from atst_tools.api.models import (
+    ConfigValidationError,
+    MPIConfigurationError,
+    WorkflowExecutionError,
+)
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
@@ -825,6 +829,10 @@ def run_from_args(args):
             )
         result = run_workflow(args.config, options)
     except ConfigValidationError as exc:
+        raise ValueError(str(exc)) from None
+    except MPIConfigurationError as exc:
+        if exc.__cause__ is not None:
+            raise exc.__cause__ from None
         raise ValueError(str(exc)) from None
     except WorkflowExecutionError as exc:
         if isinstance(exc.__cause__, IRCBoundaryError):

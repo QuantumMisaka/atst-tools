@@ -422,6 +422,29 @@ def test_atst_run_unwraps_api_workflow_error_for_cli_users(monkeypatch):
     assert excinfo.value.__suppress_context__ is True
 
 
+def test_atst_run_unwraps_api_mpi_configuration_error_for_cli_users(monkeypatch):
+    """CLI callers retain the legacy ValueError for invalid MPI topology."""
+    from atst_tools.api.models import MPIConfigurationError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ValueError("MPI ranks must match the number of images")
+
+    def fail_with_mpi_configuration_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ValueError as exc:
+            raise MPIConfigurationError(str(exc), workflow="neb") from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow", fail_with_mpi_configuration_error)
+
+    with pytest.raises(ValueError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
+
+
 def test_atst_run_check_input_requires_dry_run(monkeypatch):
     from atst_tools.scripts import cli
 

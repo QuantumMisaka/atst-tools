@@ -360,6 +360,27 @@ def _result_from_manifest(
     )
 
 
+def _validated_result(config: dict[str, Any], world: Any) -> WorkflowResult:
+    """Build a manifest-independent result for a validation-only run."""
+    calculation = config["calculation"]
+    return WorkflowResult(
+        workflow=calculation["type"],
+        status="validated",
+        is_root=int(world.rank) == 0,
+        artifact_manifest=str(
+            calculation.get("artifact_manifest", "atst_artifacts.json")
+        ),
+        artifacts=(),
+        metadata={
+            "backend_source": (
+                BACKEND_SOURCE
+                if config.get("calculator", {}).get("name", "abacus") == "abacus"
+                else "provided"
+            )
+        },
+    )
+
+
 def run_workflow(
     config_source: str | Path | Mapping[str, Any], options: RunOptions = RunOptions()
 ) -> WorkflowResult:
@@ -371,8 +392,16 @@ def run_workflow(
     config = validate_config(config_source)
     world = options.world if options.world is not None else get_ase_world()
     if options.dry_run:
-        preflight = _run_abacus_check_input_preflight(config, config_source, options)
-        result = _result_from_manifest(config, None, world, "validated")
+        workflow = config["calculation"]["type"]
+        try:
+            preflight = _run_abacus_check_input_preflight(
+                config, config_source, options
+            )
+        except WorkflowExecutionError:
+            raise
+        except Exception as exc:
+            raise WorkflowExecutionError(str(exc), workflow=workflow) from exc
+        result = _validated_result(config, world)
         if preflight is not None:
             result.metadata["check_input_preflight"] = preflight
         return result
