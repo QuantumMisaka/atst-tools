@@ -7,7 +7,32 @@ from pathlib import Path
 
 import pytest
 
-from helpers import FakeWorld
+from helpers import FakeWorld, FalseyFakeWorld
+
+
+def test_run_workflow_preserves_falsey_supplied_world(monkeypatch, tmp_path):
+    """A falsey supplied communicator must not trigger a replacement lookup."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    supplied_world = FalseyFakeWorld()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "get_ase_world", lambda: pytest.fail("looked up a new world"))
+    monkeypatch.setattr(
+        services,
+        "_result_from_manifest",
+        lambda config, value, world, status: world,
+    )
+
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "x.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=supplied_world, dry_run=True),
+    )
+
+    assert result is supplied_world
 
 
 def test_public_api_has_only_the_supported_contract():

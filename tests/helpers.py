@@ -52,6 +52,13 @@ class FakeWorld:
         return value
 
 
+class FalseyFakeWorld(FakeWorld):
+    """Fake world that is falsey despite being a valid communicator."""
+
+    def __bool__(self):
+        return False
+
+
 class FakeReducingWorld(FakeWorld):
     """Fake world that supports reductions and rejects broadcasts."""
 

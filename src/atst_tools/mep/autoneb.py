@@ -466,7 +466,7 @@ class AutoNEBRunner:
         self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.prefix = calc_config['prefix']
-        self.world = world or get_ase_world()
+        self.world = world if world is not None else get_ase_world()
         self.n_simul = calc_config.get('n_simul') or self.world.size
         self.n_max = calc_config['n_max']
         self.algorism = calc_config['algorism']

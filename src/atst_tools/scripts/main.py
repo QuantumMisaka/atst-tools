@@ -450,7 +450,7 @@ def run_neb(config, calc_name, calc_config, world=None):
         raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
 
     parallel = calc_config['parallel']
-    world = world or get_ase_world()
+    world = world if world is not None else get_ase_world()
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
         LOGGER.warning(

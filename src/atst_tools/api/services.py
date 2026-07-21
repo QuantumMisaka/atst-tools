@@ -318,7 +318,7 @@ def run_workflow(
     a scheduler, or a nested calculator process.
     """
     config = validate_config(config_source)
-    world = options.world or get_ase_world()
+    world = options.world if options.world is not None else get_ase_world()
     if options.dry_run:
         return _result_from_manifest(config, None, world, "validated")
     workflow = config["calculation"]["type"]

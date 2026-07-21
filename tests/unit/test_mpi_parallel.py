@@ -8,7 +8,57 @@ import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 
-from helpers import DummyCalc, FakeReducingWorld, FakeWorld
+from helpers import DummyCalc, FakeReducingWorld, FakeWorld, FalseyFakeWorld
+
+
+def test_falsey_supplied_worlds_preserve_identity(monkeypatch, tmp_path):
+    """All public world selectors must retain a valid falsey communicator."""
+    from atst_tools.mep import autoneb
+    from atst_tools.scripts import main
+
+    supplied_world = FalseyFakeWorld()
+    monkeypatch.setattr(main, "get_ase_world", lambda: pytest.fail("looked up a new world"))
+    monkeypatch.setattr(autoneb, "get_ase_world", lambda: pytest.fail("looked up a new world"))
+
+    # AutoNEB selection is directly observable on the runner.
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: [_atoms(0.0)] * 3)
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False, "n_simul": 1},
+        world=supplied_world,
+    )
+    assert runner.world is supplied_world
+
+    # NEB selection is observable through the constructed engine.
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2)]
+    constructed = []
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            constructed.append(kwargs)
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            pass
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "neb", "init_chain": "chain.traj", "parallel": False},
+        world=supplied_world,
+    )
+    assert constructed[0]["world"] is supplied_world
 
 
 def _atoms(x: float) -> Atoms:
