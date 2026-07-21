@@ -840,7 +840,11 @@ def run_from_args(args):
             raise exc.__cause__ from None
         raise RuntimeError(str(exc)) from None
     if options.dry_run:
-        LOGGER.info("Configuration is valid: validation delegated to workflow API")
+        LOGGER.info(
+            "Configuration is valid: calculation.type=%s, calculator.name=%s",
+            result.workflow,
+            result.metadata["calculator_name"],
+        )
         preflight = getattr(result, "metadata", {}).get("check_input_preflight")
         if preflight is not None:
             if preflight["status"] == "passed":

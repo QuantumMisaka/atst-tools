@@ -84,6 +84,49 @@ def test_run_workflow_maps_missing_cyipopt_to_dependency_error(monkeypatch, tmp_
     assert excinfo.value.__cause__ is dependency_error
 
 
+@pytest.mark.parametrize(
+    ("dependency_error", "expected_dependency"),
+    [
+        (ModuleNotFoundError("No module named 'deepmd'"), "deepmd"),
+        (
+            ImportError(
+                "deepmd-kit is not installed. Install it to use the DP calculator."
+            ),
+            "deepmd",
+        ),
+    ],
+)
+def test_run_workflow_maps_missing_deepmd_to_dependency_error(
+    monkeypatch, tmp_path, dependency_error, expected_dependency
+):
+    """Configured DP imports remain distinguishable to public API callers."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import UnsupportedDependencyError
+
+    if isinstance(dependency_error, ModuleNotFoundError):
+        dependency_error.name = "deepmd"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: (_ for _ in ()).throw(dependency_error),
+    )
+
+    with pytest.raises(UnsupportedDependencyError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "initial.traj"},
+                "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.workflow == "relax"
+    assert excinfo.value.context == {"dependency": expected_dependency}
+    assert excinfo.value.__cause__ is dependency_error
+
+
 def test_validate_config_normalizes_mapping_without_mutating_input():
     from atst_tools.api import validate_config
 
@@ -231,6 +274,29 @@ def test_run_workflow_dry_run_returns_no_in_memory_atoms(monkeypatch):
 
     assert result.status == "validated"
     assert result.final_atoms is None
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_configured_dp_result_records_deepmd_backend_source(
+    monkeypatch, tmp_path, dry_run
+):
+    """Configured DP provenance is distinct from caller-supplied injection."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    if not dry_run:
+        monkeypatch.setattr(services, "_dispatch_normalized", lambda *args: None)
+
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+        },
+        RunOptions(dry_run=dry_run, world=FakeWorld()),
+    )
+
+    assert result.metadata["backend_source"] == "deepmd"
 
 
 def test_run_workflow_dry_run_ignores_stale_malformed_manifest(monkeypatch, tmp_path):

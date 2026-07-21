@@ -163,14 +163,15 @@ Backend delegation has four invariants:
 3. ATST does not re-export individual backend I/O functions. It remains the
    workflow, schema, artifact, and orchestration layer.
 4. Metadata records `backend_source` as `external` or `vendored` for
-   configuration-driven ABACUS results and `provided` for calculator injection.
+   configuration-driven ABACUS results, `deepmd` for configuration-driven DP
+   results, and `provided` only for calculator injection.
 
 ## Errors and support boundary
 
 Public API failures derive from `ATSTAPIError`. The companion model module
 defines `ConfigValidationError` for schema/path problems,
 `UnsupportedDependencyError` for unavailable optional runtime dependencies
-(including DMF's `cyipopt`/IPOPT requirement),
+(including DeePMD-kit's `deepmd` module and DMF's `cyipopt`/IPOPT requirement),
 `MPIConfigurationError` for image-parallel topology problems, and
 `WorkflowExecutionError` for a workflow or runtime failure. Each carries an
 optional workflow name and diagnostic context; the original failure is chained

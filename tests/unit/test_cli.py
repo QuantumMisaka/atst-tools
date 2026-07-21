@@ -320,7 +320,9 @@ def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
 
     cli.main(["run", "--dry-run", "config.yaml"])
 
-    assert "Configuration is valid" in caplog.text
+    assert caplog.messages == [
+        "Configuration is valid: calculation.type=relax, calculator.name=abacus"
+    ]
 
 
 def test_atst_run_invalid_dry_run_does_not_log_configuration_valid(monkeypatch, caplog):
@@ -370,7 +372,14 @@ def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
         main,
         "run_workflow_from_cli",
         lambda source, options: seen.update(source=source, options=options)
-        or type("Result", (), {"workflow": "relax"})(),
+        or type(
+            "Result",
+            (),
+            {
+                "workflow": "relax",
+                "metadata": {"calculator_name": "abacus"},
+            },
+        )(),
     )
     monkeypatch.setattr(
         main,
@@ -566,6 +575,31 @@ def test_atst_run_unwraps_api_dependency_error_for_cli_users(monkeypatch):
     monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_dependency_error)
 
     with pytest.raises(ModuleNotFoundError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
+
+
+def test_atst_run_unwraps_missing_deepmd_dependency_error_for_cli_users(monkeypatch):
+    """DP dependency errors retain the command path's original import error."""
+    from atst_tools.api.models import UnsupportedDependencyError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ImportError("deepmd-kit is not installed")
+
+    def fail_with_dependency_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ImportError as exc:
+            raise UnsupportedDependencyError(
+                str(exc), workflow="relax", context={"dependency": "deepmd"}
+            ) from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_dependency_error)
+
+    with pytest.raises(ImportError) as excinfo:
         cli.main(["run", "config.yaml"])
 
     assert excinfo.value is legacy_error

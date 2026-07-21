@@ -118,11 +118,26 @@ def _optional_dependency_name(exc: BaseException) -> str | None:
     seen: set[int] = set()
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        dependency = getattr(current, "name", None)
-        if dependency == "cyipopt" or "cyipopt" in str(current):
+        dependency = str(getattr(current, "name", "") or "").lower()
+        message = str(current).lower()
+        if dependency == "cyipopt" or "cyipopt" in message:
             return "cyipopt"
+        if dependency == "deepmd" or dependency.startswith("deepmd."):
+            return "deepmd"
+        if "deepmd" in message or "deepmd-kit" in message:
+            return "deepmd"
         current = current.__cause__ or current.__context__
     return None
+
+
+def _configured_backend_source(config: Mapping[str, Any]) -> str:
+    """Return provenance for a calculator constructed from configuration."""
+    calculator_name = str(config.get("calculator", {}).get("name", "abacus")).lower()
+    if calculator_name == "abacus":
+        return BACKEND_SOURCE
+    if calculator_name in {"dp", "deepmd"}:
+        return "deepmd"
+    return calculator_name
 
 
 def _dispatch_normalized(config: dict[str, Any], options: RunOptions) -> Any:
@@ -365,9 +380,7 @@ def _result_from_manifest(
     metadata = dict(manifest.get("metadata", {}))
     metadata.setdefault(
         "backend_source",
-        BACKEND_SOURCE
-        if config.get("calculator", {}).get("name", "abacus") == "abacus"
-        else "provided",
+        _configured_backend_source(config),
     )
 
     final_images = None
@@ -422,11 +435,8 @@ def _validated_result(config: dict[str, Any], world: Any) -> WorkflowResult:
         ),
         artifacts=(),
         metadata={
-            "backend_source": (
-                BACKEND_SOURCE
-                if config.get("calculator", {}).get("name", "abacus") == "abacus"
-                else "provided"
-            )
+            "backend_source": _configured_backend_source(config),
+            "calculator_name": config.get("calculator", {}).get("name", "abacus"),
         },
     )
 

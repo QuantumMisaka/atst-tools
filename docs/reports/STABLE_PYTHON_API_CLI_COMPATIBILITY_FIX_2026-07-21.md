@@ -13,9 +13,11 @@ executed through the stable Python API.
 ## Root Cause and Resolution
 
 `run_workflow()` correctly performs the ABACUS `--check-input` preflight as
-part of its dry-run service.  The CLI adapter therefore logged successful YAML
-validation only after the service returned, so that message disappeared when
-the preflight raised.  The same service intentionally wraps execution failures
+part of its dry-run service. The CLI adapter logs successful YAML validation
+only after the service returns, so a failed preflight never reports validation
+success. The success record preserves the legacy payload
+`Configuration is valid: calculation.type=%s, calculator.name=%s`.
+The same service intentionally wraps execution failures
 in `WorkflowExecutionError` for Python callers, but the CLI adapter re-raised
 that API type rather than its legacy underlying error.
 
@@ -28,8 +30,8 @@ errors to Python callers.
 
 ## Regression Coverage
 
-- a failed `atst run --dry-run --check-input` logs validation before propagating
-  the original preflight exception;
+- a failed `atst run --dry-run --check-input` does not log validation before
+  propagating the original preflight exception;
 - an ordinary workflow failure through `atst` exposes the original exception,
   not `WorkflowExecutionError` or its chained traceback;
 - existing successful preflight, IRC boundary, and option-forwarding contracts
@@ -39,7 +41,7 @@ errors to Python callers.
 
 ```bash
 PYTHONPATH=src conda run -n atst-dev pytest tests/unit/test_cli.py -q -k \
-  'check_input_failure_logs_validation_before_legacy_error or \
+  'check_input_failure_does_not_log_validation_before_legacy_error or \
   unwraps_api_workflow_error_for_cli_users or \
   dry_run_check_input_calls_abacus_preflight or \
   reports_irc_boundary_without_traceback or run_adapter_builds_cli_equivalent_options'

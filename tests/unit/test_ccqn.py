@@ -257,3 +257,48 @@ def test_ccqn_accepts_injected_calculator_without_factory(monkeypatch, tmp_path)
 
     assert result.calc is calculator
     assert atoms.calc is None
+
+
+@pytest.fixture
+def abacuslite_compatible_calculator():
+    """Return a lightweight ASE calculator accepted by the abacuslite path."""
+    from helpers import DummyCalc
+
+    return DummyCalc()
+
+
+def test_ccqn_uses_supplied_abacuslite_compatible_calculator(
+    monkeypatch, tmp_path, abacuslite_compatible_calculator
+):
+    """Injection preserves calculator identity and bypasses factory construction."""
+    from atst_tools.mep.ccqn import AbacusCCQN
+
+    atoms = Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]])
+    optimizer_atoms = []
+
+    class FakeOptimizer:
+        def __init__(self, optimizer_input, **kwargs):
+            optimizer_atoms.append(optimizer_input)
+
+        def run(self, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        "atst_tools.mep.ccqn.CalculatorFactory.get_calculator",
+        lambda *args, **kwargs: pytest.fail("factory used"),
+    )
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer", FakeOptimizer)
+
+    result = AbacusCCQN(
+        atoms,
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(tmp_path / "manifest.json"),
+            "reactive_bonds": "1-2",
+        },
+        calculator=abacuslite_compatible_calculator,
+    ).run()
+
+    assert optimizer_atoms == [result]
+    assert result.calc is abacuslite_compatible_calculator
