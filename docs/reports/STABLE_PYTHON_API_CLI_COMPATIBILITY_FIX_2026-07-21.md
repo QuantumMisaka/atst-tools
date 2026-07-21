@@ -21,12 +21,13 @@ The same service intentionally wraps execution failures
 in `WorkflowExecutionError` for Python callers, but the CLI adapter re-raised
 that API type rather than its legacy underlying error.
 
-The CLI now validates and emits the established dry-run validation message
-before calling the API service.  It still invokes the service exactly once for
-workflow execution.  At the CLI boundary only, a `WorkflowExecutionError` is
-translated back to its original cause (and the existing IRC `SystemExit`
-presentation remains unchanged).  The service continues to expose typed API
-errors to Python callers.
+The CLI delegates validation and preflight execution to the API service, then
+emits the established dry-run validation message only after that service
+returns successfully. It still invokes the service exactly once for workflow
+execution. At the CLI boundary only, a `WorkflowExecutionError` is translated
+back to its original cause (and the existing IRC `SystemExit` presentation
+remains unchanged). The service continues to expose typed API errors to Python
+callers.
 
 ## Regression Coverage
 

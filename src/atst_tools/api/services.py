@@ -122,9 +122,9 @@ def _optional_dependency_name(exc: BaseException) -> str | None:
         message = str(current).lower()
         if dependency == "cyipopt" or "cyipopt" in message:
             return "cyipopt"
-        if dependency == "deepmd" or dependency.startswith("deepmd."):
-            return "deepmd"
-        if "deepmd" in message or "deepmd-kit" in message:
+        if isinstance(current, ModuleNotFoundError) and (
+            dependency == "deepmd" or dependency.startswith("deepmd.")
+        ):
             return "deepmd"
         current = current.__cause__ or current.__context__
     return None

@@ -88,12 +88,6 @@ def test_run_workflow_maps_missing_cyipopt_to_dependency_error(monkeypatch, tmp_
     ("dependency_error", "expected_dependency"),
     [
         (ModuleNotFoundError("No module named 'deepmd'"), "deepmd"),
-        (
-            ImportError(
-                "deepmd-kit is not installed. Install it to use the DP calculator."
-            ),
-            "deepmd",
-        ),
     ],
 )
 def test_run_workflow_maps_missing_deepmd_to_dependency_error(
@@ -125,6 +119,64 @@ def test_run_workflow_maps_missing_deepmd_to_dependency_error(
     assert excinfo.value.workflow == "relax"
     assert excinfo.value.context == {"dependency": expected_dependency}
     assert excinfo.value.__cause__ is dependency_error
+
+
+def test_run_workflow_maps_deepmd_missing_import_cause_to_dependency_error(
+    monkeypatch, tmp_path
+):
+    """A wrapped DeepMD import error retains its missing-module evidence."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import UnsupportedDependencyError
+
+    missing_module = ModuleNotFoundError("No module named 'deepmd.calculator'")
+    missing_module.name = "deepmd.calculator"
+    wrapper = ImportError("calculator initialization failed")
+    wrapper.__cause__ = missing_module
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: (_ for _ in ()).throw(wrapper),
+    )
+
+    with pytest.raises(UnsupportedDependencyError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "initial.traj"},
+                "calculator": {"name": "dp", "dp": {"model": "model.pt"}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.context == {"dependency": "deepmd"}
+    assert excinfo.value.__cause__ is wrapper
+
+
+def test_run_workflow_keeps_corrupt_deepmd_model_as_execution_error(monkeypatch, tmp_path):
+    """A model failure mentioning DeepMD is not evidence of a missing module."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import WorkflowExecutionError
+
+    corrupt_model_error = RuntimeError("DeepMD model file is corrupt")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: (_ for _ in ()).throw(corrupt_model_error),
+    )
+
+    with pytest.raises(WorkflowExecutionError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "initial.traj"},
+                "calculator": {"name": "dp", "dp": {"model": "corrupt.pt"}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.__cause__ is corrupt_model_error
 
 
 def test_validate_config_normalizes_mapping_without_mutating_input():

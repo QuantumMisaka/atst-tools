@@ -260,15 +260,17 @@ def test_ccqn_accepts_injected_calculator_without_factory(monkeypatch, tmp_path)
 
 
 @pytest.fixture
-def abacuslite_compatible_calculator():
-    """Return a lightweight ASE calculator accepted by the abacuslite path."""
-    from helpers import DummyCalc
+def vendored_abacuslite_calculator(monkeypatch, tmp_path):
+    """Construct a real vendored abacuslite calculator without launching ABACUS."""
+    from atst_tools.external.ASE_interface.abacuslite import Abacus, AbacusProfile
 
-    return DummyCalc()
+    monkeypatch.setattr(AbacusProfile, "version", lambda self: "v3.10.1")
+    profile = AbacusProfile("abacus")
+    return Abacus(profile=profile, directory=tmp_path / "abacuslite")
 
 
 def test_ccqn_uses_supplied_abacuslite_compatible_calculator(
-    monkeypatch, tmp_path, abacuslite_compatible_calculator
+    monkeypatch, tmp_path, vendored_abacuslite_calculator
 ):
     """Injection preserves calculator identity and bypasses factory construction."""
     from atst_tools.mep.ccqn import AbacusCCQN
@@ -297,8 +299,10 @@ def test_ccqn_uses_supplied_abacuslite_compatible_calculator(
             "artifact_manifest": str(tmp_path / "manifest.json"),
             "reactive_bonds": "1-2",
         },
-        calculator=abacuslite_compatible_calculator,
+        calculator=vendored_abacuslite_calculator,
     ).run()
 
     assert optimizer_atoms == [result]
-    assert result.calc is abacuslite_compatible_calculator
+    assert result.calc is vendored_abacuslite_calculator
+    assert result.calc.profile.command == "abacus"
+    assert type(result.calc.profile).__module__.endswith("abacuslite.core")
