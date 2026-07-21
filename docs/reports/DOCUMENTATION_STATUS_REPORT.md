@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
-**版本**: 2026-07-07
-**日期**: 2026-07-07
+**版本**: 2026-07-21
+**日期**: 2026-07-21
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -86,6 +86,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md` | ASE 3.28.0 与 ATST NEB/AutoNEB/Dimer 对齐审查细节。 |
 | `docs/reports/ABACUS_STRU_IO_ASE_FORMAT_COMPATIBILITY_2026-06-04.md` | ABACUS STRU read/write 与 `ase-abacus` ASE I/O format 的 API/语义兼容性和功能点覆盖审查。 |
 | `docs/reports/UNIT_TEST_MAINTENANCE_2026-06-10.md` | 单元测试维护、legacy NEB script 清理和默认测试边界审查。 |
+| `docs/reports/STABLE_PYTHON_API_CLI_COMPATIBILITY_FIX_2026-07-21.md` | Stable Python API 路由下的 `atst run` 日志、异常和 exit 兼容性修复及回归证据。 |
 
 ### L4: 历史或已被取代材料
 

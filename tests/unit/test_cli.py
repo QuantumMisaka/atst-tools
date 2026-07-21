@@ -274,7 +274,10 @@ def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
     monkeypatch.setattr(
         main,
         "validate_config",
-        lambda source: {"calculator": {"name": "abacus"}},
+        lambda source: {
+            "calculation": {"type": "relax"},
+            "calculator": {"name": "abacus"},
+        },
     )
 
     main.run_from_args(
@@ -351,6 +354,72 @@ def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog
         index for index, message in enumerate(messages)
         if message.startswith("ABACUS check-input preflight passed:")
     )
+
+
+def test_atst_run_check_input_failure_logs_validation_before_legacy_error(
+    monkeypatch, caplog
+):
+    """A failed preflight keeps the legacy validation-log and error ordering."""
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    caplog.set_level("INFO")
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+    preflight_error = RuntimeError("ABACUS check-input failed")
+    messages_at_preflight = []
+
+    def fail_preflight(*args, **kwargs):
+        messages_at_preflight.extend(
+            record.getMessage() for record in caplog.records
+        )
+        raise preflight_error
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(
+        run_cli,
+        "run_abacus_check_input_dry_run",
+        fail_preflight,
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cli.main(["run", "--dry-run", "--check-input", "config.yaml"])
+
+    assert excinfo.value is preflight_error
+    assert any(
+        message.startswith("Configuration is valid:")
+        for message in messages_at_preflight
+    )
+
+
+def test_atst_run_unwraps_api_workflow_error_for_cli_users(monkeypatch):
+    """CLI workflow failures retain their legacy exception instead of API typing."""
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+    workflow_error = RuntimeError("relax failed")
+
+    class FailingRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            return None
+
+        def run(self):
+            raise workflow_error
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FailingRelaxWorkflow)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is workflow_error
+    assert excinfo.value.__suppress_context__ is True
 
 
 def test_atst_run_check_input_requires_dry_run(monkeypatch):

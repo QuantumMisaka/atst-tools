@@ -816,19 +816,23 @@ def run_from_args(args):
         abacus_executable=getattr(args, "abacus_executable", None),
     )
     try:
+        if options.dry_run:
+            config = validate_config(args.config)
+            LOGGER.info(
+                "Configuration is valid: calculation.type=%s, calculator.name=%s",
+                config["calculation"]["type"],
+                config.get("calculator", {}).get("name", "abacus"),
+            )
         result = run_workflow(args.config, options)
     except ConfigValidationError as exc:
         raise ValueError(str(exc)) from None
     except WorkflowExecutionError as exc:
         if isinstance(exc.__cause__, IRCBoundaryError):
             raise SystemExit(str(exc.__cause__)) from None
-        raise
+        if exc.__cause__ is not None:
+            raise exc.__cause__ from None
+        raise RuntimeError(str(exc)) from None
     if options.dry_run:
-        LOGGER.info(
-            "Configuration is valid: calculation.type=%s, calculator.name=%s",
-            result.workflow,
-            validate_config(args.config).get("calculator", {}).get("name", "abacus"),
-        )
         preflight = getattr(result, "metadata", {}).get("check_input_preflight")
         if preflight is not None:
             if preflight["status"] == "passed":
