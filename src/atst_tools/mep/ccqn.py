@@ -460,6 +460,7 @@ class AbacusCCQN:
         calc_config: dict[str, Any],
         traj_file: str = "ccqn.traj",
         product_atoms=None,
+        calculator=None,
     ):
         """Initialize a CCQN workflow runner.
 
@@ -470,6 +471,7 @@ class AbacusCCQN:
             calc_config: CCQN calculation block.
             traj_file: Optimizer trajectory path.
             product_atoms: Optional product-like reference for interp mode.
+            calculator: Optional caller-provided ASE calculator.
         """
         self.init_Atoms = init_Atoms
         self.config = config
@@ -477,6 +479,7 @@ class AbacusCCQN:
         self.calc_config = calc_config
         self.traj_file = traj_file
         self.product_atoms = product_atoms
+        self.calculator = calculator
 
     def _write_mode_manifest(self, modes: list[dict[str, Any]], selected: dict[str, Any] | None) -> None:
         manifest_file = self.calc_config.get("mode_manifest")
@@ -492,13 +495,15 @@ class AbacusCCQN:
             json.dump(payload, handle, indent=2)
 
     def set_calculator(self):
-        """Return a workflow-local calculator."""
+        """Return the supplied calculator or create a workflow-local one."""
+        if self.calculator is not None:
+            return self.calculator
         directory = self.calc_config.get("directory", "ccqn_run")
         return CalculatorFactory.get_calculator(self.calc_name, self.config, directory=directory)
 
     def run(self):
         """Run CCQN and return the optimized atoms."""
-        atoms = self.init_Atoms
+        atoms = self.init_Atoms.copy() if self.calculator is not None else self.init_Atoms
         atoms.calc = self.set_calculator()
         product_atoms = self.product_atoms
         if product_atoms is None and self.calc_config.get("product_file"):

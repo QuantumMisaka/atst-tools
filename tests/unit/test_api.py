@@ -337,3 +337,82 @@ def test_path_result_is_not_returned_by_non_root(monkeypatch, tmp_path):
     assert result.is_root is False
     assert result.final_images is None
     assert result.ts_atoms is None
+
+
+def test_public_ccqn_uses_private_atoms_and_marks_supplied_backend(monkeypatch, tmp_path):
+    """The embedded API must neither reconstruct the calculator nor mutate inputs."""
+    from ase import Atoms
+    from helpers import DummyCalc
+    from atst_tools.api import CCQNOptions, run_ccqn
+
+    atoms = Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]])
+    calculator = DummyCalc()
+    monkeypatch.setattr(
+        "atst_tools.mep.ccqn.CalculatorFactory.get_calculator",
+        lambda *args, **kwargs: pytest.fail("factory used"),
+    )
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer.run", lambda self, **kwargs: None)
+
+    result = run_ccqn(
+        atoms,
+        calculator,
+        CCQNOptions(
+            reactive_bonds="1-2",
+            artifact_manifest=str(tmp_path / "manifest.json"),
+        ),
+    )
+
+    assert atoms.calc is None
+    assert result.final_atoms is not atoms
+    assert result.metadata["backend_source"] == "provided"
+
+
+def test_ccqn_options_config_maps_only_supported_ccqn_schema_fields():
+    """The embedded API exposes CCQN controls, never backend configuration."""
+    from atst_tools.api import CCQNOptions
+    from atst_tools.api import services
+    from atst_tools.utils.config_schema import CCQNCalculation
+
+    options = CCQNOptions(
+        fmax=0.02,
+        max_steps=12,
+        trajectory="embedded.traj",
+        logfile="embedded.log",
+        final_structure="embedded.extxyz",
+        e_vector_method="ic",
+        reactive_bonds=[(0, 1)],
+        auto_reactive_bonds={"enabled": True, "max_modes": 3},
+        mode_manifest="modes.json",
+        diagnostics_file="diagnostics.json",
+        ic_mode="sum",
+        cos_phi=0.4,
+        trust_radius_uphill=0.12,
+        trust_radius_saddle_initial=0.08,
+        hessian=True,
+        accept_initial_converged=True,
+        artifact_manifest="artifacts.json",
+    )
+
+    config = services._ccqn_options_to_config(options)
+
+    assert set(config) <= set(CCQNCalculation.model_fields)
+    assert config == {
+        "type": "ccqn",
+        "fmax": 0.02,
+        "max_steps": 12,
+        "trajectory": "embedded.traj",
+        "logfile": "embedded.log",
+        "final_structure": "embedded.extxyz",
+        "e_vector_method": "ic",
+        "reactive_bonds": [(0, 1)],
+        "auto_reactive_bonds": {"enabled": True, "max_modes": 3},
+        "mode_manifest": "modes.json",
+        "diagnostics_file": "diagnostics.json",
+        "ic_mode": "sum",
+        "cos_phi": 0.4,
+        "trust_radius_uphill": 0.12,
+        "trust_radius_saddle_initial": 0.08,
+        "hessian": True,
+        "accept_initial_converged": True,
+        "artifact_manifest": "artifacts.json",
+    }

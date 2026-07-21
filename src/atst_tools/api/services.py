@@ -10,6 +10,7 @@ from typing import Any
 
 from atst_tools.api.models import (
     ATSTAPIError,
+    CCQNOptions,
     ConfigValidationError,
     MPIConfigurationError,
     RunOptions,
@@ -392,9 +393,65 @@ def run_workflow(
     return _result_from_manifest(config, value, world, "complete")
 
 
-def run_ccqn(*args: Any, **kwargs: Any) -> Any:
-    """Placeholder for embedded CCQN execution.
+def _ccqn_options_to_config(options: CCQNOptions) -> dict[str, Any]:
+    """Map embedded-API options to the existing CCQN calculation fields."""
+    return {
+        "type": "ccqn",
+        "fmax": options.fmax,
+        "max_steps": options.max_steps,
+        "trajectory": options.trajectory,
+        "logfile": options.logfile,
+        "final_structure": options.final_structure,
+        "e_vector_method": options.e_vector_method,
+        "reactive_bonds": options.reactive_bonds,
+        "auto_reactive_bonds": dict(options.auto_reactive_bonds),
+        "mode_manifest": options.mode_manifest,
+        "diagnostics_file": options.diagnostics_file,
+        "ic_mode": options.ic_mode,
+        "cos_phi": options.cos_phi,
+        "trust_radius_uphill": options.trust_radius_uphill,
+        "trust_radius_saddle_initial": options.trust_radius_saddle_initial,
+        "hessian": options.hessian,
+        "accept_initial_converged": options.accept_initial_converged,
+        "artifact_manifest": options.artifact_manifest,
+    }
 
-    This implementation is supplied by the subsequent CCQN-service task.
+
+def run_ccqn(
+    atoms: Any,
+    calculator: Any,
+    options: CCQNOptions = CCQNOptions(),
+) -> WorkflowResult:
+    """Run CCQN with caller-owned ASE atoms and calculator objects.
+
+    The calculator is attached only to a private atoms copy.  This service
+    never reconstructs or reconfigures the caller-provided ASE calculator.
     """
-    raise NotImplementedError("run_ccqn() is not implemented yet")
+    from atst_tools.mep.ccqn import AbacusCCQN
+
+    private_atoms = atoms.copy()
+    calc_config = _ccqn_options_to_config(options)
+    try:
+        final_atoms = AbacusCCQN(
+            private_atoms,
+            {},
+            "provided",
+            calc_config,
+            traj_file=options.trajectory,
+            product_atoms=options.product_atoms,
+            calculator=calculator,
+        ).run()
+    except Exception as exc:
+        raise WorkflowExecutionError(str(exc), workflow="ccqn") from exc
+
+    manifest = _read_manifest(options.artifact_manifest)
+    metadata = {**manifest.get("metadata", {}), "backend_source": "provided"}
+    return WorkflowResult(
+        workflow="ccqn",
+        status="complete",
+        is_root=True,
+        artifact_manifest=options.artifact_manifest,
+        artifacts=tuple(manifest.get("artifacts", [])),
+        metadata=metadata,
+        final_atoms=final_atoms.copy(),
+    )

@@ -229,3 +229,31 @@ def test_ccqn_optimizer_writes_json_diagnostics(tmp_path):
     assert data["schema_version"] == "atst-ccqn-diagnostics-v1"
     assert data["steps"][0]["mode"] in {"uphill", "prfo"}
     assert "min_eigenvalue" in data["steps"][0]
+
+
+def test_ccqn_accepts_injected_calculator_without_factory(monkeypatch, tmp_path):
+    """An embedded caller owns the calculator and the original atoms."""
+    from helpers import DummyCalc
+    from atst_tools.mep.ccqn import AbacusCCQN
+
+    atoms = Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]])
+    calculator = DummyCalc()
+    monkeypatch.setattr(
+        "atst_tools.mep.ccqn.CalculatorFactory.get_calculator",
+        lambda *args, **kwargs: pytest.fail("factory used"),
+    )
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer.run", lambda self, **kwargs: None)
+
+    result = AbacusCCQN(
+        atoms,
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(tmp_path / "manifest.json"),
+            "reactive_bonds": "1-2",
+        },
+        calculator=calculator,
+    ).run()
+
+    assert result.calc is calculator
+    assert atoms.calc is None
