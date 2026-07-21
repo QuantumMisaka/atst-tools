@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
+import os
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,35 @@ def _manifest_signature(path: str | Path) -> tuple[int, int, int, int] | None:
 def validate_config(config_source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
     """Return a detached schema-normalized ATST configuration."""
     return _load_and_normalize(config_source)
+
+
+def _run_abacus_check_input_preflight(
+    config: dict[str, Any],
+    config_source: str | Path | Mapping[str, Any],
+    options: RunOptions,
+) -> dict[str, Any] | None:
+    """Run the legacy ABACUS dry-run preflight and return its CLI status."""
+    if not options.check_input:
+        return None
+
+    calculator_name = config.get("calculator", {}).get("name", "abacus")
+    if calculator_name != "abacus":
+        return {"status": "skipped", "calculator_name": calculator_name}
+
+    # The import remains local because the legacy helper lives with the CLI
+    # implementation, which imports this service for normal command handling.
+    from atst_tools.scripts.main import run_abacus_check_input_dry_run
+
+    result = run_abacus_check_input_dry_run(
+        config,
+        str(config_source),
+        timeout_sec=options.check_input_timeout,
+        abacus_executable=(
+            options.abacus_executable
+            or os.environ.get("ABACUS_EXECUTABLE", "abacus")
+        ),
+    )
+    return {"status": "passed", "checked": result["checked"]}
 
 
 def _dispatch_normalized(config: dict[str, Any], options: RunOptions) -> Any:
@@ -340,7 +370,11 @@ def run_workflow(
     config = validate_config(config_source)
     world = options.world if options.world is not None else get_ase_world()
     if options.dry_run:
-        return _result_from_manifest(config, None, world, "validated")
+        preflight = _run_abacus_check_input_preflight(config, config_source, options)
+        result = _result_from_manifest(config, None, world, "validated")
+        if preflight is not None:
+            result.metadata["check_input_preflight"] = preflight
+        return result
     workflow = config["calculation"]["type"]
     manifest_path = config["calculation"].get("artifact_manifest", "atst_artifacts.json")
     previous_signature = _manifest_signature(manifest_path)

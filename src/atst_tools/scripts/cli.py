@@ -16,6 +16,8 @@ from ase.io import read, write
 from ase.vibrations import Vibrations
 
 from atst_tools.scripts import main as run_cli
+from atst_tools.api import validate_config
+from atst_tools.api.models import ConfigValidationError
 from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.abacus_io import collect_abacus_output, prepare_abacus_input
 from atst_tools.utils.banner import render_banner
@@ -131,7 +133,10 @@ def _add_config_parser(subparsers):
 
 
 def _config_validate_command(args):
-    config = ConfigLoader.normalize(ConfigLoader.load(args.config))
+    try:
+        config = validate_config(args.config)
+    except ConfigValidationError as exc:
+        raise ValueError(str(exc)) from None
     if args.output:
         _write_yaml(config, args.output)
         print(f"Wrote normalized config to {args.output}")

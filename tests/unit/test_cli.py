@@ -245,6 +245,61 @@ def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
     assert "Configuration is valid" in caplog.text
 
 
+def test_config_validate_delegates_to_public_validation_service(monkeypatch, capsys):
+    """The config command consumes normalization from the public API service."""
+    from atst_tools.scripts import cli
+
+    normalized = {
+        "calculation": {"type": "relax", "restart": False},
+        "calculator": {"name": "abacus"},
+    }
+    monkeypatch.setattr(cli, "validate_config", lambda source: normalized)
+
+    cli.main(["config", "validate", "config.yaml"])
+
+    assert capsys.readouterr().out.strip() == "Configuration is valid"
+
+
+def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
+    """The run command forwards CLI controls through the public workflow API."""
+    from atst_tools.scripts import main
+
+    seen = {}
+    monkeypatch.setattr(
+        main,
+        "run_workflow",
+        lambda source, options: seen.update(source=source, options=options)
+        or type("Result", (), {"workflow": "relax"})(),
+    )
+    monkeypatch.setattr(
+        main,
+        "validate_config",
+        lambda source: {"calculator": {"name": "abacus"}},
+    )
+
+    main.run_from_args(
+        type(
+            "Args",
+            (),
+            {
+                "config": "config.yaml",
+                "dry_run": True,
+                "restart": True,
+                "check_input": False,
+                "check_input_timeout": 120,
+                "abacus_executable": None,
+                "log_level": "INFO",
+                "list_types": False,
+                "show_template": None,
+            },
+        )()
+    )
+
+    assert seen["source"] == "config.yaml"
+    assert seen["options"].dry_run is True
+    assert seen["options"].restart is True
+
+
 def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog):
     from atst_tools.scripts import main as run_cli
     from atst_tools.scripts import cli
@@ -288,6 +343,14 @@ def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog
     assert called_timeout == 7
     assert called_executable == "abacus-lts"
     assert "ABACUS check-input preflight passed" in caplog.text
+    messages = [record.getMessage() for record in caplog.records]
+    assert next(
+        index for index, message in enumerate(messages)
+        if message.startswith("Configuration is valid:")
+    ) < next(
+        index for index, message in enumerate(messages)
+        if message.startswith("ABACUS check-input preflight passed:")
+    )
 
 
 def test_atst_run_check_input_requires_dry_run(monkeypatch):

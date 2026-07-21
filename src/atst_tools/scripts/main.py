@@ -14,6 +14,8 @@ import os
 from textwrap import dedent
 
 from atst_tools import package_version
+from atst_tools.api import RunOptions, run_workflow, validate_config
+from atst_tools.api.models import ConfigValidationError, WorkflowExecutionError
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
@@ -806,85 +808,40 @@ def run_from_args(args):
         print(_template(show_template, getattr(args, "calculator", "abacus")))
         return
 
-    # 1. Load Configuration
-    config = ConfigLoader.load(args.config)
-    if getattr(args, "restart", False):
-        config.setdefault("calculation", {})["restart"] = True
-    config = ConfigLoader.normalize(config)
-    if getattr(args, "dry_run", False):
-        calc_type = config["calculation"]["type"]
-        calc_name = config.get("calculator", {}).get("name", "abacus")
-        LOGGER.info("Configuration is valid: calculation.type=%s, calculator.name=%s", calc_type, calc_name)
-        if getattr(args, "check_input", False):
-            if calc_name == "abacus":
-                result = run_abacus_check_input_dry_run(
-                    config,
-                    args.config,
-                    timeout_sec=getattr(args, "check_input_timeout", 120),
-                    abacus_executable=(
-                        getattr(args, "abacus_executable", None)
-                        or os.environ.get("ABACUS_EXECUTABLE", "abacus")
-                    ),
+    options = RunOptions(
+        dry_run=getattr(args, "dry_run", False),
+        restart=getattr(args, "restart", False),
+        check_input=getattr(args, "check_input", False),
+        check_input_timeout=getattr(args, "check_input_timeout", 120),
+        abacus_executable=getattr(args, "abacus_executable", None),
+    )
+    try:
+        result = run_workflow(args.config, options)
+    except ConfigValidationError as exc:
+        raise ValueError(str(exc)) from None
+    except WorkflowExecutionError as exc:
+        if isinstance(exc.__cause__, IRCBoundaryError):
+            raise SystemExit(str(exc.__cause__)) from None
+        raise
+    if options.dry_run:
+        LOGGER.info(
+            "Configuration is valid: calculation.type=%s, calculator.name=%s",
+            result.workflow,
+            validate_config(args.config).get("calculator", {}).get("name", "abacus"),
+        )
+        preflight = getattr(result, "metadata", {}).get("check_input_preflight")
+        if preflight is not None:
+            if preflight["status"] == "passed":
+                LOGGER.info(
+                    "ABACUS check-input preflight passed: checked=%s",
+                    preflight["checked"],
                 )
-                LOGGER.info("ABACUS check-input preflight passed: checked=%s", result["checked"])
             else:
-                LOGGER.info("ABACUS check-input preflight skipped: calculator.name=%s", calc_name)
-        return
-    
-    # New Config Structure Support
-    if 'calculation' in config:
-        calc_config = config['calculation']
-    else:
-        if 'abacus' in config:
-             calc_config = config 
-             pass
-        else:
-             raise ValueError("Invalid config: missing 'calculation' section")
-
-    calc_type = calc_config['type']
-    
-    # 2. Prepare Calculator Name
-    if 'calculator' in config:
-        calc_name = config['calculator'].get('name', 'abacus')
-    elif 'abacus' in config:
-        calc_name = 'abacus'
-    else:
-        calc_name = 'abacus' # Default
-
-    # 3. Dispatch Calculation
-    if calc_type == 'neb':
-        run_neb(config, calc_name, calc_config)
-    elif calc_type == 'autoneb':
-        run_autoneb(config, calc_name, calc_config)
-    elif calc_type == 'dimer':
-        run_dimer(config, calc_name, calc_config)
-    elif calc_type == 'sella':
-        run_sella(config, calc_name, calc_config)
-    elif calc_type == 'ccqn':
-        run_ccqn(config, calc_name, calc_config)
-    elif calc_type == 'd2s':
-        workflow = D2SWorkflow(config, calc_name, calc_config)
-        workflow.run()
-    elif calc_type == 'dmf':
-        workflow = DMFWorkflow(config, calc_name, calc_config)
-        workflow.run()
-    elif calc_type == 'relax':
-        workflow = RelaxWorkflow(config, calc_name, calc_config)
-        workflow.run()
-    elif calc_type == 'vibration':
-        workflow = VibrationWorkflow(config, calc_name, calc_config)
-        workflow.run()
-    elif calc_type == 'irc':
-        workflow = IRCWorkflow(config, calc_name, calc_config)
-        try:
-            workflow.run()
-        except IRCBoundaryError as exc:
-            raise SystemExit(str(exc)) from None
-    elif calc_type == 'md':
-        workflow = MDWorkflow(config, calc_name, calc_config)
-        workflow.run()
-    else:
-        raise ValueError(f"Unknown calculation type: {calc_type}")
+                LOGGER.info(
+                    "ABACUS check-input preflight skipped: calculator.name=%s",
+                    preflight["calculator_name"],
+                )
+    return result
 
 def main(argv=None):
     """
