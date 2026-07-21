@@ -632,7 +632,16 @@ class AutoNEBRunner:
             context="AutoNEB endpoint preparation",
         )
         self.world.barrier()
-        self.init_chain = read(sync_file, index=":", parallel=False)
+        synchronized_read_error = None
+        try:
+            self.init_chain = read(sync_file, index=":", parallel=False)
+        except Exception as exc:
+            synchronized_read_error = exc
+        synchronize_rank_failure(
+            self.world,
+            synchronized_read_error,
+            context="AutoNEB endpoint synchronization read",
+        )
         self.world.barrier()
         def remove_sync_file():
             sync_file.unlink(missing_ok=True)

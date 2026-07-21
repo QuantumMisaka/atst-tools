@@ -433,7 +433,17 @@ def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
     )
     if hasattr(world, "barrier"):
         world.barrier()
-    synced_images = read(sync_file, index=":", parallel=False)
+    synchronized_read_error = None
+    try:
+        synced_images = read(sync_file, index=":", parallel=False)
+    except Exception as exc:
+        synchronized_read_error = exc
+        synced_images = None
+    synchronize_rank_failure(
+        world,
+        synchronized_read_error,
+        context="NEB endpoint synchronization read",
+    )
     if hasattr(world, "barrier"):
         world.barrier()
     def remove_sync_file():

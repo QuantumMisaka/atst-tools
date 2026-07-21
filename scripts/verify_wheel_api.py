@@ -58,7 +58,8 @@ def _run_mpi_command(command: list[str], *, cwd: Path, timeout: int) -> None:
     process = subprocess.Popen(
         command,
         text=True,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         cwd=cwd,
         env=environment,
         start_new_session=True,

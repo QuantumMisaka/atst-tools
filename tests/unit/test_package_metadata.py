@@ -239,6 +239,21 @@ def test_wheel_mpi_command_kills_and_waits_for_the_process_group_on_timeout(
     assert process.communicate_calls == 2
 
 
+def test_wheel_mpi_command_runs_a_real_short_lived_process(tmp_path) -> None:
+    """The release helper uses only subprocess.Popen-supported arguments."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+
+    gate._run_mpi_command(
+        [sys.executable, "-c", "print('short-lived subprocess')"],
+        cwd=tmp_path,
+        timeout=3,
+    )
+
+
 def test_wheel_mpi_command_reaps_launcher_when_process_group_already_exited(
     monkeypatch, tmp_path
 ) -> None:

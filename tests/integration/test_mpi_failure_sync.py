@@ -113,6 +113,126 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
 
 
 @pytest.mark.parametrize("workflow", ["neb", "autoneb"])
+def test_rank_local_endpoint_sync_read_error_releases_every_rank(
+    tmp_path: Path, workflow: str
+) -> None:
+    """A bad synchronized endpoint file must fail before the following barrier."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(
+        Path(sys.executable).with_name("mpiexec")
+    )
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    sync_file = (
+        ".atst_neb_endpoint_synced.traj"
+        if workflow == "neb"
+        else ".atst_autoneb_endpoint_synced.traj"
+    )
+    smoke = f"""
+from mpi4py import MPI
+
+rank = MPI.COMM_WORLD.rank
+if {workflow!r} == 'neb':
+    from atst_tools.scripts import main as runner_module
+    world = runner_module.get_ase_world()
+    runner_module.write = lambda *args, **kwargs: None
+    def fail_sync_read(path, *args, **kwargs):
+        if rank == 0 and str(path) == {sync_file!r}:
+            raise OSError('injected synchronized endpoint read failure')
+        return []
+    runner_module.read = fail_sync_read
+    try:
+        runner_module._sync_parallel_endpoint_results([], world, lambda images: None)
+    except Exception:
+        failed = 1
+    else:
+        failed = 0
+else:
+    from atst_tools.mep import autoneb as runner_module
+    from atst_tools.mep.autoneb import AutoNEBRunner
+    world = runner_module.get_ase_world()
+    runner_module.write = lambda *args, **kwargs: None
+    def fail_sync_read(path, *args, **kwargs):
+        if rank == 0 and str(path) == {sync_file!r}:
+            raise OSError('injected synchronized endpoint read failure')
+        return []
+    runner_module.read = fail_sync_read
+    runner_module.ensure_neb_endpoint_results = lambda *args, **kwargs: None
+    runner = object.__new__(AutoNEBRunner)
+    runner.world = world
+    runner.parallel = True
+    runner.init_chain = []
+    runner.calc_config = {{}}
+    runner._base_directory = lambda: 'unused'
+    runner._get_calculator = lambda *args, **kwargs: None
+    try:
+        runner._prepare_endpoint_results()
+    except Exception:
+        failed = 1
+    else:
+        failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_rank_local_manifest_inspection_error_releases_every_rank(tmp_path: Path) -> None:
+    """API manifest inspection failures must synchronize before workflow dispatch."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(
+        Path(sys.executable).with_name("mpiexec")
+    )
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    smoke = """
+from mpi4py import MPI
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api import services
+from atst_tools.api.models import WorkflowExecutionError
+
+rank = MPI.COMM_WORLD.rank
+if rank == 0:
+    services._manifest_signature = lambda path: (_ for _ in ()).throw(
+        OSError('injected manifest inspection failure')
+    )
+services._dispatch_normalized = lambda *args, **kwargs: None
+
+try:
+    run_workflow(
+        {'calculation': {'type': 'relax', 'init_structure': 'unused.traj'},
+         'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}}},
+        RunOptions(),
+    )
+except WorkflowExecutionError:
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize("workflow", ["neb", "autoneb"])
 def test_root_calculator_setup_failure_releases_every_image_parallel_rank(
     tmp_path: Path, workflow: str
 ) -> None:
