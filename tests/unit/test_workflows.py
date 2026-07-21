@@ -824,7 +824,7 @@ def test_autoneb_runner_can_use_native_ase_backend(monkeypatch, tmp_path):
     monkeypatch.setattr(autoneb, "write", lambda *args, **kwargs: None)
     monkeypatch.setattr(autoneb, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
     monkeypatch.setattr(autoneb, "AbacusAutoNEB", FakeAtstAutoNEB)
-    monkeypatch.setattr(autoneb, "AutoNEB", FakeNativeAutoNEB)
+    monkeypatch.setattr(autoneb, "SynchronizedAutoNEB", FakeNativeAutoNEB)
 
     runner = autoneb.AutoNEBRunner(
         {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},

@@ -168,12 +168,17 @@ def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
     _run([str(python), "-c", setup_chain], cwd=temporary_root)
     smoke = """
 from mpi4py import MPI
+from ase.calculators.calculator import Calculator
 from atst_tools.api import RunOptions, run_workflow
 from atst_tools.api.models import WorkflowExecutionError
 from atst_tools.scripts import main
 from atst_tools.mep import autoneb
 
 rank = MPI.COMM_WORLD.rank
+
+
+class NoopCalculator(Calculator):
+    implemented_properties = []
 
 
 def fail_endpoint_preparation(*args, **kwargs):

@@ -100,6 +100,46 @@ def test_pre_run_construction_synchronizes_rank_local_failure():
     assert excinfo.value is failure
 
 
+def test_native_autoneb_pre_run_construction_synchronizes_optimizer_failure(
+    monkeypatch, tmp_path
+):
+    """The native ASE backend must synchronize local setup before its run call."""
+    from atst_tools.mep.autoneb import SynchronizedAutoNEB
+
+    world = FakeWorld(size=2, rank=1)
+    ran_optimizer = []
+
+    class FailingOptimizer:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("rank-local native optimizer construction failure")
+
+        def run(self, *args, **kwargs):
+            ran_optimizer.append(True)
+
+    monkeypatch.chdir(tmp_path)
+    auto = SynchronizedAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="run_native",
+        n_simul=2,
+        n_max=4,
+        optimizer=FailingOptimizer,
+        parallel=True,
+        world=world,
+    )
+    auto.all_images = [_atoms(float(index)) for index in range(4)]
+    auto.k = [0.1, 0.1, 0.1]
+    auto.iteration = 0
+
+    with pytest.raises(RuntimeError, match="rank-local native optimizer"):
+        auto._execute_one_neb(
+            type("FakeStack", (), {"enter_context": staticmethod(lambda value: value)})(),
+            n_cur=4,
+            to_run=[0, 1, 2, 3],
+        )
+
+    assert ran_optimizer == []
+
+
 def test_run_neb_parallel_requires_rank_count_equal_interior_images(monkeypatch, tmp_path):
     from atst_tools.scripts import main
 

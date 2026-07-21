@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.mep.autoneb import AutoNEB, seriel_writer, store_E_and_F_in_spc
+from ase.mep.neb import NEB
 from ase.io import read, write, Trajectory
 from ase.parallel import world
 from ase.optimize import FIRE, BFGS
@@ -492,6 +493,119 @@ class AbacusAutoNEB(AutoNEB):
             nneb += 1
         return self.all_images
 
+
+class SynchronizedAutoNEB(AutoNEB):
+    """Native ASE AutoNEB with synchronized rank-local pre-run construction."""
+
+    def _execute_one_neb(self, exitstack, n_cur, to_run, climb=False, many_steps=False):
+        """Execute one native ASE NEB without diverging before collectives."""
+        closelater = exitstack.enter_context
+        self.iteration += 1
+        if self.parallel:
+            validate_image_parallel_world(
+                self.world,
+                len(to_run) - 2,
+                "active native AutoNEB images",
+            )
+
+        def prepare_iteration_files():
+            for i in range(n_cur):
+                if i not in to_run[1:-1]:
+                    filename = "%s%03d.traj" % (self.prefix, i)
+                    with Trajectory(filename, mode="w", atoms=self.all_images[i]) as traj:
+                        traj.write()
+                    filename_ref = self.iter_trajpath(i, self.iteration)
+                    if os.path.isfile(filename):
+                        shutil.copy2(filename, filename_ref)
+
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                prepare_iteration_files,
+                context="native AutoNEB iteration file preparation",
+            )
+        elif self.world.rank == 0:
+            prepare_iteration_files()
+
+        if self.world.rank == 0:
+            print("Now starting iteration %d on " % self.iteration, to_run)
+
+        def construct_pre_run():
+            self.attach_calculators([self.all_images[i] for i in to_run[1:-1]])
+            neb = NEB(
+                [self.all_images[i] for i in to_run],
+                k=[self.k[i] for i in to_run[0:-1]],
+                method=self.method,
+                parallel=self.parallel,
+                remove_rotation_and_translation=self.remove_rotation_and_translation,
+                climb=climb,
+            )
+            logpath = self.iter_folder / f"{self.prefix.name}_log_iter{self.iteration:03d}.log"
+            qn = closelater(self.optimizer(neb, logfile=logpath))
+
+            if self.parallel:
+                nneb = to_run[0]
+                nim = len(to_run) - 2
+                n = self.world.size // nim
+                j = 1 + self.world.rank // n
+                assert nim * n == self.world.size
+                traj = closelater(Trajectory(
+                    "%s%03d.traj" % (self.prefix, j + nneb),
+                    "w",
+                    self.all_images[j + nneb],
+                    master=(self.world.rank % n == 0),
+                ))
+                filename_ref = self.iter_trajpath(j + nneb, self.iteration)
+                trajhist = closelater(Trajectory(
+                    filename_ref,
+                    "w",
+                    self.all_images[j + nneb],
+                    master=(self.world.rank % n == 0),
+                ))
+                qn.attach(traj)
+                qn.attach(trajhist)
+            else:
+                num = 1
+                for i, j in enumerate(to_run[1:-1]):
+                    filename_ref = self.iter_trajpath(j, self.iteration)
+                    trajhist = closelater(Trajectory(filename_ref, "w", self.all_images[j]))
+                    qn.attach(seriel_writer(trajhist, i, num).write)
+                    traj = closelater(Trajectory(
+                        "%s%03d.traj" % (self.prefix, j),
+                        "w",
+                        self.all_images[j],
+                    ))
+                    qn.attach(seriel_writer(traj, i, num).write)
+                    num += 1
+            return neb, qn
+
+        if self.parallel:
+            neb, qn = run_pre_run_construction(
+                self.world,
+                construct_pre_run,
+                context="native AutoNEB pre-run construction",
+            )
+        else:
+            neb, qn = construct_pre_run()
+
+        steps = (
+            self.maxsteps[1]
+            if isinstance(self.maxsteps, (list, tuple)) and many_steps
+            else self.maxsteps[0]
+            if isinstance(self.maxsteps, (list, tuple))
+            else self.maxsteps
+        )
+        fmax = (
+            self.fmax[1]
+            if isinstance(self.fmax, (list, tuple)) and many_steps
+            else self.fmax[0]
+            if isinstance(self.fmax, (list, tuple))
+            else self.fmax
+        )
+        qn.run(fmax=fmax, steps=steps)
+        neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
+        neb.distribute()
+
 class AutoNEBRunner:
     """
     Helper class to configure and run AutoNEB workflows from a dictionary configuration.
@@ -772,11 +886,7 @@ class AutoNEBRunner:
         self._prepare_endpoint_results()
         
         autoneb_kwargs = {
-            "attach_calculators": (
-                self._attach_calculators_for_pre_run
-                if self.neb_backend != "ase"
-                else self.attach_calculators
-            ),
+            "attach_calculators": self._attach_calculators_for_pre_run,
             "prefix": self.prefix,
             "n_simul": self.n_simul,
             "n_max": self.n_max,
@@ -790,7 +900,7 @@ class AutoNEBRunner:
             "climb": self.climb,
         }
         if self.neb_backend == "ase":
-            autoneb = AutoNEB(**autoneb_kwargs)
+            autoneb = SynchronizedAutoNEB(**autoneb_kwargs)
         else:
             autoneb = AbacusAutoNEB(
                 **autoneb_kwargs,

@@ -481,3 +481,71 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
         environment=environment,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_native_autoneb_optimizer_construction_failure_releases_every_rank(
+    tmp_path: Path,
+) -> None:
+    """The supported native ASE AutoNEB backend shares pre-run failures too."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(Path(sys.executable).with_name("mpiexec"))
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    smoke = """
+from contextlib import ExitStack
+from mpi4py import MPI
+from ase import Atoms
+from ase.parallel import world
+from atst_tools.mep.autoneb import SynchronizedAutoNEB
+
+rank = MPI.COMM_WORLD.rank
+
+class RankLocalFailingOptimizer:
+    def __init__(self, *args, **kwargs):
+        if rank == 0:
+            raise RuntimeError('injected native optimizer construction failure')
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def attach(self, *args, **kwargs):
+        return None
+
+    def run(self, *args, **kwargs):
+        MPI.COMM_WORLD.Barrier()
+
+auto = SynchronizedAutoNEB(
+    attach_calculators=lambda images: None,
+    prefix='native_run',
+    n_simul=2,
+    n_max=4,
+    optimizer=RankLocalFailingOptimizer,
+    parallel=True,
+    world=world,
+)
+auto.all_images = [Atoms('H', positions=[[float(index), 0, 0]]) for index in range(4)]
+auto.k = [0.1, 0.1, 0.1]
+auto.iteration = 0
+try:
+    with ExitStack() as stack:
+        auto._execute_one_neb(stack, n_cur=4, to_run=[0, 1, 2, 3])
+except RuntimeError:
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr

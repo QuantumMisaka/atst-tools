@@ -191,6 +191,8 @@ def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
     assert "'type': 'neb'" in smoke
     assert "'type': 'autoneb'" in smoke
     assert "allreduce" in smoke
+    assert "class NoopCalculator" in smoke
+    assert smoke.index("class NoopCalculator") < smoke.index("NoopCalculator()")
 
 
 def test_wheel_mpi_command_kills_and_waits_for_the_process_group_on_timeout(
