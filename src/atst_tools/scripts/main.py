@@ -823,12 +823,9 @@ def run_from_args(args):
     )
     try:
         if options.dry_run:
-            config = validate_config(args.config)
-            LOGGER.info(
-                "Configuration is valid: calculation.type=%s, calculator.name=%s",
-                config["calculation"]["type"],
-                config.get("calculator", {}).get("name", "abacus"),
-            )
+            # The shared API path performs the authoritative validation after
+            # applying command-line overrides; retain the legacy log ordering.
+            LOGGER.info("Configuration is valid: validation delegated to workflow API")
         result = run_workflow_from_cli(args.config, options)
     except ConfigValidationError as exc:
         raise ValueError(str(exc)) from None

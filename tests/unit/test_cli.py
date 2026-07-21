@@ -257,6 +257,26 @@ def test_atst_run_restart_overrides_invalid_yaml_restart_before_validation(monke
     assert seen["restart"] is True
 
 
+def test_atst_run_dry_run_restart_overrides_invalid_yaml_restart_before_validation(tmp_path):
+    """Dry-run applies --restart before validating the YAML schema."""
+    from atst_tools.scripts import cli
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: init.stru\n"
+        "  restart: not-a-bool\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+
+    cli.main(["run", "--dry-run", "--restart", str(config_path)])
+
+
 def test_atst_run_does_not_synthesize_or_overwrite_legacy_manifest(monkeypatch, tmp_path):
     """CLI runs keep workflows without manifests from gaining one through the API."""
     from atst_tools.scripts import main as run_cli

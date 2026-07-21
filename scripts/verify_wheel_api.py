@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,9 +19,13 @@ PUBLIC_IMPORT = (
 )
 
 
-def _run(command: list[str]) -> None:
+def _run(command: list[str], *, cwd: Path | None = None) -> None:
     """Run one release-gate command and relay a useful failure."""
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    completed = subprocess.run(
+        command, text=True, capture_output=True, check=False, cwd=cwd, env=environment
+    )
     if completed.returncode:
         if completed.stdout:
             print(completed.stdout, end="")
@@ -79,7 +84,16 @@ def main(argv: list[str] | None = None) -> int:
         _run([sys.executable, "-m", "venv", str(venv)])
         python = venv / "bin" / "python"
         _run([str(python), "-m", "pip", "install", str(wheel)])
-        _run([str(python), "-c", PUBLIC_IMPORT])
+        import_check = (
+            "import site; from pathlib import Path; "
+            "import atst_tools; "
+            "location = Path(atst_tools.__file__).resolve(); "
+            "site_packages = tuple(Path(path).resolve() for path in site.getsitepackages()); "
+            "assert any(location.is_relative_to(path) for path in site_packages), location; "
+            f"assert not location.is_relative_to(Path({str(ROOT)!r}).resolve()), location; "
+            f"{PUBLIC_IMPORT}"
+        )
+        _run([str(python), "-c", import_check], cwd=temporary_root)
 
     print("wheel clean-install public API import passed")
     return 0

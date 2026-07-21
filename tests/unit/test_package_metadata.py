@@ -65,3 +65,13 @@ def test_wheel_release_gate_script_exposes_a_clean_install_check() -> None:
 
     assert result.returncode == 0
     assert "--wheel" in result.stdout
+
+
+def test_wheel_release_gate_rejects_source_tree_imports() -> None:
+    """The wheel gate must isolate imports from inherited source paths."""
+    script = (ROOT / "scripts" / "verify_wheel_api.py").read_text(encoding="utf-8")
+
+    assert "PYTHONPATH" in script
+    assert "site.getsitepackages" in script
+    assert "atst_tools.__file__" in script
+    assert "is_relative_to" in script
