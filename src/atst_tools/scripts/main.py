@@ -429,7 +429,7 @@ def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
     return synced_images
 
 
-def run_neb(config, calc_name, calc_config):
+def run_neb(config, calc_name, calc_config, world=None):
     """
     Execute NEB calculation workflow.
 
@@ -450,7 +450,7 @@ def run_neb(config, calc_name, calc_config):
         raise ValueError("NEB calculation requires exactly one of 'init_chain' or 'make'")
 
     parallel = calc_config['parallel']
-    world = get_ase_world()
+    world = world or get_ase_world()
     effective_parallel = parallel and world.size > 1
     if parallel and not effective_parallel:
         LOGGER.warning(
@@ -606,8 +606,9 @@ def run_neb(config, calc_name, calc_config):
         ],
     )
     LOGGER.info("NEB calculation finished")
+    return init_chain if world.rank == 0 else None
 
-def run_autoneb(config, calc_name, calc_config):
+def run_autoneb(config, calc_name, calc_config, world=None):
     """
     Execute AutoNEB calculation workflow.
 
@@ -617,8 +618,8 @@ def run_autoneb(config, calc_name, calc_config):
         calc_config (dict): Calculation-specific configuration.
     """
     calc_config = _normalized_calculation(config, calc_config)
-    runner = AutoNEBRunner(config, calc_name, calc_config)
-    runner.run()
+    runner = AutoNEBRunner(config, calc_name, calc_config, world=world)
+    return runner.run()
 
 def run_dimer(config, calc_name, calc_config):
     """
@@ -682,6 +683,7 @@ def run_dimer(config, calc_name, calc_config):
     
     dimer.run(fmax=fmax, max_steps=calc_config.get('max_steps'))
     LOGGER.info("Dimer calculation finished")
+    return atoms
 
 def run_sella(config, calc_name, calc_config):
     """
@@ -723,8 +725,9 @@ def run_sella(config, calc_name, calc_config):
         order=calc_config['order'],
     )
     
-    sella_run.run()
+    final_atoms = sella_run.run()
     LOGGER.info("Sella calculation finished")
+    return final_atoms
 
 
 def run_ccqn(config, calc_name, calc_config):
@@ -750,8 +753,9 @@ def run_ccqn(config, calc_name, calc_config):
         calc_config=calc_config,
         traj_file=traj_file,
     )
-    ccqn.run()
+    final_atoms = ccqn.run()
     LOGGER.info("CCQN calculation finished")
+    return final_atoms
 
 
 def _build_parser():

@@ -606,3 +606,26 @@ def test_autoneb_store_results_uses_reductions_not_broadcasts():
 
     assert isinstance(images[1].calc, SinglePointCalculator)
     assert isinstance(images[2].calc, SinglePointCalculator)
+
+
+def test_autoneb_runner_uses_an_explicit_existing_world(monkeypatch):
+    """Embedding may supply a communicator without starting MPI itself."""
+    from atst_tools.mep import autoneb
+
+    supplied_world = FakeWorld(size=2, rank=1)
+    monkeypatch.setattr(autoneb, "get_ase_world", lambda: pytest.fail("looked up a new world"))
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: [_atoms(0.0)] * 4)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "autoneb",
+            "init_chain": "chain.traj",
+            "parallel": True,
+            "n_simul": 2,
+        },
+        world=supplied_world,
+    )
+
+    assert runner.world is supplied_world

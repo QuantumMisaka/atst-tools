@@ -443,7 +443,7 @@ class AutoNEBRunner:
         calc_name (str): Calculator name.
         calc_config (dict): Calculation-specific configuration.
     """
-    def __init__(self, config, calc_name, calc_config):
+    def __init__(self, config, calc_name, calc_config, *, world=None):
         """
         Initialize AutoNEBRunner.
 
@@ -457,7 +457,7 @@ class AutoNEBRunner:
         self.calc_config = apply_calculation_defaults(calc_config)
         calc_config = self.calc_config
         self.prefix = calc_config['prefix']
-        self.world = get_ase_world()
+        self.world = world or get_ase_world()
         self.n_simul = calc_config.get('n_simul') or self.world.size
         self.n_max = calc_config['n_max']
         self.algorism = calc_config['algorism']
@@ -700,3 +700,4 @@ class AutoNEBRunner:
                 filename = f'{self.prefix}{i:03d}.traj'
                 write(filename, atoms)
         print("=== AutoNEB Calculation Finished ===")
+        return final_images if self.world.rank == 0 else None
