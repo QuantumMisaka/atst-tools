@@ -42,3 +42,8 @@ def write_artifact_manifest(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(_jsonable(manifest), indent=2), encoding="utf-8")
     return manifest
+
+
+def read_artifact_manifest(path: str | Path) -> dict[str, Any]:
+    """Read an existing ATST artifact manifest without altering it."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
