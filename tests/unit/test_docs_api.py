@@ -106,3 +106,32 @@ def test_ccqn_api_example_executes_through_public_api_import_only(monkeypatch):
     assert calls[0][0].get_chemical_formula() == expected.get_chemical_formula()
     assert calls[0][0].get_positions().tolist() == expected.get_positions().tolist()
     assert calls[0][2].auto_reactive_bonds["enabled"] is True
+
+
+def test_ccqn_extxyz_matches_authoritative_stru_conversion():
+    """The documented CCQN input preserves the STRU structure semantics."""
+    import numpy as np
+    from ase.constraints import FixAtoms
+    from ase.io import read
+    from atst_tools.utils.io import read_structure
+
+    inputs = API_EXAMPLE.parent / "inputs"
+    expected = read_structure(inputs / "ccqn_init.stru")
+    actual = read(inputs / "ccqn_init.extxyz")
+
+    assert actual.get_chemical_symbols() == expected.get_chemical_symbols()
+    np.testing.assert_allclose(actual.cell.array, expected.cell.array, rtol=0, atol=1e-8)
+    np.testing.assert_allclose(actual.positions, expected.positions, rtol=0, atol=1e-7)
+    np.testing.assert_allclose(
+        actual.get_initial_magnetic_moments(), expected.get_initial_magnetic_moments(), rtol=0, atol=1e-12
+    )
+
+    expected_fixed = set(expected.constraints[0].get_indices())
+    actual_fixed = {
+        index
+        for constraint in actual.constraints
+        if isinstance(constraint, FixAtoms)
+        for index in constraint.get_indices()
+    }
+    assert expected_fixed == actual_fixed
+    assert expected_fixed == set(range(2, 34))
