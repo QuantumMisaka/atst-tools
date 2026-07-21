@@ -154,7 +154,7 @@ def _run_h2_au_api_example(python: Path, temporary_root: Path) -> None:
 
 
 def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
-    """Run bounded two-rank public API smoke and failure-synchronization gates."""
+    """Run bounded two-rank public API and pre-run failure-synchronization gates."""
     launcher = shutil.which("mpiexec")
     if launcher is None:
         print("MPI smoke skipped: mpiexec is unavailable")
@@ -211,6 +211,46 @@ assert_failure(
     },
     autoneb,
 )
+
+
+main.ensure_neb_endpoint_results = lambda *args, **kwargs: None
+main._sync_parallel_endpoint_results = lambda images, *args: images
+main._get_workflow_calculator = lambda *args, **kwargs: NoopCalculator()
+
+
+class FakeNEB:
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class RankLocalFailingOptimizer:
+    def __init__(self, *args, **kwargs):
+        if rank == 0:
+            raise RuntimeError('injected rank-local optimizer construction failure')
+
+    def run(self, *args, **kwargs):
+        MPI.COMM_WORLD.Barrier()
+
+
+main.AbacusNEB = FakeNEB
+main.get_optimizer = lambda *args, **kwargs: RankLocalFailingOptimizer
+try:
+    run_workflow(
+        {
+            'calculation': {
+                'type': 'neb',
+                'init_chain': 'mpi_failure_chain.traj',
+                'parallel': True,
+            },
+            'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}},
+        },
+        RunOptions(),
+    )
+except WorkflowExecutionError:
+    failed = 1
+else:
+    failed = 0
+assert MPI.COMM_WORLD.allreduce(failed) == 2
 """
     _run_mpi_command(
         [launcher, "-n", "2", str(python), "-c", smoke],

@@ -92,6 +92,24 @@ def synchronize_rank_failure(
     raise RuntimeError(f"{context} failed on another MPI rank.")
 
 
+def run_pre_run_construction(world: Any, operation: Any, *, context: str) -> Any:
+    """Run rank-local optimizer setup and synchronize failures before collectives.
+
+    Image-parallel NEB setup may create calculators, an optimizer, or trajectory
+    writers independently on each rank.  This boundary prevents a successful
+    peer from entering the optimizer's first collective while another rank has
+    already failed during that local construction.
+    """
+    local_error = None
+    value = None
+    try:
+        value = operation()
+    except Exception as exc:
+        local_error = exc
+    synchronize_rank_failure(world, local_error, context=context)
+    return value
+
+
 def run_rank_zero_section(world: Any, operation: Any, *, context: str) -> None:
     """Run root-only work and synchronize any failure before the next collective."""
     local_error = None

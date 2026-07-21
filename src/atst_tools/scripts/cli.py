@@ -136,6 +136,8 @@ def _config_validate_command(args):
     try:
         config = validate_config(args.config)
     except ConfigValidationError as exc:
+        if isinstance(exc.__cause__, (FileNotFoundError, IsADirectoryError)):
+            raise exc.__cause__ from None
         raise ValueError(str(exc)) from None
     if args.output:
         _write_yaml(config, args.output)

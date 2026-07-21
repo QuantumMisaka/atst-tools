@@ -84,6 +84,38 @@ def test_run_workflow_maps_missing_cyipopt_to_dependency_error(monkeypatch, tmp_
     assert excinfo.value.__cause__ is dependency_error
 
 
+def test_run_workflow_keeps_runtime_cyipopt_failures_as_execution_errors(
+    monkeypatch, tmp_path
+):
+    """Only a missing cyipopt module is an unsupported-dependency failure."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import WorkflowExecutionError
+
+    runtime_error = RuntimeError("cyipopt callback failed")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: (_ for _ in ()).throw(runtime_error),
+    )
+
+    with pytest.raises(WorkflowExecutionError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {
+                    "type": "dmf",
+                    "init_file": "initial.traj",
+                    "final_file": "final.traj",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.__cause__ is runtime_error
+
+
 @pytest.mark.parametrize(
     ("dependency_error", "expected_dependency"),
     [

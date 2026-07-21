@@ -401,3 +401,83 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
         environment=environment,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+def test_rank_local_optimizer_construction_failure_releases_every_rank(
+    tmp_path: Path,
+) -> None:
+    """A pre-run optimizer error must stop peers before their first collective."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(Path(sys.executable).with_name("mpiexec"))
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    setup = (
+        "from ase import Atoms; from ase.io import write; "
+        "write('chain.traj', [Atoms('H', positions=[[float(i), 0, 0]]) for i in range(4)])"
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    subprocess.run(
+        [sys.executable, "-c", setup],
+        cwd=tmp_path,
+        env=environment,
+        check=True,
+        timeout=MPI_TIMEOUT_SECONDS,
+    )
+    smoke = """
+from mpi4py import MPI
+from ase.calculators.calculator import Calculator
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api.models import WorkflowExecutionError
+from atst_tools.scripts import main
+
+rank = MPI.COMM_WORLD.rank
+main.ensure_neb_endpoint_results = lambda *args, **kwargs: None
+main._sync_parallel_endpoint_results = lambda images, *args: images
+
+class NoopCalculator(Calculator):
+    implemented_properties = []
+
+class FakeNEB:
+    def __init__(self, *args, **kwargs):
+        pass
+
+class RankLocalFailingOptimizer:
+    def __init__(self, *args, **kwargs):
+        if rank == 0:
+            raise RuntimeError('injected rank-local optimizer construction failure')
+
+    def run(self, *args, **kwargs):
+        MPI.COMM_WORLD.Barrier()
+
+main._get_workflow_calculator = lambda *args, **kwargs: NoopCalculator()
+main.AbacusNEB = FakeNEB
+main.get_optimizer = lambda *args, **kwargs: RankLocalFailingOptimizer
+
+try:
+    run_workflow(
+        {
+            'calculation': {
+                'type': 'neb',
+                'init_chain': 'chain.traj',
+                'parallel': True,
+            },
+            'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}},
+        },
+        RunOptions(),
+    )
+except WorkflowExecutionError:
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr

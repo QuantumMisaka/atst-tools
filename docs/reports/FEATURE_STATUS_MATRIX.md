@@ -1,7 +1,7 @@
 # ATST-Tools Feature Status Matrix
 
-**Version**: 2.1.4
-**Last Updated**: 2026-07-07
+**Version**: 2.2.0
+**Last Updated**: 2026-07-22
 **Status**: Maintained
 **Owner**: ATST-Tools maintainers
 

@@ -126,11 +126,10 @@ def _optional_dependency_name(exc: BaseException) -> str | None:
     while current is not None and id(current) not in seen:
         seen.add(id(current))
         dependency = str(getattr(current, "name", "") or "").lower()
-        message = str(current).lower()
-        if dependency == "cyipopt" or "cyipopt" in message:
-            return "cyipopt"
         if isinstance(current, ModuleNotFoundError) and (
-            dependency == "deepmd"
+            dependency == "cyipopt"
+            or dependency.startswith("cyipopt.")
+            or dependency == "deepmd"
             or dependency.startswith("deepmd.")
             or dependency == "mpi4py"
             or dependency.startswith("mpi4py.")

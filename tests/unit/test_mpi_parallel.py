@@ -83,6 +83,23 @@ def test_bootstrap_requires_mpi4py_under_mpi_launcher(monkeypatch):
         mpi.bootstrap_mpi_for_ase()
 
 
+def test_pre_run_construction_synchronizes_rank_local_failure():
+    """Parallel setup failures must synchronize before optimizer collectives."""
+    from atst_tools.utils.mpi import run_pre_run_construction
+
+    failure = RuntimeError("rank-local trajectory writer failure")
+    world = FakeWorld(size=2, rank=1)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        run_pre_run_construction(
+            world,
+            lambda: (_ for _ in ()).throw(failure),
+            context="NEB pre-run construction",
+        )
+
+    assert excinfo.value is failure
+
+
 def test_run_neb_parallel_requires_rank_count_equal_interior_images(monkeypatch, tmp_path):
     from atst_tools.scripts import main
 

@@ -53,6 +53,7 @@ from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
+    run_pre_run_construction,
     run_rank_zero_section,
     synchronize_rank_failure,
     validate_image_parallel_world,
@@ -585,9 +586,12 @@ def run_neb(config, calc_name, calc_config, world=None):
         prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
 
-    # Attach Calculators
-    calculator_setup_error = None
-    try:
+    # Every rank must complete all local setup before optimizer internals begin
+    # their first reduction.  Keep calculator/image setup, NEB construction,
+    # and trajectory-writer construction in this one boundary.
+    neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
+
+    def construct_pre_run():
         shared_calc = None
         if allow_shared:
             shared_calc = _get_workflow_calculator(
@@ -615,31 +619,32 @@ def run_neb(config, calc_name, calc_config, world=None):
                     config,
                     directory=f"{base_dir}/image_{i + 1:03d}",
                 )
-    except Exception as exc:
-        calculator_setup_error = exc
-    if effective_parallel:
-        synchronize_rank_failure(
-            world,
-            calculator_setup_error,
-            context="NEB calculator setup",
+
+        neb = neb_class(
+            init_chain,
+            parallel=effective_parallel,
+            world=world,
+            method=algorism,
+            k=k,
+            climb=False if two_stage else climb,
+            allow_shared_calculator=allow_shared,
         )
-    if calculator_setup_error is not None:
-        raise calculator_setup_error
+        opt = optimizer(
+            neb,
+            trajectory=traj_file,
+            **calc_config.get("optimizer_kwargs", {}),
+        )
+        return neb, opt
 
-    # Initialize NEB only after every rank has completed calculator setup.
-    neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
-    neb = neb_class(
-        init_chain,
-        parallel=effective_parallel,
-        world=world,
-        method=algorism,
-        k=k,
-        climb=False if two_stage else climb,
-        allow_shared_calculator=allow_shared,
-    )
+    if effective_parallel:
+        neb, opt = run_pre_run_construction(
+            world,
+            construct_pre_run,
+            context="NEB pre-run construction",
+        )
+    else:
+        neb, opt = construct_pre_run()
 
-    # Run
-    opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
     stage1_converged = None
     stage1_actual_steps = None
     if two_stage:
@@ -650,7 +655,22 @@ def run_neb(config, calc_name, calc_config, world=None):
             stage1_converged = opt.run(fmax=calc_config.get("stage1_fmax", 0.20), steps=stage1_steps)
         stage1_actual_steps = getattr(opt, "nsteps", None)
         neb.climb = climb
-        opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))
+        if effective_parallel:
+            opt = run_pre_run_construction(
+                world,
+                lambda: optimizer(
+                    neb,
+                    trajectory=traj_file,
+                    **calc_config.get("optimizer_kwargs", {}),
+                ),
+                context="NEB climbing-stage optimizer construction",
+            )
+        else:
+            opt = optimizer(
+                neb,
+                trajectory=traj_file,
+                **calc_config.get("optimizer_kwargs", {}),
+            )
     final_converged = opt.run(fmax=fmax, steps=max_steps)
     final_actual_steps = getattr(opt, "nsteps", None)
     write_artifact_manifest(
@@ -886,6 +906,8 @@ def run_from_args(args):
     try:
         result = run_workflow_from_cli(args.config, options)
     except ConfigValidationError as exc:
+        if isinstance(exc.__cause__, (FileNotFoundError, IsADirectoryError)):
+            raise exc.__cause__ from None
         raise ValueError(str(exc)) from None
     except MPIConfigurationError as exc:
         if exc.__cause__ is not None:

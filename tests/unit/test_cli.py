@@ -363,6 +363,45 @@ def test_config_validate_delegates_to_public_validation_service(monkeypatch, cap
     assert capsys.readouterr().out.strip() == "Configuration is valid"
 
 
+@pytest.mark.parametrize(
+    ("argv", "expected_error"),
+    [
+        (["run", "missing.yaml"], FileNotFoundError),
+        (["config", "validate", "missing.yaml"], FileNotFoundError),
+    ],
+)
+def test_cli_preserves_missing_config_filesystem_error(
+    tmp_path, monkeypatch, argv, expected_error
+):
+    """CLI callers retain exact missing-file errors instead of API wrapper types."""
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(expected_error):
+        cli.main(argv)
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_error"),
+    [
+        (["run", "config-dir"], IsADirectoryError),
+        (["config", "validate", "config-dir"], IsADirectoryError),
+    ],
+)
+def test_cli_preserves_directory_config_filesystem_error(
+    tmp_path, monkeypatch, argv, expected_error
+):
+    """CLI callers retain exact directory-read errors instead of API wrapper types."""
+    from atst_tools.scripts import cli
+
+    (tmp_path / "config-dir").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(expected_error):
+        cli.main(argv)
+
+
 def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
     """The run command forwards CLI controls through the public workflow API."""
     from atst_tools.scripts import main

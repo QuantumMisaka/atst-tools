@@ -28,6 +28,7 @@ from atst_tools.utils.neb_endpoints import freeze_current_results, freeze_result
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
+    run_pre_run_construction,
     run_rank_zero_section,
     synchronize_rank_failure,
     validate_image_parallel_world,
@@ -227,62 +228,69 @@ class AbacusAutoNEB(AutoNEB):
         if self.world.rank == 0:
             print('Now starting iteration %d on ' % self.iteration, to_run)
 
-        # 2. Attach Calculators
-        for image_index in to_run[1:-1]:
-            self.all_images[image_index].info["_atst_autoneb_index"] = image_index
-        self.attach_calculators([self.all_images[i] for i in to_run[1: -1]])
+        def construct_pre_run():
+            """Create all rank-local state needed before optimizer collectives."""
+            for image_index in to_run[1:-1]:
+                self.all_images[image_index].info["_atst_autoneb_index"] = image_index
+            self.attach_calculators([self.all_images[i] for i in to_run[1: -1]])
 
-        # 3. Instantiate NEB (Using AbacusNEB instead of standard NEB)
-        neb = AbacusNEB([self.all_images[i] for i in to_run],
-                        k=[self.k[i] for i in to_run[0:-1]],
-                        method=self.method,
-                        parallel=self.parallel,
-                        remove_rotation_and_translation=self.remove_rotation_and_translation,
-                        climb=climb,
-                        world=self.world,
-                        allow_shared_calculator=self.allow_shared_calculator)
+            neb = AbacusNEB(
+                [self.all_images[i] for i in to_run],
+                k=[self.k[i] for i in to_run[0:-1]],
+                method=self.method,
+                parallel=self.parallel,
+                remove_rotation_and_translation=self.remove_rotation_and_translation,
+                climb=climb,
+                world=self.world,
+                allow_shared_calculator=self.allow_shared_calculator,
+            )
+            logpath = self.iter_folder / f'{self.prefix.name}_log_iter{self.iteration:03d}.log'
+            qn = closelater(self.optimizer(neb, logfile=logpath))
 
-        # 4. Run Optimization
-        logpath = (self.iter_folder
-                   / f'{self.prefix.name}_log_iter{self.iteration:03d}.log')
-        qn = closelater(self.optimizer(neb, logfile=logpath))
-        
-        # 5. Setup Trajectories
-        if self.parallel:
-            nneb = to_run[0]
-            nim = len(to_run) - 2
-            n = self.world.size // nim      
-            j = 1 + self.world.rank // n    
-            assert nim * n == self.world.size
-            
-            traj = closelater(Trajectory(
-                '%s%03d.traj' % (self.prefix, j + nneb), 'w',
-                self.all_images[j + nneb],
-                master=(self.world.rank % n == 0),
-            ))
-            filename_ref = self.iter_trajpath(j + nneb, self.iteration)
-            trajhist = closelater(Trajectory(
-                filename_ref, 'w',
-                self.all_images[j + nneb],
-                master=(self.world.rank % n == 0),
-            ))
-            qn.attach(traj)
-            qn.attach(trajhist)
-        else:
-            num = 1
-            for i, j in enumerate(to_run[1: -1]):
-                filename_ref = self.iter_trajpath(j, self.iteration)
-                trajhist = closelater(Trajectory(
-                    filename_ref, 'w', self.all_images[j]
-                ))
-                qn.attach(seriel_writer(trajhist, i, num).write)
+            if self.parallel:
+                nneb = to_run[0]
+                nim = len(to_run) - 2
+                n = self.world.size // nim
+                j = 1 + self.world.rank // n
+                assert nim * n == self.world.size
 
                 traj = closelater(Trajectory(
-                    '%s%03d.traj' % (self.prefix, j), 'w',
-                    self.all_images[j]
+                    '%s%03d.traj' % (self.prefix, j + nneb), 'w',
+                    self.all_images[j + nneb],
+                    master=(self.world.rank % n == 0),
                 ))
-                qn.attach(seriel_writer(traj, i, num).write)
-                num += 1
+                filename_ref = self.iter_trajpath(j + nneb, self.iteration)
+                trajhist = closelater(Trajectory(
+                    filename_ref, 'w', self.all_images[j + nneb],
+                    master=(self.world.rank % n == 0),
+                ))
+                qn.attach(traj)
+                qn.attach(trajhist)
+            else:
+                num = 1
+                for i, j in enumerate(to_run[1: -1]):
+                    filename_ref = self.iter_trajpath(j, self.iteration)
+                    trajhist = closelater(Trajectory(
+                        filename_ref, 'w', self.all_images[j]
+                    ))
+                    qn.attach(seriel_writer(trajhist, i, num).write)
+
+                    traj = closelater(Trajectory(
+                        '%s%03d.traj' % (self.prefix, j), 'w',
+                        self.all_images[j]
+                    ))
+                    qn.attach(seriel_writer(traj, i, num).write)
+                    num += 1
+            return neb, qn
+
+        if self.parallel:
+            neb, qn = run_pre_run_construction(
+                self.world,
+                construct_pre_run,
+                context="AutoNEB pre-run construction",
+            )
+        else:
+            neb, qn = construct_pre_run()
 
         # 6. Run Optimizer
         if isinstance(self.maxsteps, (list, tuple)) and many_steps:
@@ -605,14 +613,17 @@ class AutoNEBRunner:
                     return index
         return fallback
 
-    def attach_calculators(self, images):
+    def attach_calculators(self, images, *, synchronize: bool = True):
         """
         Callback to attach calculators to a list of images.
 
         Args:
             images (list): List of Atoms objects to attach calculators to.
+            synchronize: Preserve the direct-callback failure contract. Internal
+                pre-run construction passes ``False`` because it synchronizes
+                calculator setup with engine, optimizer, and writer creation.
         """
-        calculator_setup_error = None
+        error = None
         try:
             if self.allow_shared_calculator:
                 if self._shared_calc is None:
@@ -631,16 +642,20 @@ class AutoNEBRunner:
                     image_dir = f"{base_dir}/image_{int(image_index):03d}"
                     image.calc = self._get_calculator(image_dir, shared=False)
         except Exception as exc:
-            calculator_setup_error = exc
+            error = exc
 
-        if self.parallel:
+        if synchronize and self.parallel:
             synchronize_rank_failure(
                 self.world,
-                calculator_setup_error,
+                error,
                 context="AutoNEB calculator setup",
             )
-        if calculator_setup_error is not None:
-            raise calculator_setup_error
+        if error is not None:
+            raise error
+
+    def _attach_calculators_for_pre_run(self, images):
+        """Attach image calculators inside the enclosing pre-run boundary."""
+        self.attach_calculators(images, synchronize=False)
 
     def _prepare_endpoint_results(self):
         """Prepare endpoint single-point results once and synchronize images."""
@@ -757,7 +772,11 @@ class AutoNEBRunner:
         self._prepare_endpoint_results()
         
         autoneb_kwargs = {
-            "attach_calculators": self.attach_calculators,
+            "attach_calculators": (
+                self._attach_calculators_for_pre_run
+                if self.neb_backend != "ase"
+                else self.attach_calculators
+            ),
             "prefix": self.prefix,
             "n_simul": self.n_simul,
             "n_max": self.n_max,
