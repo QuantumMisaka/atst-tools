@@ -29,6 +29,7 @@ from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
     run_rank_zero_section,
+    synchronize_rank_failure,
     validate_image_parallel_world,
 )
 
@@ -573,29 +574,35 @@ class AutoNEBRunner:
         Args:
             images (list): List of Atoms objects to attach calculators to.
         """
-        if self.allow_shared_calculator:
-            if self._shared_calc is None:
-                self._shared_calc = self._get_calculator(
-                    f"{self._base_directory()}/shared",
-                    shared=True,
-                )
-            for image in images:
-                image.calc = self._shared_calc
-            return
-
-        for i, image in enumerate(images):
-            if self.parallel and not rank_owns_local_image(self.world, i):
-                continue
-            if self.parallel:
-                base_dir = self._base_directory()
-                image_index = self._image_index(image, i)
-                image_dir = f"{base_dir}/image_{int(image_index):03d}"
-                image.calc = self._get_calculator(image_dir, shared=False)
+        calculator_setup_error = None
+        try:
+            if self.allow_shared_calculator:
+                if self._shared_calc is None:
+                    self._shared_calc = self._get_calculator(
+                        f"{self._base_directory()}/shared",
+                        shared=True,
+                    )
+                for image in images:
+                    image.calc = self._shared_calc
             else:
-                base_dir = self._base_directory()
-                image_index = self._image_index(image, i)
-                image_dir = f"{base_dir}/image_{int(image_index):03d}"
-                image.calc = self._get_calculator(image_dir, shared=False)
+                for i, image in enumerate(images):
+                    if self.parallel and not rank_owns_local_image(self.world, i):
+                        continue
+                    base_dir = self._base_directory()
+                    image_index = self._image_index(image, i)
+                    image_dir = f"{base_dir}/image_{int(image_index):03d}"
+                    image.calc = self._get_calculator(image_dir, shared=False)
+        except Exception as exc:
+            calculator_setup_error = exc
+
+        if self.parallel:
+            synchronize_rank_failure(
+                self.world,
+                calculator_setup_error,
+                context="AutoNEB calculator setup",
+            )
+        if calculator_setup_error is not None:
+            raise calculator_setup_error
 
     def _prepare_endpoint_results(self):
         """Prepare endpoint single-point results once and synchronize images."""

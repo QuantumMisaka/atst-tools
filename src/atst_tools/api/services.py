@@ -513,7 +513,12 @@ def _run_workflow(
             result.metadata["check_input_preflight"] = preflight
         return result
     manifest_path = config["calculation"].get("artifact_manifest", "atst_artifacts.json")
-    previous_signature = _manifest_signature(manifest_path)
+    try:
+        previous_signature = _manifest_signature(manifest_path)
+    except OSError as exc:
+        raise WorkflowExecutionError(
+            "Unable to inspect the workflow artifact manifest.", workflow=workflow
+        ) from exc
     value = None
     failure = None
     try:

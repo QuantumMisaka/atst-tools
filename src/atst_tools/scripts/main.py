@@ -54,6 +54,7 @@ from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
     run_rank_zero_section,
+    synchronize_rank_failure,
     validate_image_parallel_world,
 )
 
@@ -556,46 +557,59 @@ def run_neb(config, calc_name, calc_config, world=None):
     else:
         prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
-    
-    # Initialize NEB
-    neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
-    neb = neb_class(init_chain, 
-                    parallel=effective_parallel,
-                    world=world,
-                    method=algorism, 
-                    k=k,
-                    climb=False if two_stage else climb,
-                    allow_shared_calculator=allow_shared)
-    
+
     # Attach Calculators
-    shared_calc = None
-    if allow_shared:
-        shared_calc = _get_workflow_calculator(
-            calc_name,
-            config,
-            shared=True,
-            directory=f"{base_dir}/shared",
-        )
-    for i, image in enumerate(init_chain[1:-1]):
-        if effective_parallel:
-            if rank_owns_local_image(world, i):
-                # Determine directory logic
-                image_dir = f"{base_dir}/image_{i + 1:03d}"
-                
+    calculator_setup_error = None
+    try:
+        shared_calc = None
+        if allow_shared:
+            shared_calc = _get_workflow_calculator(
+                calc_name,
+                config,
+                shared=True,
+                directory=f"{base_dir}/shared",
+            )
+        for i, image in enumerate(init_chain[1:-1]):
+            if effective_parallel:
+                if rank_owns_local_image(world, i):
+                    # Determine directory logic
+                    image_dir = f"{base_dir}/image_{i + 1:03d}"
+                    image.calc = _get_workflow_calculator(
+                        calc_name,
+                        config,
+                        shared=False,
+                        directory=image_dir,
+                    )
+            elif shared_calc is not None:
+                image.calc = shared_calc
+            else:
                 image.calc = _get_workflow_calculator(
-                    calc_name, 
-                    config, 
-                    shared=False,
-                    directory=image_dir
+                    calc_name,
+                    config,
+                    directory=f"{base_dir}/image_{i + 1:03d}",
                 )
-        elif shared_calc is not None:
-             image.calc = shared_calc
-        else:
-             image.calc = _get_workflow_calculator(
-                    calc_name, 
-                    config, 
-                    directory=f"{base_dir}/image_{i + 1:03d}"
-                )
+    except Exception as exc:
+        calculator_setup_error = exc
+    if effective_parallel:
+        synchronize_rank_failure(
+            world,
+            calculator_setup_error,
+            context="NEB calculator setup",
+        )
+    if calculator_setup_error is not None:
+        raise calculator_setup_error
+
+    # Initialize NEB only after every rank has completed calculator setup.
+    neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
+    neb = neb_class(
+        init_chain,
+        parallel=effective_parallel,
+        world=world,
+        method=algorism,
+        k=k,
+        climb=False if two_stage else climb,
+        allow_shared_calculator=allow_shared,
+    )
 
     # Run
     opt = optimizer(neb, trajectory=traj_file, **calc_config.get("optimizer_kwargs", {}))

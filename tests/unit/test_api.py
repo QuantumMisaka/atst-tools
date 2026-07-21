@@ -607,6 +607,38 @@ def test_run_workflow_replaces_a_stale_malformed_manifest(monkeypatch, tmp_path)
     assert manifest["metadata"]["manifest_source"] == "api_synthesized"
 
 
+def test_run_workflow_wraps_pre_dispatch_manifest_signature_oserror(monkeypatch, tmp_path):
+    """Manifest metadata failures must preserve the public API error contract."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import WorkflowExecutionError
+
+    signature_error = OSError("manifest stat unavailable")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services.Path,
+        "stat",
+        lambda *args, **kwargs: (_ for _ in ()).throw(signature_error),
+    )
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: pytest.fail("manifest signature failure reached dispatch"),
+    )
+
+    with pytest.raises(WorkflowExecutionError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "initial.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(world=FakeWorld()),
+        )
+
+    assert excinfo.value.workflow == "relax"
+    assert excinfo.value.__cause__ is signature_error
+
+
 def test_run_workflow_preserves_a_fresh_runner_written_manifest(monkeypatch, tmp_path):
     """A valid manifest produced during this run remains the runner's source of truth."""
     from atst_tools.api import RunOptions, run_workflow
