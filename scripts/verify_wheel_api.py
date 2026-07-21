@@ -7,6 +7,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -48,6 +49,32 @@ def _run(
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
         raise subprocess.CalledProcessError(completed.returncode, command)
+
+
+def _run_mpi_command(command: list[str], *, cwd: Path, timeout: int) -> None:
+    """Run an MPI launcher in its own session and clean up all ranks on timeout."""
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    process = subprocess.Popen(
+        command,
+        text=True,
+        capture_output=True,
+        cwd=cwd,
+        env=environment,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
+        raise
+    if process.returncode:
+        if stdout:
+            print(stdout, end="")
+        if stderr:
+            print(stderr, end="", file=sys.stderr)
+        raise subprocess.CalledProcessError(process.returncode, command)
 
 
 def _wheel_from_args(wheel: str | None, temporary_root: Path) -> Path:
@@ -180,7 +207,7 @@ assert_failure(
     autoneb,
 )
 """
-    _run(
+    _run_mpi_command(
         [launcher, "-n", "2", str(python), "-c", smoke],
         cwd=temporary_root,
         timeout=MPI_SMOKE_TIMEOUT_SECONDS,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import signal
 import subprocess
 import sys
 
@@ -174,6 +175,11 @@ def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
         "_run",
         lambda command, **kwargs: commands.append((command, kwargs)),
     )
+    monkeypatch.setattr(
+        gate,
+        "_run_mpi_command",
+        lambda command, **kwargs: commands.append((command, kwargs)),
+    )
 
     gate._run_mpi_smoke(tmp_path / "python", tmp_path)
 
@@ -185,3 +191,49 @@ def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
     assert "'type': 'neb'" in smoke
     assert "'type': 'autoneb'" in smoke
     assert "allreduce" in smoke
+
+
+def test_wheel_mpi_command_kills_and_waits_for_the_process_group_on_timeout(
+    monkeypatch, tmp_path
+) -> None:
+    """The MPI launcher must not leave child ranks behind after a timeout."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+
+    class HangingProcess:
+        pid = 31415
+        returncode = None
+
+        def __init__(self):
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if timeout is not None:
+                raise subprocess.TimeoutExpired(["mpiexec"], timeout)
+            self.returncode = -signal.SIGKILL
+            return "", ""
+
+    process = HangingProcess()
+    popen_calls = []
+    monkeypatch.setattr(
+        gate.subprocess,
+        "Popen",
+        lambda command, **kwargs: (popen_calls.append((command, kwargs)) or process),
+    )
+    killpg_calls = []
+    monkeypatch.setattr(gate.os, "killpg", lambda pid, sig: killpg_calls.append((pid, sig)))
+
+    try:
+        gate._run_mpi_command(["mpiexec", "-n", "2", "python"], cwd=tmp_path, timeout=3)
+    except subprocess.TimeoutExpired:
+        pass
+    else:
+        raise AssertionError("MPI timeout should be propagated after cleanup")
+
+    assert popen_calls[0][1]["start_new_session"] is True
+    assert killpg_calls == [(process.pid, signal.SIGKILL)]
+    assert process.communicate_calls == 2
