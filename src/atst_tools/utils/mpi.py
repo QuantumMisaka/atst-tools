@@ -64,3 +64,40 @@ def validate_image_parallel_world(world: Any, expected: int, context: str) -> No
 def rank_owns_local_image(world: Any, local_image_index: int) -> bool:
     """Return whether the rank owns an active image in one-rank-per-image mode."""
     return int(world.rank) == int(local_image_index)
+
+
+def synchronize_rank_failure(
+    world: Any, local_error: Exception | None, *, context: str
+) -> None:
+    """Raise a rank-local failure on every rank before later collectives.
+
+    Image-parallel runners sometimes perform filesystem work only on rank zero.
+    Every rank must join this reduction even when rank zero fails, otherwise
+    peers can wait indefinitely at the following barrier or NEB reduction.
+
+    Args:
+        world: Existing ASE/MPI communicator.
+        local_error: Exception raised by this rank, if any.
+        context: Short description of the divergent runner section.
+
+    Raises:
+        Exception: The original local exception on its failing rank, or a
+            synchronized error on peers.
+    """
+    failures = world.sum_scalar(int(local_error is not None))
+    if not failures:
+        return
+    if local_error is not None:
+        raise local_error
+    raise RuntimeError(f"{context} failed on another MPI rank.")
+
+
+def run_rank_zero_section(world: Any, operation: Any, *, context: str) -> None:
+    """Run root-only work and synchronize any failure before the next collective."""
+    local_error = None
+    if int(world.rank) == 0:
+        try:
+            operation()
+        except Exception as exc:
+            local_error = exc
+    synchronize_rank_failure(world, local_error, context=context)

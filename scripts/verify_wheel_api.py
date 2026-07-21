@@ -122,20 +122,64 @@ def _run_h2_au_api_example(python: Path, temporary_root: Path) -> None:
 
 
 def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
-    """Run a bounded two-rank public API dry-run when an MPI launcher exists."""
+    """Run bounded two-rank public API smoke and failure-synchronization gates."""
     launcher = shutil.which("mpiexec")
     if launcher is None:
         print("MPI smoke skipped: mpiexec is unavailable")
         return
 
-    smoke = (
-        "from atst_tools.api import RunOptions, run_workflow; "
-        "result = run_workflow("
-        "{'calculation': {'type': 'relax', 'init_structure': 'initial.traj'}, "
-        "'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}}}, "
-        "RunOptions(dry_run=True)); "
-        "assert result.status == 'validated'"
+    setup_chain = (
+        "from ase import Atoms; from ase.io import write; "
+        "write('mpi_failure_chain.traj', "
+        "[Atoms('H', positions=[[float(index), 0, 0]]) for index in range(4)])"
     )
+    _run([str(python), "-c", setup_chain], cwd=temporary_root)
+    smoke = """
+from mpi4py import MPI
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api.models import WorkflowExecutionError
+from atst_tools.scripts import main
+from atst_tools.mep import autoneb
+
+rank = MPI.COMM_WORLD.rank
+
+
+def fail_endpoint_preparation(*args, **kwargs):
+    raise RuntimeError('injected root endpoint failure')
+
+
+def assert_failure(calculation, module):
+    if rank == 0:
+        module.ensure_neb_endpoint_results = fail_endpoint_preparation
+    try:
+        run_workflow(
+            {
+                'calculation': calculation,
+                'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}},
+            },
+            RunOptions(),
+        )
+    except WorkflowExecutionError:
+        failed = 1
+    else:
+        failed = 0
+    assert MPI.COMM_WORLD.allreduce(failed) == 2
+
+
+assert_failure(
+    {'type': 'neb', 'init_chain': 'mpi_failure_chain.traj', 'parallel': True}, main
+)
+assert_failure(
+    {
+        'type': 'autoneb',
+        'init_chain': 'mpi_failure_chain.traj',
+        'parallel': True,
+        'n_simul': 2,
+        'n_max': 3,
+    },
+    autoneb,
+)
+"""
     _run(
         [launcher, "-n", "2", str(python), "-c", smoke],
         cwd=temporary_root,

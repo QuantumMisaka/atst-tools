@@ -156,3 +156,32 @@ def test_wheel_mpi_smoke_skips_cleanly_without_a_launcher(
     gate._run_mpi_smoke(tmp_path / "python", tmp_path)
 
     assert capsys.readouterr().out == "MPI smoke skipped: mpiexec is unavailable\n"
+
+
+def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
+    monkeypatch, tmp_path
+) -> None:
+    """The release gate must prove root-only MPI failures release every rank."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    commands = []
+    monkeypatch.setattr(gate.shutil, "which", lambda name: "/test/mpiexec")
+    monkeypatch.setattr(
+        gate,
+        "_run",
+        lambda command, **kwargs: commands.append((command, kwargs)),
+    )
+
+    gate._run_mpi_smoke(tmp_path / "python", tmp_path)
+
+    launcher_command = commands[-1][0]
+    smoke = launcher_command[-1]
+    assert launcher_command[:4] == ["/test/mpiexec", "-n", "2", str(tmp_path / "python")]
+    assert "WorkflowExecutionError" in smoke
+    assert "injected root endpoint failure" in smoke
+    assert "'type': 'neb'" in smoke
+    assert "'type': 'autoneb'" in smoke
+    assert "allreduce" in smoke

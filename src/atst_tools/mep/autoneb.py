@@ -28,6 +28,7 @@ from atst_tools.utils.neb_endpoints import freeze_current_results, freeze_result
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
+    run_rank_zero_section,
     validate_image_parallel_world,
 )
 
@@ -117,7 +118,7 @@ class AbacusAutoNEB(AutoNEB):
                     "Files must be ordered sequentially",
                     "without gaps.",
                 )
-        if self.world.rank == 0:
+        def copy_initial_images():
             for i in index_exists:
                 filename_ref = self.iter_trajpath(i, 0)
                 if os.path.isfile(filename_ref):
@@ -130,6 +131,14 @@ class AbacusAutoNEB(AutoNEB):
                     shutil.copy2(filename, filename_ref)
                 except OSError:
                     pass
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                copy_initial_images,
+                context="AutoNEB initial image backup",
+            )
+        elif self.world.rank == 0:
+            copy_initial_images()
         self.world.barrier()
 
         for i in range(n_cur):
@@ -166,11 +175,8 @@ class AbacusAutoNEB(AutoNEB):
                 len(to_run) - 2,
                 "active AutoNEB images",
             )
-        if self.world.rank == 0:
+        def prepare_iteration_files():
             self.iter_folder.mkdir(parents=True, exist_ok=True)
-
-        # 1. Backup unused images
-        if self.world.rank == 0:
             for i in range(n_cur):
                 if i not in to_run[1: -1]:
                     filename = '%s%03d.traj' % (self.prefix, i)
@@ -182,6 +188,15 @@ class AbacusAutoNEB(AutoNEB):
                     filename_ref = self.iter_trajpath(i, self.iteration)
                     if os.path.isfile(filename):
                         shutil.copy2(filename, filename_ref)
+
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                prepare_iteration_files,
+                context="AutoNEB iteration file preparation",
+            )
+        elif self.world.rank == 0:
+            prepare_iteration_files()
 
         if self.world.rank == 0:
             print('Now starting iteration %d on ' % self.iteration, to_run)
@@ -601,14 +616,24 @@ class AutoNEBRunner:
             return
 
         sync_file = Path(".atst_autoneb_endpoint_synced.traj")
-        if self.world.rank == 0:
+        def prepare_and_write():
             prepare()
             write(sync_file, self.init_chain)
+        run_rank_zero_section(
+            self.world,
+            prepare_and_write,
+            context="AutoNEB endpoint preparation",
+        )
         self.world.barrier()
         self.init_chain = read(sync_file, index=":", parallel=False)
         self.world.barrier()
-        if self.world.rank == 0:
+        def remove_sync_file():
             sync_file.unlink(missing_ok=True)
+        run_rank_zero_section(
+            self.world,
+            remove_sync_file,
+            context="AutoNEB endpoint synchronization cleanup",
+        )
         self.world.barrier()
 
     def _get_optimizer(self):
@@ -656,12 +681,22 @@ class AutoNEBRunner:
                 f"world.size={self.world.size}, n_simul={self.n_simul}"
             )
 
-        if not self.restart and self.world.rank == 0:
+        def cleanup_previous_run():
             for path in Path(".").glob(f"{self.prefix}[0-9][0-9][0-9].traj"):
                 path.unlink()
             iter_path = Path(self.iter_folder)
             if iter_path.exists():
                 shutil.rmtree(iter_path)
+
+        if not self.restart:
+            if self.parallel:
+                run_rank_zero_section(
+                    self.world,
+                    cleanup_previous_run,
+                    context="AutoNEB previous-output cleanup",
+                )
+            elif self.world.rank == 0:
+                cleanup_previous_run()
         if self.parallel:
             self.world.barrier()
 
@@ -690,10 +725,18 @@ class AutoNEBRunner:
             )
         
         # Write initial files if they don't exist
-        if self.world.rank == 0:
+        def write_initial_files():
             for i, atoms in enumerate(self.init_chain):
-                 filename = f'{self.prefix}{i:03d}.traj'
-                 write(filename, atoms)
+                filename = f'{self.prefix}{i:03d}.traj'
+                write(filename, atoms)
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                write_initial_files,
+                context="AutoNEB initial image writing",
+            )
+        elif self.world.rank == 0:
+            write_initial_files()
         if self.parallel:
             self.world.barrier()
                  
@@ -703,10 +746,20 @@ class AutoNEBRunner:
         finally:
             self._active_autoneb = None
         final_images = getattr(autoneb, "all_images", None)
-        if self.world.rank == 0 and final_images is not None:
+        def freeze_and_write_final_images():
+            if final_images is None:
+                return
             self._freeze_final_image_results(final_images)
             for i, atoms in enumerate(final_images):
                 filename = f'{self.prefix}{i:03d}.traj'
                 write(filename, atoms)
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                freeze_and_write_final_images,
+                context="AutoNEB final image writing",
+            )
+        elif self.world.rank == 0:
+            freeze_and_write_final_images()
         print("=== AutoNEB Calculation Finished ===")
         return final_images if self.world.rank == 0 else None

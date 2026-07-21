@@ -80,7 +80,8 @@ release 变更，都先从对应小节确认需要同步的文档。
   public API example path，不在工作树保留 build artifact。若 release 环境已
   准备 `mpi4py` 和 `mpiexec`，额外运行
   `python scripts/verify_wheel_api.py --mpi-smoke`；该 two-rank smoke 限时，
-  且在找不到 launcher 时明确跳过。
+  验证 image-parallel NEB/AutoNEB 的 rank-0 endpoint failure 会使所有 rank
+  以 typed API failure 退出，且在找不到 launcher 时明确跳过。
 
 ## 7. 新增或修改 example
 

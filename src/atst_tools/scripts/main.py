@@ -53,6 +53,7 @@ from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
+    run_rank_zero_section,
     validate_image_parallel_world,
 )
 
@@ -419,19 +420,31 @@ def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, o
 def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
     """Run endpoint preparation on rank 0 and share frozen results via a temp chain."""
     sync_file = ".atst_neb_endpoint_synced.traj"
-    if world.rank == 0:
+
+    def prepare_and_write():
         prepare_endpoints(images)
         write(sync_file, images)
+
+    run_rank_zero_section(
+        world,
+        prepare_and_write,
+        context="NEB endpoint preparation",
+    )
     if hasattr(world, "barrier"):
         world.barrier()
     synced_images = read(sync_file, index=":", parallel=False)
     if hasattr(world, "barrier"):
         world.barrier()
-    if world.rank == 0:
+    def remove_sync_file():
         try:
             os.remove(sync_file)
         except FileNotFoundError:
             pass
+    run_rank_zero_section(
+        world,
+        remove_sync_file,
+        context="NEB endpoint synchronization cleanup",
+    )
     if hasattr(world, "barrier"):
         world.barrier()
     return synced_images
@@ -471,7 +484,7 @@ def run_neb(config, calc_name, calc_config, world=None):
         fix_height, fix_dir = _parse_make_fix(make_config.get('fix'))
         mag_ele, mag_num = _parse_make_mag(make_config.get('magmom'))
         if not restart:
-            if not effective_parallel or world.rank == 0:
+            def generate_initial_chain():
                 generate(
                     method=make_config['method'],
                     n_images=make_config['n_images'],
@@ -486,6 +499,14 @@ def run_neb(config, calc_name, calc_config, world=None):
                     no_align=make_config['no_align'],
                     ts_file=make_config.get('ts_guess'),
                 )
+            if effective_parallel:
+                run_rank_zero_section(
+                    world,
+                    generate_initial_chain,
+                    context="NEB initial-chain generation",
+                )
+            else:
+                generate_initial_chain()
             if effective_parallel and hasattr(world, "barrier"):
                 world.barrier()
     else:
