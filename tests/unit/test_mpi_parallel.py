@@ -668,3 +668,73 @@ def test_autoneb_runner_uses_an_explicit_existing_world(monkeypatch):
     )
 
     assert runner.world is supplied_world
+
+
+def test_abacus_autoneb_passes_its_world_to_executing_and_interpolating_nebs(
+    monkeypatch, tmp_path
+):
+    """Every internal NEB keeps the communicator supplied by an API embedding."""
+    from atst_tools.mep import autoneb
+
+    supplied_world = FakeWorld(size=1, rank=0)
+    constructed = []
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+            self.parallel = kwargs.get("parallel", False)
+            constructed.append(kwargs)
+
+        def interpolate(self, **kwargs):
+            return None
+
+    class FakeOptimizer:
+        def __init__(self, neb, **kwargs):
+            return None
+
+        def attach(self, callback):
+            return None
+
+        def run(self, **kwargs):
+            return None
+
+    class FakeStack:
+        def enter_context(self, value):
+            return value
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(autoneb, "_store_E_and_F_in_spc_reduced", lambda neb: None)
+
+    executing = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="run",
+        n_simul=1,
+        n_max=3,
+        optimizer=FakeOptimizer,
+        parallel=False,
+        world=supplied_world,
+    )
+    executing.all_images = [_atoms(float(index)) for index in range(3)]
+    executing.k = [0.1, 0.1]
+    executing.iteration = 0
+    executing._execute_one_neb(FakeStack(), n_cur=3, to_run=[0, 1, 2])
+
+    interpolating = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="run",
+        n_simul=1,
+        n_max=3,
+        parallel=False,
+        world=supplied_world,
+    )
+    interpolating.all_images = [_atoms(0.0), _atoms(1.0)]
+    interpolating.k = [0.1]
+    interpolating.__initialize__ = lambda: 2
+    interpolating.get_energies = lambda: [0.0, 0.0, 0.0]
+    interpolating.smooth_curve = False
+    interpolating.climb = False
+    interpolating.run()
+
+    assert len(constructed) == 2
+    assert all(kwargs["world"] is supplied_world for kwargs in constructed)

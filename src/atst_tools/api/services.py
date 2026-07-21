@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from atst_tools.api.models import (
+    ATSTAPIError,
     ConfigValidationError,
     MPIConfigurationError,
     RunOptions,
@@ -178,24 +179,80 @@ def _synthesized_artifacts(
     return artifacts
 
 
+def _synchronize_rank_failure(
+    world: Any, workflow: str, failure: ATSTAPIError | None
+) -> None:
+    """Raise a peer-visible API error before any following collective operation."""
+    if int(world.size) <= 1:
+        if failure is not None:
+            raise failure
+        return
+
+    try:
+        if hasattr(world, "sum_scalar"):
+            failure_count = world.sum_scalar(int(failure is not None))
+        elif hasattr(world, "sum"):
+            reduced = world.sum(int(failure is not None))
+            failure_count = int(failure is not None) if reduced is None else reduced
+        else:
+            raise RuntimeError("communicator does not provide a scalar reduction")
+    except Exception as exc:
+        raise WorkflowExecutionError(
+            "Unable to synchronize an MPI workflow failure.",
+            workflow=workflow,
+        ) from exc
+
+    if int(failure_count):
+        if failure is not None:
+            raise failure
+        raise WorkflowExecutionError(
+            "Workflow execution failed on another MPI rank.",
+            workflow=workflow,
+        )
+
+
 def _ensure_completed_manifest(config: dict[str, Any], value: Any, world: Any) -> None:
     """Guarantee that a completed API outcome has an accurate durable manifest."""
     calculation = config["calculation"]
     workflow = calculation["type"]
     manifest_path = Path(calculation.get("artifact_manifest", "atst_artifacts.json"))
-    if manifest_path.exists() and _read_manifest(manifest_path).get("workflow") == workflow:
-        return
-    if hasattr(world, "barrier"):
-        world.barrier()
+    failure = None
     if int(world.rank) == 0:
-        write_artifact_manifest(
-            manifest_path,
-            workflow=workflow,
-            artifacts=_synthesized_artifacts(config, value),
-            stages=[{"name": workflow, "status": "complete"}],
-        )
-    if hasattr(world, "barrier"):
+        try:
+            matching_manifest = (
+                manifest_path.exists()
+                and _read_manifest(manifest_path).get("workflow") == workflow
+            )
+            if not matching_manifest:
+                write_artifact_manifest(
+                    manifest_path,
+                    workflow=workflow,
+                    artifacts=_synthesized_artifacts(config, value),
+                    stages=[{"name": workflow, "status": "complete"}],
+                )
+        except Exception as exc:
+            failure = WorkflowExecutionError(
+                "Unable to finalize the workflow artifact manifest.",
+                workflow=workflow,
+            )
+            failure.__cause__ = exc
+
+    _synchronize_rank_failure(world, workflow, failure)
+    if int(world.size) > 1 and hasattr(world, "barrier"):
         world.barrier()
+
+    failure = None
+    try:
+        manifest = _read_manifest(manifest_path)
+        if manifest.get("workflow") != workflow:
+            raise ValueError("artifact manifest workflow does not match completion")
+    except Exception as exc:
+        failure = WorkflowExecutionError(
+            "Unable to read the completed workflow artifact manifest.",
+            workflow=workflow,
+        )
+        failure.__cause__ = exc
+    _synchronize_rank_failure(world, workflow, failure)
 
 
 def _result_from_manifest(
@@ -264,7 +321,17 @@ def run_workflow(
     world = options.world or get_ase_world()
     if options.dry_run:
         return _result_from_manifest(config, None, world, "validated")
-    value = _dispatch_normalized(config, options)
+    workflow = config["calculation"]["type"]
+    value = None
+    failure = None
+    try:
+        value = _dispatch_normalized(config, options)
+    except ATSTAPIError as exc:
+        failure = exc
+    except Exception as exc:
+        failure = WorkflowExecutionError(str(exc), workflow=workflow)
+        failure.__cause__ = exc
+    _synchronize_rank_failure(world, workflow, failure)
     _ensure_completed_manifest(config, value, world)
     return _result_from_manifest(config, value, world, "complete")
 

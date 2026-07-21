@@ -198,6 +198,7 @@ class AbacusAutoNEB(AutoNEB):
                         parallel=self.parallel,
                         remove_rotation_and_translation=self.remove_rotation_and_translation,
                         climb=climb,
+                        world=self.world,
                         allow_shared_calculator=self.allow_shared_calculator)
 
         # 4. Run Optimization
@@ -286,7 +287,11 @@ class AbacusAutoNEB(AutoNEB):
                 to_interpolate += [to_interpolate[0].copy()]
             to_interpolate += [self.all_images[jmax + 1]]
 
-            neb = AbacusNEB(to_interpolate, allow_shared_calculator=self.allow_shared_calculator)
+            neb = AbacusNEB(
+                to_interpolate,
+                world=self.world,
+                allow_shared_calculator=self.allow_shared_calculator,
+            )
             neb.interpolate(method=self.interpolate_method, apply_constraint=False)
 
             updated = self.all_images[:jmax + 1]
@@ -360,7 +365,11 @@ class AbacusAutoNEB(AutoNEB):
             to_interpolate += [to_interpolate[0].copy()]
             to_interpolate += [self.all_images[jmax + 1]]
 
-            neb = AbacusNEB(to_interpolate, allow_shared_calculator=self.allow_shared_calculator)
+            neb = AbacusNEB(
+                to_interpolate,
+                world=self.world,
+                allow_shared_calculator=self.allow_shared_calculator,
+            )
             neb.interpolate(method=self.interpolate_method, apply_constraint=False)
 
             updated = self.all_images[:jmax + 1]

@@ -160,6 +160,84 @@ def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_pa
     ]
 
 
+def test_completed_manifest_uses_identical_barriers_on_every_rank(tmp_path):
+    """A root-created manifest cannot make a later rank skip a collective."""
+    from atst_tools.api import services
+
+    config = {
+        "calculation": {
+            "type": "relax",
+            "artifact_manifest": str(tmp_path / "atst_artifacts.json"),
+        }
+    }
+    root = FakeWorld(size=2, rank=0)
+    peer = FakeWorld(size=2, rank=1)
+
+    services._ensure_completed_manifest(config, None, root)
+    services._ensure_completed_manifest(config, None, peer)
+
+    assert root.barriers == peer.barriers == 1
+
+
+def test_dispatch_failure_is_collective_before_manifest_barriers(monkeypatch, tmp_path):
+    """A peer failure is raised on every rank before manifest finalization."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import WorkflowExecutionError
+
+    class FailingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return 1
+
+        def barrier(self):
+            pytest.fail("a dispatch failure must prevent manifest barriers")
+
+    def fail_on_rank_one(config, options):
+        if options.world.rank == 1:
+            raise WorkflowExecutionError("local failure", workflow="relax")
+        return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", fail_on_rank_one)
+    config = {
+        "calculation": {"type": "relax", "init_structure": "initial.traj"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    for rank in (0, 1):
+        with pytest.raises(WorkflowExecutionError):
+            run_workflow(config, RunOptions(world=FailingWorld(size=2, rank=rank)))
+
+
+def test_manifest_finalization_failure_is_collective_before_barriers(monkeypatch, tmp_path):
+    """A root manifest-write failure cannot leave peer ranks at a barrier."""
+    from atst_tools.api import services
+    from atst_tools.api.models import WorkflowExecutionError
+
+    class FailingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return 1
+
+        def barrier(self):
+            pytest.fail("a manifest-write failure must prevent barriers")
+
+    monkeypatch.setattr(
+        services,
+        "write_artifact_manifest",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk failure")),
+    )
+    config = {
+        "calculation": {
+            "type": "relax",
+            "artifact_manifest": str(tmp_path / "atst_artifacts.json"),
+        }
+    }
+
+    for rank in (0, 1):
+        with pytest.raises(WorkflowExecutionError):
+            services._ensure_completed_manifest(config, None, FailingWorld(size=2, rank=rank))
+
+
 def test_path_result_is_root_only(monkeypatch, tmp_path):
     from ase import Atoms
     from ase.calculators.singlepoint import SinglePointCalculator
