@@ -522,11 +522,28 @@ def run_neb(config, calc_name, calc_config, world=None):
                 world.barrier()
     else:
         init_chain_file = calc_config['init_chain']
-    if restart:
-        n_images = make_config['n_images'] + 2 if has_make else len(read(init_chain_file, index=':'))
-        init_chain = get_last_neb_band(traj_file, n_images)
-    else:
-        init_chain = read(init_chain_file, index=':')
+    initial_chain_error = None
+    try:
+        if restart:
+            n_images = (
+                make_config['n_images'] + 2
+                if has_make
+                else len(read(init_chain_file, index=':', parallel=False))
+            )
+            init_chain = get_last_neb_band(traj_file, n_images)
+        else:
+            init_chain = read(init_chain_file, index=':', parallel=False)
+    except Exception as exc:
+        initial_chain_error = exc
+        init_chain = None
+    if effective_parallel:
+        synchronize_rank_failure(
+            world,
+            initial_chain_error,
+            context="NEB initial-chain loading",
+        )
+    if initial_chain_error is not None:
+        raise initial_chain_error
     
     # NEB Parameters
     climb = calc_config['climb']

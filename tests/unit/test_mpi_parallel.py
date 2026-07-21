@@ -292,6 +292,149 @@ def test_autoneb_parallel_requires_world_size_equal_n_simul(monkeypatch):
         )
 
 
+def test_run_neb_synchronizes_rank_local_initial_chain_read_failure(monkeypatch):
+    """An input read failure must preempt the later image-parallel collectives."""
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3)]
+
+    class FailingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return 1
+
+        def barrier(self):
+            pytest.fail("initial-chain failure reached a later collective")
+
+    for rank, expected_error in ((0, OSError), (1, RuntimeError)):
+        with monkeypatch.context() as context:
+            context.setattr(
+                main,
+                "read",
+                lambda *args, **kwargs: (_ for _ in ()).throw(OSError("rank-local read failure"))
+                if rank == 0
+                else chain,
+            )
+            with pytest.raises(expected_error, match="initial-chain|rank-local"):
+                main.run_neb(
+                    {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+                    "abacus",
+                    {"type": "neb", "init_chain": "chain.traj", "parallel": True},
+                    world=FailingWorld(size=2, rank=rank),
+                )
+
+
+def test_autoneb_runner_synchronizes_rank_local_initial_chain_read_failure(monkeypatch):
+    """AutoNEB construction synchronizes input reads before its first barrier."""
+    from atst_tools.mep import autoneb
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.3)]
+
+    class FailingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return 1
+
+        def barrier(self):
+            pytest.fail("initial-chain failure reached a later collective")
+
+    for rank, expected_error in ((0, OSError), (1, RuntimeError)):
+        with monkeypatch.context() as context:
+            context.setattr(
+                autoneb,
+                "read",
+                lambda *args, **kwargs: (_ for _ in ()).throw(OSError("rank-local read failure"))
+                if rank == 0
+                else chain,
+            )
+            with pytest.raises(expected_error, match="initial-chain|rank-local"):
+                autoneb.AutoNEBRunner(
+                    {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+                    "abacus",
+                    {
+                        "type": "autoneb",
+                        "init_chain": "chain.traj",
+                        "parallel": True,
+                        "n_simul": 2,
+                    },
+                    world=FailingWorld(size=2, rank=rank),
+                )
+
+
+def test_abacus_autoneb_synchronizes_initial_image_inspection_failure(monkeypatch, tmp_path):
+    """AutoNEB image-file checks fail collectively before the backup barrier."""
+    from atst_tools.mep import autoneb
+
+    class FailingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return 1
+
+        def barrier(self):
+            pytest.fail("initial-image inspection failure reached the backup barrier")
+
+    for rank, expected_error, message in (
+        (0, OSError, "rank-local stat failure"),
+        (1, RuntimeError, "AutoNEB initial image inspection"),
+    ):
+        with monkeypatch.context() as context:
+            context.chdir(tmp_path)
+            context.setattr(
+                autoneb.os.path,
+                "isfile",
+                lambda path: (_ for _ in ()).throw(OSError("rank-local stat failure"))
+                if rank == 0
+                else str(path).endswith(("run000.traj", "run001.traj")),
+            )
+            auto = autoneb.AbacusAutoNEB(
+                attach_calculators=lambda images: None,
+                prefix="run",
+                n_simul=1,
+                n_max=2,
+                parallel=True,
+                world=FailingWorld(size=2, rank=rank),
+            )
+            with pytest.raises(expected_error, match=message):
+                auto.__initialize__()
+
+
+def test_abacus_autoneb_synchronizes_initial_image_read_failure(monkeypatch, tmp_path):
+    """AutoNEB image reads fail collectively before later optimization collectives."""
+    from atst_tools.mep import autoneb
+
+    class FailingWorld(FakeWorld):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.reductions = 0
+
+        def sum_scalar(self, value):
+            self.reductions += 1
+            return int(self.reductions == 3)
+
+    for rank, expected_error in ((0, OSError), (1, RuntimeError)):
+        with monkeypatch.context() as context:
+            context.chdir(tmp_path)
+            context.setattr(
+                autoneb.os.path,
+                "isfile",
+                lambda path: str(path).endswith(("run000.traj", "run001.traj")),
+            )
+            context.setattr(
+                autoneb,
+                "read",
+                lambda *args, **kwargs: (_ for _ in ()).throw(OSError("rank-local read failure"))
+                if rank == 0
+                else _atoms(0.0),
+            )
+            auto = autoneb.AbacusAutoNEB(
+                attach_calculators=lambda images: None,
+                prefix="run",
+                n_simul=1,
+                n_max=2,
+                parallel=True,
+                world=FailingWorld(size=2, rank=rank),
+            )
+            with pytest.raises(expected_error, match="initial image|rank-local"):
+                auto.__initialize__()
+
+
 def test_autoneb_parallel_initial_files_written_only_by_rank_zero(monkeypatch, tmp_path):
     from atst_tools.mep import autoneb
 

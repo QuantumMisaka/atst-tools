@@ -512,17 +512,20 @@ def _run_workflow(
         if preflight is not None:
             result.metadata["check_input_preflight"] = preflight
         return result
-    manifest_path = config["calculation"].get("artifact_manifest", "atst_artifacts.json")
-    manifest_inspection_failure = None
-    try:
-        previous_signature = _manifest_signature(manifest_path)
-    except OSError as exc:
-        manifest_inspection_failure = WorkflowExecutionError(
-            "Unable to inspect the workflow artifact manifest.", workflow=workflow
+    previous_signature = None
+    if ensure_completed_manifest:
+        manifest_path = config["calculation"].get(
+            "artifact_manifest", "atst_artifacts.json"
         )
-        manifest_inspection_failure.__cause__ = exc
-        previous_signature = None
-    _synchronize_rank_failure(world, workflow, manifest_inspection_failure)
+        manifest_inspection_failure = None
+        try:
+            previous_signature = _manifest_signature(manifest_path)
+        except OSError as exc:
+            manifest_inspection_failure = WorkflowExecutionError(
+                "Unable to inspect the workflow artifact manifest.", workflow=workflow
+            )
+            manifest_inspection_failure.__cause__ = exc
+        _synchronize_rank_failure(world, workflow, manifest_inspection_failure)
     value = None
     failure = None
     try:

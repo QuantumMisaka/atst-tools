@@ -93,32 +93,45 @@ class AbacusAutoNEB(AutoNEB):
 
     def __initialize__(self):
         """Load AutoNEB image files with explicit non-parallel ASE reads."""
-        if not os.path.isfile(f"{self.prefix}000.traj"):
-            raise OSError(
-                f"No file with name {self.prefix}000.traj",
-                "was found. Should contain initial image",
-            )
-
-        index_exists = [
-            i for i in range(self.n_max)
-            if os.path.isfile("%s%03d.traj" % (self.prefix, i))
-        ]
-        n_cur = index_exists[-1] + 1
-
-        if self.world.rank == 0:
-            print(
-                "The NEB initially has %d images " % len(index_exists),
-                "(including the end-points)",
-            )
-        if len(index_exists) == 1:
-            raise Exception("Only a start point exists")
-
-        for i in range(len(index_exists)):
-            if i != index_exists[i]:
-                raise Exception(
-                    "Files must be ordered sequentially",
-                    "without gaps.",
+        initial_image_error = None
+        try:
+            if not os.path.isfile(f"{self.prefix}000.traj"):
+                raise OSError(
+                    f"No file with name {self.prefix}000.traj",
+                    "was found. Should contain initial image",
                 )
+
+            index_exists = [
+                i for i in range(self.n_max)
+                if os.path.isfile("%s%03d.traj" % (self.prefix, i))
+            ]
+            n_cur = index_exists[-1] + 1
+
+            if self.world.rank == 0:
+                print(
+                    "The NEB initially has %d images " % len(index_exists),
+                    "(including the end-points)",
+                )
+            if len(index_exists) == 1:
+                raise Exception("Only a start point exists")
+
+            for i in range(len(index_exists)):
+                if i != index_exists[i]:
+                    raise Exception(
+                        "Files must be ordered sequentially",
+                        "without gaps.",
+                    )
+        except Exception as exc:
+            initial_image_error = exc
+        if self.parallel:
+            synchronize_rank_failure(
+                self.world,
+                initial_image_error,
+                context="AutoNEB initial image inspection",
+            )
+        if initial_image_error is not None:
+            raise initial_image_error
+
         def copy_initial_images():
             for i in index_exists:
                 filename_ref = self.iter_trajpath(i, 0)
@@ -142,13 +155,25 @@ class AbacusAutoNEB(AutoNEB):
             copy_initial_images()
         self.world.barrier()
 
-        for i in range(n_cur):
-            if i in index_exists:
-                filename = "%s%03d.traj" % (self.prefix, i)
-                newim = read(filename, parallel=False)
-                self.all_images.append(newim)
-            else:
-                self.all_images.append(self.all_images[0].copy())
+        initial_image_error = None
+        try:
+            for i in range(n_cur):
+                if i in index_exists:
+                    filename = "%s%03d.traj" % (self.prefix, i)
+                    newim = read(filename, parallel=False)
+                    self.all_images.append(newim)
+                else:
+                    self.all_images.append(self.all_images[0].copy())
+        except Exception as exc:
+            initial_image_error = exc
+        if self.parallel:
+            synchronize_rank_failure(
+                self.world,
+                initial_image_error,
+                context="AutoNEB initial image loading",
+            )
+        if initial_image_error is not None:
+            raise initial_image_error
 
         self.iteration = 0
         return n_cur
@@ -512,7 +537,20 @@ class AutoNEBRunner:
         
         # Initial chain
         init_chain_file = calc_config['init_chain']
-        self.init_chain = read(init_chain_file, index=':')
+        initial_chain_error = None
+        try:
+            self.init_chain = read(init_chain_file, index=':', parallel=False)
+        except Exception as exc:
+            initial_chain_error = exc
+            self.init_chain = None
+        if self.parallel:
+            synchronize_rank_failure(
+                self.world,
+                initial_chain_error,
+                context="AutoNEB initial-chain loading",
+            )
+        if initial_chain_error is not None:
+            raise initial_chain_error
         self._image_index_by_id = {id(image): index for index, image in enumerate(self.init_chain)}
         self._active_autoneb = None
         self._apply_legacy_endpoint_conditions()

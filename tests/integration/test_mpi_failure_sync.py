@@ -186,6 +186,79 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
+@pytest.mark.parametrize("workflow", ["neb", "autoneb"])
+def test_rank_local_initial_chain_read_error_releases_every_rank(
+    tmp_path: Path, workflow: str
+) -> None:
+    """Initial-chain read failures must synchronize before image collectives."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec")
+    bundled_launcher = Path(sys.executable).with_name("mpiexec")
+    if launcher is None and bundled_launcher.is_file():
+        launcher = str(bundled_launcher)
+    if launcher is None:
+        pytest.skip("mpiexec is unavailable")
+
+    setup = (
+        "from ase import Atoms; from ase.io import write; "
+        "write('chain.traj', [Atoms('H', positions=[[float(i), 0, 0]]) for i in range(4)])"
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    subprocess.run(
+        [sys.executable, "-c", setup],
+        cwd=tmp_path,
+        env=environment,
+        check=True,
+        timeout=MPI_TIMEOUT_SECONDS,
+    )
+    autoneb_fields = "'n_simul': 2, 'n_max': 4," if workflow == "autoneb" else ""
+    smoke = f"""
+from mpi4py import MPI
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api.models import WorkflowExecutionError
+
+rank = MPI.COMM_WORLD.rank
+if {workflow!r} == 'neb':
+    from atst_tools.scripts import main as runner_module
+else:
+    from atst_tools.mep import autoneb as runner_module
+
+actual_read = runner_module.read
+def fail_initial_chain_read(path, *args, **kwargs):
+    if rank == 0 and str(path) == 'chain.traj':
+        raise OSError('injected rank-local initial-chain read failure')
+    return actual_read(path, *args, **kwargs)
+runner_module.read = fail_initial_chain_read
+
+calculation = {{
+    'type': {workflow!r},
+    'init_chain': 'chain.traj',
+    'parallel': True,
+    {autoneb_fields}
+}}
+try:
+    run_workflow(
+        {{'calculation': calculation,
+          'calculator': {{'name': 'abacus', 'abacus': {{'parameters': {{}}}}}}}},
+        RunOptions(),
+    )
+except WorkflowExecutionError:
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 def test_rank_local_manifest_inspection_error_releases_every_rank(tmp_path: Path) -> None:
     """API manifest inspection failures must synchronize before workflow dispatch."""
     if not _mpi_test_enabled():

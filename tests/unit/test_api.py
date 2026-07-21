@@ -639,6 +639,37 @@ def test_run_workflow_wraps_pre_dispatch_manifest_signature_oserror(monkeypatch,
     assert excinfo.value.__cause__ is signature_error
 
 
+def test_cli_adapter_dispatches_when_manifest_signature_is_unreadable(monkeypatch, tmp_path):
+    """Legacy CLI execution must not inspect API-only manifest state."""
+    from atst_tools.api import RunOptions
+    from atst_tools.api import services
+
+    signature_error = OSError("manifest stat unavailable")
+    dispatched = []
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services,
+        "_manifest_signature",
+        lambda path: (_ for _ in ()).throw(signature_error),
+    )
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: dispatched.append(args),
+    )
+
+    result = services.run_workflow_from_cli(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    assert len(dispatched) == 1
+    assert result.artifacts == ()
+
+
 def test_run_workflow_preserves_a_fresh_runner_written_manifest(monkeypatch, tmp_path):
     """A valid manifest produced during this run remains the runner's source of truth."""
     from atst_tools.api import RunOptions, run_workflow
