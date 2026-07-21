@@ -35,6 +35,33 @@ def test_run_workflow_preserves_falsey_supplied_world(monkeypatch, tmp_path):
     assert result is supplied_world
 
 
+def test_run_workflow_resolves_world_before_config_load_failure(monkeypatch):
+    """Configuration failures must have a communicator for peer synchronization."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import ConfigValidationError
+
+    events = []
+    original_error = OSError("injected configuration read failure")
+
+    def fail_load(*args, **kwargs):
+        events.append("load")
+        raise ConfigValidationError("invalid config") from original_error
+
+    monkeypatch.setattr(
+        services,
+        "get_ase_world",
+        lambda: events.append("world") or FakeWorld(),
+    )
+    monkeypatch.setattr(services, "_load_and_normalize", fail_load)
+
+    with pytest.raises(ConfigValidationError) as caught:
+        run_workflow("broken.yaml", RunOptions())
+
+    assert events == ["world", "load"]
+    assert caught.value.__cause__ is original_error
+
+
 def test_public_api_has_only_the_supported_contract():
     import atst_tools.api as api
 

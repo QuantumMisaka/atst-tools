@@ -94,6 +94,7 @@ def test_wheel_release_gate_runs_the_h2_au_api_fixture_and_has_opt_in_mpi_smoke(
     assert "_run_installed_cli_dry_run" in script
     assert "assert_autoneb_engine_failure('atst')" in script
     assert "assert_autoneb_engine_failure('ase')" in script
+    assert 'str(wheel) + "[parallel]"' in script
 
 
 def test_wheel_ccqn_example_fixture_installs_only_a_backend_run_patch(

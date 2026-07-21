@@ -493,11 +493,18 @@ def _run_workflow(
     translate_communicator_errors: bool = False,
 ) -> WorkflowResult:
     """Execute the shared workflow path with an explicit caller compatibility mode."""
-    config = _load_and_normalize(config_source, restart_override=options.restart)
-    workflow = config["calculation"]["type"]
     world = _resolve_world(
-        options, workflow, translate_errors=translate_communicator_errors
+        options, "configuration", translate_errors=translate_communicator_errors
     )
+    config_failure = None
+    try:
+        config = _load_and_normalize(config_source, restart_override=options.restart)
+    except ConfigValidationError as exc:
+        config_failure = exc
+        config = None
+    _synchronize_rank_failure(world, "configuration", config_failure)
+    assert config is not None
+    workflow = config["calculation"]["type"]
     if options.dry_run:
         try:
             preflight = _run_abacus_check_input_preflight(

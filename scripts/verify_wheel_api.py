@@ -372,6 +372,17 @@ def main(argv: list[str] | None = None) -> int:
         _run_installed_cli_dry_run(venv / "bin" / "atst", temporary_root)
         _run_h2_au_api_example(python, temporary_root)
         if args.mpi_smoke:
+            _run(
+                [
+                    str(python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--force-reinstall",
+                    str(wheel) + "[parallel]",
+                ]
+            )
+            _run([str(python), "-c", "from mpi4py import MPI; assert MPI is not None"])
             _run_mpi_smoke(python, temporary_root)
 
     print("wheel clean-install public API gates passed")

@@ -305,6 +305,56 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
+def test_rank_local_config_load_failure_releases_every_rank(tmp_path: Path) -> None:
+    """Config loading must synchronize before a peer can reach workflow dispatch."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(Path(sys.executable).with_name("mpiexec"))
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    smoke = """
+from mpi4py import MPI
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api import services
+from atst_tools.api.models import ConfigValidationError, WorkflowExecutionError
+
+rank = MPI.COMM_WORLD.rank
+if rank == 0:
+    def fail_load(*args, **kwargs):
+        try:
+            raise OSError('injected rank-local config load cause')
+        except OSError as cause:
+            raise ConfigValidationError('injected config validation failure') from cause
+    services._load_and_normalize = fail_load
+
+services._dispatch_normalized = lambda *args, **kwargs: MPI.COMM_WORLD.Barrier()
+try:
+    run_workflow(
+        {'calculation': {'type': 'relax', 'init_structure': 'unused.traj'},
+         'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}}},
+        RunOptions(),
+    )
+except (ConfigValidationError, WorkflowExecutionError) as error:
+    if rank == 0:
+        assert isinstance(error, ConfigValidationError)
+        assert isinstance(error.__cause__, OSError)
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
 @pytest.mark.parametrize("workflow", ["neb", "autoneb"])
 def test_root_calculator_setup_failure_releases_every_image_parallel_rank(
     tmp_path: Path, workflow: str
