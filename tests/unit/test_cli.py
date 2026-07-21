@@ -323,6 +323,29 @@ def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
     assert "Configuration is valid" in caplog.text
 
 
+def test_atst_run_invalid_dry_run_does_not_log_configuration_valid(monkeypatch, caplog):
+    """Validation success is not logged when the workflow API rejects config."""
+    from atst_tools.api.models import ConfigValidationError
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    caplog.set_level("INFO")
+    validation_error = ConfigValidationError("invalid configuration")
+    monkeypatch.setattr(
+        run_cli,
+        "run_workflow_from_cli",
+        lambda *args, **kwargs: (_ for _ in ()).throw(validation_error),
+    )
+
+    with pytest.raises(ValueError, match="invalid configuration"):
+        cli.main(["run", "--dry-run", "config.yaml"])
+
+    assert not any(
+        record.getMessage().startswith("Configuration is valid")
+        for record in caplog.records
+    )
+
+
 def test_config_validate_delegates_to_public_validation_service(monkeypatch, capsys):
     """The config command consumes normalization from the public API service."""
     from atst_tools.scripts import cli
@@ -434,10 +457,10 @@ def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog
     )
 
 
-def test_atst_run_check_input_failure_logs_validation_before_legacy_error(
+def test_atst_run_check_input_failure_does_not_log_validation_before_legacy_error(
     monkeypatch, caplog
 ):
-    """A failed preflight keeps the legacy validation-log and error ordering."""
+    """A failed preflight does not report validation success before the error."""
     from atst_tools.scripts import cli
     from atst_tools.scripts import main as run_cli
 
@@ -466,7 +489,7 @@ def test_atst_run_check_input_failure_logs_validation_before_legacy_error(
         cli.main(["run", "--dry-run", "--check-input", "config.yaml"])
 
     assert excinfo.value is preflight_error
-    assert any(
+    assert not any(
         message.startswith("Configuration is valid:")
         for message in messages_at_preflight
     )

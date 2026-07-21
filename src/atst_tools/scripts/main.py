@@ -822,10 +822,6 @@ def run_from_args(args):
         abacus_executable=getattr(args, "abacus_executable", None),
     )
     try:
-        if options.dry_run:
-            # The shared API path performs the authoritative validation after
-            # applying command-line overrides; retain the legacy log ordering.
-            LOGGER.info("Configuration is valid: validation delegated to workflow API")
         result = run_workflow_from_cli(args.config, options)
     except ConfigValidationError as exc:
         raise ValueError(str(exc)) from None
@@ -844,6 +840,7 @@ def run_from_args(args):
             raise exc.__cause__ from None
         raise RuntimeError(str(exc)) from None
     if options.dry_run:
+        LOGGER.info("Configuration is valid: validation delegated to workflow API")
         preflight = getattr(result, "metadata", {}).get("check_input_preflight")
         if preflight is not None:
             if preflight["status"] == "passed":
