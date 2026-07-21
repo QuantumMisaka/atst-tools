@@ -109,6 +109,12 @@ Automatic reactive modes are enabled by supplying an
 `{"enabled": True, "cutoff_A": 3.5, "max_modes": 8}`. See the executable
 [H2/Au automatic-mode example](../../examples/12_ccqn_H2-Au/ccqn_api_auto_modes.py).
 
+For production ABACUS CCQN injection, the caller must supply a caller-created,
+correctly configured `abacuslite` ASE calculator. The caller's normal ABACUS
+pseudopotential, orbital, executable/runtime, and site setup must already be
+ready; ATST does not configure it. ATST-Tools does not install or require
+ABACUS as a package dependency for this API.
+
 ## Results and artifacts
 
 `WorkflowResult` is a frozen container with `workflow`, `status`, `is_root`,

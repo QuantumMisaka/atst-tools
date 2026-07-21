@@ -48,3 +48,12 @@ PYTHONPATH=src conda run -n atst-dev pytest tests -q
 
 Both commands passed.  The full suite reported only two existing ASE NEB
 default-method warnings.
+
+## Task6 P2 documentation boundary
+
+The stable CCQN API documentation now states the production injection
+boundary consistently: callers provide a caller-created, correctly configured
+`abacuslite` ASE calculator and complete the normal ABACUS pseudopotential,
+orbital, executable/runtime, and site setup. ATST does not configure the
+calculator, and ATST-Tools does not install or require ABACUS as a package
+dependency. The EMT companion remains a lightweight, backend-free fixture.

@@ -191,7 +191,11 @@ companion to `config_auto_modes.yaml`. It uses a lightweight ASE EMT fixture so
 the public-import example is structurally executable in tests; it is not an
 ABACUS production input. For a production calculator, create and configure the
 calculator in the calling application, then pass it to `run_ccqn()` as defined
-in the [Python API reference](../docs/user/PYTHON_API_REFERENCE.md).
+in the [Python API reference](../docs/user/PYTHON_API_REFERENCE.md). Production
+ABACUS CCQN injection requires a caller-created, correctly configured
+`abacuslite` ASE calculator plus the normal ABACUS pseudopotential, orbital,
+executable/runtime, and site setup. ATST does not configure that calculator;
+ATST-Tools does not install or require ABACUS as a package dependency.
 
 For ordinary NEB, the main 01/02 examples and the 13 image-parallel example
 enable `two_stage: true` with `stage1_fmax: 0.20` and a bounded

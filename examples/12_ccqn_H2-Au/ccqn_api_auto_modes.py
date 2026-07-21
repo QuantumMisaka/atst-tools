@@ -10,6 +10,12 @@ details live at https://github.com/QuantumMisaka/atst-tools ; use the repository
 The example deliberately uses ASE EMT as a lightweight calculator fixture. It
 demonstrates the stable ``atst_tools.api`` boundary and does not require a
 production backend to run the example contract test.
+
+For production ABACUS CCQN injection, provide a caller-created, correctly configured
+``abacuslite`` ASE calculator. The caller must complete the normal
+ABACUS pseudopotential, orbital, executable/runtime, and site setup; ATST does not configure
+it. ATST-Tools does not install or require ABACUS as a package
+dependency for this API.
 """
 
 from ase.calculators.emt import EMT

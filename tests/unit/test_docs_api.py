@@ -49,6 +49,21 @@ def test_api_reference_states_execution_and_backend_boundaries():
         assert phrase in text
 
 
+def test_ccqn_docs_state_production_abacus_calculator_boundary():
+    """Production ABACUS CCQN setup remains an explicit caller responsibility."""
+    reference = API_REFERENCE.read_text(encoding="utf-8")
+    example = API_EXAMPLE.read_text(encoding="utf-8")
+    examples_readme = (ROOT / "examples/README.md").read_text(encoding="utf-8")
+
+    for text in (reference, example, examples_readme):
+        assert "caller-created" in text
+        assert "correctly configured" in text
+        assert "pseudopotential" in text
+        assert "orbital" in text
+        assert "executable/runtime" in text
+        assert "ATST does not configure" in text
+
+
 def test_ccqn_api_example_has_required_header_and_automatic_mode_options():
     text = API_EXAMPLE.read_text(encoding="utf-8")
 
@@ -62,7 +77,7 @@ def test_ccqn_api_example_has_required_header_and_automatic_mode_options():
         "auto_reactive_bonds",
     ):
         assert phrase in text
-    assert "abacuslite" not in text.lower()
+    assert "abacuslite" in text.lower()
 
 
 def test_ccqn_api_example_executes_through_public_api_import_only(monkeypatch):
