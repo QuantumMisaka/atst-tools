@@ -347,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         temporary_root = Path(temporary)
         wheel = _wheel_from_args(args.wheel, temporary_root)
         venv = temporary_root / "venv"
-        _run([sys.executable, "-m", "venv", "--system-site-packages", str(venv)])
+        _run([sys.executable, "-m", "venv", str(venv)])
         python = venv / "bin" / "python"
         _run(
             [
@@ -355,8 +355,6 @@ def main(argv: list[str] | None = None) -> int:
                 "-m",
                 "pip",
                 "install",
-                "--no-index",
-                "--no-deps",
                 "--force-reinstall",
                 str(wheel),
             ]

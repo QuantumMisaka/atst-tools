@@ -793,7 +793,7 @@ class AutoNEBRunner:
         sync_file = Path(".atst_autoneb_endpoint_synced.traj")
         def prepare_and_write():
             prepare()
-            write(sync_file, self.init_chain)
+            write(sync_file, self.init_chain, parallel=False)
         run_rank_zero_section(
             self.world,
             prepare_and_write,
@@ -921,7 +921,7 @@ class AutoNEBRunner:
         def write_initial_files():
             for i, atoms in enumerate(self.init_chain):
                 filename = f'{self.prefix}{i:03d}.traj'
-                write(filename, atoms)
+                write(filename, atoms, parallel=False)
         if self.parallel:
             run_rank_zero_section(
                 self.world,
@@ -945,7 +945,7 @@ class AutoNEBRunner:
             self._freeze_final_image_results(final_images)
             for i, atoms in enumerate(final_images):
                 filename = f'{self.prefix}{i:03d}.traj'
-                write(filename, atoms)
+                write(filename, atoms, parallel=False)
         if self.parallel:
             run_rank_zero_section(
                 self.world,

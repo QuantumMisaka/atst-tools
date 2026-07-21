@@ -629,7 +629,13 @@ def run_ccqn(
     except Exception as exc:
         raise WorkflowExecutionError(str(exc), workflow="ccqn") from exc
 
-    manifest = _read_manifest(options.artifact_manifest)
+    try:
+        manifest = _read_manifest(options.artifact_manifest)
+    except Exception as exc:
+        raise WorkflowExecutionError(
+            "Unable to read the completed workflow artifact manifest.",
+            workflow="ccqn",
+        ) from exc
     metadata = {**manifest.get("metadata", {}), "backend_source": "provided"}
     return WorkflowResult(
         workflow="ccqn",

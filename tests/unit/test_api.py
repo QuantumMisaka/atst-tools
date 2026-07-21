@@ -958,6 +958,28 @@ def test_public_ccqn_uses_private_atoms_and_marks_supplied_backend(monkeypatch, 
     assert result.metadata["backend_source"] == "provided"
 
 
+def test_public_ccqn_wraps_completed_manifest_read_failure(monkeypatch, tmp_path):
+    """Post-run manifest failures stay within the public API error contract."""
+    from ase import Atoms
+    from helpers import DummyCalc
+    from atst_tools.api import CCQNOptions, run_ccqn
+    from atst_tools.api.models import WorkflowExecutionError
+    from atst_tools.api import services
+
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer.run", lambda self, **kwargs: None)
+    read_error = OSError("manifest became unreadable")
+    monkeypatch.setattr(services, "_read_manifest", lambda *args: (_ for _ in ()).throw(read_error))
+
+    with pytest.raises(WorkflowExecutionError, match="completed workflow artifact manifest") as caught:
+        run_ccqn(
+            Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]]),
+            DummyCalc(),
+            CCQNOptions(reactive_bonds="1-2", artifact_manifest=str(tmp_path / "manifest.json")),
+        )
+
+    assert caught.value.__cause__ is read_error
+
+
 def test_ccqn_options_config_maps_only_supported_ccqn_schema_fields():
     """The embedded API exposes CCQN controls, never backend configuration."""
     from atst_tools.api import CCQNOptions

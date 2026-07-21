@@ -844,7 +844,12 @@ def test_run_neb_parallel_endpoint_sync_reads_without_ase_parallel(monkeypatch, 
     deleted = []
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(main, "write", lambda *args, **kwargs: None)
+    write_kwargs = []
+    monkeypatch.setattr(
+        main,
+        "write",
+        lambda *args, **kwargs: write_kwargs.append(kwargs),
+    )
     monkeypatch.setattr(
         main,
         "read",
@@ -859,8 +864,54 @@ def test_run_neb_parallel_endpoint_sync_reads_without_ase_parallel(monkeypatch, 
     )
 
     assert synced == chain
+    assert write_kwargs == [{"parallel": False}]
     assert read_kwargs == [{"index": ":", "parallel": False}]
     assert deleted == [".atst_neb_endpoint_synced.traj"]
+
+
+def test_run_neb_synchronizes_each_pre_collective_construction_stage(monkeypatch, tmp_path):
+    """Calculator, NEB, and optimizer setup must each finish before the next."""
+    from atst_tools.scripts import main
+
+    chain = [_atoms(float(index)) for index in range(4)]
+    contexts = []
+
+    class FakeNEB:
+        def __init__(self, *args, **kwargs):
+            return None
+
+    class FakeOptimizer:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def run(self, *args, **kwargs):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "_sync_parallel_endpoint_results", lambda images, *args: images)
+    monkeypatch.setattr(main, "_get_workflow_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda *args, **kwargs: FakeOptimizer)
+    monkeypatch.setattr(
+        main,
+        "run_pre_run_construction",
+        lambda world, operation, **kwargs: contexts.append(kwargs["context"]) or operation(),
+    )
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "neb", "init_chain": "chain.traj", "parallel": True},
+        world=FakeWorld(size=2, rank=0),
+    )
+
+    assert contexts == [
+        "NEB calculator setup",
+        "NEB engine construction",
+        "NEB optimizer construction",
+    ]
 
 
 def test_image_parallel_rank_owns_matching_local_image():

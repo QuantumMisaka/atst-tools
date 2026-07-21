@@ -425,7 +425,7 @@ def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
 
     def prepare_and_write():
         prepare_endpoints(images)
-        write(sync_file, images)
+        write(sync_file, images, parallel=False)
 
     run_rank_zero_section(
         world,
@@ -586,12 +586,9 @@ def run_neb(config, calc_name, calc_config, world=None):
         prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
 
-    # Every rank must complete all local setup before optimizer internals begin
-    # their first reduction.  Keep calculator/image setup, NEB construction,
-    # and trajectory-writer construction in this one boundary.
     neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
 
-    def construct_pre_run():
+    def construct_calculators():
         shared_calc = None
         if allow_shared:
             shared_calc = _get_workflow_calculator(
@@ -620,7 +617,8 @@ def run_neb(config, calc_name, calc_config, world=None):
                     directory=f"{base_dir}/image_{i + 1:03d}",
                 )
 
-        neb = neb_class(
+    def construct_neb():
+        return neb_class(
             init_chain,
             parallel=effective_parallel,
             world=world,
@@ -629,21 +627,34 @@ def run_neb(config, calc_name, calc_config, world=None):
             climb=False if two_stage else climb,
             allow_shared_calculator=allow_shared,
         )
-        opt = optimizer(
+
+    def construct_optimizer(neb):
+        return optimizer(
             neb,
             trajectory=traj_file,
             **calc_config.get("optimizer_kwargs", {}),
         )
-        return neb, opt
 
     if effective_parallel:
-        neb, opt = run_pre_run_construction(
+        run_pre_run_construction(
             world,
-            construct_pre_run,
-            context="NEB pre-run construction",
+            construct_calculators,
+            context="NEB calculator setup",
+        )
+        neb = run_pre_run_construction(
+            world,
+            construct_neb,
+            context="NEB engine construction",
+        )
+        opt = run_pre_run_construction(
+            world,
+            lambda: construct_optimizer(neb),
+            context="NEB optimizer construction",
         )
     else:
-        neb, opt = construct_pre_run()
+        construct_calculators()
+        neb = construct_neb()
+        opt = construct_optimizer(neb)
 
     stage1_converged = None
     stage1_actual_steps = None

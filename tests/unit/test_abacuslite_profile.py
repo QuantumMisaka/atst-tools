@@ -1,6 +1,7 @@
 """Tests for abacuslite profile helpers used by ATST-Tools."""
 
 from types import SimpleNamespace
+import builtins
 
 import numpy as np
 import pytest
@@ -11,6 +12,21 @@ from atst_tools.calculators import abacuslite_backend
 from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
 from atst_tools.external.ASE_interface.abacuslite.core import AbacusProfile, AbacusTemplate
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import file_safe_backup, read_stru, write_stru
+
+
+def test_abacuslite_backend_does_not_hide_external_package_import_errors(monkeypatch):
+    """Only a missing top-level external package may trigger the vendored fallback."""
+    original_import = builtins.__import__
+
+    def broken_external_import(name, *args, **kwargs):
+        if name == "abacuslite":
+            raise ImportError("external abacuslite internal dependency failed")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", broken_external_import)
+
+    with pytest.raises(ImportError, match="internal dependency failed"):
+        abacuslite_backend._load_abacuslite_backend()
 
 
 def test_parse_version_accepts_legacy_abacus_version_line():

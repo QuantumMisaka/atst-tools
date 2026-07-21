@@ -350,7 +350,7 @@ if {workflow!r} == 'neb':
     runner_module._sync_parallel_endpoint_results = lambda images, *args: images
     class FakeNEB:
         def __init__(self, *args, **kwargs):
-            pass
+            MPI.COMM_WORLD.Barrier()
     class CollectiveOptimizer:
         def __init__(self, *args, **kwargs):
             MPI.COMM_WORLD.Barrier()

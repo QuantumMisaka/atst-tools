@@ -85,9 +85,9 @@ def test_wheel_release_gate_runs_the_h2_au_api_fixture_and_has_opt_in_mpi_smoke(
 
     assert "12_ccqn_H2-Au" in script
     assert "ccqn_api_auto_modes.py" in script
-    assert "--system-site-packages" in script
-    assert "--no-index" in script
-    assert "--no-deps" in script
+    assert "--system-site-packages" not in script
+    assert "--no-index" not in script
+    assert "--no-deps" not in script
     assert "--force-reinstall" in script
     assert "--mpi-smoke" in script
     assert "mpiexec" in script
