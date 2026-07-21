@@ -328,6 +328,28 @@ def test_run_workflow_dry_run_returns_no_in_memory_atoms(monkeypatch):
     assert result.final_atoms is None
 
 
+def test_run_workflow_rejects_check_input_without_dry_run_before_dispatch(monkeypatch):
+    """The public API enforces the CLI's check-input dry-run prerequisite."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import ConfigValidationError
+
+    monkeypatch.setattr(
+        services,
+        "_dispatch_normalized",
+        lambda *args: pytest.fail("invalid options reached workflow dispatch"),
+    )
+
+    with pytest.raises(ConfigValidationError, match="--check-input requires --dry-run"):
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "x.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(check_input=True),
+        )
+
+
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_configured_dp_result_records_deepmd_backend_source(
     monkeypatch, tmp_path, dry_run
@@ -418,6 +440,122 @@ def test_mapping_check_input_preflight_uses_current_working_directory(monkeypatc
     )
 
     assert observed["config_path"] is None
+
+
+def test_yaml_check_input_preflight_uses_api_current_working_directory(
+    monkeypatch, tmp_path
+):
+    """Public YAML paths must not change API preflight path-resolution semantics."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.scripts import main as run_cli
+
+    config_dir = tmp_path / "yaml-parent"
+    config_dir.mkdir()
+    config_path = config_dir / "config.yaml"
+    config_path.write_text(
+        "calculation:\n  type: relax\n  init_structure: initial.traj\n"
+        "calculator:\n  name: abacus\n  abacus:\n    parameters: {}\n",
+        encoding="utf-8",
+    )
+    api_cwd = tmp_path / "api-cwd"
+    api_cwd.mkdir()
+    monkeypatch.chdir(api_cwd)
+    observed = {}
+
+    def preflight(config, config_path, **kwargs):
+        observed["config_path"] = config_path
+        observed["base_dir"] = kwargs.get("base_dir")
+        return {"checked": 1, "workdirs": []}
+
+    monkeypatch.setattr(run_cli, "run_abacus_check_input_dry_run", preflight)
+    run_workflow(config_path, RunOptions(dry_run=True, check_input=True, world=FakeWorld()))
+
+    assert observed == {"config_path": str(config_path), "base_dir": api_cwd}
+
+
+def test_cli_yaml_check_input_preflight_preserves_yaml_parent_base_dir(
+    monkeypatch, tmp_path
+):
+    """The legacy CLI adapter retains its established YAML-parent behavior."""
+    from atst_tools.api import RunOptions
+    from atst_tools.api import services
+    from atst_tools.scripts import main as run_cli
+
+    config_dir = tmp_path / "yaml-parent"
+    config_dir.mkdir()
+    config_path = config_dir / "config.yaml"
+    config_path.write_text(
+        "calculation:\n  type: relax\n  init_structure: initial.traj\n"
+        "calculator:\n  name: abacus\n  abacus:\n    parameters: {}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    observed = {}
+
+    def preflight(config, config_path, **kwargs):
+        observed["config_path"] = config_path
+        observed["base_dir"] = kwargs.get("base_dir")
+        return {"checked": 1, "workdirs": []}
+
+    monkeypatch.setattr(run_cli, "run_abacus_check_input_dry_run", preflight)
+    services.run_workflow_from_cli(
+        config_path, RunOptions(dry_run=True, check_input=True, world=FakeWorld())
+    )
+
+    assert observed == {"config_path": str(config_path), "base_dir": None}
+
+
+def test_run_workflow_wraps_mpi_bootstrap_dependency_failure(monkeypatch):
+    """MPI bootstrap errors are typed at the public API boundary."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.api.models import UnsupportedDependencyError
+
+    missing_mpi4py = ModuleNotFoundError("No module named 'mpi4py'")
+    missing_mpi4py.name = "mpi4py"
+    bootstrap_error = RuntimeError("MPI launcher requires mpi4py")
+    bootstrap_error.__cause__ = missing_mpi4py
+    monkeypatch.setattr(
+        services,
+        "get_ase_world",
+        lambda: (_ for _ in ()).throw(bootstrap_error),
+    )
+
+    with pytest.raises(UnsupportedDependencyError) as excinfo:
+        run_workflow(
+            {
+                "calculation": {"type": "relax", "init_structure": "x.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(dry_run=True),
+        )
+
+    assert excinfo.value.context == {"dependency": "mpi4py"}
+    assert excinfo.value.__cause__ is bootstrap_error
+
+
+def test_cli_adapter_preserves_raw_mpi_bootstrap_failure(monkeypatch):
+    """Legacy CLI callers retain the original communicator-bootstrap error."""
+    from atst_tools.api import RunOptions
+    from atst_tools.api import services
+
+    bootstrap_error = RuntimeError("MPI launcher requires mpi4py")
+    monkeypatch.setattr(
+        services,
+        "get_ase_world",
+        lambda: (_ for _ in ()).throw(bootstrap_error),
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        services.run_workflow_from_cli(
+            {
+                "calculation": {"type": "relax", "init_structure": "x.traj"},
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            },
+            RunOptions(dry_run=True),
+        )
+
+    assert excinfo.value is bootstrap_error
 
 
 def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_path):

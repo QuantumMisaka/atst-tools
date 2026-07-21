@@ -195,26 +195,37 @@ def run_abacus_check_input_dry_run(
     *,
     timeout_sec: int = 120,
     abacus_executable: str = "abacus",
+    base_dir: str | Path | None = None,
 ) -> dict[str, Any]:
-    base_dir = (
-        Path(config_path).expanduser().resolve().parent
-        if config_path is not None
-        else Path.cwd().resolve()
+    """Run ABACUS input validation with an explicit relative-path base directory.
+
+    ``base_dir=None`` preserves the legacy CLI rule: YAML paths are resolved
+    relative to their parent, and mappings relative to the process CWD.
+    API callers can instead provide their own established path boundary.
+    """
+    resolved_base_dir = (
+        Path(base_dir).expanduser().resolve()
+        if base_dir is not None
+        else (
+            Path(config_path).expanduser().resolve().parent
+            if config_path is not None
+            else Path.cwd().resolve()
+        )
     )
-    structure_paths = _representative_structure_paths(config, base_dir=base_dir)
+    structure_paths = _representative_structure_paths(config, base_dir=resolved_base_dir)
     if not structure_paths:
         raise ValueError("No representative structure path found for ABACUS check-input dry-run")
 
     checked = 0
     workdirs: list[str] = []
     for index, structure_file in enumerate(structure_paths):
-        with _temporary_check_root(base_dir) as tmp:
+        with _temporary_check_root(resolved_base_dir) as tmp:
             check_dir = Path(tmp) / str(index)
             prepare_abacus_input_from_config(
                 config,
                 structure_file,
                 str(check_dir),
-                config_base_dir=base_dir,
+                config_base_dir=resolved_base_dir,
                 force=True,
             )
             env = os.environ.copy()

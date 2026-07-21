@@ -74,6 +74,48 @@ def test_run_abacus_check_input_dry_run_writes_inputs_runs_check_and_cleans(monk
     assert not Path(captured["cwd"]).exists()
 
 
+def test_run_abacus_check_input_dry_run_explicit_base_dir_overrides_yaml_parent(
+    monkeypatch, tmp_path
+):
+    """API adapters can preserve process-CWD paths for YAML outside that CWD."""
+    from atst_tools.utils import abacus_io
+
+    yaml_parent = tmp_path / "yaml-parent"
+    yaml_parent.mkdir()
+    config_path = yaml_parent / "config.yaml"
+    config_path.write_text("config\n", encoding="utf-8")
+    api_cwd = tmp_path / "api-cwd"
+    api_cwd.mkdir()
+    captured = {}
+
+    def prepare(config, structure_file, output_dir, **kwargs):
+        captured["structure_file"] = structure_file
+        captured["config_base_dir"] = kwargs["config_base_dir"]
+        Path(output_dir).mkdir(parents=True)
+        return {}
+
+    monkeypatch.setattr(abacus_io, "prepare_abacus_input_from_config", prepare)
+    monkeypatch.setattr(
+        abacus_io.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, "ok", ""),
+    )
+
+    abacus_io.run_abacus_check_input_dry_run(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        str(config_path),
+        base_dir=api_cwd,
+    )
+
+    assert captured == {
+        "structure_file": str((api_cwd / "initial.traj").resolve()),
+        "config_base_dir": api_cwd,
+    }
+
+
 def test_run_abacus_check_input_dry_run_filters_version_command_from_input(monkeypatch, tmp_path):
     from atst_tools.utils import abacus_io
 

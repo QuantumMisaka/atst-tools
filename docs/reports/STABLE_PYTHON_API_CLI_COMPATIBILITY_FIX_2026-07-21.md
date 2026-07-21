@@ -29,6 +29,21 @@ back to its original cause (and the existing IRC `SystemExit` presentation
 remains unchanged). The service continues to expose typed API errors to Python
 callers.
 
+The final acceptance review added three explicit boundary rules. Public
+`run_workflow(..., RunOptions(check_input=True))` rejects before communicator
+bootstrap or dispatch unless `dry_run=True`, using `ConfigValidationError`.
+For API `check_input`, an explicit adapter base directory keeps relative YAML
+inputs relative to the process CWD; the CLI adapter leaves that argument unset
+so its YAML-parent behavior remains intact. Finally, a missing `mpi4py` found
+while bootstrapping the ASE communicator becomes an
+`UnsupportedDependencyError` for API callers with the original exception as
+its cause, while the CLI retains its original outward error.
+
+The wheel release gate now uses a non-network temporary environment to execute
+the maintained H2/Au EMT Python API example after clean installation. Its
+optional `--mpi-smoke` runs a bounded two-rank dry-run when `mpiexec` is
+available and otherwise reports a clean skip.
+
 ## Regression Coverage
 
 - a failed `atst run --dry-run --check-input` does not log validation before
@@ -37,6 +52,13 @@ callers.
   not `WorkflowExecutionError` or its chained traceback;
 - existing successful preflight, IRC boundary, and option-forwarding contracts
   remain covered.
+- API-only invalid `check_input` options are rejected before workflow dispatch;
+- a YAML file outside the process CWD uses the API CWD for preflight while the
+  CLI adapter retains YAML-parent resolution;
+- API and CLI communicator-bootstrap failure boundaries are respectively typed
+  and legacy-preserving;
+- the installed-wheel gate includes the H2/Au EMT API fixture and optional MPI
+  smoke contract.
 
 ## Verification
 

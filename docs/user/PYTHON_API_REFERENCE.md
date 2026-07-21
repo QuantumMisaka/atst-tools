@@ -83,7 +83,9 @@ Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
 `RunOptions` exposes the CLI-equivalent controls:
 
 - `dry_run`, `restart`, `check_input`, and `check_input_timeout` select the
-  same workflow/preflight behaviors as the command path.
+  same workflow/preflight behaviors as the command path. `check_input=True`
+  requires `dry_run=True`; otherwise the API raises `ConfigValidationError`
+  before it constructs a communicator or dispatches a workflow.
 - `abacus_executable` overrides the executable used only for ABACUS
   check-input preflight.
 - `world` accepts an existing communicator for embedding or tests. It is not a
@@ -143,9 +145,12 @@ result remain represented by output artifacts rather than `final_atoms`.
 ## Paths, MPI, and backends
 
 Relative paths retain the calling process's current working directory
-semantics. The API never changes directory to a YAML file's parent. Use
-absolute paths or establish the desired current working directory before a
-call.
+semantics, including ABACUS `check_input` preflight for a YAML path. The API
+never changes directory to a YAML file's parent. Use absolute paths or
+establish the desired current working directory before a call. This is
+deliberately distinct from the legacy CLI adapter, whose `atst run --dry-run
+--check-input config.yaml` continues to resolve relative preflight inputs from
+the YAML file's parent.
 
 The API never launches Slurm, `mpirun`, `srun`, or nested calculator MPI. Start
 the outer MPI job yourself, then have every rank call the same API with the
@@ -171,7 +176,8 @@ Backend delegation has four invariants:
 Public API failures derive from `ATSTAPIError`. The companion model module
 defines `ConfigValidationError` for schema/path problems,
 `UnsupportedDependencyError` for unavailable optional runtime dependencies
-(including DeePMD-kit's `deepmd` module and DMF's `cyipopt`/IPOPT requirement),
+(including DeePMD-kit's `deepmd` module, MPI launcher's `mpi4py` requirement,
+and DMF's `cyipopt`/IPOPT requirement),
 `MPIConfigurationError` for image-parallel topology problems, and
 `WorkflowExecutionError` for a workflow or runtime failure. Each carries an
 optional workflow name and diagnostic context; the original failure is chained

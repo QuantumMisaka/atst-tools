@@ -87,6 +87,8 @@ def _run_abacus_check_input_preflight(
     config: dict[str, Any],
     config_source: str | Path | Mapping[str, Any],
     options: RunOptions,
+    *,
+    base_dir: Path | None = None,
 ) -> dict[str, Any] | None:
     """Run the legacy ABACUS dry-run preflight and return its CLI status."""
     if not options.check_input:
@@ -100,14 +102,19 @@ def _run_abacus_check_input_preflight(
     # implementation, which imports this service for normal command handling.
     from atst_tools.scripts.main import run_abacus_check_input_dry_run
 
-    result = run_abacus_check_input_dry_run(
-        config,
-        str(config_source) if isinstance(config_source, (str, Path)) else None,
-        timeout_sec=options.check_input_timeout,
-        abacus_executable=(
+    arguments = {
+        "timeout_sec": options.check_input_timeout,
+        "abacus_executable": (
             options.abacus_executable
             or os.environ.get("ABACUS_EXECUTABLE", "abacus")
         ),
+    }
+    if base_dir is not None:
+        arguments["base_dir"] = base_dir
+    result = run_abacus_check_input_dry_run(
+        config,
+        str(config_source) if isinstance(config_source, (str, Path)) else None,
+        **arguments,
     )
     return {"status": "passed", "checked": result["checked"]}
 
@@ -123,9 +130,12 @@ def _optional_dependency_name(exc: BaseException) -> str | None:
         if dependency == "cyipopt" or "cyipopt" in message:
             return "cyipopt"
         if isinstance(current, ModuleNotFoundError) and (
-            dependency == "deepmd" or dependency.startswith("deepmd.")
+            dependency == "deepmd"
+            or dependency.startswith("deepmd.")
+            or dependency == "mpi4py"
+            or dependency.startswith("mpi4py.")
         ):
-            return "deepmd"
+            return dependency.split(".", maxsplit=1)[0]
         current = current.__cause__ or current.__context__
     return None
 
@@ -456,20 +466,43 @@ def _result_without_manifest(
     )
 
 
+def _resolve_world(
+    options: RunOptions, workflow: str, *, translate_errors: bool
+) -> Any:
+    """Return the caller communicator or bootstrap ASE MPI at the API boundary."""
+    if options.world is not None:
+        return options.world
+    try:
+        return get_ase_world()
+    except Exception as exc:
+        if not translate_errors:
+            raise
+        dependency = _optional_dependency_name(exc)
+        if dependency is not None:
+            raise UnsupportedDependencyError(
+                str(exc), workflow=workflow, context={"dependency": dependency}
+            ) from exc
+        raise WorkflowExecutionError(str(exc), workflow=workflow) from exc
+
+
 def _run_workflow(
     config_source: str | Path | Mapping[str, Any],
     options: RunOptions,
     *,
     ensure_completed_manifest: bool,
+    preflight_base_dir: Path | None = None,
+    translate_communicator_errors: bool = False,
 ) -> WorkflowResult:
     """Execute the shared workflow path with an explicit caller compatibility mode."""
     config = _load_and_normalize(config_source, restart_override=options.restart)
-    world = options.world if options.world is not None else get_ase_world()
+    workflow = config["calculation"]["type"]
+    world = _resolve_world(
+        options, workflow, translate_errors=translate_communicator_errors
+    )
     if options.dry_run:
-        workflow = config["calculation"]["type"]
         try:
             preflight = _run_abacus_check_input_preflight(
-                config, config_source, options
+                config, config_source, options, base_dir=preflight_base_dir
             )
         except WorkflowExecutionError:
             raise
@@ -479,7 +512,6 @@ def _run_workflow(
         if preflight is not None:
             result.metadata["check_input_preflight"] = preflight
         return result
-    workflow = config["calculation"]["type"]
     manifest_path = config["calculation"].get("artifact_manifest", "atst_artifacts.json")
     previous_signature = _manifest_signature(manifest_path)
     value = None
@@ -512,8 +544,17 @@ def run_workflow(
     The supplied communicator is used as-is; this service never launches MPI,
     a scheduler, or a nested calculator process.
     """
+    if options.check_input and not options.dry_run:
+        raise ConfigValidationError(
+            "--check-input requires --dry-run",
+            context={"option": "check_input"},
+        )
     return _run_workflow(
-        config_source, options, ensure_completed_manifest=True
+        config_source,
+        options,
+        ensure_completed_manifest=True,
+        preflight_base_dir=Path.cwd(),
+        translate_communicator_errors=True,
     )
 
 

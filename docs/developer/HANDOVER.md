@@ -76,7 +76,11 @@ release 变更，都先从对应小节确认需要同步的文档。
   `python -m twine check --strict dist/*`。
 - 对包含稳定 Python API 的 release，运行
   `python scripts/verify_wheel_api.py`；它在临时目录构建 wheel、在临时 venv
-  clean-install，并验证六个稳定 root imports，不在工作树保留 build artifact。
+  non-network clean-install，并验证六个稳定 root imports 和 H2/Au 的 EMT
+  public API example path，不在工作树保留 build artifact。若 release 环境已
+  准备 `mpi4py` 和 `mpiexec`，额外运行
+  `python scripts/verify_wheel_api.py --mpi-smoke`；该 two-rank smoke 限时，
+  且在找不到 launcher 时明确跳过。
 
 ## 7. 新增或修改 example
 
