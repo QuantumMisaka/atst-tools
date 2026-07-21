@@ -22,6 +22,11 @@ input before dispatching workflows, so optional variables get schema defaults
 before runtime. Use `atst config validate --print-normalized` to inspect the
 exact defaults that will be applied.
 
+The same YAML path or an equivalent mapping can be passed to `run_workflow()`
+through the stable [Python API reference](PYTHON_API_REFERENCE.md). Both
+interfaces preserve existing schema defaults and interpret relative paths from
+the process current working directory rather than the YAML file's parent.
+
 ---
 
 ## 1. Top-Level Structure

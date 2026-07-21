@@ -122,6 +122,7 @@ Choose the path that matches what you need:
 | Look up YAML semantics | [Configuration reference](docs/user/CONFIG_REFERENCE.md) |
 | Look up every schema field | [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md) |
 | Use CLI helper commands | [CLI reference](docs/user/CLI_REFERENCE.md) |
+| Embed a workflow in Python | [Stable Python API reference](docs/user/PYTHON_API_REFERENCE.md) |
 | Browse all documentation paths | [Documentation index](docs/index.md) |
 
 Run a small relaxation example:
@@ -137,6 +138,20 @@ Validate an input without launching the calculation:
 atst run --dry-run examples/06_relax_H2-Au/config.yaml
 atst config validate examples/06_relax_H2-Au/config.yaml --print-normalized
 ```
+
+Embed the same schema validation from Python when a calling program needs a
+structured result rather than terminal output:
+
+```python
+from atst_tools.api import validate_config
+
+config = validate_config("examples/06_relax_H2-Au/config.yaml")
+print(config["calculation"]["type"])
+```
+
+Use CLI/YAML for normal interactive or scheduled calculations; use the API for
+embedding. The [stable Python API reference](docs/user/PYTHON_API_REFERENCE.md)
+defines result ownership, MPI, artifacts, and calculator delegation.
 
 Print a schema-governed template:
 

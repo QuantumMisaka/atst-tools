@@ -163,7 +163,12 @@
       "validation_job_id": 454726,
       "validation_elapsed": "00:36:19",
       "validation_node": "4v100pxn05",
-      "validation_status": "ABACUS validated through abacuslite from the same perturbed H2/Au TS guess as the Sella example; CCQN uses accept_initial_converged: false and returns to the Sella reference TS within tolerance"
+      "validation_status": "ABACUS validated through abacuslite from the same perturbed H2/Au TS guess as the Sella example; CCQN uses accept_initial_converged: false and returns to the Sella reference TS within tolerance",
+      "api_example": {
+        "path": "examples/12_ccqn_H2-Au/ccqn_api_auto_modes.py",
+        "calculator": "ase.calculators.emt.EMT",
+        "validation_status": "structurally executable through the public API with the lightweight ASE EMT fixture; no ABACUS TS/barrier baseline"
+      }
     },
     "13_neb_parallel_Cy-Pt": {
       "reference_type": "parallel_example",

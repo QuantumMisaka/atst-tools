@@ -163,3 +163,9 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 ## Workflow CLI Boundary
 
 `config validate`, `abacus prepare/collect`, `neb make/post/summary`, `md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
+
+For programmatic embedding, the stable Python API calls the same normalization
+and workflow services while this CLI retains command parsing, terminal messages,
+and exit behavior. Use CLI/YAML for terminal and scheduled operation; use the
+API for a Python caller that needs `WorkflowResult` or injected CCQN calculator
+ownership. See [Stable Python API Reference](PYTHON_API_REFERENCE.md).

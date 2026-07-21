@@ -18,11 +18,13 @@ YAML file, and run a workflow.
    examples.
 4. [CLI reference](user/CLI_REFERENCE.md) for `atst run`, `atst config`,
    `atst abacus`, and lightweight helper commands.
-5. [Configuration reference](user/CONFIG_REFERENCE.md) for hand-written YAML
+5. [Stable Python API reference](user/PYTHON_API_REFERENCE.md) when embedding
+   the same schema-backed workflows or CCQN in another Python program.
+6. [Configuration reference](user/CONFIG_REFERENCE.md) for hand-written YAML
    semantics and common patterns.
-6. [YAML input variables](user/YAML_INPUT_VARIABLES.md) for the generated
+7. [YAML input variables](user/YAML_INPUT_VARIABLES.md) for the generated
    schema field table.
-7. [ABACUSLite wrapper guide](user/ABACUSLITE_WRAPPER_GUIDE.md) for ABACUS
+8. [ABACUSLite wrapper guide](user/ABACUSLITE_WRAPPER_GUIDE.md) for ABACUS
    backend boundaries and MPI notes.
 
 ## Developer Path

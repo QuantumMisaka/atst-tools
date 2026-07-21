@@ -20,7 +20,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `05_sella_H2-Au/`: Sella method for the same system.
 *   `06_relax_H2-Au/`: Geometry optimization of the initial state.
 *   `07_vibration_H2-Au/`: Vibrational analysis of the Transition State.
-*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system, including reactive-mode enumeration examples in `config_auto_modes*.yaml`.
+*   `12_ccqn_H2-Au/`: CCQN single-ended transition-state search for the same H2/Au system, including reactive-mode enumeration examples in `config_auto_modes*.yaml` and the embedded API companion `ccqn_api_auto_modes.py`.
 
 ### 3. Advanced Workflows (Cyclohexane on Pt@Graphene)
 *   `03_autoneb_Cy-Pt/`: **Cyclohexane on Pt-doped Graphene**. Demonstrates the **AutoNEB** workflow for complex paths.
@@ -185,6 +185,13 @@ atst run config_auto_modes_dp.yaml
 
 The matching ABACUS-backed configs are `config_two_stage.yaml`,
 `config_descent.yaml`, and `config_auto_modes.yaml`.
+
+`12_ccqn_H2-Au/ccqn_api_auto_modes.py` is the ATST-specific Python API
+companion to `config_auto_modes.yaml`. It uses a lightweight ASE EMT fixture so
+the public-import example is structurally executable in tests; it is not an
+ABACUS production input. For a production calculator, create and configure the
+calculator in the calling application, then pass it to `run_ccqn()` as defined
+in the [Python API reference](../docs/user/PYTHON_API_REFERENCE.md).
 
 For ordinary NEB, the main 01/02 examples and the 13 image-parallel example
 enable `two_stage: true` with `stage1_fmax: 0.20` and a bounded
