@@ -75,6 +75,18 @@ def test_validate_config_reads_yaml_path_with_current_directory_semantics(tmp_pa
     assert validate_config(config)["calculation"]["init_structure"] == "initial.traj"
 
 
+def test_validate_config_wraps_directory_path_error_with_public_exception(tmp_path: Path):
+    """Filesystem errors from a config path stay within the public API boundary."""
+    from atst_tools.api import validate_config
+    from atst_tools.api.models import ConfigValidationError
+
+    with pytest.raises(ConfigValidationError) as excinfo:
+        validate_config(tmp_path)
+
+    assert isinstance(excinfo.value.__cause__, IsADirectoryError)
+    assert excinfo.value.context == {"config_source": str(tmp_path)}
+
+
 def test_validate_config_wraps_schema_error_with_public_exception():
     from atst_tools.api import validate_config
     from atst_tools.api.models import ConfigValidationError
@@ -230,6 +242,57 @@ def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_pa
     ]
 
 
+def test_run_workflow_replaces_a_stale_malformed_manifest(monkeypatch, tmp_path):
+    """A completed run replaces an unreadable manifest left by an earlier run."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda *args: None)
+    (tmp_path / "atst_artifacts.json").write_text("not valid JSON", encoding="utf-8")
+
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    manifest = json.loads((tmp_path / result.artifact_manifest).read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "relax"
+    assert manifest["metadata"]["manifest_source"] == "api_synthesized"
+
+
+def test_run_workflow_preserves_a_fresh_runner_written_manifest(monkeypatch, tmp_path):
+    """A valid manifest produced during this run remains the runner's source of truth."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.utils.artifacts import write_artifact_manifest
+
+    monkeypatch.chdir(tmp_path)
+
+    def complete_relax(*args):
+        write_artifact_manifest(
+            "atst_artifacts.json",
+            workflow="relax",
+            artifacts=[{"role": "trajectory", "path": "runner.traj"}],
+            metadata={"manifest_source": "runner"},
+        )
+
+    monkeypatch.setattr(services, "_dispatch_normalized", complete_relax)
+    result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    assert result.artifacts == ({"role": "trajectory", "path": "runner.traj"},)
+    assert result.metadata["manifest_source"] == "runner"
+
+
 def test_run_workflow_refreshes_synthesized_manifest_on_repeated_run(monkeypatch, tmp_path):
     """A second same-workflow run must not reuse the first API manifest."""
     from atst_tools.api import RunOptions, run_workflow
@@ -382,6 +445,51 @@ def test_path_result_is_not_returned_by_non_root(monkeypatch, tmp_path):
     assert result.is_root is False
     assert result.final_images is None
     assert result.ts_atoms is None
+
+
+def test_run_workflow_reads_relax_final_atoms(monkeypatch, tmp_path):
+    """A Relax runner that returns ``None`` exposes its established final structure."""
+    from ase import Atoms
+    from ase.io import write
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    expected = Atoms("H", positions=[[1.2, 0.0, 0.0]])
+
+    def complete_relax(*args):
+        write("final_relaxed.traj", expected)
+        return None
+
+    monkeypatch.setattr(services, "_dispatch_normalized", complete_relax)
+    relax_result = run_workflow(
+        {
+            "calculation": {"type": "relax", "init_structure": "initial.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    assert relax_result.final_atoms is not expected
+    assert relax_result.final_atoms.get_positions() == pytest.approx(expected.get_positions())
+
+
+def test_run_workflow_does_not_expose_dmf_summary_as_final_atoms(monkeypatch, tmp_path):
+    """A DMF summary mapping is not an atomistic final outcome."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda *args: {"workflow": "dmf"})
+    result = run_workflow(
+        {
+            "calculation": {"type": "dmf", "init_file": "a.traj", "final_file": "b.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    assert result.final_atoms is None
 
 
 def test_public_ccqn_uses_private_atoms_and_marks_supplied_backend(monkeypatch, tmp_path):

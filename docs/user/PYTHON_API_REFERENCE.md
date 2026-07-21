@@ -59,7 +59,9 @@ helper functions; use the names above instead.
 
 Accepts either a YAML path or a mapping and returns a detached, normalized
 configuration dictionary using the installed ATST schema and defaults. It does
-not mutate a supplied mapping.
+not mutate a supplied mapping. Schema, YAML, and configuration-path I/O errors
+are raised as `ConfigValidationError` with the original exception preserved as
+its cause.
 
 ```python
 from atst_tools.api import validate_config
@@ -121,13 +123,20 @@ ABACUS as a package dependency for this API.
 `artifact_manifest`, `artifacts`, `metadata`, `final_atoms`, `final_images`,
 and `ts_atoms` fields. The artifact manifest is the durable, restart-safe
 record; `artifacts` is its structured output list and `metadata` includes the
-backend provenance.
+backend provenance. After a successful run, a stale or unreadable pre-existing
+manifest is replaced with a synthesized completion manifest, while a valid
+manifest written by that run is preserved.
 
 The container is immutable, but ASE objects are mutable. `final_atoms`,
 `final_images`, and `ts_atoms` are caller-owned snapshots: modifying one does
 not modify ATST's internal workflow state. For image-parallel NEB and AutoNEB,
 only the root rank receives in-memory `final_images` and `ts_atoms`; all ranks
 receive status, metadata, and durable artifact paths.
+
+`final_atoms` is populated only with an ASE `Atoms` snapshot. In particular, a
+completed Relax run recovers its `final_relaxed.traj` result when the legacy
+runner returns no value, while summary mappings such as the experimental DMF
+result remain represented by output artifacts rather than `final_atoms`.
 
 ## Paths, MPI, and backends
 

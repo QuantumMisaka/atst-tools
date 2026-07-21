@@ -18,7 +18,11 @@ from atst_tools.api.models import (
     WorkflowResult,
 )
 from atst_tools.calculators.abacuslite_backend import BACKEND_SOURCE
-from atst_tools.utils.artifacts import read_artifact_manifest, write_artifact_manifest
+from atst_tools.utils.artifacts import (
+    SCHEMA_VERSION,
+    read_artifact_manifest,
+    write_artifact_manifest,
+)
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.mpi import get_ase_world
 
@@ -32,7 +36,7 @@ def _load_and_normalize(config_source: str | Path | Mapping[str, Any]) -> dict[s
             else deepcopy(dict(config_source))
         )
         return ConfigLoader.normalize(raw)
-    except (FileNotFoundError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         raise ConfigValidationError(
             str(exc), context={"config_source": str(config_source)}
         ) from exc
@@ -41,6 +45,22 @@ def _load_and_normalize(config_source: str | Path | Mapping[str, Any]) -> dict[s
 def _read_manifest(path: str | Path) -> dict[str, Any]:
     """Read a workflow artifact manifest without changing it."""
     return read_artifact_manifest(path)
+
+
+def _is_matching_runner_manifest(path: str | Path, workflow: str) -> bool:
+    """Return whether a runner just wrote a complete manifest for ``workflow``."""
+    try:
+        manifest = _read_manifest(path)
+    except (OSError, ValueError, TypeError):
+        return False
+    return (
+        isinstance(manifest, Mapping)
+        and manifest.get("schema_version") == SCHEMA_VERSION
+        and manifest.get("workflow") == workflow
+        and isinstance(manifest.get("artifacts"), list)
+        and isinstance(manifest.get("metadata"), Mapping)
+        and isinstance(manifest.get("stages"), list)
+    )
 
 
 def _manifest_signature(path: str | Path) -> tuple[int, int, int, int] | None:
@@ -269,9 +289,8 @@ def _ensure_completed_manifest(
                 previous_signature is not None
                 and current_signature != previous_signature
             ) or (previous_signature is None and current_signature is not None)
-            matching_manifest = (
-                current_signature is not None
-                and _read_manifest(manifest_path).get("workflow") == workflow
+            matching_manifest = current_signature is not None and _is_matching_runner_manifest(
+                manifest_path, workflow
             )
             if not (runner_wrote_manifest and matching_manifest):
                 write_artifact_manifest(
@@ -340,13 +359,7 @@ def _result_from_manifest(
         if interior_energies:
             ts_atoms = max(interior_energies, key=lambda item: item[0])[1].copy()
 
-    final_atoms = (
-        value.copy()
-        if is_root
-        and workflow not in {"neb", "autoneb"}
-        and hasattr(value, "copy")
-        else None
-    )
+    final_atoms = _normalized_final_atoms(workflow, value) if is_root else None
     return WorkflowResult(
         workflow=workflow,
         status=status,
@@ -358,6 +371,19 @@ def _result_from_manifest(
         final_images=final_images,
         ts_atoms=ts_atoms,
     )
+
+
+def _normalized_final_atoms(workflow: str, value: Any) -> Any | None:
+    """Copy only an ASE final structure, recovering the Relax output when needed."""
+    from ase import Atoms
+
+    if workflow == "relax" and value is None:
+        final_structure = Path("final_relaxed.traj")
+        if final_structure.is_file():
+            from atst_tools.utils.io import read_structure
+
+            value = read_structure(final_structure)
+    return value.copy() if isinstance(value, Atoms) else None
 
 
 def _validated_result(config: dict[str, Any], world: Any) -> WorkflowResult:
