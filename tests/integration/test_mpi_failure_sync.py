@@ -549,3 +549,77 @@ assert MPI.COMM_WORLD.allreduce(failed) == 2
         environment=environment,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.parametrize("backend", ["atst", "ase"])
+def test_autoneb_engine_construction_failure_releases_every_rank(
+    tmp_path: Path, backend: str
+) -> None:
+    """No rank can reach initial-image barriers after a peer engine failure."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec") or str(Path(sys.executable).with_name("mpiexec"))
+    if not Path(launcher).is_file():
+        pytest.skip("mpiexec is unavailable")
+
+    setup = (
+        "from ase import Atoms; from ase.io import write; "
+        "write('chain.traj', [Atoms('H', positions=[[float(i), 0, 0]]) for i in range(4)])"
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    subprocess.run(
+        [sys.executable, "-c", setup],
+        cwd=tmp_path,
+        env=environment,
+        check=True,
+        timeout=MPI_TIMEOUT_SECONDS,
+    )
+    smoke = f"""
+from mpi4py import MPI
+from atst_tools.api import RunOptions, run_workflow
+from atst_tools.api.models import WorkflowExecutionError
+from atst_tools.mep import autoneb
+
+rank = MPI.COMM_WORLD.rank
+autoneb.ensure_neb_endpoint_results = lambda *args, **kwargs: None
+
+class FailingEngine:
+    def __init__(self, **kwargs):
+        if rank == 0:
+            raise RuntimeError('injected root AutoNEB engine construction failure')
+
+    def run(self):
+        MPI.COMM_WORLD.Barrier()
+
+setattr(autoneb, 'SynchronizedAutoNEB' if {backend!r} == 'ase' else 'AbacusAutoNEB', FailingEngine)
+try:
+    run_workflow(
+        {{
+            'calculation': {{
+                'type': 'autoneb',
+                'init_chain': 'chain.traj',
+                'parallel': True,
+                'n_simul': 2,
+                'n_max': 3,
+                'neb_backend': {backend!r},
+            }},
+            'calculator': {{'name': 'abacus', 'abacus': {{'parameters': {{}}}}}},
+        }},
+        RunOptions(),
+    )
+except WorkflowExecutionError as error:
+    if rank == 0:
+        assert isinstance(error.__cause__, RuntimeError)
+    failed = 1
+else:
+    failed = 0
+
+assert MPI.COMM_WORLD.allreduce(failed) == 2
+"""
+    completed = _run_mpi(
+        [launcher, "-n", "2", sys.executable, "-c", smoke],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr

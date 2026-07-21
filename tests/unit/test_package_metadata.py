@@ -91,6 +91,9 @@ def test_wheel_release_gate_runs_the_h2_au_api_fixture_and_has_opt_in_mpi_smoke(
     assert "--force-reinstall" in script
     assert "--mpi-smoke" in script
     assert "mpiexec" in script
+    assert "_run_installed_cli_dry_run" in script
+    assert "assert_autoneb_engine_failure('atst')" in script
+    assert "assert_autoneb_engine_failure('ase')" in script
 
 
 def test_wheel_ccqn_example_fixture_installs_only_a_backend_run_patch(
@@ -157,6 +160,30 @@ def test_wheel_mpi_smoke_skips_cleanly_without_a_launcher(
     gate._run_mpi_smoke(tmp_path / "python", tmp_path)
 
     assert capsys.readouterr().out == "MPI smoke skipped: mpiexec is unavailable\n"
+
+
+def test_wheel_gate_runs_installed_atst_dry_run_without_result_repr(monkeypatch, tmp_path) -> None:
+    """The clean wheel gate verifies the console wrapper exits successfully."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    calls = []
+
+    class Completed:
+        stdout = ""
+        stderr = "Configuration is valid\n"
+
+    monkeypatch.setattr(
+        gate,
+        "_run",
+        lambda command, **kwargs: calls.append((command, kwargs)) or Completed(),
+    )
+
+    gate._run_installed_cli_dry_run(tmp_path / "bin" / "atst", tmp_path)
+
+    assert calls[0][0][:3] == [str(tmp_path / "bin" / "atst"), "run", "--dry-run"]
 
 
 def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(

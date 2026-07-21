@@ -15,11 +15,13 @@ YAML workflow and command-line entry points are retained.
 - Adds a stable, schema-backed Python API for workflow execution and embedded
   CCQN use, with a clean-installed wheel release gate.
 - Preserves legacy CLI behavior: CLI-owned workflows do not gain API artifact
-  manifests, and missing or directory YAML paths retain their filesystem
-  exceptions.
+  manifests, missing or directory YAML paths retain their filesystem
+  exceptions, and the installed `atst` console command exits successfully
+  without printing a Python `WorkflowResult` representation.
 - Adds synchronized pre-run construction for parallel NEB and both ATST and
   native ASE AutoNEB backends so local calculator, engine, optimizer, and
-  trajectory-writer failures exit all ranks before optimizer collectives.
+  trajectory-writer failures exit all ranks before optimizer collectives; the
+  native ASE NEB receives the caller-supplied communicator.
 - Classifies a missing `cyipopt` module as an optional dependency error while
   retaining solver/runtime failures as workflow execution errors.
 
@@ -28,7 +30,8 @@ YAML workflow and command-line entry points are retained.
 - Focused API, CLI, MPI, and package metadata tests in the `atst-dev`
   environment.
 - `python scripts/verify_wheel_api.py --mpi-smoke` with a bounded two-rank
-  optimizer-construction failure regression that clean-installs the wheel.
+  CLI dry-run plus optimizer- and engine-construction failure regressions that
+  clean-install the wheel.
 - `git diff --check` for source and documentation changes.
 
 ## Compatibility

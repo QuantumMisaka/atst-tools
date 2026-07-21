@@ -140,6 +140,92 @@ def test_native_autoneb_pre_run_construction_synchronizes_optimizer_failure(
     assert ran_optimizer == []
 
 
+def test_native_autoneb_passes_supplied_world_to_ase_neb(monkeypatch, tmp_path):
+    """Native AutoNEB engine construction retains an embedding communicator."""
+    from atst_tools.mep import autoneb
+
+    supplied_world = FakeWorld(size=1, rank=0)
+    seen = {}
+
+    class FakeNEB:
+        def __init__(self, *args, **kwargs):
+            seen["world"] = kwargs["world"]
+
+    class StopOptimizer:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def attach(self, *args, **kwargs):
+            return None
+
+        def run(self, *args, **kwargs):
+            raise RuntimeError("stop after engine construction")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "NEB", FakeNEB)
+    auto = autoneb.SynchronizedAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="native_world",
+        n_simul=1,
+        n_max=3,
+        optimizer=StopOptimizer,
+        parallel=False,
+        world=supplied_world,
+    )
+    auto.all_images = [_atoms(float(index)) for index in range(3)]
+    auto.k = [0.1, 0.1]
+    auto.iteration = 0
+
+    with pytest.raises(RuntimeError, match="stop after engine construction"):
+        auto._execute_one_neb(
+            type("FakeStack", (), {"enter_context": staticmethod(lambda value: value)})(),
+            n_cur=3,
+            to_run=[0, 1, 2],
+        )
+
+    assert seen["world"] is supplied_world
+
+
+@pytest.mark.parametrize("backend", ["atst", "ase"])
+def test_autoneb_runner_synchronizes_engine_construction(monkeypatch, tmp_path, backend):
+    """Both AutoNEB engines are constructed inside the shared MPI boundary."""
+    from atst_tools.mep import autoneb
+
+    calls = []
+    world = FakeWorld(size=2, rank=0)
+
+    class FailingEngine:
+        def __init__(self, **kwargs):
+            raise RuntimeError("engine construction failed")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: [_atoms(0.0)] * 4)
+    monkeypatch.setattr(autoneb, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(autoneb, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        autoneb,
+        "run_pre_run_construction",
+        lambda world, operation, **kwargs: calls.append(kwargs["context"]) or operation(),
+    )
+    monkeypatch.setattr(
+        autoneb,
+        "SynchronizedAutoNEB" if backend == "ase" else "AbacusAutoNEB",
+        FailingEngine,
+    )
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": True, "n_simul": 2, "neb_backend": backend},
+        world=world,
+    )
+
+    with pytest.raises(RuntimeError, match="engine construction failed"):
+        runner.run()
+
+    assert calls == ["AutoNEB engine construction"]
+
+
 def test_run_neb_parallel_requires_rank_count_equal_interior_images(monkeypatch, tmp_path):
     from atst_tools.scripts import main
 

@@ -28,7 +28,7 @@ def _run(
     cwd: Path | None = None,
     timeout: int | None = None,
     environment_overrides: dict[str, str] | None = None,
-) -> None:
+) -> subprocess.CompletedProcess[str]:
     """Run one release-gate command and relay a useful failure."""
     environment = dict(os.environ)
     environment.pop("PYTHONPATH", None)
@@ -49,6 +49,7 @@ def _run(
         if completed.stderr:
             print(completed.stderr, end="", file=sys.stderr)
         raise subprocess.CalledProcessError(completed.returncode, command)
+    return completed
 
 
 def _run_mpi_command(command: list[str], *, cwd: Path, timeout: int) -> None:
@@ -153,6 +154,27 @@ def _run_h2_au_api_example(python: Path, temporary_root: Path) -> None:
     )
 
 
+def _run_installed_cli_dry_run(executable: Path, temporary_root: Path) -> None:
+    """Verify the installed console wrapper exits cleanly without result reprs."""
+    config = temporary_root / "wheel-cli-dry-run.yaml"
+    config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: initial.traj\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+    completed = _run(
+        [str(executable), "run", "--dry-run", str(config)],
+        cwd=temporary_root,
+    )
+    if "WorkflowResult(" in completed.stdout or "WorkflowResult(" in completed.stderr:
+        raise RuntimeError("installed atst CLI printed a WorkflowResult representation")
+
+
 def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
     """Run bounded two-rank public API and pre-run failure-synchronization gates."""
     launcher = shutil.which("mpiexec")
@@ -216,6 +238,49 @@ assert_failure(
     },
     autoneb,
 )
+
+
+def assert_autoneb_engine_failure(backend):
+    autoneb.ensure_neb_endpoint_results = lambda *args, **kwargs: None
+
+    class FailingEngine:
+        def __init__(self, **kwargs):
+            if rank == 0:
+                raise RuntimeError('injected root AutoNEB engine construction failure')
+
+        def run(self):
+            MPI.COMM_WORLD.Barrier()
+
+    if backend == 'ase':
+        autoneb.SynchronizedAutoNEB = FailingEngine
+    else:
+        autoneb.AbacusAutoNEB = FailingEngine
+    try:
+        run_workflow(
+            {
+                'calculation': {
+                    'type': 'autoneb',
+                    'init_chain': 'mpi_failure_chain.traj',
+                    'parallel': True,
+                    'n_simul': 2,
+                    'n_max': 3,
+                    'neb_backend': backend,
+                },
+                'calculator': {'name': 'abacus', 'abacus': {'parameters': {}}},
+            },
+            RunOptions(),
+        )
+    except WorkflowExecutionError as error:
+        if rank == 0:
+            assert isinstance(error.__cause__, RuntimeError)
+        failed = 1
+    else:
+        failed = 0
+    assert MPI.COMM_WORLD.allreduce(failed) == 2
+
+
+assert_autoneb_engine_failure('atst')
+assert_autoneb_engine_failure('ase')
 
 
 main.ensure_neb_endpoint_results = lambda *args, **kwargs: None
@@ -306,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{PUBLIC_IMPORT}"
         )
         _run([str(python), "-c", import_check], cwd=temporary_root)
+        _run_installed_cli_dry_run(venv / "bin" / "atst", temporary_root)
         _run_h2_au_api_example(python, temporary_root)
         if args.mpi_smoke:
             _run_mpi_smoke(python, temporary_root)

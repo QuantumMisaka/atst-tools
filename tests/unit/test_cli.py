@@ -78,6 +78,16 @@ def test_atst_version_uses_governed_package_version(capsys):
     assert capsys.readouterr().out.strip() == f"atst {package_version()}"
 
 
+def test_console_main_discards_successful_workflow_result(monkeypatch, tmp_path):
+    """Setuptools' console wrapper must receive ``None`` after a successful run."""
+    from atst_tools.scripts import cli
+
+    result = object()
+    monkeypatch.setattr(cli.run_cli, "run_from_args", lambda args: result)
+
+    assert cli.main(["run", "--dry-run", str(tmp_path / "config.yaml")]) is None
+
+
 def test_atst_banner_prints_ascii_and_contributor_references(capsys):
     from atst_tools.scripts import cli
     from atst_tools.utils.banner import ATST_ASCII

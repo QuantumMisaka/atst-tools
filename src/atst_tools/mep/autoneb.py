@@ -539,6 +539,7 @@ class SynchronizedAutoNEB(AutoNEB):
                 parallel=self.parallel,
                 remove_rotation_and_translation=self.remove_rotation_and_translation,
                 climb=climb,
+                world=self.world,
             )
             logpath = self.iter_folder / f"{self.prefix.name}_log_iter{self.iteration:03d}.log"
             qn = closelater(self.optimizer(neb, logfile=logpath))
@@ -885,27 +886,36 @@ class AutoNEBRunner:
 
         self._prepare_endpoint_results()
         
-        autoneb_kwargs = {
-            "attach_calculators": self._attach_calculators_for_pre_run,
-            "prefix": self.prefix,
-            "n_simul": self.n_simul,
-            "n_max": self.n_max,
-            "iter_folder": self.iter_folder,
-            "world": self.world,
-            "method": self.algorism,
-            "parallel": self.parallel,
-            "optimizer": self._get_optimizer(),
-            "fmax": self.fmax,
-            "maxsteps": self.maxsteps,
-            "climb": self.climb,
-        }
-        if self.neb_backend == "ase":
-            autoneb = SynchronizedAutoNEB(**autoneb_kwargs)
-        else:
-            autoneb = AbacusAutoNEB(
+        def construct_autoneb_engine():
+            autoneb_kwargs = {
+                "attach_calculators": self._attach_calculators_for_pre_run,
+                "prefix": self.prefix,
+                "n_simul": self.n_simul,
+                "n_max": self.n_max,
+                "iter_folder": self.iter_folder,
+                "world": self.world,
+                "method": self.algorism,
+                "parallel": self.parallel,
+                "optimizer": self._get_optimizer(),
+                "fmax": self.fmax,
+                "maxsteps": self.maxsteps,
+                "climb": self.climb,
+            }
+            if self.neb_backend == "ase":
+                return SynchronizedAutoNEB(**autoneb_kwargs)
+            return AbacusAutoNEB(
                 **autoneb_kwargs,
                 allow_shared_calculator=self.allow_shared_calculator,
             )
+
+        if self.parallel:
+            autoneb = run_pre_run_construction(
+                self.world,
+                construct_autoneb_engine,
+                context="AutoNEB engine construction",
+            )
+        else:
+            autoneb = construct_autoneb_engine()
         
         # Write initial files if they don't exist
         def write_initial_files():
