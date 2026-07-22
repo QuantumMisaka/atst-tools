@@ -10,6 +10,26 @@
 
 **Tech Stack:** Python 3.10+, dataclasses, argparse, pathlib, JSON, ASE communicator semantics, optional mpi4py, pytest, build/venv wheel verification.
 
+## Execution Status (2026-07-23)
+
+The source, test, and documentation work described by Tasks 1–4 is complete
+on `feat/stable-python-api`: JSON-safe API documents, the installed module
+runner, wheel/MPI verification, and user/developer/release documentation were
+implemented in commits `77bac48` through `4b8af43`. Fresh local evidence is:
+
+- `PYTHONPATH=src conda run -n atst-dev pytest tests -q` passed.
+- `conda run -n atst-dev python scripts/verify_wheel_api.py` passed from a
+  clean wheel installation.
+- `ATST_RUN_MPI_TESTS=1 PYTHONPATH=src conda run -n atst-dev pytest
+  tests/integration/test_mpi_failure_sync.py -q` passed.
+- Local 2.2.0 sdist/wheel build and `twine check --strict dist/*` passed.
+
+The release checkpoint remains pending: the source branch has not been merged,
+tagged, published, or made installable as 2.2.0. Do not advance an external
+consumer's dependency pin until the exact release artifact and tag are
+available. The unchecked TDD steps below remain the historical execution
+record; this section is the authoritative current status.
+
 ## Global Constraints
 
 - Preserve `atst_tools.api.__all__` exactly as `CCQNOptions`, `RunOptions`, `WorkflowResult`, `validate_config`, `run_workflow`, and `run_ccqn` (spec R1–R4 and `#architecture`).
