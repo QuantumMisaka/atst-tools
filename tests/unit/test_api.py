@@ -1056,3 +1056,70 @@ def test_ccqn_options_config_maps_only_supported_ccqn_schema_fields():
         "accept_initial_converged": True,
         "artifact_manifest": "artifacts.json",
     }
+
+
+def test_workflow_result_document_is_json_safe_and_resolves_manifest(tmp_path):
+    """Process hosts receive an artifact-only result envelope, never ASE objects."""
+    from atst_tools.api import WorkflowResult
+
+    result = WorkflowResult(
+        workflow="sella",
+        status="complete",
+        is_root=True,
+        artifact_manifest="atst_artifacts.json",
+        artifacts=({"path": "sella.traj", "kind": "trajectory"},),
+        metadata={"backend_source": "abacuslite"},
+        final_atoms=object(),
+    )
+
+    document = result.to_document(tmp_path)
+
+    assert document == {
+        "schema": "atst-api-result-v1",
+        "status": "success",
+        "workflow": "sella",
+        "is_root": True,
+        "workdir": str(tmp_path.resolve()),
+        "artifact_manifest": str((tmp_path / "atst_artifacts.json").resolve()),
+        "artifacts": [{"path": "sella.traj", "kind": "trajectory"}],
+        "metadata": {"backend_source": "abacuslite"},
+    }
+    json.dumps(document)
+
+
+def test_api_error_document_preserves_typed_cause_and_context():
+    """A runner can report public diagnostics without parsing exception strings."""
+    from atst_tools.api.models import ConfigValidationError
+
+    cause = ValueError("unknown calculation type")
+    error = ConfigValidationError(
+        "Configuration is invalid.",
+        workflow="neb",
+        context={"path": "atst_neb.yaml"},
+    )
+    error.__cause__ = cause
+
+    assert error.to_document() == {
+        "type": "ConfigValidationError",
+        "message": "Configuration is invalid.",
+        "workflow": "neb",
+        "context": {"path": "atst_neb.yaml"},
+        "cause": {"type": "ValueError", "message": "unknown calculation type"},
+    }
+
+
+def test_workflow_result_document_rejects_non_json_metadata(tmp_path):
+    """The stable handoff fails clearly rather than leaking arbitrary objects."""
+    from atst_tools.api import WorkflowResult
+
+    result = WorkflowResult(
+        workflow="ccqn",
+        status="complete",
+        is_root=True,
+        artifact_manifest="atst_artifacts.json",
+        artifacts=(),
+        metadata={"unsafe": object()},
+    )
+
+    with pytest.raises(TypeError, match="JSON serializable"):
+        result.to_document(tmp_path)

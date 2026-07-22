@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+from pathlib import Path
 from typing import Any
+
+
+def _json_detached(value: Any) -> Any:
+    """Return a JSON-safe detached value for a stable process document."""
+    try:
+        return json.loads(json.dumps(value))
+    except (TypeError, ValueError) as exc:
+        raise TypeError("ATST API document values must be JSON serializable") from exc
 
 
 class ATSTAPIError(RuntimeError):
@@ -25,6 +35,21 @@ class ATSTAPIError(RuntimeError):
         super().__init__(message)
         self.workflow = workflow
         self.context = dict(context or {})
+
+    def to_document(self) -> dict[str, Any]:
+        """Return the stable bounded error payload used by process runners."""
+        cause = self.__cause__
+        return {
+            "type": type(self).__name__,
+            "message": str(self),
+            "workflow": self.workflow,
+            "context": _json_detached(self.context),
+            "cause": (
+                None
+                if cause is None
+                else {"type": type(cause).__name__, "message": str(cause)}
+            ),
+        }
 
 
 class ConfigValidationError(ATSTAPIError):
@@ -92,3 +117,20 @@ class WorkflowResult:
     final_atoms: Any | None = None
     final_images: tuple[Any, ...] | None = None
     ts_atoms: Any | None = None
+
+    def to_document(self, workdir: str | Path) -> dict[str, Any]:
+        """Return the stable JSON handoff envelope without ASE objects."""
+        root = Path(workdir).resolve()
+        manifest = Path(self.artifact_manifest)
+        if not manifest.is_absolute():
+            manifest = root / manifest
+        return {
+            "schema": "atst-api-result-v1",
+            "status": "success",
+            "workflow": self.workflow,
+            "is_root": self.is_root,
+            "workdir": str(root),
+            "artifact_manifest": str(manifest.resolve()),
+            "artifacts": _json_detached(list(self.artifacts)),
+            "metadata": _json_detached(self.metadata),
+        }
