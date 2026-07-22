@@ -42,6 +42,15 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 必要时更新 README 的轻量命令列表。
 - 添加 CLI 测试或更新现有命令测试。
 
+## 4.1 新增或修改稳定 Python API / process runner
+
+- 保持 `atst_tools.api.__all__` 的既有稳定 root imports；runner 不得成为新的
+  root import 或改变 `atst` CLI 行为。
+- 更新 `docs/user/PYTHON_API_REFERENCE.md`、README、中文用户指南、release notes
+  和功能状态账本，说明 JSON schema、退出码、manifest 权威性与 MPI 责任边界。
+- 对 `python -m atst_tools.api.runner` 运行 API/document、clean-wheel 和实际 MPI
+  门禁；runner 只能消费 API，绝不启动 Slurm、`mpirun` 或 `srun`。
+
 ## 5. 新增或修改 calculator backend
 
 - 更新 README backend section 和项目边界说明。
@@ -77,7 +86,7 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 对包含稳定 Python API 的 release，运行
   `python scripts/verify_wheel_api.py`；它在临时目录构建 wheel、在临时 venv
   non-network clean-install，并验证六个稳定 root imports 和 H2/Au 的 EMT
-  public API example path，不在工作树保留 build artifact。若 release 环境已
+  public API example path 和 installed API runner JSON handoff，不在工作树保留 build artifact。若 release 环境已
   准备 `mpi4py` 和 `mpiexec`，额外运行
   `python scripts/verify_wheel_api.py --mpi-smoke`；该 two-rank smoke 限时，
   验证 image-parallel NEB/AutoNEB 的 rank-0 endpoint failure 以及 rank-local

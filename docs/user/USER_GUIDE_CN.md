@@ -19,6 +19,18 @@ calculator 时，使用稳定的 `atst_tools.api`。两条路径复用校验和 
 服务；Python API 不启动 Slurm 或 MPI，也不会重建传入 CCQN 的 calculator。详见
 [Python API reference](PYTHON_API_REFERENCE.md)。
 
+若外部 Python 软件或任务编排器需要独立进程、稳定退出码和 JSON 文件交接，可安装
+后调用：
+
+```bash
+python -m atst_tools.api.runner --config config.yaml --workdir run --result-json atst_api_result.json
+```
+
+runner 只在其进程内进入 `--workdir`；成功时仅 root rank 以原子替换写入
+`atst-api-result-v1`，其中的 `artifact_manifest` 为绝对路径。退出码 `0` 为成功，
+`2` 为 ATST API 错误，`1` 为意外 runner 错误。它绝不启动 Slurm、`mpirun` 或
+`srun`；调度和外层 MPI 由调用方负责。
+
 ## 2. 安装与环境检查
 
 开发环境推荐使用项目约定的 `atst-dev` conda 环境：

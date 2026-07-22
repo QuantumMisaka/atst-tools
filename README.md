@@ -153,6 +153,18 @@ Use CLI/YAML for normal interactive or scheduled calculations; use the API for
 embedding. The [stable Python API reference](docs/user/PYTHON_API_REFERENCE.md)
 defines result ownership, MPI, artifacts, and calculator delegation.
 
+For an external process host that needs a stable JSON handoff without parsing
+terminal output, use the installed API runner:
+
+```bash
+python -m atst_tools.api.runner --config config.yaml --workdir run --result-json atst_api_result.json
+```
+
+It invokes the same configuration-driven API, writes `atst-api-result-v1` only
+from root rank, and never launches Slurm or MPI. See the [Python API
+reference](docs/user/PYTHON_API_REFERENCE.md#process-runner-for-external-hosts)
+for flags, exit codes, and artifact ownership.
+
 Print a schema-governed template:
 
 ```bash

@@ -19,7 +19,8 @@ YAML file, and run a workflow.
 4. [CLI reference](user/CLI_REFERENCE.md) for `atst run`, `atst config`,
    `atst abacus`, and lightweight helper commands.
 5. [Stable Python API reference](user/PYTHON_API_REFERENCE.md) when embedding
-   the same schema-backed workflows or CCQN in another Python program.
+   the same schema-backed workflows or CCQN in another Python program, or when
+   an external host needs the installed API runner and JSON handoff protocol.
 6. [Configuration reference](user/CONFIG_REFERENCE.md) for hand-written YAML
    semantics and common patterns.
 7. [YAML input variables](user/YAML_INPUT_VARIABLES.md) for the generated

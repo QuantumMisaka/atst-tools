@@ -14,6 +14,9 @@ YAML workflow and command-line entry points are retained.
 
 - Adds a stable, schema-backed Python API for workflow execution and embedded
   CCQN use, with a clean-installed wheel release gate.
+- Adds the installed `python -m atst_tools.api.runner` process boundary with
+  root-only `atst-api-result-v1` JSON handoff, stable `0/2/1` exit codes, and
+  no scheduler or MPI-launcher ownership.
 - Preserves legacy CLI behavior: CLI-owned workflows do not gain API artifact
   manifests, missing or directory YAML paths retain their filesystem
   exceptions, and the installed `atst` console command exits successfully

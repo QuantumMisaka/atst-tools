@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import runpy
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -135,3 +137,40 @@ def test_ccqn_extxyz_matches_authoritative_stru_conversion():
     }
     assert expected_fixed == actual_fixed
     assert expected_fixed == set(range(2, 34))
+
+
+def test_runner_reference_documents_installed_protocol_and_matches_help():
+    """The public reference exposes the installed runner rather than internals."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "atst_tools.api.runner", "--help"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    for flag in (
+        "--config",
+        "--workdir",
+        "--result-json",
+        "--dry-run",
+        "--restart",
+        "--check-input",
+        "--check-input-timeout",
+        "--abacus-executable",
+    ):
+        assert flag in completed.stdout
+
+    reference = API_REFERENCE.read_text(encoding="utf-8")
+    for phrase in (
+        "python -m atst_tools.api.runner",
+        "atst-api-result-v1",
+        "root rank",
+        "0",
+        "2",
+        "1",
+        "atomic",
+        "Slurm",
+        "mpirun",
+    ):
+        assert phrase in reference

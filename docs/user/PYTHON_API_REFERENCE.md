@@ -98,6 +98,41 @@ result = run_workflow("config.yaml", RunOptions(dry_run=True))
 print(result.status, result.artifact_manifest)
 ```
 
+### Process runner for external hosts
+
+An external host that needs a process boundary, stable exit status, and a
+machine-readable handoff can use the installed runner module. It is not a
+seventh stable root import and it does not replace the `atst` CLI:
+
+```bash
+python -m atst_tools.api.runner \
+  --config config.yaml \
+  --workdir run_sella \
+  --result-json atst_api_result.json
+```
+
+The runner accepts the same configuration-driven controls as `RunOptions`:
+`--config`, `--workdir`, `--result-json`, `--dry-run`, `--restart`,
+`--check-input`, `--check-input-timeout`, and `--abacus-executable`.
+`--result-json` is relative to `--workdir` unless an absolute path is supplied.
+The runner enters `--workdir` only for its own process and restores its caller
+directory before returning.
+
+On success, root rank atomically replaces the requested result file with an
+`atst-api-result-v1` JSON document. It contains `schema`, `status`, `workflow`,
+`is_root`, `workdir`, `artifact_manifest`, `artifacts`, and `metadata`. The
+`artifact_manifest` value is absolute; the manifest remains the durable
+scientific artifact authority, while the JSON file is an external-host handoff.
+On an `ATSTAPIError`, root rank instead writes `status: "error"` with a typed
+error document. Exit code `0` means success, `2` means a public ATST API error,
+and `1` means an unexpected runner failure.
+
+For externally launched image-parallel NEB or AutoNEB, every rank runs the same
+command, but only root rank publishes or replaces the JSON file. The runner
+never starts Slurm, `mpirun`, `srun`, or nested calculator MPI: the scheduler,
+launcher, resource allocation, and rank topology remain the caller's
+responsibility.
+
 ### `run_ccqn(atoms, calculator, options=CCQNOptions())`
 
 Runs ATST's CCQN single-ended transition-state search with caller-provided ASE
