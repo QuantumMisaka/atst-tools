@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -39,6 +40,54 @@ def _run_mpi(command: list[str], *, cwd: Path, environment: dict[str, str]) -> s
         process.communicate()
         pytest.fail(f"MPI regression timed out after {MPI_TIMEOUT_SECONDS} seconds")
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+def test_two_rank_runner_publishes_one_root_result_document(tmp_path: Path) -> None:
+    """External MPI launch leaves one stable handoff document for the host."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    launcher = shutil.which("mpiexec")
+    if launcher is None:
+        pytest.skip("mpiexec is unavailable")
+
+    config = tmp_path / "atst_relax.yaml"
+    config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: initial.traj\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    completed = _run_mpi(
+        [
+            launcher,
+            "-n",
+            "2",
+            sys.executable,
+            "-m",
+            "atst_tools.api.runner",
+            "--config",
+            str(config),
+            "--workdir",
+            str(tmp_path / "run"),
+            "--result-json",
+            "result.json",
+            "--dry-run",
+        ],
+        cwd=tmp_path,
+        environment=environment,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    assert payload["schema"] == "atst-api-result-v1"
+    assert payload["status"] == "success"
+    assert payload["is_root"] is True
 
 
 @pytest.mark.parametrize("workflow", ["neb", "autoneb"])

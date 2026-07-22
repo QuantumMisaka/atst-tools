@@ -187,6 +187,37 @@ def test_wheel_gate_runs_installed_atst_dry_run_without_result_repr(monkeypatch,
     assert calls[0][0][:3] == [str(tmp_path / "bin" / "atst"), "run", "--dry-run"]
 
 
+def test_wheel_gate_runs_installed_api_runner_dry_run(monkeypatch, tmp_path) -> None:
+    """The release gate must exercise the wheel-installed runner module."""
+    script = ROOT / "scripts" / "verify_wheel_api.py"
+    spec = importlib.util.spec_from_file_location("verify_wheel_api", script)
+    assert spec is not None and spec.loader is not None
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    calls = []
+
+    class Completed:
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        result_path = Path(command[command.index("--result-json") + 1])
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text('{"status": "success"}', encoding="utf-8")
+        return Completed()
+
+    monkeypatch.setattr(gate, "_run", fake_run)
+
+    gate._run_installed_api_runner_dry_run(tmp_path / "bin" / "python", tmp_path)
+
+    command, kwargs = calls[0]
+    assert command[:3] == [str(tmp_path / "bin" / "python"), "-m", "atst_tools.api.runner"]
+    assert "--dry-run" in command
+    assert "--result-json" in command
+    assert kwargs["cwd"] == tmp_path
+
+
 def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
     monkeypatch, tmp_path
 ) -> None:

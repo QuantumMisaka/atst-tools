@@ -33,6 +33,7 @@ def test_runner_writes_success_document_and_restores_cwd(monkeypatch, tmp_path):
         observed["cwd"] = Path.cwd()
         return _workflow_result(is_root=True)
 
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
     monkeypatch.setattr(runner, "run_workflow", fake_run_workflow)
     starting_directory = Path.cwd()
 
@@ -81,6 +82,7 @@ def test_runner_writes_typed_api_error_document(monkeypatch, tmp_path):
         "Sella did not converge.", workflow="sella", context={"step": 12}
     )
     error.__cause__ = RuntimeError("optimizer failure")
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
     monkeypatch.setattr(
         runner,
         "run_workflow",

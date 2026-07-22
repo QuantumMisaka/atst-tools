@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -173,6 +174,41 @@ def _run_installed_cli_dry_run(executable: Path, temporary_root: Path) -> None:
     )
     if "WorkflowResult(" in completed.stdout or "WorkflowResult(" in completed.stderr:
         raise RuntimeError("installed atst CLI printed a WorkflowResult representation")
+
+
+def _run_installed_api_runner_dry_run(python: Path, temporary_root: Path) -> None:
+    """Verify the installed runner module publishes a success handoff document."""
+    config = temporary_root / "wheel-api-runner-dry-run.yaml"
+    config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: initial.traj\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+    run_directory = temporary_root / "wheel-api-runner"
+    result_path = run_directory / "result.json"
+    _run(
+        [
+            str(python),
+            "-m",
+            "atst_tools.api.runner",
+            "--config",
+            str(config),
+            "--workdir",
+            str(run_directory),
+            "--result-json",
+            str(result_path),
+            "--dry-run",
+        ],
+        cwd=temporary_root,
+    )
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    if payload.get("status") != "success":
+        raise RuntimeError("installed ATST API runner did not report success")
 
 
 def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
@@ -370,6 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         _run([str(python), "-c", import_check], cwd=temporary_root)
         _run_installed_cli_dry_run(venv / "bin" / "atst", temporary_root)
+        _run_installed_api_runner_dry_run(python, temporary_root)
         _run_h2_au_api_example(python, temporary_root)
         if args.mpi_smoke:
             _run(
