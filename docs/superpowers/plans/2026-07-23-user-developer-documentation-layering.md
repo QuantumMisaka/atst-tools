@@ -50,7 +50,7 @@ Identify and record these existing locations: README `Validation` section and re
 Apply these concrete transformations:
 
 ```markdown
-| Release candidate | `2.2.0` is pending merge and publication; see [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
+| Release candidate | `2.2.0` is pending merge and publication; see [release notes](../../releases/RELEASE_NOTES_2.2.0.md). |
 ```
 
 Replace user-path `local/SAI` wording with `local and site environments`. Replace SAI-specific ABACUS advice with a generic statement that a site-compatible GPU solver must be chosen according to the installed ABACUS documentation. Replace development/test sections with links to the developer handover and operations guide. Keep `atst config validate`, because it is a user command that validates a YAML input rather than a project test-suite command.

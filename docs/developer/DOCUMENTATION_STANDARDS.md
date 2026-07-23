@@ -1,7 +1,7 @@
 # 文档编写与维护规范
 
-**版本**: 2026-05-28
-**日期**: 2026-05-28
+**版本**: 2026-07-23
+**日期**: 2026-07-23
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -80,6 +80,19 @@
 
 ## 7. 检查命令
 
+### 7.1 用户/开发者边界
+
+`README.md`、`docs/index.md`、`examples/README.md` 和 `docs/user/*.md` 是用户
+入口，只描述安装、配置、运行、结果和产品能力边界。不得在这些页面加入维护者
+测试套件、覆盖率、CI 配置、站点队列/分区或 SAI 专用作业命令（例如 `pytest`、
+`coverage`、`.github/workflows`、`sbatch`、`rush-gpu`、`huge-gpu`）。可保留
+通用产品术语（如 workflow、CI-NEB、GPU、MPI、Slurm）；治理测试按完整术语匹配，
+避免把这些正常产品/API 词汇误判为泄漏。
+
+维护者测试、站点执行、curated-output 溯源和证据报告统一写入
+[`EXAMPLE_VALIDATION_OPERATIONS.md`](EXAMPLE_VALIDATION_OPERATIONS.md)，并从
+`HANDOVER.md` 和 `DOCUMENTATION_STATUS_REPORT.md` 保持可发现链接。
+
 文档-only 变更至少运行：
 
 ```bash
@@ -87,6 +100,9 @@ git diff --check -- README.md docs examples/README.md
 rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md
 python scripts/check_docs_governance.py
 ```
+
+同时运行 `tests/unit/test_docs_governance.py`，以验证用户入口没有维护者/站点
+操作泄漏，并验证开发者 operations guide 的导航链接仍存在。
 
 还应对 README 和非 archive 的 `docs/**/*.md` 执行本地相对链接检查。若修改 HTML
 报告，用 Python 标准库 `HTMLParser` 做基础解析。`check_docs_governance.py`
