@@ -27,7 +27,7 @@ def test_abacuslite_ci_runs_snapshot_drift_checker():
     """The abacuslite CI should compare the vendored snapshot with pinned upstream."""
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "ABACUS_DEVELOP_REF: 762919f6421dc1b79f9213e902a79b37b66db937" in workflow
+    assert "ABACUS_DEVELOP_REF: 70f7ed69b5677c447afdc78e05240e93da660e66" in workflow
     assert "repository: deepmodeling/abacus-develop" in workflow
     assert "path: abacus-develop" in workflow
     assert "scripts/check_abacuslite_snapshot.py" in workflow

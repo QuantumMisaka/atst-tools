@@ -234,11 +234,18 @@ def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
         "_run",
         lambda command, **kwargs: commands.append((command, kwargs)),
     )
-    monkeypatch.setattr(
-        gate,
-        "_run_mpi_command",
-        lambda command, **kwargs: commands.append((command, kwargs)),
-    )
+    def fake_mpi_run(command, **kwargs):
+        commands.append((command, kwargs))
+        if "atst_tools.api.runner" in command:
+            result_path = Path(command[command.index("--workdir") + 1]) / command[
+                command.index("--result-json") + 1
+            ]
+            result_path.parent.mkdir(parents=True, exist_ok=True)
+            result_path.write_text(
+                '{"status": "success", "is_root": true}', encoding="utf-8"
+            )
+
+    monkeypatch.setattr(gate, "_run_mpi_command", fake_mpi_run)
 
     gate._run_mpi_smoke(tmp_path / "python", tmp_path)
 
@@ -252,6 +259,17 @@ def test_wheel_mpi_smoke_exercises_an_image_parallel_failure_gate(
     assert "allreduce" in smoke
     assert "class NoopCalculator" in smoke
     assert smoke.index("class NoopCalculator") < smoke.index("NoopCalculator()")
+    assert any(
+        command[:6] == [
+            "/test/mpiexec",
+            "-n",
+            "2",
+            str(tmp_path / "python"),
+            "-m",
+            "atst_tools.api.runner",
+        ]
+        for command, _ in commands
+    )
 
 
 def test_wheel_mpi_command_kills_and_waits_for_the_process_group_on_timeout(

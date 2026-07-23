@@ -10,7 +10,12 @@ from ase.constraints import FixAtoms, FixCartesian
 
 from atst_tools.calculators import abacuslite_backend
 from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
-from atst_tools.external.ASE_interface.abacuslite.core import AbacusProfile, AbacusTemplate
+from atst_tools.external.ASE_interface.abacuslite.core import (
+    Abacus,
+    AbacusProfile,
+    AbacusTemplate,
+    switch_io_backend_version,
+)
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import file_safe_backup, read_stru, write_stru
 
 
@@ -32,6 +37,28 @@ def test_abacuslite_backend_does_not_hide_external_package_import_errors(monkeyp
 def test_parse_version_accepts_legacy_abacus_version_line():
     """ABACUS <= 3.9 style version output remains supported."""
     assert AbacusProfile.parse_version("ABACUS version v3.9.0.17\n") == "v3.9.0.17"
+
+
+def test_vendored_abacuslite_accepts_current_beta_version_format():
+    """The fallback parser accepts current upstream beta banners without a dot."""
+    assert switch_io_backend_version("v3.11.0-beta1") is False
+
+
+def test_fixed_density_uses_upstream_output_directory_default(monkeypatch, tmp_path):
+    """Vendored fixed-density calculations retain upstream OUT.ABACUS discovery."""
+    calculator = object.__new__(Abacus)
+    calculator.profile = object()
+    calculator.directory = tmp_path
+    captured = {}
+
+    def fake_restart(cls, **kwargs):
+        captured.update(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(Abacus, "restart", classmethod(fake_restart))
+    calculator.fixed_density({"mode": "gamma", "nk": 1})
+
+    assert captured["inp"]["read_file_dir"] == "OUT.ABACUS"
 
 
 def test_atst_parse_version_accepts_banner_abacus_version_line():

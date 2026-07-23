@@ -212,11 +212,47 @@ def _run_installed_api_runner_dry_run(python: Path, temporary_root: Path) -> Non
 
 
 def _run_mpi_smoke(python: Path, temporary_root: Path) -> None:
-    """Run bounded two-rank public API and pre-run failure-synchronization gates."""
+    """Run bounded two-rank runner and API failure-synchronization gates."""
     launcher = shutil.which("mpiexec")
     if launcher is None:
         print("MPI smoke skipped: mpiexec is unavailable")
         return
+
+    runner_config = temporary_root / "wheel-api-runner-mpi-dry-run.yaml"
+    runner_config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: initial.traj\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+    runner_directory = temporary_root / "wheel-api-runner-mpi"
+    runner_result = runner_directory / "result.json"
+    _run_mpi_command(
+        [
+            launcher,
+            "-n",
+            "2",
+            str(python),
+            "-m",
+            "atst_tools.api.runner",
+            "--config",
+            str(runner_config),
+            "--workdir",
+            str(runner_directory),
+            "--result-json",
+            runner_result.name,
+            "--dry-run",
+        ],
+        cwd=temporary_root,
+        timeout=MPI_SMOKE_TIMEOUT_SECONDS,
+    )
+    runner_payload = json.loads(runner_result.read_text(encoding="utf-8"))
+    if runner_payload.get("status") != "success" or runner_payload.get("is_root") is not True:
+        raise RuntimeError("two-rank API runner did not publish one root success document")
 
     setup_chain = (
         "from ase import Atoms; from ase.io import write; "

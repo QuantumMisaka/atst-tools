@@ -506,14 +506,18 @@ def _run_workflow(
     assert config is not None
     workflow = config["calculation"]["type"]
     if options.dry_run:
+        preflight = None
+        preflight_failure = None
         try:
             preflight = _run_abacus_check_input_preflight(
                 config, config_source, options, base_dir=preflight_base_dir
             )
-        except WorkflowExecutionError:
-            raise
+        except WorkflowExecutionError as exc:
+            preflight_failure = exc
         except Exception as exc:
-            raise WorkflowExecutionError(str(exc), workflow=workflow) from exc
+            preflight_failure = WorkflowExecutionError(str(exc), workflow=workflow)
+            preflight_failure.__cause__ = exc
+        _synchronize_rank_failure(world, workflow, preflight_failure)
         result = _validated_result(config, world)
         if preflight is not None:
             result.metadata["check_input_preflight"] = preflight

@@ -2,7 +2,7 @@
 
 **Version**: 2.2.0
 **Date**: 2026-07-22
-**Branch**: `main`
+**Branch**: pending merge (`feat/stable-python-api`)
 
 ## Summary
 
@@ -32,9 +32,7 @@ YAML workflow and command-line entry points are retained.
 
 - Focused API, CLI, MPI, and package metadata tests in the `atst-dev`
   environment.
-- `python scripts/verify_wheel_api.py --mpi-smoke` with a bounded two-rank
-  CLI dry-run plus optimizer- and engine-construction failure regressions that
-  clean-install the wheel.
+- `python scripts/verify_wheel_api.py --mpi-smoke` runs a bounded two-rank API runner dry-run, plus in-process optimizer- and engine-construction failure-synchronization regressions, from a clean wheel installation.
 - `git diff --check` for source and documentation changes.
 
 ## Compatibility

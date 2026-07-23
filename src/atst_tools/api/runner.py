@@ -102,6 +102,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run one configuration workflow and return its stable process exit code."""
     args = build_parser().parse_args(argv)
     workdir = Path(args.workdir).resolve()
+    config_path = Path(args.config).resolve()
     result_path = _result_path(args.result_json, workdir)
     is_root = _process_rank() == 0
     options = RunOptions(
@@ -114,7 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         with _working_directory(workdir):
-            result = run_workflow(args.config, options)
+            result = run_workflow(config_path, options)
             if is_root:
                 _write_json_atomic(result_path, result.to_document(workdir))
     except ATSTAPIError as error:

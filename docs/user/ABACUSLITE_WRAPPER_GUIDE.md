@@ -26,13 +26,20 @@ the vendored fallback. The fixes below are tested in the vendored snapshot; an
 external `abacuslite` package may differ unless the installed package already
 includes the same fixes.
 
-As of 2026-07-05, the vendored snapshot intentionally preserves these local
+As of 2026-07-23, the vendored snapshot is synchronized with upstream
+`deepmodeling/abacus-develop` commit `70f7ed69b5677c447afdc78e05240e93da660e66`
+after normalizing ATST package-layout differences. It intentionally preserves these local
 differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`:
 
 - Relative imports so the package works under `atst_tools.external`.
 - First-occurrence species grouping for generated STRU files.
 - ASE `FixAtoms` and `FixCartesian` constraints written as ABACUS mobility flags.
 - Tolerant legacy ABACUS band-row parsing.
+
+The synchronized snapshot accepts both dotted and undotted prerelease banners
+such as `v3.11.0-beta.1` and `v3.11.0-beta1`; its fixed-density helper also
+uses `OUT.ABACUS` as the explicit charge-file directory expected by current
+upstream behavior.
 
 The vendored snapshot also carries tested upstream-sync fixes for numbered
 backup rotation, property-derived ABACUS keyword conflict detection,

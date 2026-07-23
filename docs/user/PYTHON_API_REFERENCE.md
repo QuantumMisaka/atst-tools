@@ -114,6 +114,9 @@ python -m atst_tools.api.runner \
 The runner accepts the same configuration-driven controls as `RunOptions`:
 `--config`, `--workdir`, `--result-json`, `--dry-run`, `--restart`,
 `--check-input`, `--check-input-timeout`, and `--abacus-executable`.
+`--config` is resolved against the caller directory before the runner enters
+`--workdir`; relative paths inside the YAML continue to use the runner work
+directory, matching the configuration-driven API's CWD semantics.
 `--result-json` is relative to `--workdir` unless an absolute path is supplied.
 The runner enters `--workdir` only for its own process and restores its caller
 directory before returning.

@@ -55,7 +55,7 @@ def test_runner_writes_success_document_and_restores_cwd(monkeypatch, tmp_path):
 
     assert code == 0
     assert Path.cwd() == starting_directory
-    assert observed["source"] == str(config)
+    assert observed["source"] == config.resolve()
     assert observed["cwd"] == workdir.resolve()
     assert observed["options"].restart is True
     assert observed["options"].check_input_timeout == 45
@@ -70,6 +70,28 @@ def test_runner_writes_success_document_and_restores_cwd(monkeypatch, tmp_path):
         "artifacts": [{"path": "sella.traj", "kind": "trajectory"}],
         "metadata": {"backend_source": "abacuslite"},
     }
+
+
+def test_runner_resolves_relative_config_before_entering_workdir(monkeypatch, tmp_path):
+    """A documented relative config path is anchored at the caller directory."""
+    from atst_tools.api import runner
+
+    config = tmp_path / "config.yaml"
+    config.write_text("calculation: {}\n", encoding="utf-8")
+    workdir = tmp_path / "run"
+    observed = {}
+
+    def fake_run_workflow(source, options):
+        observed["source"] = source
+        observed["cwd"] = Path.cwd()
+        return _workflow_result(is_root=True)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
+    monkeypatch.setattr(runner, "run_workflow", fake_run_workflow)
+
+    assert runner.main(["--config", "config.yaml", "--workdir", str(workdir)]) == 0
+    assert observed == {"source": config.resolve(), "cwd": workdir.resolve()}
 
 
 def test_runner_writes_typed_api_error_document(monkeypatch, tmp_path):

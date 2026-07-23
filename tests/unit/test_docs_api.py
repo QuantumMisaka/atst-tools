@@ -13,6 +13,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 API_REFERENCE = ROOT / "docs/user/PYTHON_API_REFERENCE.md"
 API_EXAMPLE = ROOT / "examples/12_ccqn_H2-Au/ccqn_api_auto_modes.py"
+RELEASE_NOTES = ROOT / "docs/releases/RELEASE_NOTES_2.2.0.md"
 
 
 def test_api_reference_is_linked_from_public_navigation():
@@ -174,3 +175,12 @@ def test_runner_reference_documents_installed_protocol_and_matches_help():
         "mpirun",
     ):
         assert phrase in reference
+
+
+def test_unmerged_release_notes_do_not_claim_main_or_wrong_mpi_coverage():
+    """Candidate documentation must describe the runner gate it actually executes."""
+    notes = RELEASE_NOTES.read_text(encoding="utf-8")
+
+    assert "**Branch**: pending merge" in notes
+    assert "two-rank API runner dry-run" in notes
+    assert "two-rank CLI dry-run" not in notes
