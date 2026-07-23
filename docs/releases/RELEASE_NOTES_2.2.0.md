@@ -1,15 +1,15 @@
 # ATST-Tools 2.2.0 Release Notes
 
 **Version**: 2.2.0
-**Date**: 2026-07-22
-**Branch**: pending merge (`feat/stable-python-api`)
+**Date**: 2026-07-24
+**Branch**: `main`
+**Tag**: `v2.2.0`
 
 ## Summary
 
-ATST-Tools 2.2.0 is a release candidate that will publish the stable Python API
-with its final CLI and image-parallel compatibility safeguards. The release will
-remain additive: existing YAML workflow and command-line entry points are
-retained.
+ATST-Tools 2.2.0 publishes the stable Python API with final CLI and
+image-parallel compatibility safeguards. The release is additive: existing YAML
+workflow and command-line entry points are retained.
 
 ## Highlights
 

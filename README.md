@@ -18,14 +18,14 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | 2.2.0 release-candidate status |
+| Area | Current 2.2.0 status |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Release candidate | `2.2.0` is pending merge and publication; see [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
+| Release | `2.2.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
 
 ## What You Can Run
 
@@ -68,7 +68,7 @@ pip install atst-tools
 ```
 
 Without a version pin, this installs the version currently published on PyPI;
-it does not install the pending 2.2.0 release candidate.
+it installs the current published release.
 
 ATST-Tools requires Python 3.10 or newer. Sella-backed workflows install
 `sella>=2.5` with the default package because Sella is a first-class workflow

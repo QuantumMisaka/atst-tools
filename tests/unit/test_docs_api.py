@@ -177,10 +177,11 @@ def test_runner_reference_documents_installed_protocol_and_matches_help():
         assert phrase in reference
 
 
-def test_unmerged_release_notes_do_not_claim_main_or_wrong_mpi_coverage():
-    """Candidate documentation must describe the runner gate it actually executes."""
+def test_release_notes_describe_the_final_branch_tag_and_mpi_gate():
+    """Release documentation must match the finalized branch, tag, and runner gate."""
     notes = RELEASE_NOTES.read_text(encoding="utf-8")
 
-    assert "**Branch**: pending merge" in notes
+    assert "**Branch**: `main`" in notes
+    assert "**Tag**: `v2.2.0`" in notes
     assert "two-rank API runner dry-run" in notes
     assert "two-rank CLI dry-run" not in notes
