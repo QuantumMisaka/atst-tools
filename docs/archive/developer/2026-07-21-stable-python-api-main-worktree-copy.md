@@ -4,7 +4,7 @@
 
 **Goal:** Deliver a stable `atst_tools.api` for YAML-driven workflows and embedded CCQN while making the existing `atst run` and `atst config validate` commands thin, behavior-compatible adapters.
 
-**Spec:** `docs/superpowers/specs/2026-07-21-python-api-design.html`
+**Spec:** `2026-07-21-python-api-design-premerge-draft.html` (pre-merge draft archived alongside this copy)
 
 **Architecture:** Add a focused public API package over an internal application-service module. The service owns config loading/normalization, dispatch, manifest/result collection, and typed API exceptions; CLI code retains parsing, messages, and exit behavior but delegates to that service. Existing workflow and calculator classes stay internal, and the injected CCQN path bypasses `CalculatorFactory` completely.
 

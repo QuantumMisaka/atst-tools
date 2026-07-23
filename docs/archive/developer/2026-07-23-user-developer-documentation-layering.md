@@ -125,7 +125,7 @@ git commit -m "docs: move example validation operations to developer guide"
 - Modify: `tests/unit/test_docs_governance.py`
 - Modify: `docs/developer/DOCUMENTATION_STANDARDS.md`
 - Modify: `docs/index.md` only if the new guide is not yet reachable from the developer path
-- Modify: `docs/superpowers/plans/2026-07-23-user-developer-documentation-layering.md`
+- Modify: this archived plan file only while preserving its historical record.
 
 **Test strategy:**
 - Behavior boundary: active user entry points cannot regress by adding maintainer test-suite/CI/coverage instructions or SAI-specific infrastructure content; developer operations content remains discoverable.
