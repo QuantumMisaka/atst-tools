@@ -11,8 +11,8 @@ YAML file, and run a workflow.
 
 1. [README quick start](../README.md) for project scope, supported workflows,
    installation, and minimal commands.
-2. [Chinese user guide](user/USER_GUIDE_CN.md) for a 10-minute local/SAI
-   onboarding path.
+2. [Chinese user guide](user/USER_GUIDE_CN.md) for a 10-minute onboarding path
+   in local and site environments.
 3. [Examples overview](../examples/README.md) for runnable NEB, AutoNEB, Dimer,
    Sella, CCQN, D2S, Relax, Vibration, IRC, MD, experimental DMF, DP, and MPI
    examples.
@@ -26,7 +26,9 @@ YAML file, and run a workflow.
 7. [YAML input variables](user/YAML_INPUT_VARIABLES.md) for the generated
    schema field table.
 8. [ABACUSLite wrapper guide](user/ABACUSLITE_WRAPPER_GUIDE.md) for ABACUS
-   backend boundaries and MPI notes.
+   backend boundaries and image-level MPI configuration.
+9. [Feature status matrix](reports/FEATURE_STATUS_MATRIX.md) for supported,
+   partial, and experimental workflow boundaries.
 
 ## Developer Path
 
@@ -68,7 +70,7 @@ resolver first tries an independently installed `abacuslite` package, then
 falls back to the vendored snapshot under
 `src/atst_tools/external/ASE_interface/abacuslite`.
 
-The vendored snapshot is kept for 2.0.x reproducibility on SAI and is not
+The vendored snapshot is kept for 2.0.x reproducibility and is not
 intended to be the only long-term integration mode. When `abacuslite` has a
 stable release channel, ATST-Tools should move it to an optional dependency or
 extra and retire the vendored fallback.

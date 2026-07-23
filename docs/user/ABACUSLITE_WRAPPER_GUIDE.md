@@ -19,12 +19,11 @@ atst run CONFIG.yaml
 `neb`, `autoneb`, `d2s`, `dimer`, `sella`, `relax`, `vibration`, `irc`, and
 `md` can all use `calculator.name: abacus`.
 
-## Tested Vendored Backend Fixes
+## Vendored Backend Notes
 
 ATST-Tools still resolves an independently installed `abacuslite` package before
-the vendored fallback. The fixes below are tested in the vendored snapshot; an
-external `abacuslite` package may differ unless the installed package already
-includes the same fixes.
+the vendored fallback. An external `abacuslite` package may differ from the
+vendored snapshot.
 
 As of 2026-07-23, the vendored snapshot is synchronized with upstream
 `deepmodeling/abacus-develop` commit `70f7ed69b5677c447afdc78e05240e93da660e66`
@@ -46,13 +45,10 @@ to ASE's recommended `improvedtangent` method. Direct `AbacusNEB(...)`
 construction now pins the same default explicitly, so its behavior does not
 depend on an ASE release's implicit default.
 
-The vendored snapshot also carries tested upstream-sync fixes for numbered
-backup rotation, property-derived ABACUS keyword conflict detection,
-unsupported TDDFT `dipole` de-advertising, and `read_abacus_out` calculator
-`magmoms` reordering when atoms are sorted during result parsing. The dedicated
-abacuslite CI compares implementation files against a pinned
-`deepmodeling/abacus-develop` ASE interface checkout after normalizing ATST's
-package-layout differences.
+The vendored snapshot also carries upstream-sync fixes for numbered backup
+rotation, property-derived ABACUS keyword conflict detection, unsupported TDDFT
+`dipole` de-advertising, and `read_abacus_out` calculator `magmoms` reordering
+when atoms are sorted during result parsing.
 
 ## Wrapper Boundary
 
@@ -62,7 +58,8 @@ ATST-Tools is a layered wrapper around abacuslite:
   trajectory naming, and common pre/post-processing.
 - It uses abacuslite as the ASE calculator backend for ABACUS calculations.
 - It exposes conservative ABACUS input/output helpers for repeated user tasks.
-- It does not replace ABACUS, abacuslite, Slurm, or site-specific job launchers.
+- It does not replace ABACUS, abacuslite, a scheduler, or site-specific job
+  launchers.
 
 ## Common Commands
 
@@ -124,40 +121,25 @@ independent `Abacus` calculator directory, and ASE runs `NEB(...,
 parallel=True)`. ATST-Tools follows this image-isolated directory model for
 ABACUS-backed NEB and AutoNEB.
 
-On SAI, use an MPI-enabled Python environment built against the same OpenMPI
-stack loaded by ABACUS LTS 3.10.1:
+Use an MPI-enabled Python environment compatible with the site launcher and
+the installed ABACUS runtime. For ordinary NEB, the outer MPI world size must
+equal the number of interior images; for AutoNEB, it must equal
+`calculation.n_simul`. Start with `calculator.abacus.mpi: 1`; increasing it
+adds a second, inner MPI layer for each ABACUS image calculation.
 
-```bash
-conda create -n atst-neb-mpi python=3.10
-conda activate atst-neb-mpi
-module load abacus/LTSv3.10.1-sm70-auto
-python -m pip install -e .
-MPICC="$(which mpicc)" python -m pip install --no-binary=mpi4py mpi4py
-```
+The outer launcher remains outside ATST-Tools. Configure the ABACUS subprocess
+separately with `calculator.abacus.command`. When a bare single-process
+`abacus` command runs inside an image-level MPI workflow, ATST-Tools clears the
+outer MPI launcher environment for the ABACUS subprocess so it remains a
+one-image calculation.
 
-Validate ASE can see MPI before launching a workflow:
-
-```bash
-mpirun -np 4 python -c 'from mpi4py import MPI; from ase.parallel import world; print(world.rank, world.size)'
-```
-
-For ordinary NEB, `mpirun -np N atst run config.yaml` requires `N` to equal the
-number of interior images. For AutoNEB, `N` must equal `calculation.n_simul`.
-Keep `calculator.abacus.mpi: 1` for first smoke tests; increasing it adds a
-second, inner MPI layer for each ABACUS image calculation.
-
-The outer launcher is intentionally outside ATST-Tools. Put the `mpirun -np N
-atst run ...` command in your site sbatch script, or use an equivalent site
-launcher if it exposes a real mpi4py communicator to ASE. Configure the ABACUS
-subprocess command separately with `calculator.abacus.command`; explicit
-commands such as `srun -n 4 abacus` and templates such as `mpirun -np {mpi}
-abacus` are accepted. When a bare single-process command such as `abacus` runs
-inside an image-level MPI workflow, ATST-Tools clears the outer MPI launcher
-environment for the ABACUS subprocess so it remains a one-image calculation.
+For site setup, example validation, and maintainer operations, use the
+[developer handover](../developer/HANDOVER.md) and the forthcoming
+[example validation operations guide](../developer/EXAMPLE_VALIDATION_OPERATIONS.md).
 
 ## Non-Goals
 
-- No Slurm submission command is provided in this layer.
+- No scheduler submission command is provided in this layer.
 - No site-specific module loading is encoded in YAML.
 - No complete ABACUS output database is built from run directories.
 - No guarantee is made that every abacuslite IO function is exposed at the CLI.

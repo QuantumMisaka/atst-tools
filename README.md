@@ -1,7 +1,6 @@
 # ATST-Tools
 
 [![Version](https://img.shields.io/badge/version-2.2.0-blue)](pyproject.toml)
-[![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -19,15 +18,14 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.2.0 status |
+| Area | 2.2.0 release-candidate status |
 | :--- | :--- |
-| Package | Installable Python package from PyPI with the `atst` console command. |
+| Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.2.0`, documented in [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
+| Release candidate | `2.2.0` is pending merge and publication; see [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
 
 ## What You Can Run
 
@@ -81,22 +79,17 @@ pip install "atst-tools[dp]"        # DeePMD-kit calculator workflows
 pip install "atst-tools[parallel]"  # MPI image-level NEB/AutoNEB
 ```
 
-### Development Install
+### From Source
 
 ```bash
 git clone https://github.com/deepmodeling/atst-tools.git
 cd atst-tools
-pip install -e ".[dev]"
+pip install .
 ```
 
-### Wheel Install
-
-Build a local release artifact:
-
-```bash
-python -m build
-pip install dist/atst_tools-2.2.0-py3-none-any.whl
-```
+Maintainers who need development installs, release artifacts, or validation
+operations should use the [developer handover](docs/developer/HANDOVER.md) and
+the [example validation operations guide](docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md).
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
 need the selected calculator runtime:
@@ -297,32 +290,12 @@ project:
 | `examples/10_irc_H2` | IRC YAML examples. |
 | `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
 | `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
-| `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
-| `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
+| `examples/13_neb_parallel_Cy-Pt` | Image-parallel NEB example. |
+| `examples/14_autoneb_parallel_Cy-Pt` | Image-parallel AutoNEB example. |
 | `examples/15_md_Li-Si` | ASE-driven and ABACUS-native MD templates starting from the `01_neb_Li-Si` initial structure. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
-
-## Validation
-
-The 2.2.0 README badges reflect the current governed project state:
-
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.2.0`.
-- Unit test coverage badge: measured with
-  `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
-  `coverage report --omit='src/atst_tools/external/*'`.
-- Current first-party unit test coverage: `66%`.
-- Full source-tree coverage including the vendored `abacuslite` snapshot:
-  `43%`.
-
-The vendored `src/atst_tools/external/ASE_interface` tree is kept for ABACUS
-backend reproducibility and is not treated as first-party ATST-Tools coverage.
-Pull requests run the maintained unit suite through `.github/workflows/tests.yml`.
-Changes touching the vendored ABACUS ASE interface also run
-`.github/workflows/abacuslite-ase-interface.yml`, which checks ATST regression
-tests, package-mode abacuslite unittests, and snapshot drift against the pinned
-`deepmodeling/abacus-develop` ASE interface reference.
 
 ## For Developers
 
