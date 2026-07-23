@@ -37,15 +37,18 @@ backend, CLI command, example, or documentation.
 
 1. [README for developers](../README.md#for-developers) for extension points.
 2. [Handover checklist](developer/HANDOVER.md) for routine maintenance tasks.
-3. [YAML input governance](developer/YAML_INPUT_GOVERNANCE.md) for schema,
+3. [Example validation operations](developer/EXAMPLE_VALIDATION_OPERATIONS.md)
+   for maintainer checks, site execution, curated-output provenance, and
+   evidence reports.
+4. [YAML input governance](developer/YAML_INPUT_GOVERNANCE.md) for schema,
    generated docs, examples, and config tests.
-4. [Documentation standards](developer/DOCUMENTATION_STANDARDS.md) for metadata,
+5. [Documentation standards](developer/DOCUMENTATION_STANDARDS.md) for metadata,
    lifecycle, report levels, archive rules, and verification commands.
-5. [Documentation architecture](developer/DOCS_ARCHITECTURE.md) for directory
+6. [Documentation architecture](developer/DOCS_ARCHITECTURE.md) for directory
    responsibilities and target audiences.
-6. [Maintained atst-cli skill](skills/atst-cli/SKILL.md) for operational CLI
+7. [Maintained atst-cli skill](skills/atst-cli/SKILL.md) for operational CLI
    usage and validation snippets.
-7. [PyPI release automation](developer/PYPI_RELEASE_AUTOMATION.md) for release
+8. [PyPI release automation](developer/PYPI_RELEASE_AUTOMATION.md) for release
    publishing.
 
 ## Project Manager Path

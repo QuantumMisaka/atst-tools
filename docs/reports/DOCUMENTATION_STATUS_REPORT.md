@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
 **版本**: 2.2.0
-**日期**: 2026-07-22
+**日期**: 2026-07-23
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -39,6 +39,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/developer/DOCS_ARCHITECTURE.md` | guide | 文档目录职责、目标读者、生命周期类型和导航原则。 |
 | `docs/developer/DOCUMENTATION_STANDARDS.md` | guide | 元数据、生命周期、reports 分级、更新映射、归档流程和检查命令。 |
 | `docs/developer/HANDOVER.md` | guide | workflow、YAML、CLI、backend、example、report、release 变更 checklist。 |
+| `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` | guide | 示例本地维护检查、SAI/Slurm 执行模式、curated-output 溯源和证据报告生命周期；不作为用户快速上手。 |
 | `docs/developer/YAML_INPUT_GOVERNANCE.md` | guide | YAML schema、变量新增、文档导出和测试治理规则。 |
 | `docs/developer/PYPI_RELEASE_AUTOMATION.md` | guide | PyPI 发布自动化流程。 |
 
