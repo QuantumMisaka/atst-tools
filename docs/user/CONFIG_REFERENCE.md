@@ -137,7 +137,7 @@ calculator directory such as `run_neb/image_001`, following the same
 image-isolated directory model used by the vendored abacuslite NEB example.
 This outer MPI layer is separate from `calculator.abacus.mpi`, which controls
 the ABACUS subprocess count for one image. ATST-Tools does not run or generate
-Slurm submission commands; use your site job script to launch the outer Python
+Slurm submission commands; use your site launch script to start the outer Python
 MPI command, and keep all ABACUS executable details in `calculator.abacus`.
 
 ### 2.3 AutoNEB

@@ -93,7 +93,7 @@ atst neb summary --autoneb-prefix run_autoneb --format json --output neb_summary
 
 `atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices. It supports `--n-max`, `--plot`, `--plot-label`, `--energy-profile`, `--plot-all`, `--view`, `--vib-analysis`, `--vib-thr`, `--output-prefix`, and `--strict-band`. Use `--energy-profile` to print each selected image's absolute energy, energy relative to the first image, and max force; use `--plot-label` to choose the `--plot` PDF prefix. It can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
 
-`atst neb summary` is a read-only monitor/post-summary command. For ordinary NEB trajectories it reports the band size, complete optimization steps, incomplete frame remainder, per-step raw maximum-force image, image energy, barrier, and delta E. For AutoNEB it reads the current final chain from `--autoneb-prefix` or `--autoneb-files`. Use `--format json` and `--output` for machine-readable reports, `--tail N` for compact terminal output, and `--watch SEC` for polling a running job.
+`atst neb summary` is a read-only monitor/post-summary command. For ordinary NEB trajectories it reports the band size, complete optimization steps, incomplete frame remainder, per-step raw maximum-force image, image energy, barrier, and delta E. For AutoNEB it reads the current final chain from `--autoneb-prefix` or `--autoneb-files`. Use `--format json` and `--output` for machine-readable reports, `--tail N` for compact terminal output, and `--watch SEC` for polling a running calculation.
 
 ## MD Tools
 
@@ -166,7 +166,7 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 
 ## Workflow CLI Boundary
 
-`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit jobs. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
+`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit scheduled work. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
 
 For programmatic embedding, the stable Python API calls the same normalization
 and workflow services while this CLI retains command parsing, terminal messages,

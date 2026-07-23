@@ -67,6 +67,9 @@ atst abacus collect ...
 pip install atst-tools
 ```
 
+Without a version pin, this installs the version currently published on PyPI;
+it does not install the pending 2.2.0 release candidate.
+
 ATST-Tools requires Python 3.10 or newer. Sella-backed workflows install
 `sella>=2.5` with the default package because Sella is a first-class workflow
 backend.
@@ -243,7 +246,7 @@ atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus
 atst abacus collect run_neb --output abacus_results.json
 ```
 
-These helper commands do not run ABACUS and do not submit Slurm jobs.
+These helper commands do not run ABACUS and do not submit scheduler work.
 
 ### DeePMD-kit / DP
 
@@ -307,7 +310,7 @@ The main extension points are deliberately small:
 | Regenerate YAML docs | `python -m atst_tools.utils.config_docs` |
 | Add a calculator backend | `src/atst_tools/calculators/` |
 | Add an `atst run` workflow | `src/atst_tools/scripts/main.py` and `src/atst_tools/workflows/` |
-| Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command modules |
+| Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command components |
 | Add examples | `examples/<case>/config.yaml` and curated `inputs/` |
 
 Developer governance starts from these maintained entry points:

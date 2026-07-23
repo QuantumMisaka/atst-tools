@@ -88,7 +88,7 @@ Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
   before it constructs a communicator or dispatches a workflow.
 - `abacus_executable` overrides the executable used only for ABACUS
   check-input preflight.
-- `world` accepts an existing communicator for embedding or tests. It is not a
+- `world` accepts an existing communicator for embedding. It is not a
   scheduler or launcher interface.
 
 ```python
@@ -101,7 +101,7 @@ print(result.status, result.artifact_manifest)
 ### Process runner for external hosts
 
 An external host that needs a process boundary, stable exit status, and a
-machine-readable handoff can use the installed runner module. It is not a
+machine-readable handoff can use the installed runner. It is not a
 seventh stable root import and it does not replace the `atst` CLI:
 
 ```bash
@@ -191,7 +191,7 @@ deliberately distinct from the legacy CLI adapter, whose `atst run --dry-run
 the YAML file's parent.
 
 The API never launches Slurm, `mpirun`, `srun`, or nested calculator MPI. Start
-the outer MPI job yourself, then have every rank call the same API with the
+the outer MPI calculation yourself, then have every rank call the same API with the
 same configuration. NEB requires one rank per interior image and AutoNEB one
 rank per simultaneous image; existing serial fallback behavior is preserved.
 
@@ -211,10 +211,10 @@ Backend delegation has four invariants:
 
 ## Errors and support boundary
 
-Public API failures derive from `ATSTAPIError`. The companion model module
+Public API failures derive from `ATSTAPIError`. The companion model component
 defines `ConfigValidationError` for schema/path problems,
 `UnsupportedDependencyError` for unavailable optional runtime dependencies
-(including DeePMD-kit's `deepmd` module, MPI launcher's `mpi4py` requirement,
+(including DeePMD-kit's `deepmd` component, MPI launcher's `mpi4py` requirement,
 and DMF's `cyipopt`/IPOPT requirement),
 `MPIConfigurationError` for image-parallel topology problems, and
 `WorkflowExecutionError` for a workflow or runtime failure. Each carries an

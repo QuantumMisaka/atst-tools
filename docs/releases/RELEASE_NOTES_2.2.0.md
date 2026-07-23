@@ -6,9 +6,10 @@
 
 ## Summary
 
-ATST-Tools 2.2.0 publishes the stable Python API with its final CLI and
-image-parallel compatibility safeguards. The release remains additive: existing
-YAML workflow and command-line entry points are retained.
+ATST-Tools 2.2.0 is a release candidate that will publish the stable Python API
+with its final CLI and image-parallel compatibility safeguards. The release will
+remain additive: existing YAML workflow and command-line entry points are
+retained.
 
 ## Highlights
 

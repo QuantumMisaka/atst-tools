@@ -58,7 +58,7 @@ ATST-Tools is a layered wrapper around abacuslite:
   trajectory naming, and common pre/post-processing.
 - It uses abacuslite as the ASE calculator backend for ABACUS calculations.
 - It exposes conservative ABACUS input/output helpers for repeated user tasks.
-- It does not replace ABACUS, abacuslite, a scheduler, or site-specific job
+- It does not replace ABACUS, abacuslite, a scheduler, or site-specific
   launchers.
 
 ## Common Commands
@@ -134,13 +134,13 @@ outer MPI launcher environment for the ABACUS subprocess so it remains a
 one-image calculation.
 
 For site setup, example validation, and maintainer operations, use the
-[developer handover](../developer/HANDOVER.md) and the forthcoming
+[developer handover](../developer/HANDOVER.md) and the
 [example validation operations guide](../developer/EXAMPLE_VALIDATION_OPERATIONS.md).
 
 ## Non-Goals
 
 - No scheduler submission command is provided in this layer.
-- No site-specific module loading is encoded in YAML.
+- No site-specific environment setup is encoded in YAML.
 - No complete ABACUS output database is built from run directories.
 - No guarantee is made that every abacuslite IO function is exposed at the CLI.
 
