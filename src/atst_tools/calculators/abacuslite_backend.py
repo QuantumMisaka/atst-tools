@@ -17,7 +17,9 @@ def _load_abacuslite_backend():
         from abacuslite import Abacus, AbacusProfile
 
         return Abacus, AbacusProfile, "external"
-    except ImportError:
+    except ModuleNotFoundError as exc:
+        if exc.name != "abacuslite":
+            raise
         from atst_tools.external.ASE_interface.abacuslite import Abacus, AbacusProfile
 
         return Abacus, AbacusProfile, "vendored"

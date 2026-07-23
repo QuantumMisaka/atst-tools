@@ -1,7 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.1.4-blue)](pyproject.toml)
-[![Unit test coverage](https://img.shields.io/badge/unit%20test%20coverage-66%25-yellowgreen)](#validation)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -19,15 +18,14 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.1.4 status |
+| Area | 2.2.0 release-candidate status |
 | :--- | :--- |
-| Package | Installable Python package from PyPI with the `atst` console command. |
+| Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Validation | Unit tests, example dry-runs, SAI ABACUS evidence, and DP/DPA smoke validation. |
-| Release | `2.1.4`, documented in [release notes](docs/releases/RELEASE_NOTES_2.1.4.md). |
+| Release candidate | `2.2.0` is pending merge and publication; see [release notes](docs/releases/RELEASE_NOTES_2.2.0.md). |
 
 ## What You Can Run
 
@@ -69,6 +67,9 @@ atst abacus collect ...
 pip install atst-tools
 ```
 
+Without a version pin, this installs the version currently published on PyPI;
+it does not install the pending 2.2.0 release candidate.
+
 ATST-Tools requires Python 3.10 or newer. Sella-backed workflows install
 `sella>=2.5` with the default package because Sella is a first-class workflow
 backend.
@@ -81,22 +82,17 @@ pip install "atst-tools[dp]"        # DeePMD-kit calculator workflows
 pip install "atst-tools[parallel]"  # MPI image-level NEB/AutoNEB
 ```
 
-### Development Install
+### From Source
 
 ```bash
 git clone https://github.com/deepmodeling/atst-tools.git
 cd atst-tools
-pip install -e ".[dev]"
+pip install .
 ```
 
-### Wheel Install
-
-Build a local release artifact:
-
-```bash
-python -m build
-pip install dist/atst_tools-2.1.4-py3-none-any.whl
-```
+Maintainers who need development installs, release artifacts, or validation
+operations should use the [developer handover](docs/developer/HANDOVER.md) and
+the [example validation operations guide](docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md).
 
 ATST-Tools itself installs the Python workflow layer. Real calculations also
 need the selected calculator runtime:
@@ -122,6 +118,7 @@ Choose the path that matches what you need:
 | Look up YAML semantics | [Configuration reference](docs/user/CONFIG_REFERENCE.md) |
 | Look up every schema field | [YAML input variables](docs/user/YAML_INPUT_VARIABLES.md) |
 | Use CLI helper commands | [CLI reference](docs/user/CLI_REFERENCE.md) |
+| Embed a workflow in Python | [Stable Python API reference](docs/user/PYTHON_API_REFERENCE.md) |
 | Browse all documentation paths | [Documentation index](docs/index.md) |
 
 Run a small relaxation example:
@@ -137,6 +134,32 @@ Validate an input without launching the calculation:
 atst run --dry-run examples/06_relax_H2-Au/config.yaml
 atst config validate examples/06_relax_H2-Au/config.yaml --print-normalized
 ```
+
+Embed the same schema validation from Python when a calling program needs a
+structured result rather than terminal output:
+
+```python
+from atst_tools.api import validate_config
+
+config = validate_config("examples/06_relax_H2-Au/config.yaml")
+print(config["calculation"]["type"])
+```
+
+Use CLI/YAML for normal interactive or scheduled calculations; use the API for
+embedding. The [stable Python API reference](docs/user/PYTHON_API_REFERENCE.md)
+defines result ownership, MPI, artifacts, and calculator delegation.
+
+For an external process host that needs a stable JSON handoff without parsing
+terminal output, use the installed API runner:
+
+```bash
+python -m atst_tools.api.runner --config config.yaml --workdir run --result-json atst_api_result.json
+```
+
+It invokes the same configuration-driven API, writes `atst-api-result-v1` only
+from root rank, and never launches Slurm or MPI. See the [Python API
+reference](docs/user/PYTHON_API_REFERENCE.md#process-runner-for-external-hosts)
+for flags, exit codes, and artifact ownership.
 
 Print a schema-governed template:
 
@@ -223,7 +246,7 @@ atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus
 atst abacus collect run_neb --output abacus_results.json
 ```
 
-These helper commands do not run ABACUS and do not submit Slurm jobs.
+These helper commands do not run ABACUS and do not submit scheduler work.
 
 ### DeePMD-kit / DP
 
@@ -270,32 +293,12 @@ project:
 | `examples/10_irc_H2` | IRC YAML examples. |
 | `examples/11_vibration_ideal_gas_H2` | Ideal-gas thermochemistry example. |
 | `examples/12_ccqn_H2-Au` | CCQN single-ended saddle search. |
-| `examples/13_neb_parallel_Cy-Pt` | SAI NEB image-parallel example. |
-| `examples/14_autoneb_parallel_Cy-Pt` | SAI AutoNEB image-parallel example. |
+| `examples/13_neb_parallel_Cy-Pt` | Image-parallel NEB example. |
+| `examples/14_autoneb_parallel_Cy-Pt` | Image-parallel AutoNEB example. |
 | `examples/15_md_Li-Si` | ASE-driven and ABACUS-native MD templates starting from the `01_neb_Li-Si` initial structure. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.
-
-## Validation
-
-The 2.1.4 README badges reflect the current governed project state:
-
-- Version badge: `pyproject.toml` -> `[project].version` -> `2.1.4`.
-- Unit test coverage badge: measured with
-  `coverage run --source=src/atst_tools -m pytest tests -q`, then reported with
-  `coverage report --omit='src/atst_tools/external/*'`.
-- Current first-party unit test coverage: `66%`.
-- Full source-tree coverage including the vendored `abacuslite` snapshot:
-  `43%`.
-
-The vendored `src/atst_tools/external/ASE_interface` tree is kept for ABACUS
-backend reproducibility and is not treated as first-party ATST-Tools coverage.
-Pull requests run the maintained unit suite through `.github/workflows/tests.yml`.
-Changes touching the vendored ABACUS ASE interface also run
-`.github/workflows/abacuslite-ase-interface.yml`, which checks ATST regression
-tests, package-mode abacuslite unittests, and snapshot drift against the pinned
-`deepmodeling/abacus-develop` ASE interface reference.
 
 ## For Developers
 
@@ -307,7 +310,7 @@ The main extension points are deliberately small:
 | Regenerate YAML docs | `python -m atst_tools.utils.config_docs` |
 | Add a calculator backend | `src/atst_tools/calculators/` |
 | Add an `atst run` workflow | `src/atst_tools/scripts/main.py` and `src/atst_tools/workflows/` |
-| Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command modules |
+| Add lightweight CLI commands | `src/atst_tools/scripts/cli.py` plus focused command components |
 | Add examples | `examples/<case>/config.yaml` and curated `inputs/` |
 
 Developer governance starts from these maintained entry points:

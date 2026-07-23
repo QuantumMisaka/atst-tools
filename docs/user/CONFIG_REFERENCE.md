@@ -1,6 +1,6 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.1.3
+**Version**: 2.2.0
 **Last Updated**: 2026-06-27
 **Status**: Maintained
 
@@ -16,11 +16,15 @@ definition) and `calculator` (engine configuration). New configurations should
 use this two-section layout; root-level `abacus` is retained only as a
 migration path for legacy inputs.
 
-YAML variables are governed by the Pydantic schema in
-`src/atst_tools/utils/config_schema.py`. `atst run` validates and normalizes the
-input before dispatching workflows, so optional variables get schema defaults
-before runtime. Use `atst config validate --print-normalized` to inspect the
-exact defaults that will be applied.
+The installed package schema governs YAML variables. `atst run` validates and
+normalizes the input before dispatching workflows, so optional variables get
+schema defaults before runtime. Use `atst config validate --print-normalized`
+to inspect the exact defaults that will be applied.
+
+The same YAML path or an equivalent mapping can be passed to `run_workflow()`
+through the stable [Python API reference](PYTHON_API_REFERENCE.md). Both
+interfaces preserve existing schema defaults and interpret relative paths from
+the process current working directory rather than the YAML file's parent.
 
 ---
 
@@ -133,7 +137,7 @@ calculator directory such as `run_neb/image_001`, following the same
 image-isolated directory model used by the vendored abacuslite NEB example.
 This outer MPI layer is separate from `calculator.abacus.mpi`, which controls
 the ABACUS subprocess count for one image. ATST-Tools does not run or generate
-Slurm submission commands; use your site job script to launch the outer Python
+Slurm submission commands; use your site launch script to start the outer Python
 MPI command, and keep all ABACUS executable details in `calculator.abacus`.
 
 ### 2.3 AutoNEB
@@ -512,7 +516,8 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 ### 3.1 ABACUS (DFT)
 **Name**: `abacus`
 > **Note**: For backward compatibility, parameters can also be placed under an `abacus` root key instead of `calculator.abacus`.
-> On the SAI GPU validation environment, LCAO examples use `ks_solver: cusolver`.
+> For GPU LCAO calculations, choose a site-compatible GPU solver according to
+> the documentation for the installed ABACUS version.
 > ATST-Tools imports an independently installed `abacuslite` package first and falls back to the vendored `src/atst_tools/external/ASE_interface/abacuslite` snapshot if that import is unavailable.
 
 | Parameter | Type | Default | Description |
@@ -573,18 +578,13 @@ provide a separate backend selector. Multi-head DPA/DPA3 models should set
 
 ---
 
-## 4. Schema Governance
+## 4. Configuration Maintenance
 
-The YAML schema is the source of truth for variable types, defaults, and descriptions. When adding a new workflow or calculator option:
-
-1. Add the field to `src/atst_tools/utils/config_schema.py`.
-2. Provide a type, default when safe, and `Field(description=...)`.
-3. Add validation for enums, positive numeric values, and mutually exclusive inputs.
-4. Regenerate `docs/user/YAML_INPUT_VARIABLES.md` with `python -m atst_tools.utils.config_docs`.
-5. Update this reference and one example YAML when the option is user-facing.
-6. Add or update unit tests around `ConfigLoader.normalize()` / `validate()`.
-
-Unknown `calculation` and DP calculator fields are rejected by default. ABACUS INPUT variables should go under `calculator.abacus.parameters`, which is intentionally pass-through.
+Installed-package schemas reject unknown `calculation` and DP calculator
+fields. ABACUS INPUT variables belong under `calculator.abacus.parameters`,
+which is intentionally pass-through. Maintainers changing schema fields or
+generated parameter documentation should follow the
+[developer handover](../developer/HANDOVER.md).
 
 ## 5. Example Configuration
 

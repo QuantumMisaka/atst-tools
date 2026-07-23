@@ -229,3 +229,80 @@ def test_ccqn_optimizer_writes_json_diagnostics(tmp_path):
     assert data["schema_version"] == "atst-ccqn-diagnostics-v1"
     assert data["steps"][0]["mode"] in {"uphill", "prfo"}
     assert "min_eigenvalue" in data["steps"][0]
+
+
+def test_ccqn_accepts_injected_calculator_without_factory(monkeypatch, tmp_path):
+    """An embedded caller owns the calculator and the original atoms."""
+    from helpers import DummyCalc
+    from atst_tools.mep.ccqn import AbacusCCQN
+
+    atoms = Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]])
+    calculator = DummyCalc()
+    monkeypatch.setattr(
+        "atst_tools.mep.ccqn.CalculatorFactory.get_calculator",
+        lambda *args, **kwargs: pytest.fail("factory used"),
+    )
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer.run", lambda self, **kwargs: None)
+
+    result = AbacusCCQN(
+        atoms,
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(tmp_path / "manifest.json"),
+            "reactive_bonds": "1-2",
+        },
+        calculator=calculator,
+    ).run()
+
+    assert result.calc is calculator
+    assert atoms.calc is None
+
+
+@pytest.fixture
+def vendored_abacuslite_calculator(monkeypatch, tmp_path):
+    """Construct a real vendored abacuslite calculator without launching ABACUS."""
+    from atst_tools.external.ASE_interface.abacuslite import Abacus, AbacusProfile
+
+    monkeypatch.setattr(AbacusProfile, "version", lambda self: "v3.10.1")
+    profile = AbacusProfile("abacus")
+    return Abacus(profile=profile, directory=tmp_path / "abacuslite")
+
+
+def test_ccqn_uses_supplied_abacuslite_compatible_calculator(
+    monkeypatch, tmp_path, vendored_abacuslite_calculator
+):
+    """Injection preserves calculator identity and bypasses factory construction."""
+    from atst_tools.mep.ccqn import AbacusCCQN
+
+    atoms = Atoms("H2", positions=[[0, 0, 0], [0.8, 0, 0]])
+    optimizer_atoms = []
+
+    class FakeOptimizer:
+        def __init__(self, optimizer_input, **kwargs):
+            optimizer_atoms.append(optimizer_input)
+
+        def run(self, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        "atst_tools.mep.ccqn.CalculatorFactory.get_calculator",
+        lambda *args, **kwargs: pytest.fail("factory used"),
+    )
+    monkeypatch.setattr("atst_tools.mep.ccqn.CCQNOptimizer", FakeOptimizer)
+
+    result = AbacusCCQN(
+        atoms,
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(tmp_path / "manifest.json"),
+            "reactive_bonds": "1-2",
+        },
+        calculator=vendored_abacuslite_calculator,
+    ).run()
+
+    assert optimizer_atoms == [result]
+    assert result.calc is vendored_abacuslite_calculator
+    assert result.calc.profile.command == "abacus"
+    assert type(result.calc.profile).__module__.endswith("abacuslite.core")

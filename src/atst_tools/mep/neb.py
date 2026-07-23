@@ -36,7 +36,7 @@ class AbacusNEB(NEB):
         parallel=False,
         remove_rotation_and_translation=False,
         world=None,
-        method=None,
+        method="improvedtangent",
         allow_shared_calculator=False,
         precon=None,
         **kwargs,

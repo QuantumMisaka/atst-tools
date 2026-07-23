@@ -24,7 +24,7 @@ defaults:
     shell: bash
 
 env:
-  ABACUS_DEVELOP_REF: 762919f6421dc1b79f9213e902a79b37b66db937
+  ABACUS_DEVELOP_REF: 70f7ed69b5677c447afdc78e05240e93da660e66
 
 jobs:
   abacuslite-unit:

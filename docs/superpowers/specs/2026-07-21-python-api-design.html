@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATST-Tools Stable Python API Design</title>
+  <style>
+    :root { color-scheme: light; --ink:#17202a; --muted:#52606d; --line:#cbd2d9; --paper:#fff; --wash:#f5f7f8; --accent:#146c5b; --note:#8a5a00; }
+    * { box-sizing: border-box; } html { scroll-behavior: smooth; }
+    body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    header,nav,main,footer { width:min(100% - 2rem,980px); margin-inline:auto; }
+    header { padding:3rem 0 1.5rem; border-bottom:3px solid var(--accent); }
+    h1 { margin:0 0 .75rem; font-size:2.5rem; line-height:1.1; } h2 { margin:0 0 .75rem; font-size:1.35rem; } h3 { font-size:1rem; }
+    p,ul,ol { margin:.5rem 0 1rem; } a { color:var(--accent); }
+    .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; } .meta p { margin:0; }
+    nav { padding:1.25rem 0; } nav ol { columns:2; padding-left:1.25rem; }
+    main { background:var(--paper); border:1px solid var(--line); } section { padding:1.5rem; border-top:1px solid var(--line); } section:first-child { border-top:0; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; } th,td { padding:.65rem; border:1px solid var(--line); text-align:left; vertical-align:top; } th { background:var(--wash); }
+    code { padding:.1rem .3rem; background:var(--wash); } pre { overflow:auto; padding:1rem; background:var(--wash); border:1px solid var(--line); }
+    .decision { border-left:4px solid var(--accent); padding-left:1rem; } .open { border-left-color:var(--note); } footer { padding:1.5rem 0 3rem; color:var(--muted); }
+    @media (max-width:640px) { h1 { font-size:2rem; } nav ol { columns:1; } section { padding:1rem; } .table-wrap { overflow-x:auto; } }
+    @media print { body { background:#fff; font-size:11pt; } header,nav,main,footer { width:100%; } nav { display:none; } main { border:0; } section { break-inside:avoid; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATST-Tools Stable Python API Design</h1>
+    <div class="meta">
+      <p><strong>Status:</strong> Draft for review</p>
+      <p><strong>Owner:</strong> ATST-Tools maintainers</p>
+      <p><strong>Updated:</strong> 2026-07-21</p>
+    </div>
+  </header>
+
+  <nav aria-label="Document contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#goals">Goals and non-goals</a></li>
+      <li><a href="#requirements">Requirements</a></li>
+      <li><a href="#documentation">User documentation</a></li>
+      <li><a href="#decisions">Decisions and alternatives</a></li>
+      <li><a href="#architecture">Architecture and data flow</a></li>
+      <li><a href="#errors">Error handling and MPI</a></li>
+      <li><a href="#testing">Testing and examples</a></li>
+      <li><a href="#rollout">Rollout and compatibility</a></li>
+      <li><a href="#risks">Risks and resolved questions</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="summary">
+      <h2>Summary</h2>
+      <p>ATST-Tools currently governs calculator-backed workflows through the <code>atst</code> CLI and YAML. Its package root exports only version helpers; workflow, calculator, and utility modules are implementation APIs with no external compatibility promise. This design adds a stable, versioned Python API under <code>atst_tools.api</code>.</p>
+      <p>The API has two complementary entry points. <code>run_workflow()</code> executes every existing YAML workflow with the same schema, defaults, calculator selection, filesystem behavior, and MPI semantics as <code>atst run</code>. <code>run_ccqn()</code> is a focused embedded ASE API for the ABACUS ASE-interface use case: a caller supplies <code>Atoms</code> and an already-created calculator, such as abacuslite, and ATST performs its distinctive CCQN transition-state search without YAML or calculator reconstruction.</p>
+      <div class="decision"><p><strong>Compatibility principle:</strong> the work is additive. No existing CLI command, YAML field, default, relative-path behavior, output file name, existing import path, MPI rule, or exit-code contract may change. The CLI becomes a thin adapter over shared internal services; it does not become a second workflow implementation.</p></div>
+    </section>
+
+    <section id="goals">
+      <h2>Goals and non-goals</h2>
+      <h3>Goals</h3>
+      <ul>
+        <li>Provide a documented, tested, stable public namespace: <code>atst_tools.api</code>.</li>
+        <li>Make the existing YAML workflow surface callable from Python without invoking a subprocess.</li>
+        <li>Make <code>atst run</code> and <code>atst config validate</code> use the same normalization and execution services as the public API.</li>
+        <li>Provide a single-file, CCQN-specific embedded ASE API suitable for an optional ABACUS ASE-interface example.</li>
+        <li>Preserve image-level MPI semantics for NEB and AutoNEB, including root-rank result ownership.</li>
+        <li>Expose structured outcomes, artifacts, and errors rather than requiring callers to parse terminal output.</li>
+        <li>Publish user-facing API documentation, an executable API example, and clear CLI/API selection guidance as part of the same release.</li>
+      </ul>
+      <h3>Non-goals</h3>
+      <ul>
+        <li>Do not replace the CLI, YAML inputs, examples, or current workflow classes.</li>
+        <li>Do not make every internal utility, calculator factory, workflow class, or vendored abacuslite function public.</li>
+        <li>Do not create an <code>atst</code> Python package alias; <code>atst</code> remains the console command and <code>atst_tools</code> remains the import root.</li>
+        <li>Do not introduce MkDocs, Sphinx, pdoc, or another documentation-build system in the first API release.</li>
+        <li>Do not launch Slurm, <code>mpirun</code>, <code>srun</code>, or nested ABACUS MPI processes from the API.</li>
+        <li>Do not promise direct <code>Atoms + calculator</code> APIs for NEB, AutoNEB, D2S, MD, or DMF in the first release.</li>
+        <li>Do not change the experimental status or safety guards of DMF.</li>
+      </ul>
+    </section>
+
+    <section id="requirements">
+      <h2>Requirements</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Requirement</th><th>Acceptance signal</th></tr></thead>
+        <tbody>
+          <tr><td>R1</td><td><code>atst_tools.api</code> is the only new stable Python API namespace.</td><td>Public API reference and import-contract tests list only supported names.</td></tr>
+          <tr><td>R2</td><td><code>validate_config()</code> and <code>run_workflow()</code> reuse the current Pydantic YAML schema and defaults.</td><td>For every example config, API and CLI normalization are equal.</td></tr>
+          <tr><td>R3</td><td>All current <code>calculation.type</code> values remain callable through <code>run_workflow()</code>.</td><td>Dispatch tests cover NEB, AutoNEB, Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and DMF.</td></tr>
+          <tr><td>R4</td><td>The existing CLI stays behaviorally compatible while reusing services instead of duplicating orchestration.</td><td>Existing CLI tests pass unchanged; parity tests compare CLI and API dry-run/execution fixtures.</td></tr>
+          <tr><td>R5</td><td><code>run_ccqn()</code> accepts caller-provided ASE <code>Atoms</code> and calculator objects.</td><td>A fake calculator and an abacuslite-compatible integration fixture run without <code>CalculatorFactory</code>.</td></tr>
+          <tr><td>R6</td><td>NEB and AutoNEB retain current MPI checks, synchronization, calculator ownership, and output rules.</td><td>Serial, fake-world, root/non-root, rank-mismatch, and optional real-mpi4py tests pass.</td></tr>
+          <tr><td>R7</td><td>Results and errors are structured and machine-readable.</td><td>Public result and exception contracts are documented and tested without parsing stdout.</td></tr>
+          <tr><td>R8</td><td>Existing external contracts do not change.</td><td>CLI/YAML/example regression suite, package build, and no-breaking-import checks pass.</td></tr>
+          <tr><td>R9</td><td>Every stable API capability is documented through the maintained user-documentation path.</td><td>API reference, quick start, CLI/API boundary, example, and public-entry links are present and tested.</td></tr>
+          <tr><td>R10</td><td>The API preserves ATST-Tools' role as a functional abacuslite workflow wrapper.</td><td>Config-driven ABACUS calls retain external-abacuslite-first resolution; embedded CCQN never replaces a supplied ASE calculator; backend provenance is recorded in results.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="decisions">
+      <h2>Decisions and alternatives</h2>
+      <div class="decision">
+        <p><strong>Selected public surface:</strong></p>
+        <pre><code>from atst_tools.api import (
+    CCQNOptions,
+    RunOptions,
+    WorkflowResult,
+    validate_config,
+    run_workflow,
+    run_ccqn,
+)</code></pre>
+        <p><strong>Alternative rejected: expose existing workflow classes.</strong> Their constructors, calculator ownership, return values, and filesystem side effects are intentionally workflow-specific. Publishing them would freeze internals before they have a coherent compatibility contract.</p>
+        <p><strong>Alternative rejected: retain CLI as the implementation and invoke it from Python.</strong> Subprocess execution cannot provide calculator injection, structured in-memory results, or reliable MPI error propagation, and would preserve two independently testable interfaces rather than one service layer.</p>
+        <p><strong>Alternative rejected: create an <code>atst</code> import alias.</strong> It conflates the console-script name with the distribution import root and creates a second public namespace without a technical need.</p>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>Architecture and data flow</h2>
+      <pre><code>CLI arguments ──&gt; CLI adapters ─┐
+                                  ├─&gt; internal application services ─&gt; existing workflows / ASE / calculators
+Python callers ─&gt; atst_tools.api ─┘
+                                             │
+                                             └─&gt; WorkflowResult + artifacts + typed exceptions</code></pre>
+      <h3>Configuration-driven execution</h3>
+      <p><code>validate_config(config_source)</code> accepts a YAML path or a mapping, validates through the existing schema, applies exactly the existing defaults, and returns a copied normalized mapping. <code>run_workflow(config_source, options=RunOptions(...))</code> accepts the same sources. <code>RunOptions</code> contains only CLI-equivalent controls: <code>dry_run</code>, <code>restart</code>, ABACUS check-input settings, and an optional communicator.</p>
+      <p>Relative paths retain current semantics: they are interpreted from the calling process current working directory. The API must not silently change directory to the YAML parent. Callers needing a different location use absolute paths or establish their own working directory before calling, exactly as current examples do.</p>
+      <h3>Embedded CCQN execution</h3>
+      <p><code>run_ccqn(atoms, calculator, options=CCQNOptions(...))</code> copies the supplied atoms, attaches the supplied calculator to that copy, and delegates to shared CCQN execution logic. <code>CCQNOptions</code> covers only the CCQN parameters already represented by the schema: convergence, optimizer output paths, reactive bonds or automatic reactive-mode selection, product reference, and diagnostics/manifests. It does not accept an ATST calculator name or rebuild a calculator through <code>CalculatorFactory</code>.</p>
+      <h3>Backend delegation invariants</h3>
+      <ul>
+        <li>Configuration-driven ABACUS workflows use the current backend resolver unchanged: import independently installed <code>abacuslite</code> first, then fall back to the ATST vendored snapshot only when that import is unavailable.</li>
+        <li>For <code>run_ccqn()</code>, the supplied ASE calculator is the sole backend owner. ATST attaches it to its private atoms copy but does not replace its profile, command, pseudopotentials, orbitals, working directory, MPI configuration, or I/O implementation.</li>
+        <li>The public API accepts an ASE calculator protocol; it neither republishes nor promises compatibility for individual <code>abacuslite</code> I/O functions or vendored modules.</li>
+        <li>Configuration-driven ABACUS results record <code>backend_source: external</code> or <code>backend_source: vendored</code> in stable metadata. Calculator-injection results record <code>backend_source: provided</code>.</li>
+        <li>The API remains a workflow, schema, artifact, and orchestration layer. It does not replace ABACUS, abacuslite, an ASE calculator, an MPI launcher, Slurm, or site-specific job launchers.</li>
+      </ul>
+      <h3>Workflow result</h3>
+      <p>Every execution entry point returns <code>WorkflowResult</code> with <code>workflow</code>, <code>status</code>, <code>is_root</code>, <code>artifact_manifest</code>, <code>artifacts</code>, and JSON-compatible <code>metadata</code>. Single-structure workflows expose <code>final_atoms</code>. Path workflows expose <code>final_images</code> and <code>ts_atoms</code>; the latter is the highest-energy image when applicable. The artifact manifest remains the durable source of truth across processes and restarts.</p>
+      <p>To avoid falsely claiming immutability for mutable ASE objects, <code>WorkflowResult</code> is a frozen container but its returned <code>Atoms</code> are documented snapshots owned by the caller. API implementations return copies where practical; persisted files and JSON metadata remain the reproducible records.</p>
+      <h3>Examples-driven coverage boundary</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Example family</th><th>API consequence</th></tr></thead>
+        <tbody>
+          <tr><td>01/02 two-stage NEB</td><td>Stage metadata preserves warmup, CI-NEB convergence, steps, barriers, and TS selection.</td></tr>
+          <tr><td>03 AutoNEB</td><td>Final dynamic image chain remains a first-class path result; per-image files remain artifacts.</td></tr>
+          <tr><td>13/14 image-parallel NEB</td><td>External MPI launch, image-rank ownership, nested ABACUS MPI, and root-only in-memory paths are preserved.</td></tr>
+          <tr><td>08 D2S</td><td>Metadata and manifest retain rough-path and single-ended stage boundaries rather than flattening the workflow.</td></tr>
+          <tr><td>10 IRC and 15 MD</td><td>Trajectory-first outputs are represented by artifacts plus workflow-specific JSON metadata.</td></tr>
+          <tr><td>12 CCQN automatic modes</td><td>First embedded API and candidate for the one-file optional ABACUS example.</td></tr>
+          <tr><td>16–18 DMF</td><td>Configuration-driven API preserves current experimental classification, dependencies, and guards.</td></tr>
+          <tr><td>09 lightweight CLI helpers</td><td>Remain CLI contracts in the first release; selected read-only summary services can be promoted later only with demand and tests.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="documentation">
+      <h2>User documentation</h2>
+      <p>The existing documentation system is Markdown-first and already has maintained user entry points for installation, CLI, YAML, examples, and the ABACUSLite wrapper. It has no public Python API reference and no API-documentation generator. The first API release extends the existing governed Markdown path; it does not publish raw internal docstrings or introduce a second documentation toolchain.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Deliverable</th><th>Location</th><th>Required content</th></tr></thead>
+        <tbody>
+          <tr><td>Stable API reference</td><td><code>docs/user/PYTHON_API_REFERENCE.md</code></td><td>Supported imports from <code>atst_tools.api</code>; installation and extras; configuration, workflow, and CCQN API semantics; <code>WorkflowResult</code>; artifacts; errors; path behavior; MPI root/non-root behavior; DMF experimental boundary; compatibility and deprecation policy.</td></tr>
+          <tr><td>Public quick start</td><td><code>README.md</code></td><td>A short Python embedding example and a link to the API reference, without duplicating the full reference.</td></tr>
+          <tr><td>User navigation</td><td><code>docs/index.md</code></td><td>A Python API reference entry in the user reading path.</td></tr>
+          <tr><td>Chinese onboarding</td><td><code>docs/user/USER_GUIDE_CN.md</code></td><td>A concise decision guide: use CLI/YAML for interactive and scheduled workflows; use the API for embedding in another Python program; both use the same schema-driven workflow semantics.</td></tr>
+          <tr><td>CLI/API boundary</td><td><code>docs/user/CLI_REFERENCE.md</code></td><td>Explain that the CLI is the terminal adapter over shared services, while preserving every existing command description and invocation.</td></tr>
+          <tr><td>YAML/API bridge</td><td><code>docs/user/CONFIG_REFERENCE.md</code></td><td>Explain that a validated YAML path or equivalent mapping can be supplied to <code>run_workflow()</code>; record current-working-directory path semantics.</td></tr>
+          <tr><td>Executable API example</td><td><code>examples/</code> and <code>examples/README.md</code></td><td>One CCQN automatic-reactive-mode Python example, its installation and runtime boundary, and its verification status in <code>reference_results.json</code>.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The reference must explicitly say that imports from <code>atst_tools.workflows</code>, <code>atst_tools.mep</code>, <code>atst_tools.calculators</code>, and vendored modules are not the stable integration surface. The example and reference must use <code>from atst_tools.api import ...</code>, never <code>from atst import ...</code>.</p>
+      <p>The API reference must also state the backend delegation invariants: config-driven ABACUS workflows retain external-abacuslite-first resolution; embedded calculator APIs do not reconfigure a supplied calculator; no abacuslite I/O API is re-exported; and ATST remains a workflow wrapper rather than a replacement for ABACUS, abacuslite, or job scheduling.</p>
+      <p>The optional ABACUS ASE-interface script remains a downstream consumer after an ATST release. Its header may link to the ATST API reference and CLI guide, but complete installation, MPI, YAML, and API behavior documentation remains owned by ATST-Tools.</p>
+    </section>
+
+    <section id="errors">
+      <h2>Error handling and MPI</h2>
+      <p>The API raises typed exceptions derived from <code>ATSTAPIError</code>: configuration validation, unsupported dependency, MPI configuration, and workflow execution failures. Each preserves the original exception as its cause and carries the workflow name and diagnostic context. The CLI translates these errors into its existing messages and exit behavior; it does not expose new API exception text as a changed user contract.</p>
+      <p>The API never starts an MPI launcher or scheduler. Under an existing launcher, all ranks call the same API with equivalent configuration. With <code>world=None</code>, the service uses the current ASE/MPI world. A supplied communicator is an embedding and test hook, not a scheduler API.</p>
+      <ul>
+        <li>NEB validates that the world size equals the number of interior images.</li>
+        <li>AutoNEB validates that the world size equals <code>n_simul</code>.</li>
+        <li>When parallelism is requested with one rank, behavior remains the current serial fallback and warning.</li>
+        <li>Only root rank returns in-memory <code>final_images</code> and <code>ts_atoms</code>; all ranks receive identical status, metadata, and durable artifact paths.</li>
+        <li>Rank-local failures must be synchronized into an API execution failure before subsequent collective operations, preventing ranks from waiting indefinitely at barriers or reductions.</li>
+      </ul>
+    </section>
+
+    <section id="testing">
+      <h2>Testing and examples</h2>
+      <ul>
+        <li>Import-contract tests verify the supported names from <code>atst_tools.api</code> and prevent accidental exports.</li>
+        <li>Schema parity tests run every example YAML through CLI-equivalent and API normalization, including ABACUS and DP variants.</li>
+        <li>Dispatch parity tests cover dry-run and mocked execution for every existing workflow type.</li>
+        <li>CLI regression tests retain their existing calls and assert identical text, exit behavior, produced paths, and normalized YAML.</li>
+        <li>CCQN API tests verify calculator injection, input-copy semantics, explicit and automatic reactive modes, result metadata, and artifacts.</li>
+        <li>Backend delegation tests verify external-abacuslite-first fallback behavior for configuration-driven runs, assert that calculator injection never invokes <code>CalculatorFactory</code>, and verify <code>backend_source</code> metadata for both paths.</li>
+        <li>NEB/AutoNEB tests cover serial behavior, communicator-size mismatch, root/non-root result shape, endpoint synchronization, and optional real <code>mpi4py</code> launcher execution.</li>
+        <li>Package tests build the wheel, import the public API from the wheel, and run the API documentation example with a lightweight calculator fixture.</li>
+        <li>Documentation tests execute public import snippets and quick-start code, verify API-reference links from README and the documentation index, and reject examples that import non-public ATST modules.</li>
+      </ul>
+      <p>ATST-Tools adds its own maintained Python API example and reference. After an ATST release containing the API, the ABACUS PR may add one concise optional script that creates an abacuslite calculator and invokes the CCQN API. That upstream script documents its purpose, optional installation, and links to ATST documentation, but does not introduce a build or runtime dependency for ABACUS itself.</p>
+    </section>
+
+    <section id="rollout">
+      <h2>Rollout and compatibility</h2>
+      <ol>
+        <li>Extract internal application services behind the existing CLI without changing CLI parsing or output behavior.</li>
+        <li>Add the public configuration API and make <code>atst config validate</code> and <code>atst run</code> call the same services.</li>
+        <li>Add <code>WorkflowResult</code>, typed API errors, and configuration-driven API parity tests.</li>
+        <li>Add the embedded CCQN API with calculator injection and its example/tests.</li>
+        <li>Publish the API reference, README/index/user-guide navigation, CLI/API boundary, compatibility policy, and tested CCQN example in ATST-Tools; release the package.</li>
+        <li>Only then update the optional ABACUS ASE-interface example, using the released import path and version requirement.</li>
+      </ol>
+      <p>Rollback is additive: callers can continue using every existing CLI command and YAML file. If the new API has a defect before it is adopted externally, its public documentation can be marked provisional or the release withheld without reverting the current CLI surface.</p>
+    </section>
+
+    <section id="risks">
+      <h2>Risks and resolved questions</h2>
+      <div class="decision open">
+        <p><strong>Risk: CLI/API behavior drift.</strong> Mitigation: one service layer, example-wide parity tests, and a hard compatibility gate before release.</p>
+        <p><strong>Risk: MPI deadlock or root-only result confusion.</strong> Mitigation: explicit communicator contract, collective failure handling, root ownership fields, and MPI-focused regression tests.</p>
+        <p><strong>Risk: public API scope expands to every internal helper.</strong> Mitigation: only configuration-driven execution and CCQN embedding are stable in the first release; all other imports remain internal.</p>
+        <p><strong>Risk: API exists but users cannot discover or safely adopt it.</strong> Mitigation: documentation and an executable example are release gates, with maintained links from existing user entry points and tested snippets from the installed wheel.</p>
+        <p><strong>Risk: ABACUS example creates an unwanted dependency.</strong> Mitigation: keep it optional, one-file, and post-release; ABACUS does not import or package ATST outside that example.</p>
+        <p><strong>Resolved decisions:</strong> public namespace is <code>atst_tools.api</code>; all executions use <code>WorkflowResult</code>; NEB path results and MPI semantics are first-class; first embedded workflow is CCQN; existing CLI and module contracts are unchanged.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>ATST-Tools stable Python API design, 2026-07-21.</footer>
+</body>
+</html>

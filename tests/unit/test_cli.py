@@ -78,6 +78,16 @@ def test_atst_version_uses_governed_package_version(capsys):
     assert capsys.readouterr().out.strip() == f"atst {package_version()}"
 
 
+def test_console_main_discards_successful_workflow_result(monkeypatch, tmp_path):
+    """Setuptools' console wrapper must receive ``None`` after a successful run."""
+    from atst_tools.scripts import cli
+
+    result = object()
+    monkeypatch.setattr(cli.run_cli, "run_from_args", lambda args: result)
+
+    assert cli.main(["run", "--dry-run", str(tmp_path / "config.yaml")]) is None
+
+
 def test_atst_banner_prints_ascii_and_contributor_references(capsys):
     from atst_tools.scripts import cli
     from atst_tools.utils.banner import ATST_ASCII
@@ -227,6 +237,84 @@ def test_atst_run_restart_overrides_config(monkeypatch):
     assert seen["restart"] is True
 
 
+def test_atst_run_restart_overrides_invalid_yaml_restart_before_validation(monkeypatch):
+    """The legacy CLI applies its temporary restart option before schema parsing."""
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    seen = {}
+    config = {
+        "calculation": {
+            "type": "relax",
+            "init_structure": "init.stru",
+            "restart": "not-a-bool",
+        },
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    class FakeRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            seen["restart"] = calc_config["restart"]
+
+        def run(self):
+            return None
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FakeRelaxWorkflow)
+
+    cli.main(["run", "--restart", "config.yaml"])
+
+    assert seen["restart"] is True
+
+
+def test_atst_run_dry_run_restart_overrides_invalid_yaml_restart_before_validation(tmp_path):
+    """Dry-run applies --restart before validating the YAML schema."""
+    from atst_tools.scripts import cli
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: init.stru\n"
+        "  restart: not-a-bool\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+
+    cli.main(["run", "--dry-run", "--restart", str(config_path)])
+
+
+def test_atst_run_does_not_synthesize_or_overwrite_legacy_manifest(monkeypatch, tmp_path):
+    """CLI runs keep workflows without manifests from gaining one through the API."""
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+    class FakeRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            return None
+
+        def run(self):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FakeRelaxWorkflow)
+    manifest = tmp_path / "atst_artifacts.json"
+    manifest.write_text("legacy caller-owned data", encoding="utf-8")
+
+    cli.main(["run", "config.yaml"])
+
+    assert manifest.read_text(encoding="utf-8") == "legacy caller-owned data"
+
+
 def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
     from atst_tools.scripts import main as run_cli
     from atst_tools.scripts import cli
@@ -242,7 +330,136 @@ def test_atst_run_dry_run_validates_without_dispatch(monkeypatch, caplog):
 
     cli.main(["run", "--dry-run", "config.yaml"])
 
-    assert "Configuration is valid" in caplog.text
+    assert caplog.messages == [
+        "Configuration is valid: calculation.type=relax, calculator.name=abacus"
+    ]
+
+
+def test_atst_run_invalid_dry_run_does_not_log_configuration_valid(monkeypatch, caplog):
+    """Validation success is not logged when the workflow API rejects config."""
+    from atst_tools.api.models import ConfigValidationError
+    from atst_tools.scripts import main as run_cli
+    from atst_tools.scripts import cli
+
+    caplog.set_level("INFO")
+    validation_error = ConfigValidationError("invalid configuration")
+    monkeypatch.setattr(
+        run_cli,
+        "run_workflow_from_cli",
+        lambda *args, **kwargs: (_ for _ in ()).throw(validation_error),
+    )
+
+    with pytest.raises(ValueError, match="invalid configuration"):
+        cli.main(["run", "--dry-run", "config.yaml"])
+
+    assert not any(
+        record.getMessage().startswith("Configuration is valid")
+        for record in caplog.records
+    )
+
+
+def test_config_validate_delegates_to_public_validation_service(monkeypatch, capsys):
+    """The config command consumes normalization from the public API service."""
+    from atst_tools.scripts import cli
+
+    normalized = {
+        "calculation": {"type": "relax", "restart": False},
+        "calculator": {"name": "abacus"},
+    }
+    monkeypatch.setattr(cli, "validate_config", lambda source: normalized)
+
+    cli.main(["config", "validate", "config.yaml"])
+
+    assert capsys.readouterr().out.strip() == "Configuration is valid"
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_error"),
+    [
+        (["run", "missing.yaml"], FileNotFoundError),
+        (["config", "validate", "missing.yaml"], FileNotFoundError),
+    ],
+)
+def test_cli_preserves_missing_config_filesystem_error(
+    tmp_path, monkeypatch, argv, expected_error
+):
+    """CLI callers retain exact missing-file errors instead of API wrapper types."""
+    from atst_tools.scripts import cli
+
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(expected_error):
+        cli.main(argv)
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_error"),
+    [
+        (["run", "config-dir"], IsADirectoryError),
+        (["config", "validate", "config-dir"], IsADirectoryError),
+    ],
+)
+def test_cli_preserves_directory_config_filesystem_error(
+    tmp_path, monkeypatch, argv, expected_error
+):
+    """CLI callers retain exact directory-read errors instead of API wrapper types."""
+    from atst_tools.scripts import cli
+
+    (tmp_path / "config-dir").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(expected_error):
+        cli.main(argv)
+
+
+def test_run_adapter_builds_cli_equivalent_options(monkeypatch):
+    """The run command forwards CLI controls through the public workflow API."""
+    from atst_tools.scripts import main
+
+    seen = {}
+    monkeypatch.setattr(
+        main,
+        "run_workflow_from_cli",
+        lambda source, options: seen.update(source=source, options=options)
+        or type(
+            "Result",
+            (),
+            {
+                "workflow": "relax",
+                "metadata": {"calculator_name": "abacus"},
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        main,
+        "validate_config",
+        lambda source: {
+            "calculation": {"type": "relax"},
+            "calculator": {"name": "abacus"},
+        },
+    )
+
+    main.run_from_args(
+        type(
+            "Args",
+            (),
+            {
+                "config": "config.yaml",
+                "dry_run": True,
+                "restart": True,
+                "check_input": False,
+                "check_input_timeout": 120,
+                "abacus_executable": None,
+                "log_level": "INFO",
+                "list_types": False,
+                "show_template": None,
+            },
+        )()
+    )
+
+    assert seen["source"] == "config.yaml"
+    assert seen["options"].dry_run is True
+    assert seen["options"].restart is True
 
 
 def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog):
@@ -288,6 +505,154 @@ def test_atst_run_dry_run_check_input_calls_abacus_preflight(monkeypatch, caplog
     assert called_timeout == 7
     assert called_executable == "abacus-lts"
     assert "ABACUS check-input preflight passed" in caplog.text
+    messages = [record.getMessage() for record in caplog.records]
+    assert next(
+        index for index, message in enumerate(messages)
+        if message.startswith("Configuration is valid:")
+    ) < next(
+        index for index, message in enumerate(messages)
+        if message.startswith("ABACUS check-input preflight passed:")
+    )
+
+
+def test_atst_run_check_input_failure_does_not_log_validation_before_legacy_error(
+    monkeypatch, caplog
+):
+    """A failed preflight does not report validation success before the error."""
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    caplog.set_level("INFO")
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+    preflight_error = RuntimeError("ABACUS check-input failed")
+    messages_at_preflight = []
+
+    def fail_preflight(*args, **kwargs):
+        messages_at_preflight.extend(
+            record.getMessage() for record in caplog.records
+        )
+        raise preflight_error
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(
+        run_cli,
+        "run_abacus_check_input_dry_run",
+        fail_preflight,
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cli.main(["run", "--dry-run", "--check-input", "config.yaml"])
+
+    assert excinfo.value is preflight_error
+    assert not any(
+        message.startswith("Configuration is valid:")
+        for message in messages_at_preflight
+    )
+
+
+def test_atst_run_unwraps_api_workflow_error_for_cli_users(monkeypatch):
+    """CLI workflow failures retain their legacy exception instead of API typing."""
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    config = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+    workflow_error = RuntimeError("relax failed")
+
+    class FailingRelaxWorkflow:
+        def __init__(self, config, calc_name, calc_config):
+            return None
+
+        def run(self):
+            raise workflow_error
+
+    monkeypatch.setattr(run_cli.ConfigLoader, "load", lambda path: config)
+    monkeypatch.setattr(run_cli, "RelaxWorkflow", FailingRelaxWorkflow)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is workflow_error
+    assert excinfo.value.__suppress_context__ is True
+
+
+def test_atst_run_unwraps_api_mpi_configuration_error_for_cli_users(monkeypatch):
+    """CLI callers retain the legacy ValueError for invalid MPI topology."""
+    from atst_tools.api.models import MPIConfigurationError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ValueError("MPI ranks must match the number of images")
+
+    def fail_with_mpi_configuration_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ValueError as exc:
+            raise MPIConfigurationError(str(exc), workflow="neb") from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_mpi_configuration_error)
+
+    with pytest.raises(ValueError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
+
+
+def test_atst_run_unwraps_api_dependency_error_for_cli_users(monkeypatch):
+    """Dependency errors keep the command path's original exception surface."""
+    from atst_tools.api.models import UnsupportedDependencyError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ModuleNotFoundError("No module named 'cyipopt'")
+    legacy_error.name = "cyipopt"
+
+    def fail_with_dependency_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ModuleNotFoundError as exc:
+            raise UnsupportedDependencyError(
+                str(exc), workflow="dmf", context={"dependency": "cyipopt"}
+            ) from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_dependency_error)
+
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
+
+
+def test_atst_run_unwraps_missing_deepmd_dependency_error_for_cli_users(monkeypatch):
+    """DP dependency errors retain the command path's original import error."""
+    from atst_tools.api.models import UnsupportedDependencyError
+    from atst_tools.scripts import cli
+    from atst_tools.scripts import main as run_cli
+
+    legacy_error = ImportError("deepmd-kit is not installed")
+
+    def fail_with_dependency_error(*args, **kwargs):
+        try:
+            raise legacy_error
+        except ImportError as exc:
+            raise UnsupportedDependencyError(
+                str(exc), workflow="relax", context={"dependency": "deepmd"}
+            ) from exc
+
+    monkeypatch.setattr(run_cli, "run_workflow_from_cli", fail_with_dependency_error)
+
+    with pytest.raises(ImportError) as excinfo:
+        cli.main(["run", "config.yaml"])
+
+    assert excinfo.value is legacy_error
+    assert excinfo.value.__suppress_context__ is True
 
 
 def test_atst_run_check_input_requires_dry_run(monkeypatch):

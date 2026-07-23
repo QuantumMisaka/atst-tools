@@ -48,6 +48,16 @@ class FakeWorld:
     def barrier(self):
         self.barriers += 1
 
+    def sum_scalar(self, value):
+        return value
+
+
+class FalseyFakeWorld(FakeWorld):
+    """Fake world that is falsey despite being a valid communicator."""
+
+    def __bool__(self):
+        return False
+
 
 class FakeReducingWorld(FakeWorld):
     """Fake world that supports reductions and rejects broadcasts."""
@@ -59,6 +69,10 @@ class FakeReducingWorld(FakeWorld):
     def sum(self, value, root=-1):
         self.sums += 1
         return value if isinstance(value, float) else None
+
+    def sum_scalar(self, value):
+        self.sums += 1
+        return value
 
     def broadcast(self, value, root):
         raise AssertionError("parallel execution should use reductions, not broadcasts")

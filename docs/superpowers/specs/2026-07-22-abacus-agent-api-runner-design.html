@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATST API Runner 与 ABACUS Agent 集成设计</title>
+  <style>
+    :root { --ink:#17202a; --muted:#52606d; --line:#cbd2d9; --paper:#fff; --wash:#f5f7f8; --accent:#146c5b; --note:#8a5a00; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,sans-serif; }
+    header,nav,main,footer { width:min(100% - 2rem,980px); margin-inline:auto; } header { padding:3rem 0 1.5rem; border-bottom:3px solid var(--accent); }
+    h1 { margin:0 0 .75rem; font-size:2.4rem; line-height:1.15; } h2 { margin:0 0 .75rem; font-size:1.35rem; } h3 { font-size:1rem; }
+    p,ul,ol,pre { margin:.5rem 0 1rem; } .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; }.meta p { margin:0; }
+    nav { padding:1.25rem 0; } nav ol { columns:2; padding-left:1.25rem; } main { background:var(--paper); border:1px solid var(--line); } section { padding:1.5rem; border-top:1px solid var(--line); } section:first-child { border-top:0; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; } th,td { padding:.65rem; border:1px solid var(--line); text-align:left; vertical-align:top; } th { background:var(--wash); }
+    code { padding:.1rem .3rem; background:var(--wash); } pre { padding:.8rem; overflow-x:auto; background:var(--wash); border:1px solid var(--line); }
+    .decision { border-left:4px solid var(--accent); padding-left:1rem; } .open { border-left-color:var(--note); } footer { padding:1.5rem 0 3rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATST API Runner 与 ABACUS Agent 集成设计</h1>
+    <div class="meta"><p><strong>Status:</strong> 实施中；Agent 1.2.8 基线已验证</p><p><strong>Owner:</strong> ATST-Tools 与 ABACUS Agent 维护团队</p><p><strong>Updated:</strong> 2026-07-23</p></div>
+  </header>
+  <nav aria-label="目录"><h2>目录</h2><ol><li><a href="#summary">概述</a></li><li><a href="#goals">目标与非目标</a></li><li><a href="#requirements">需求</a></li><li><a href="#decisions">决策与备选</a></li><li><a href="#architecture">架构与数据流</a></li><li><a href="#errors">错误与 MPI</a></li><li><a href="#testing">测试与验收</a></li><li><a href="#rollout">发布与迁移</a></li><li><a href="#risks">风险与开放项</a></li></ol></nav>
+  <main>
+    <section id="summary"><h2>概述</h2>
+      <p>ATST-Tools 2.2.0 候选已提供稳定的 <code>atst_tools.api</code>、配置型 <code>run_workflow()</code>、嵌入式 <code>run_ccqn()</code>、结构化 <code>WorkflowResult</code>、CLI 兼容适配和外部启动 MPI 的同步失败处理。ABACUS Agent 目前仍以 vendored ATST 2.1.3 和 CLI subprocess 执行 transition workflow，尚未消费 API。</p>
+      <p>本设计在未发布的 2.2.0 中增加一个通用、无 ATP/SAI 依赖的 API runner 与 JSON 结果协议。ABACUS Agent 保留 YAML 生成、ATP Tool 输入输出、外层 MPI、资源申请和 result-evidence；它只将执行目标从 ATST CLI 替换为 runner。</p>
+    </section>
+    <section id="goals"><h2>目标与非目标</h2>
+      <h3>目标</h3><ul><li>让任意外部宿主进程以 wheel 可安装的方式调用配置型 ATST API。</li><li>为串行和外部启动的 image-parallel workflow 提供一致的 workdir、退出码、JSON 结果和错误契约。</li><li>让 ABACUS Agent 不使用 ATST 私有模块或 ATST CLI 即能运行现有 transition workflow。</li><li>保持 YAML、CLI、文件名、六个根导入、backend 选择和 MPI 责任边界。</li></ul>
+      <h3>非目标</h3><ul><li>不启动 Slurm、mpirun、srun 或嵌套 ABACUS MPI。</li><li>不把 adam-community、ATP tool_data、SAI 或 result-evidence 引入 ATST。</li><li>不新增 ABACUS calculator factory；配置型 CCQN 使用 run_workflow，run_ccqn 仍要求调用方提供 Atoms 与 calculator。</li><li>不改变既有 CLI 行为。</li></ul>
+    </section>
+    <section id="requirements"><h2>需求</h2><table><thead><tr><th>ID</th><th>需求</th><th>验收信号</th></tr></thead><tbody>
+      <tr><td>R1</td><td>ATST 2.2.0 提供 <code>python -m atst_tools.api.runner</code>，接受 config、workdir、result-json 及 RunOptions 等价控制。</td><td>clean wheel 可运行，不依赖源码树、ATST CLI subprocess/console entry point 或 Agent 包。</td></tr>
+      <tr><td>R2</td><td>runner 仅在独立进程中进入 workdir 并调用 run_workflow；不启动 scheduler 或 launcher。</td><td>外层 mpiexec 可正常运行；静态/行为测试无 launcher 调用。</td></tr>
+      <tr><td>R3</td><td>root rank 写入 <code>atst-api-result-v1</code> JSON，包含稳定标量、绝对 manifest 定位、artifacts 和 metadata，不含 ASE 对象。</td><td>串行、两 rank 成功和失败结果均符合 schema。</td></tr>
+      <tr><td>R4</td><td>错误 document 保留 API 错误类型、workflow、context 和 cause 摘要；peer 不覆盖 root 诊断。</td><td>配置、calculator、NEB/AutoNEB setup 失败均无死锁。</td></tr>
+      <tr><td>R5</td><td>以 ABACUS Agent 1.2.8 为行为基线，通过 runner 替换 CLI，保留 ATP 输入、资源申请、YAML、<code>@tool_io</code> outputs 和 result-evidence 对外契约。</td><td>Agent parser、单测和 build 证明原 Tool 暴露、参数、metadata 与 DAG ports 不变。</td></tr>
+      <tr><td>R6</td><td>Agent 1.2.9 候选及其 SIF 升级到 ATST 2.2.0；image-parallel 安装 <code>atst-tools[parallel]</code>。</td><td>版本、pip check、mpi4py/OpenMPI、runner smoke 和 package contents 通过。</td></tr>
+      <tr><td>R7</td><td>SAI LTS 同时验证 API runner、Agent adapter 和保留的 CLI 路径；使用 GPU Slurm 作业而非登录节点计算。</td><td>GPU job 完成，JSON、manifest 与 result-evidence 互相可定位，<code>sacct</code> 显示零退出。</td></tr>
+      <tr><td>R8</td><td>AsterFire dev 平台在本地 package gate 后验证 Agent build、上传、demo task 和任务产物；所有平台副作用先获得明确授权。</td><td>CLI 0.3.5/readiness、toolbox 可见版本、task 状态、tool steps、输出文件和最终回复形成可复核证据。</td></tr>
+    </tbody></table></section>
+    <section id="decisions"><h2>决策与备选</h2><div class="decision"><p><strong>决策：</strong>ATST 拥有 runner 和 API result/error document；ABACUS Agent 拥有 ATP adapter、外层 MPI、SIF 与平台证据。</p><p><strong>Agent 自建 runner：</strong>拒绝，会复制 CWD、错误链、root-only 写入和 MPI 退出规则。</p><p><strong>继续调用 CLI：</strong>拒绝，不能消费稳定 Python API，仍耦合终端输出。</p><p><strong>ATST 启动 mpirun/Slurm：</strong>拒绝，违反 API 边界并与平台资源生命周期冲突。</p></div></section>
+    <section id="architecture"><h2>架构与数据流</h2>
+      <pre>ABACUS ATP Tool
+  → YAML + Agent workdir + resource allocation
+  → serial: python -m atst_tools.api.runner ...
+  → parallel: mpirun -np N python -m atst_tools.api.runner ...
+  → runner: chdir(workdir) → run_workflow(config, RunOptions(...))
+  → root: atst-api-result-v1.json + ATST artifact manifest
+  → Agent: JSON/manifest → result_evidence.json + ATP outputs</pre>
+      <p>runner 支持 <code>--config</code>、<code>--workdir</code>、<code>--result-json</code>、<code>--dry-run</code>、<code>--restart</code>、<code>--check-input</code>、<code>--check-input-timeout</code> 和 <code>--abacus-executable</code>。并行时每个 rank 使用同一 runner，只有 root 在 API 成功同步后原子写 JSON。manifest 仍是科学产物的持久权威；JSON 是宿主进程交接文件。</p>
+      <p>模型层提供 <code>WorkflowResult.to_document(workdir)</code> 和 <code>ATSTAPIError.to_document()</code>，但不增加根导入。runner 通过这些方法生成 JSON，避免 Agent 依赖 dataclass 内部布局或异常字符串。</p>
+      <h3>ATST-Tools 2.2.0 实现边界</h3>
+      <ul>
+        <li>新增 <code>src/atst_tools/api/runner.py</code>：仅依赖 <code>atst_tools.api</code> 的公开服务和公开模型；用 argparse 实现 runner 参数，独立进程内建立 workdir，调用 <code>run_workflow()</code>，并映射稳定退出码。</li>
+        <li>扩展 <code>src/atst_tools/api/models.py</code>：为 <code>WorkflowResult</code> 和 <code>ATSTAPIError</code> 提供 JSON-safe document 方法。document 只能包含 schema、状态、workflow、is_root、workdir、manifest、artifacts、metadata、错误分类和因果摘要；不得序列化 ASE Atoms 或泄露环境变量。</li>
+        <li>runner 在 API 调用完成及其 MPI 失败同步之后，仅让 root 以“同目录临时文件 + replace”写 <code>--result-json</code>；非 root 不创建该文件。成功 document 引用 API 已生成或工作流已写入的 manifest，失败 document 绝不伪造完成 manifest。</li>
+        <li>新增 runner 参考文档和可执行最小示例；更新 release notes、README/API reference 和版本治理账本。runner 不成为第七个根导入，也不改动 <code>atst</code> console script。</li>
+      </ul>
+      <h3>ABACUS Agent 1.2.8 基线的承接方式</h3>
+      <ul>
+        <li>保留 <code>abacus_transition_state.py</code> 中已暴露的 <code>abacus_worker_transition_neb</code>、<code>abacus_worker_transition_autoneb</code>、<code>abacus_worker_transition_sella</code>、<code>abacus_worker_transition_ccqn</code>、<code>abacus_worker_transition_input_prepare</code>、<code>abacus_worker_transition_run</code> 和只读的 <code>abacus_basic_transition_summary</code> Tool；不新增必须由用户理解的 runner Tool。</li>
+        <li>在 <code>toolkits/transition_atst.py</code> 将当前 CLI subprocess adapter 替换为 runner subprocess adapter：准备阶段继续写 YAML；执行阶段组装 runner command；读取 result JSON 与 manifest；返回既有 <code>TransitionWorkflowResult</code>；任何 stdout/stderr 仅用于诊断。</li>
+        <li>保持每个具体 Tool 直接继承 <code>Tool</code>、紧贴 class 的 docstring、既有 <code>calltype=&quot;python&quot;</code>、直接赋值的 DISPLAY_NAME/CONDA_ENV/SIF/NETWORK/CPU/GPU/MEM_PER_CPU/PARTITION，以及既有 <code>@tool_io</code> output ports。不得把 result JSON 作为破坏兼容性的必填 Tool 参数或新增 DAG port。</li>
+        <li>Agent adapter 将 result JSON 转为现有 result-evidence 和 registered files；result JSON 作为内部工作目录文件加入 display/track 路径，稳定跨 Tool 交接仍使用显式文件路径与项目 state，而不是把 DAG outputs 复制进 <code>tool_data</code>。</li>
+        <li>串行执行启动 runner；image-parallel NEB/AutoNEB 保留现有外层 <code>mpirun -np N</code>、SAI-compatible launcher 与 rank/GPU 校验，只将子命令从 CLI 改为 runner。CCQN 第一阶段保持 YAML/run_workflow route；不在本任务中把调用方 calculator factory 下沉至 ATST。</li>
+      </ul>
+    </section>
+    <section id="errors"><h2>错误与 MPI</h2><p>runner 捕获 ATSTAPIError；root 写包含 error type、workflow、context、cause type/message 的失败 document 并返回非零状态。所有 rank 必须先完成 run_workflow 的失败同步，才可进入 root-only JSON 写入。JSON 以同目录临时文件加 replace 原子落盘。runner 不伪造成功 manifest；失败不会报告完成状态。</p></section>
+    <section id="testing"><h2>测试与验收</h2>
+      <h3>ATST 本地与 wheel 门禁</h3><ul><li>ATST unit：runner 参数、workdir 恢复、success/failure document、非 root 不写 JSON、CLI 未变化、document 不含 ASE 对象。</li><li>ATST clean-wheel：基础 runner dry-run；安装 <code>[parallel]</code> 的 mpiexec 两 rank success/failure；禁止 system-site-packages 与源码导入。</li><li>ATST real MPI：配置、calculator、NEB/AutoNEB engine/optimizer/writer 失败经实际 runner 进程触发且无 timeout；保留 root cause 和 peer 退出。</li></ul>
+      <h3>ABACUS Agent 本地 ATP 门禁</h3><ul><li>以 1.2.8 作为行为基线，所有 Agent 本地命令均在 <code>conda run -n abacus-env</code> 下执行；先递归初始化记录的 Git 子模块。新增/更新 <code>tests/test_atst_transition_tools.py</code> 和 result-evidence tests，验证 CLI command 已替换为 runner command、JSON-to-evidence、串行、restart、dry-run、NEB/AutoNEB outer MPI 与失败显示。</li><li>执行 <code>conda run -n abacus-env pytest tests -q</code>、<code>conda run -n abacus-env make parse</code>、<code>conda run -n abacus-env make build</code> 和 <code>conda run -n abacus-env python3 scripts/check_build_package_contents.py</code>。parser output 必须继续暴露所有 transition Tool、原参数和直接 class metadata；build zip 不得含 credentials、token 或临时文件。</li><li>运行 <code>conda run -n abacus-env python3 scripts/check_abacus_tool_integrity.py --root . --parser-command &quot;conda run -n abacus-env make ADAM_CLI=adam-cli parse&quot;</code>；对修改的 Tool 再用 parser API 做单文件检查。DAG output 的返回 dict keys 必须与既有 <code>@tool_io(outputs=...)</code> 完全一致。</li><li>更新至少一个现有 ATST demo 的 package-relative fixture 和用户可理解的 message；<code>demos/demos.json</code> 条目保留 name、description、onlineUrl、_taskid、message、files 六个字段，且不暴露 runner/result JSON 等内部术语。</li></ul>
+      <h3>SAI GPU/Slurm 验证</h3><ol><li>登录节点只用于同步源码、构建、编辑、提交和查询。基于 <code>/opt/sbatch_examples/gpu_abacus.sbatch</code> 创建独立验证脚本；使用 4V100 ABACUS LTS 3.10.1 基线，<code>--nodes=1 --ntasks=4 --gpus-per-node=4</code>，并 source <code>/opt/sai_config/mps_mapping.d/${SLURM_JOB_PARTITION}.bash</code>。</li><li>串行 API runner：运行现有 H2/Au relax YAML，验证 result JSON、artifact manifest、ABACUS version、final energy 和 <code>sacct</code> 的 <code>COMPLETED|0:0</code>。</li><li>image-parallel：使用既有 Agent/ATST NEB 或 AutoNEB fixture，申请与 interior images 或 <code>n_simul</code> 相等的 GPU/rank；外层 mpirun 使用与 ABACUS LTS 同源 OpenMPI，runner 的每个 rank 同时调用 API。验证 root-only JSON、所有 rank 退出、manifest 和 Agent evidence。</li><li>保留现有 CLI H2/Au 任务作为回归对照；仅当 CLI 与 runner 两条路径均完成、产物定位一致且没有错误日志时才能通过。</li><li>通过 <code>squeue</code> 监控，结束后使用 <code>sacct -j &lt;jobid&gt; --format=JobID,State,ExitCode</code>、Slurm stdout/stderr、ABACUS output、runner JSON、manifest 和 result-evidence 形成证据。不要在登录节点运行计算；避免在共享 home 进行高频小文件压力测试。</li></ol>
+      <h3>AsterFire ATP CLI 平台验证</h3><ol><li>先做只读 readiness：<code>command -v asterfire</code>、<code>asterfire version --json</code>（必须为 0.3.5），再令任务专用变量 <code>ASTERFIRE_DEV_HOME=/home/james/.local/share/asterfire/profiles/dev-home</code>，执行 <code>HOME=&quot;$ASTERFIRE_DEV_HOME&quot; asterfire me --json</code> 和 <code>HOME=&quot;$ASTERFIRE_DEV_HOME&quot; asterfire toolboxes list --json</code>。该 HOME 仅在单条命令前注入，不修改 shell 的常驻 HOME；不在仓库、tmp_runs、文档或日志保存 token。</li><li>仅在本地 ATP gate、SAI/SIF gate 和 <code>make build</code> 成功后，且获得明确的上传授权时，执行 <code>HOME=&quot;$ASTERFIRE_DEV_HOME&quot; asterfire toolboxes upload &lt;agent-1.2.9.zip&gt; --json</code>。上传后重新读取 toolbox list，确认 name/version/visible 与 <code>config/configure.json</code> 一致；不得用目录路径或未完成的 build 目录代替 zip。</li><li>经明确的文件上传与建任务授权后，执行 <code>HOME=&quot;$ASTERFIRE_DEV_HOME&quot; asterfire cloud upload &lt;fixture&gt; --id-only</code>，保存本次返回的 file id，再以 <code>HOME=&quot;$ASTERFIRE_DEV_HOME&quot; asterfire tasks create --toolbox ABACUS --message &lt;demo-message&gt; --file &lt;file-id&gt; --json</code> 创建任务。不要用旧 onlineUrl/_taskid 代替当前 fixture。轮询 <code>tasks status</code> 至终态，再使用 <code>tasks get</code> 检查 tool steps、最终回复、result JSON/manifest/result-evidence 文件交接。</li><li>生产平台操作必须改用经确认的 prod profile，并先确认该 profile 下 <code>asterfire me --json</code> 成功；dev 验证不等同生产发布。若 task 仍在运行、step 失败或只证明 CLI 连通，不能报告发布就绪。</li></ol>
+    </section>
+    <section id="rollout"><h2>发布与迁移</h2><ol><li>在未发布的 ATST 2.2.0 分支实现 runner、document、测试和文档，独立审查 API signature、CLI parity、wheel 和 MPI evidence 后合并。release note 合并前不得声称 branch 为 main。</li><li>构建、clean-install 并验证 2.2.0 wheel；创建准确 tag/release。Agent 不得依赖未发布 commit、可变本地 PYTHONPATH 或 ATST 私有模块。</li><li>从 ABACUS Agent 1.2.8 创建 1.2.9 候选：更新 <code>deps/atst-tools</code>、<code>config/configure.json</code>、Layer 2/SIF version checks、dependency audit、SIF status 与 build references；让 Layer 2 在 image-parallel 支持 [parallel] extra。</li><li>先在 Agent 串行 transition Tool 接入 runner，再接入 image-parallel Tool；每一步保留可验证的 CLI fallback，作为迁移期回滚路径而非双实现长期常态。</li><li>完成本地、SAI/SIF 和经授权的 AsterFire dev 平台验证后发布 Agent。生产 toolbox 上传、image 更新和正式 Agent task 是独立授权动作。</li></ol></section>
+    <section id="risks"><h2>风险与开放项</h2><div class="decision open"><p><strong>风险：</strong>CWD 只能在 runner 独立进程中改变；MPI JSON 写入必须晚于 API 同步；SIF mpi4py 必须绑定 LTS 同源 OpenMPI。分别以进程隔离、root-only 原子写入和既有 Layer 2 校验缓解。</p><p><strong>开放项：</strong>无阻塞架构决策。JSON 文件名、runner 模块名称和 Agent evidence 字段将在实施计划中按项目命名规范固定。</p></div></section>
+  </main>
+  <footer>该文档是 ATST API runner 与 ABACUS Agent 集成的跨仓库设计源。</footer>
+</body>
+</html>

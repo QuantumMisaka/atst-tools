@@ -15,7 +15,8 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 参数入口：[CONFIG_REFERENCE.md](../user/CONFIG_REFERENCE.md) 和
   [YAML_INPUT_VARIABLES.md](../user/YAML_INPUT_VARIABLES.md)。
 - 开发入口：[YAML_INPUT_GOVERNANCE.md](YAML_INPUT_GOVERNANCE.md)、
-  [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)。
+  [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)、
+  [EXAMPLE_VALIDATION_OPERATIONS.md](EXAMPLE_VALIDATION_OPERATIONS.md)。
 - 项目状态入口：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 和
   [DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)。
 
@@ -41,6 +42,15 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 更新 `docs/skills/atst-cli/SKILL.md` 中的操作片段。
 - 必要时更新 README 的轻量命令列表。
 - 添加 CLI 测试或更新现有命令测试。
+
+## 4.1 新增或修改稳定 Python API / process runner
+
+- 保持 `atst_tools.api.__all__` 的既有稳定 root imports；runner 不得成为新的
+  root import 或改变 `atst` CLI 行为。
+- 更新 `docs/user/PYTHON_API_REFERENCE.md`、README、中文用户指南、release notes
+  和功能状态账本，说明 JSON schema、退出码、manifest 权威性与 MPI 责任边界。
+- 对 `python -m atst_tools.api.runner` 运行 API/document、clean-wheel 和实际 MPI
+  门禁；runner 只能消费 API，绝不启动 Slurm、`mpirun` 或 `srun`。
 
 ## 5. 新增或修改 calculator backend
 
@@ -74,10 +84,21 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 添加或更新 package metadata 测试，并运行构建检查：
   `pytest tests/unit/test_package_metadata.py -q`、`python -m build` 和
   `python -m twine check --strict dist/*`。
+- 对包含稳定 Python API 的 release，运行
+  `python scripts/verify_wheel_api.py`；它在临时目录构建 wheel、在临时 venv
+  non-network clean-install，并验证六个稳定 root imports 和 H2/Au 的 EMT
+  public API example path 和 installed API runner JSON handoff，不在工作树保留 build artifact。若 release 环境已
+  准备 `mpi4py` 和 `mpiexec`，额外运行
+  `python scripts/verify_wheel_api.py --mpi-smoke`；该 two-rank smoke 限时，
+  验证 image-parallel NEB/AutoNEB 的 rank-0 endpoint failure 以及 rank-local
+  optimizer construction failure 会使所有 rank 以 typed API failure 退出，且在
+  找不到 launcher 时明确跳过。
 
 ## 7. 新增或修改 example
 
 - 更新 `examples/README.md` 的学习路径、目录说明和 chemical systems 表。
+- 涉及示例的本地维护检查、SAI/Slurm 执行、curated outputs 或运行溯源时，先查
+  `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md`；示例 README 不承载这些维护者操作。
 - 更新 `examples/reference_results.json`，或明确该 example 暂无 reference 结果。
 - 保证新增输入在 `inputs/` 或受控路径下，生成输出不进入 git。
 - 运行 example 解析、dry-run 或 reference-result 测试。
@@ -94,6 +115,8 @@ release 变更，都先从对应小节确认需要同步的文档。
 
 - 更新 `docs/releases/RELEASE_NOTES_<version>.md`。
 - 更新 README badge、版本说明和 release scope。
+- 若 release 包含示例或 curated-output 变更，按
+  `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` 复核运行证据与溯源。
 - 更新 `FEATURE_STATUS_MATRIX.md` 和 `DOCUMENTATION_STATUS_REPORT.md`。
 - 复核 `docs/archive/pending_delete/README.md`，确认是否最终删除待删除文件。
 - 运行文档链接、格式和相关测试。

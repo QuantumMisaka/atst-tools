@@ -188,6 +188,15 @@ def test_p0_p1_examples_include_curated_validation_outputs():
     assert mode_manifest["selected_mode"]["reactive_bonds_1based"] == [[2, 61]]
 
 
+def test_ccqn_api_example_has_a_lightweight_verification_record():
+    reference = json.loads(Path("examples/reference_results.json").read_text(encoding="utf-8"))
+    api_example = reference["cases"]["12_ccqn_H2-Au"]["api_example"]
+
+    assert api_example["path"] == "examples/12_ccqn_H2-Au/ccqn_api_auto_modes.py"
+    assert api_example["calculator"] == "ase.calculators.emt.EMT"
+    assert api_example["validation_status"].startswith("structurally executable")
+
+
 def test_cy_pt_parallel_examples_include_completed_validation_outputs():
     reference = json.loads(Path("examples/reference_results.json").read_text(encoding="utf-8"))
     neb_reference = reference["cases"]["13_neb_parallel_Cy-Pt"]

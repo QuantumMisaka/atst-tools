@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
-**版本**: 2026-07-07
-**日期**: 2026-07-07
+**版本**: 2.2.0
+**日期**: 2026-07-23
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -14,8 +14,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.1.4.md`；2.0.0、2.0.1、2.0.2、
-  2.1.0、2.1.1、2.1.2 和 2.1.3 release notes 保留为历史版本说明。
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.0.md`；2.0.0、2.0.1、2.0.2、
+  2.1.0、2.1.1、2.1.2、2.1.3 和 2.1.4 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
@@ -27,6 +27,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | :--- | :--- | :--- |
 | `docs/user/USER_GUIDE_CN.md` | guide | 中文项目目标、10 分钟快速开始、后端说明、功能矩阵和参数入口。 |
 | `docs/user/CLI_REFERENCE.md` | reference | `atst` CLI、轻量 post/summary/config/abacus 工具。 |
+| `docs/user/PYTHON_API_REFERENCE.md` | reference | 稳定 `atst_tools.api` imports、CLI/API/runner 选择、JSON handoff、结果、artifact、MPI 和 backend delegation 边界。 |
 | `docs/user/CONFIG_REFERENCE.md` | reference | 手写 YAML 语义、workflow 行为、calculator 配置说明。 |
 | `docs/user/YAML_INPUT_VARIABLES.md` | reference | 由 schema 生成的非 calculator YAML 字段总表。 |
 | `docs/user/ABACUSLITE_WRAPPER_GUIDE.md` | guide | ABACUS/abacuslite wrapper 边界、MPI/mpi4py 注意事项。 |
@@ -38,6 +39,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/developer/DOCS_ARCHITECTURE.md` | guide | 文档目录职责、目标读者、生命周期类型和导航原则。 |
 | `docs/developer/DOCUMENTATION_STANDARDS.md` | guide | 元数据、生命周期、reports 分级、更新映射、归档流程和检查命令。 |
 | `docs/developer/HANDOVER.md` | guide | workflow、YAML、CLI、backend、example、report、release 变更 checklist。 |
+| `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` | guide | 示例本地维护检查、SAI/Slurm 执行模式、curated-output 溯源和证据报告生命周期；不作为用户快速上手。 |
 | `docs/developer/YAML_INPUT_GOVERNANCE.md` | guide | YAML schema、变量新增、文档导出和测试治理规则。 |
 | `docs/developer/PYPI_RELEASE_AUTOMATION.md` | guide | PyPI 发布自动化流程。 |
 
@@ -86,6 +88,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/ATST_TOOLS_NEB_ASE_COMPARISON_REVIEW_2026-05-18.md` | ASE 3.28.0 与 ATST NEB/AutoNEB/Dimer 对齐审查细节。 |
 | `docs/reports/ABACUS_STRU_IO_ASE_FORMAT_COMPATIBILITY_2026-06-04.md` | ABACUS STRU read/write 与 `ase-abacus` ASE I/O format 的 API/语义兼容性和功能点覆盖审查。 |
 | `docs/reports/UNIT_TEST_MAINTENANCE_2026-06-10.md` | 单元测试维护、legacy NEB script 清理和默认测试边界审查。 |
+| `docs/reports/STABLE_PYTHON_API_CLI_COMPATIBILITY_FIX_2026-07-21.md` | Stable Python API 路由下的 `atst run` 日志、异常和 exit 兼容性修复及回归证据。 |
 
 ### L4: 历史或已被取代材料
 
