@@ -24,6 +24,14 @@ behavior changed.
   version, described 2.2.0 as a future release candidate, and linked the
   ABACUSLite wrapper to the existing validation-operations guide.
 
+## Follow-up Regex Coverage
+
+- Expanded `server` to `servers?` and `validation-run` to
+  `validation[_ -]?runs?`.
+- Added regressions for uppercase `SERVERS`, `validation runs`, and
+  `validation_runs`; the existing regressions still prove `CI-NEB` and
+  `atst config validate` are allowed.
+
 ## Files Changed
 
 - `tests/unit/test_docs_governance.py`
@@ -36,7 +44,7 @@ behavior changed.
 
 ## Verification
 
-- `pytest tests/unit/test_docs_governance.py -q` — 13 passed.
+- `pytest tests/unit/test_docs_governance.py -q` — 16 passed.
 - `python scripts/check_docs_governance.py --root .` — passed.
 - `git diff --check -- README.md docs examples/README.md AGENTS.md tests/unit/test_docs_governance.py` — passed.
 - Conflict-marker scan over the affected documentation and test files — zero

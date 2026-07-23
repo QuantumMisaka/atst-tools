@@ -26,9 +26,9 @@ FORBIDDEN_USER_PATTERNS = {
     "module": r"\bmodules?\b",
     "partition": r"\bpartition\b",
     "qos": r"\bqos\b",
-    "server": r"\bserver\b",
+    "server": r"\bservers?\b",
     "job": r"\bjobs?\b",
-    "validation-run": r"\bvalidation[- ]run\b",
+    "validation-run": r"\bvalidation[_ -]?runs?\b",
     "8v100v0": r"\b8v100v0\b",
     "rush-gpu": r"\brush-gpu\b",
     "huge-gpu": r"\bhuge-gpu\b",
@@ -87,8 +87,11 @@ def test_docs_governance_cli_returns_success_for_current_tree():
         ("choose a PARTITION", "partition"),
         ("request a QOS", "qos"),
         ("connect to the SERVER", "server"),
+        ("connect to the SERVERS", "server"),
         ("submit a JOB", "job"),
         ("record a validation-run", "validation-run"),
+        ("record validation runs", "validation-run"),
+        ("record validation_runs", "validation-run"),
     ],
 )
 def test_user_boundary_detects_maintainer_phrases(phrase, term):
