@@ -40,7 +40,7 @@ pip install atst-tools
 atst --version
 ```
 
-从源代码安装当前 release candidate：
+从源代码安装主分支版本：
 
 ```bash
 git clone https://github.com/deepmodeling/atst-tools.git
