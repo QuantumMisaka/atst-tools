@@ -648,6 +648,23 @@ def test_abacus_neb_iterimages_preserves_unconstrained_forces():
     )
 
 
+def test_abacus_neb_explicitly_defaults_to_improved_tangent(monkeypatch):
+    """The wrapper pins ASE's recommended tangent method across ASE releases."""
+    from ase.mep.neb import NEB
+    from atst_tools.mep.neb import AbacusNEB
+
+    observed = {}
+
+    def fake_neb_init(self, images, **kwargs):
+        observed["method"] = kwargs["method"]
+
+    monkeypatch.setattr(NEB, "__init__", fake_neb_init)
+
+    AbacusNEB([])
+
+    assert observed["method"] == "improvedtangent"
+
+
 def test_abacus_neb_matches_ase_neb_single_middle_image_forces():
     from ase.mep.neb import NEB
     from atst_tools.mep.neb import AbacusNEB

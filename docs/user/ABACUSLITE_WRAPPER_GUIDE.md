@@ -41,6 +41,11 @@ such as `v3.11.0-beta.1` and `v3.11.0-beta1`; its fixed-density helper also
 uses `OUT.ABACUS` as the explicit charge-file directory expected by current
 upstream behavior.
 
+ATST workflow YAML already defaults NEB, AutoNEB, and the D2S rough DyNEB path
+to ASE's recommended `improvedtangent` method. Direct `AbacusNEB(...)`
+construction now pins the same default explicitly, so its behavior does not
+depend on an ASE release's implicit default.
+
 The vendored snapshot also carries tested upstream-sync fixes for numbered
 backup rotation, property-derived ABACUS keyword conflict detection,
 unsupported TDDFT `dipole` de-advertising, and `read_abacus_out` calculator
