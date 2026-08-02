@@ -13,7 +13,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 API_REFERENCE = ROOT / "docs/user/PYTHON_API_REFERENCE.md"
 API_EXAMPLE = ROOT / "examples/12_ccqn_H2-Au/ccqn_api_auto_modes.py"
-RELEASE_NOTES = ROOT / "docs/releases/RELEASE_NOTES_2.2.0.md"
+RELEASE_NOTES = ROOT / "docs/releases/RELEASE_NOTES_2.3.0.md"
 
 
 def test_api_reference_is_linked_from_public_navigation():
@@ -177,11 +177,11 @@ def test_runner_reference_documents_installed_protocol_and_matches_help():
         assert phrase in reference
 
 
-def test_release_notes_describe_the_final_branch_tag_and_mpi_gate():
-    """Release documentation must match the finalized branch, tag, and runner gate."""
+def test_release_notes_describe_the_pending_branch_tag_and_runner_gate():
+    """Release documentation must match the pending branch, tag, and runner gate."""
     notes = RELEASE_NOTES.read_text(encoding="utf-8")
 
-    assert "**Branch**: `main`" in notes
-    assert "**Tag**: `v2.2.0`" in notes
+    assert "**Branch**: pending merge" in notes
+    assert "**Tag**: `v2.3.0`" in notes
     assert "two-rank API runner dry-run" in notes
     assert "two-rank CLI dry-run" not in notes
