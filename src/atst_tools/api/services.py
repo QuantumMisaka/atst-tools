@@ -298,10 +298,23 @@ def _workflow_profiles(
     energy and per-atom forces; Sella/CCQN profiles report one entry per
     trajectory step with its frozen energy (frame index == step).  Both reuse
     the frozen-result reading already used by the A1 progress events, so no
-    calculation is ever re-run.  Missing data omits the profile entirely.
+    calculation is ever re-run.  Rendering is best-effort like plots: any
+    unreadable or malformed input omits the whole profile set rather than
+    failing a completed workflow; missing per-image energy is recorded as
+    ``null`` rather than dropping the entry.
     """
     if not options.profiles:
         return ()
+    try:
+        return _compute_workflow_profiles(config, value)
+    except (ImportError, OSError, ValueError, TypeError):
+        return ()
+
+
+def _compute_workflow_profiles(
+    config: Mapping[str, Any], value: Any
+) -> tuple[dict[str, Any], ...]:
+    """Compute the opt-in profiles payload; callers wrap it best-effort."""
     workflow = config["calculation"]["type"]
     if workflow in {"neb", "autoneb"}:
         if not isinstance(value, (list, tuple)):
@@ -318,10 +331,7 @@ def _workflow_profiles(
         trajectory = config["calculation"].get("trajectory")
         if not trajectory:
             return ()
-        try:
-            energies = _trajectory_energies(trajectory)
-        except (OSError, ValueError):
-            return ()
+        energies = _trajectory_energies(trajectory)
         return tuple(
             {"step": index, "energy_eV": energy}
             for index, energy in enumerate(energies)

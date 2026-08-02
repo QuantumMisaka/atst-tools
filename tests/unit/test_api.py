@@ -1409,3 +1409,24 @@ def test_run_workflow_plot_failure_omits_plots(monkeypatch, tmp_path):
         (tmp_path / result.artifact_manifest).read_text(encoding="utf-8")
     )
     assert "plots" not in manifest
+
+
+def test_run_workflow_profiles_exception_omits_profiles_not_crash(
+    monkeypatch, tmp_path
+):
+    """profiles 是 best-effort：数据读取异常不得让已完成工作流崩溃。"""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services, "_dispatch_normalized", lambda config, options: _neb_band((0.0, 1.5))
+    )
+    monkeypatch.setattr(
+        services, "_stored_forces", lambda atoms: (_ for _ in ()).throw(TypeError("boom"))
+    )
+
+    result = run_workflow(_neb_config(), RunOptions(profiles=True, world=FakeWorld()))
+
+    assert result.profiles == ()
+    assert "profiles" not in result.to_document(tmp_path)
