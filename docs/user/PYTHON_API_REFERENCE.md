@@ -90,6 +90,14 @@ Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
   check-input preflight.
 - `world` accepts an existing communicator for embedding. It is not a
   scheduler or launcher interface.
+- `progress` enables structured NDJSON progress events. With
+  `progress_stream` (a writable text stream; standard output by default) the
+  driver writes one JSON line per event (`workflow_start`, then one
+  `image_step` per NEB/AutoNEB band image with `workflow`, `image`,
+  `energy_eV`, `step`, and `ts` fields); the same event mapping is forwarded
+  to `progress_callback` when supplied, so Python consumers never parse
+  stdout. The CLI `--progress` flag and this option share the same driver
+  emission.
 
 ```python
 from atst_tools.api import RunOptions, run_workflow
@@ -113,7 +121,8 @@ python -m atst_tools.api.runner \
 
 The runner accepts the same configuration-driven controls as `RunOptions`:
 `--config`, `--workdir`, `--result-json`, `--dry-run`, `--restart`,
-`--check-input`, `--check-input-timeout`, and `--abacus-executable`.
+`--check-input`, `--check-input-timeout`, `--abacus-executable`, and
+`--progress`.
 `--config` is resolved against the caller directory before the runner enters
 `--workdir`; relative paths inside the YAML continue to use the runner work
 directory, matching the configuration-driven API's CWD semantics.

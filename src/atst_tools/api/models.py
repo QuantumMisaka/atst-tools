@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
@@ -70,7 +71,14 @@ class WorkflowExecutionError(ATSTAPIError):
 
 @dataclass(frozen=True)
 class RunOptions:
-    """Controls for configuration-driven workflow execution."""
+    """Controls for configuration-driven workflow execution.
+
+    Progress reporting is dual-entry: the CLI ``--progress`` flag and this
+    API surface map to the same driver emission. When ``progress`` is true,
+    one NDJSON line per event is written to ``progress_stream`` (standard
+    output by default) and the same event mapping is forwarded to
+    ``progress_callback``, so Python consumers never need to parse stdout.
+    """
 
     dry_run: bool = False
     restart: bool = False
@@ -78,6 +86,9 @@ class RunOptions:
     check_input_timeout: int = 120
     abacus_executable: str | None = None
     world: Any | None = None
+    progress: bool = False
+    progress_stream: Any | None = None
+    progress_callback: Callable[[Mapping[str, Any]], None] | None = None
 
 
 @dataclass(frozen=True)

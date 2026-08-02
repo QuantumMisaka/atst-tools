@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
 import pytest
 
-from helpers import FakeWorld, FalseyFakeWorld
+from helpers import FakeWorld, FalseyFakeWorld, make_atoms
 
 
 def test_run_workflow_preserves_falsey_supplied_world(monkeypatch, tmp_path):
@@ -1123,3 +1124,76 @@ def test_workflow_result_document_rejects_non_json_metadata(tmp_path):
 
     with pytest.raises(TypeError, match="JSON serializable"):
         result.to_document(tmp_path)
+
+
+def _neb_band(energies):
+    """Return a NEB-style band of single-point images for progress tests."""
+    return [make_atoms("H", energy=energy) for energy in energies]
+
+
+def _neb_config():
+    return {
+        "calculation": {"type": "neb", "init_chain": "chain.traj"},
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    }
+
+
+def test_run_workflow_progress_emits_ndjson_events_and_callback(
+    monkeypatch, tmp_path
+):
+    """Progress events are emitted once per band image through stream and callback."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+
+    stream = io.StringIO()
+    callbacks = []
+    run_workflow(
+        _neb_config(),
+        RunOptions(
+            progress=True,
+            progress_stream=stream,
+            progress_callback=callbacks.append,
+            world=FakeWorld(),
+        ),
+    )
+
+    events = [json.loads(line) for line in stream.getvalue().splitlines()]
+    assert [event["event"] for event in events] == [
+        "workflow_start",
+        "image_step",
+        "image_step",
+        "image_step",
+    ]
+    assert callbacks == events
+    for event in events:
+        assert event["workflow"] == "neb"
+        assert isinstance(event["ts"], str)
+    assert events[0]["restart"] is False
+    for index, (event, energy) in enumerate(zip(events[1:], (0.0, 1.5, 3.2))):
+        assert event["image"] == index
+        assert event["energy_eV"] == energy
+        assert "step" in event
+
+
+def test_run_workflow_progress_keeps_result_document_unchanged(
+    monkeypatch, tmp_path
+):
+    """Enabling progress must not alter the atst-api-result-v1 handoff."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+
+    plain = run_workflow(_neb_config(), RunOptions(world=FakeWorld()))
+    with_progress = run_workflow(
+        _neb_config(),
+        RunOptions(progress=True, progress_stream=io.StringIO(), world=FakeWorld()),
+    )
+
+    assert plain.to_document(tmp_path) == with_progress.to_document(tmp_path)

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
+
+from helpers import FakeWorld, make_atoms
 
 def _workflow_result(*, is_root: bool):
     from atst_tools.api import WorkflowResult
@@ -162,3 +165,63 @@ def test_runner_non_root_does_not_publish_result(monkeypatch, tmp_path):
 
     assert code == 0
     assert not (workdir / "atst_api_result.json").exists()
+
+
+def _neb_band(energies):
+    """Return a NEB-style band of single-point images shared with the API tests."""
+    return [make_atoms("H", energy=energy) for energy in energies]
+
+
+def _events_without_ts(events):
+    """Return the progress events with the run-local timestamp stripped."""
+    return [
+        {key: value for key, value in event.items() if key != "ts"} for event in events
+    ]
+
+
+def test_runner_progress_emits_same_ndjson_events_as_python_api(
+    monkeypatch, tmp_path, capsys
+):
+    """CLI --progress and the Python API produce the same NDJSON event set."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import runner, services
+
+    workdir = tmp_path / "run"
+    config = tmp_path / "atst_neb.yaml"
+    config.write_text(
+        "calculation:\n  type: neb\n  init_chain: chain.traj\n"
+        "calculator:\n  name: abacus\n  abacus:\n    parameters: {}\n",
+        encoding="utf-8",
+    )
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+    monkeypatch.setattr(services, "get_ase_world", lambda: FakeWorld())
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
+
+    api_stream = io.StringIO()
+    run_workflow(
+        {
+            "calculation": {"type": "neb", "init_chain": "chain.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(progress=True, progress_stream=api_stream, world=FakeWorld()),
+    )
+
+    code = runner.main(
+        ["--config", str(config), "--workdir", str(workdir), "--progress"]
+    )
+
+    assert code == 0
+    captured = capsys.readouterr()
+    api_events = [json.loads(line) for line in api_stream.getvalue().splitlines()]
+    cli_events = [json.loads(line) for line in captured.out.splitlines()]
+    assert cli_events
+    assert [event["event"] for event in cli_events] == [
+        "workflow_start",
+        "image_step",
+        "image_step",
+        "image_step",
+    ]
+    assert _events_without_ts(cli_events) == _events_without_ts(api_events)
+    assert all(isinstance(event["ts"], str) for event in cli_events)

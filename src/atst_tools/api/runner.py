@@ -38,6 +38,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--abacus-executable", help="Override the configured ABACUS executable"
     )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help=(
+            "Emit structured NDJSON progress events on stdout, one per line; "
+            "the same event set as the Python API RunOptions(progress=True)"
+        ),
+    )
     return parser
 
 
@@ -111,6 +119,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         check_input=args.check_input,
         check_input_timeout=args.check_input_timeout,
         abacus_executable=args.abacus_executable,
+        progress=args.progress,
     )
 
     try:

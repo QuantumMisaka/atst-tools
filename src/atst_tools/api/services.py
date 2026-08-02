@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
+from datetime import datetime, timezone
+import json
 import os
 from pathlib import Path
+import sys
 from typing import Any
 
 from atst_tools.api.models import (
@@ -203,6 +206,70 @@ def _stored_energy(atoms: Any) -> float | None:
     results = getattr(calculator, "results", None)
     energy = results.get("energy") if isinstance(results, dict) else None
     return float(energy) if energy is not None else None
+
+
+def _progress_timestamp() -> str:
+    """Return one ISO-8601 UTC timestamp for a structured progress event."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _emit_progress_event(options: RunOptions, event: Mapping[str, Any]) -> None:
+    """Publish one NDJSON progress event to the configured stream and callback.
+
+    The same mapping is written to ``progress_stream`` (standard output by
+    default) and forwarded to ``progress_callback``, keeping the CLI output
+    and the Python API callback byte-for-byte aligned for one event.
+    """
+    stream = (
+        options.progress_stream if options.progress_stream is not None else sys.stdout
+    )
+    stream.write(json.dumps(event, sort_keys=True) + "\n")
+    stream.flush()
+    if options.progress_callback is not None:
+        options.progress_callback(dict(event))
+
+
+def _emit_workflow_start(options: RunOptions, workflow: str) -> None:
+    """Emit the leading progress event once the workflow identity is known."""
+    if not options.progress:
+        return
+    _emit_progress_event(
+        options,
+        {
+            "ts": _progress_timestamp(),
+            "event": "workflow_start",
+            "workflow": workflow,
+            "restart": bool(options.restart),
+        },
+    )
+
+
+def _emit_image_step_events(
+    config: Mapping[str, Any], value: Any, options: RunOptions
+) -> None:
+    """Emit one final per-image progress event for band workflows.
+
+    ``step`` is a reserved field for per-step sampling; the driver currently
+    reports the completed band state and leaves it null rather than inventing
+    a step counter that only in-run hooks could provide truthfully.
+    """
+    workflow = config["calculation"]["type"]
+    if not options.progress or workflow not in {"neb", "autoneb"}:
+        return
+    if not isinstance(value, (list, tuple)):
+        return
+    for index, image in enumerate(value):
+        _emit_progress_event(
+            options,
+            {
+                "ts": _progress_timestamp(),
+                "event": "image_step",
+                "workflow": workflow,
+                "image": index,
+                "energy_eV": _stored_energy(image),
+                "step": None,
+            },
+        )
 
 
 def _synthesized_artifacts(
@@ -505,6 +572,8 @@ def _run_workflow(
     _synchronize_rank_failure(world, "configuration", config_failure)
     assert config is not None
     workflow = config["calculation"]["type"]
+    if int(world.rank) == 0:
+        _emit_workflow_start(options, workflow)
     if options.dry_run:
         preflight = None
         preflight_failure = None
@@ -552,6 +621,8 @@ def _run_workflow(
             failure = WorkflowExecutionError(str(exc), workflow=workflow)
         failure.__cause__ = exc
     _synchronize_rank_failure(world, workflow, failure)
+    if int(world.rank) == 0:
+        _emit_image_step_events(config, value, options)
     if not ensure_completed_manifest:
         return _result_without_manifest(config, world, "complete")
     _ensure_completed_manifest(config, value, world, previous_signature)
