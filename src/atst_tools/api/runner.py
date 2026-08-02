@@ -46,6 +46,22 @@ def build_parser() -> argparse.ArgumentParser:
             "the same event set as the Python API RunOptions(progress=True)"
         ),
     )
+    parser.add_argument(
+        "--profiles",
+        action="store_true",
+        help=(
+            "Include the per-image/per-step energy and force summary in the "
+            "result document (NEB/AutoNEB images; Sella/CCQN steps)"
+        ),
+    )
+    parser.add_argument(
+        "--plots",
+        action="store_true",
+        help=(
+            "Render the workflow energy plot PNG and record its relative path "
+            "in the result document and artifact manifest"
+        ),
+    )
     return parser
 
 
@@ -120,6 +136,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         check_input_timeout=args.check_input_timeout,
         abacus_executable=args.abacus_executable,
         progress=args.progress,
+        profiles=args.profiles,
+        plots=args.plots,
     )
 
     try:

@@ -225,3 +225,88 @@ def test_runner_progress_emits_same_ndjson_events_as_python_api(
     ]
     assert _events_without_ts(cli_events) == _events_without_ts(api_events)
     assert all(isinstance(event["ts"], str) for event in cli_events)
+
+
+def test_runner_exposes_profiles_and_plots_flags(monkeypatch, tmp_path):
+    """The runner CLI maps --profiles/--plots onto the shared RunOptions."""
+    from atst_tools.api import runner
+
+    workdir = tmp_path / "run"
+    observed = {}
+
+    def fake_run_workflow(source, options):
+        observed["options"] = options
+        return _workflow_result(is_root=True)
+
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
+    monkeypatch.setattr(runner, "run_workflow", fake_run_workflow)
+
+    code = runner.main(
+        [
+            "--config",
+            str(tmp_path / "atst_neb.yaml"),
+            "--workdir",
+            str(workdir),
+            "--profiles",
+            "--plots",
+        ]
+    )
+
+    assert code == 0
+    assert observed["options"].profiles is True
+    assert observed["options"].plots is True
+
+
+def test_runner_profiles_plots_document_matches_python_api(monkeypatch, tmp_path):
+    """CLI --profiles --plots and the Python API produce the same result document."""
+    from pathlib import Path as PathType
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import runner, services
+    from atst_tools.utils import plot as plot_module
+
+    workdir = tmp_path / "run"
+    config = tmp_path / "atst_neb.yaml"
+    config.write_text(
+        "calculation:\n  type: neb\n  init_chain: chain.traj\n"
+        "calculator:\n  name: abacus\n  abacus:\n    parameters: {}\n",
+        encoding="utf-8",
+    )
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+    monkeypatch.setattr(services, "get_ase_world", lambda: FakeWorld())
+    monkeypatch.setattr(runner, "_process_rank", lambda: 0)
+    monkeypatch.setattr(
+        plot_module,
+        "neb_energy_profile",
+        lambda chain, output, **kwargs: PathType(output),
+    )
+
+    api_result = run_workflow(
+        {
+            "calculation": {"type": "neb", "init_chain": "chain.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(profiles=True, plots=True, world=FakeWorld()),
+    )
+    api_document = api_result.to_document(tmp_path)
+    api_document["workdir"] = str(workdir.resolve())
+    api_document["artifact_manifest"] = str(
+        (workdir / "atst_artifacts.json").resolve()
+    )
+
+    code = runner.main(
+        ["--config", str(config), "--workdir", str(workdir), "--profiles", "--plots"]
+    )
+
+    assert code == 0
+    cli_document = json.loads(
+        (workdir / "atst_api_result.json").read_text(encoding="utf-8")
+    )
+    assert cli_document == api_document
+    assert cli_document["profiles"] == [
+        {"image": 0, "energy_eV": 0.0, "forces": [[0.0, 0.0, 0.0]]},
+        {"image": 1, "energy_eV": 1.5, "forces": [[0.0, 0.0, 0.0]]},
+        {"image": 2, "energy_eV": 3.2, "forces": [[0.0, 0.0, 0.0]]},
+    ]
+    assert cli_document["plots"] == ["neb_energy_profile.png"]

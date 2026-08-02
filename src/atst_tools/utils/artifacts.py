@@ -29,8 +29,15 @@ def write_artifact_manifest(
     artifacts: list[dict[str, Any]],
     stages: list[dict[str, Any]] | None = None,
     metadata: dict[str, Any] | None = None,
+    plots: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
-    """Write a stable machine-readable manifest for workflow outputs."""
+    """Write a stable machine-readable manifest for workflow outputs.
+
+    ``plots`` is an optional list of task-relative PNG paths produced for the
+    workflow.  It is recorded under a dedicated top-level ``plots`` key only
+    when non-empty, so manifests written without plots keep the exact original
+    shape and older manifest consumers ignore the extension.
+    """
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "workflow": workflow,
@@ -38,6 +45,8 @@ def write_artifact_manifest(
         "stages": stages or [],
         "artifacts": artifacts,
     }
+    if plots:
+        manifest["plots"] = [str(plot) for plot in plots]
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(_jsonable(manifest), indent=2), encoding="utf-8")

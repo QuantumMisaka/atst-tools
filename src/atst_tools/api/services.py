@@ -208,6 +208,23 @@ def _stored_energy(atoms: Any) -> float | None:
     return float(energy) if energy is not None else None
 
 
+def _stored_forces(atoms: Any) -> list[list[float]] | None:
+    """Return frozen per-atom forces as a JSON-safe nested list, or None."""
+    calculator = getattr(atoms, "calc", None)
+    results = getattr(calculator, "results", None)
+    forces = results.get("forces") if isinstance(results, dict) else None
+    if forces is None:
+        return None
+    return [[float(component) for component in row] for row in forces]
+
+
+def _trajectory_energies(trajectory: str | Path) -> list[float | None]:
+    """Return per-frame frozen energies of a Sella/CCQN trajectory."""
+    from ase.io import Trajectory
+
+    return [_stored_energy(frame) for frame in Trajectory(trajectory)]
+
+
 def _progress_timestamp() -> str:
     """Return one ISO-8601 UTC timestamp for a structured progress event."""
     return datetime.now(timezone.utc).isoformat()
@@ -270,6 +287,92 @@ def _emit_image_step_events(
                 "step": None,
             },
         )
+
+
+def _workflow_profiles(
+    config: Mapping[str, Any], value: Any, options: RunOptions
+) -> tuple[dict[str, Any], ...]:
+    """Return the opt-in per-image/per-step science summary for the result.
+
+    NEB/AutoNEB profiles report one entry per band image with its frozen
+    energy and per-atom forces; Sella/CCQN profiles report one entry per
+    trajectory step with its frozen energy (frame index == step).  Both reuse
+    the frozen-result reading already used by the A1 progress events, so no
+    calculation is ever re-run.  Missing data omits the profile entirely.
+    """
+    if not options.profiles:
+        return ()
+    workflow = config["calculation"]["type"]
+    if workflow in {"neb", "autoneb"}:
+        if not isinstance(value, (list, tuple)):
+            return ()
+        return tuple(
+            {
+                "image": index,
+                "energy_eV": _stored_energy(image),
+                "forces": _stored_forces(image),
+            }
+            for index, image in enumerate(value)
+        )
+    if workflow in {"sella", "ccqn"}:
+        trajectory = config["calculation"].get("trajectory")
+        if not trajectory:
+            return ()
+        try:
+            energies = _trajectory_energies(trajectory)
+        except (OSError, ValueError):
+            return ()
+        return tuple(
+            {"step": index, "energy_eV": energy}
+            for index, energy in enumerate(energies)
+        )
+    return ()
+
+
+def _workflow_plots(
+    config: Mapping[str, Any], value: Any, options: RunOptions
+) -> tuple[str, ...]:
+    """Render opt-in workflow energy plots and return their relative paths.
+
+    Rendering is best-effort: a missing optional dependency or an unreadable
+    input omits the plot rather than failing a completed workflow, matching
+    the result-envelope rule that plots are recorded only when generated and
+    successful.
+    """
+    if not options.plots:
+        return ()
+    workflow = config["calculation"]["type"]
+    try:
+        if workflow in {"neb", "autoneb"}:
+            if not isinstance(value, (list, tuple)):
+                return ()
+            from atst_tools.utils.plot import neb_energy_profile
+
+            output = (
+                "autoneb_energy_profile.png"
+                if workflow == "autoneb"
+                else "neb_energy_profile.png"
+            )
+            neb_energy_profile(value, output)
+            return (output,)
+        if workflow in {"sella", "ccqn"}:
+            trajectory = config["calculation"].get("trajectory")
+            if not trajectory or not Path(trajectory).is_file():
+                return ()
+            if workflow == "ccqn":
+                from atst_tools.utils.plot import ccqn_energy_curve
+
+                output = "ccqn_energy_curve.png"
+                ccqn_energy_curve(trajectory, output)
+            else:
+                from atst_tools.utils.plot import sella_energy_curve
+
+                output = "sella_energy_curve.png"
+                sella_energy_curve(trajectory, output)
+            return (output,)
+    except (ImportError, OSError, ValueError, TypeError):
+        return ()
+    return ()
 
 
 def _synthesized_artifacts(
@@ -391,6 +494,7 @@ def _ensure_completed_manifest(
     value: Any,
     world: Any,
     previous_signature: tuple[int, int, int, int] | None = None,
+    plots: Sequence[str] = (),
 ) -> None:
     """Guarantee that a completed API outcome has an accurate durable manifest."""
     calculation = config["calculation"]
@@ -414,6 +518,17 @@ def _ensure_completed_manifest(
                     artifacts=_synthesized_artifacts(config, value),
                     stages=[{"name": workflow, "status": "complete"}],
                     metadata={"manifest_source": "api_synthesized"},
+                    plots=plots,
+                )
+            elif plots:
+                manifest = _read_manifest(manifest_path)
+                write_artifact_manifest(
+                    manifest_path,
+                    workflow=manifest.get("workflow", workflow),
+                    artifacts=manifest.get("artifacts", []),
+                    stages=manifest.get("stages", []),
+                    metadata=manifest.get("metadata", {}),
+                    plots=plots,
                 )
         except Exception as exc:
             failure = WorkflowExecutionError(
@@ -441,7 +556,11 @@ def _ensure_completed_manifest(
 
 
 def _result_from_manifest(
-    config: dict[str, Any], value: Any, world: Any, status: str
+    config: dict[str, Any],
+    value: Any,
+    world: Any,
+    status: str,
+    profiles: Sequence[Mapping[str, Any]] = (),
 ) -> WorkflowResult:
     """Build one root-aware result using the durable manifest as source of truth."""
     calculation = config["calculation"]
@@ -483,6 +602,8 @@ def _result_from_manifest(
         final_atoms=final_atoms,
         final_images=final_images,
         ts_atoms=ts_atoms,
+        plots=tuple(manifest.get("plots", [])),
+        profiles=tuple(profiles),
     )
 
 
@@ -621,12 +742,20 @@ def _run_workflow(
             failure = WorkflowExecutionError(str(exc), workflow=workflow)
         failure.__cause__ = exc
     _synchronize_rank_failure(world, workflow, failure)
+    profiles = ()
+    plots = ()
     if int(world.rank) == 0:
         _emit_image_step_events(config, value, options)
+        profiles = _workflow_profiles(config, value, options)
+        plots = _workflow_plots(config, value, options)
     if not ensure_completed_manifest:
         return _result_without_manifest(config, world, "complete")
-    _ensure_completed_manifest(config, value, world, previous_signature)
-    return _result_from_manifest(config, value, world, "complete")
+    _ensure_completed_manifest(
+        config, value, world, previous_signature, plots=plots
+    )
+    return _result_from_manifest(
+        config, value, world, "complete", profiles=profiles
+    )
 
 
 def run_workflow(

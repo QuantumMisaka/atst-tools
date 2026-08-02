@@ -1200,3 +1200,212 @@ def test_run_workflow_progress_keeps_result_document_unchanged(
     )
 
     assert plain.to_document(tmp_path) == with_progress.to_document(tmp_path)
+
+
+def test_run_workflow_result_document_unchanged_without_new_options(
+    monkeypatch, tmp_path
+):
+    """Default options keep the atst-api-result-v1 document byte-for-byte stable."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.calculators.abacuslite_backend import BACKEND_SOURCE
+
+    monkeypatch.chdir(tmp_path)
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+
+    document = run_workflow(_neb_config(), RunOptions(world=FakeWorld())).to_document(
+        tmp_path
+    )
+
+    assert document == {
+        "schema": "atst-api-result-v1",
+        "status": "success",
+        "workflow": "neb",
+        "is_root": True,
+        "workdir": str(tmp_path.resolve()),
+        "artifact_manifest": str((tmp_path / "atst_artifacts.json").resolve()),
+        "artifacts": [{"role": "trajectory", "path": "neb.traj"}],
+        "metadata": {
+            "backend_source": BACKEND_SOURCE,
+            "manifest_source": "api_synthesized",
+        },
+    }
+
+
+def test_workflow_result_document_omits_new_fields_when_empty(tmp_path):
+    """plots/profiles are optional: absent from the document when empty."""
+    from atst_tools.api import WorkflowResult
+
+    result = WorkflowResult(
+        workflow="neb",
+        status="complete",
+        is_root=True,
+        artifact_manifest="atst_artifacts.json",
+        artifacts=(),
+        metadata={},
+    )
+
+    document = result.to_document(tmp_path)
+
+    assert "plots" not in document
+    assert "profiles" not in document
+    assert document["schema"] == "atst-api-result-v1"
+
+
+def test_workflow_result_document_includes_plots_and_profiles_when_present(tmp_path):
+    """A populated WorkflowResult carries plots/profiles as JSON-safe lists."""
+    from atst_tools.api import WorkflowResult
+
+    result = WorkflowResult(
+        workflow="neb",
+        status="complete",
+        is_root=True,
+        artifact_manifest="atst_artifacts.json",
+        artifacts=({"role": "trajectory", "path": "neb.traj"},),
+        metadata={"backend_source": "abacuslite"},
+        plots=("neb_energy_profile.png",),
+        profiles=(
+            {"image": 0, "energy_eV": 0.0, "forces": [[0.0, 0.0, 0.0]]},
+            {"image": 1, "energy_eV": 1.5, "forces": [[0.0, 0.0, 0.0]]},
+        ),
+    )
+
+    document = result.to_document(tmp_path)
+
+    assert document["plots"] == ["neb_energy_profile.png"]
+    assert document["profiles"] == [
+        {"image": 0, "energy_eV": 0.0, "forces": [[0.0, 0.0, 0.0]]},
+        {"image": 1, "energy_eV": 1.5, "forces": [[0.0, 0.0, 0.0]]},
+    ]
+    json.dumps(document)
+
+
+def test_run_workflow_neb_profiles_report_image_energy_and_forces(
+    monkeypatch, tmp_path
+):
+    """NEB profiles are per-image energy/force summaries from frozen results."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    band = _neb_band((0.0, 1.5, 3.2))
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+
+    result = run_workflow(
+        _neb_config(), RunOptions(profiles=True, world=FakeWorld())
+    )
+
+    assert result.profiles == (
+        {"image": 0, "energy_eV": 0.0, "forces": [[0.0, 0.0, 0.0]]},
+        {"image": 1, "energy_eV": 1.5, "forces": [[0.0, 0.0, 0.0]]},
+        {"image": 2, "energy_eV": 3.2, "forces": [[0.0, 0.0, 0.0]]},
+    )
+    assert result.to_document(tmp_path)["profiles"] == list(result.profiles)
+
+
+def test_run_workflow_profiles_absent_without_option(monkeypatch, tmp_path):
+    """A completed NEB run without the option never emits a profiles field."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services, "_dispatch_normalized", lambda config, options: _neb_band((0.0, 1.5, 3.2))
+    )
+
+    result = run_workflow(_neb_config(), RunOptions(world=FakeWorld()))
+
+    assert result.profiles == ()
+    assert "profiles" not in result.to_document(tmp_path)
+
+
+def test_run_workflow_sella_profiles_report_trajectory_steps(monkeypatch, tmp_path):
+    """Sella profiles are per-step energies read from the trajectory frames."""
+    from ase.io import Trajectory
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    frames = [make_atoms("H", energy=energy) for energy in (2.0, 1.5, 0.9)]
+    trajectory = Trajectory("sella.traj", "w")
+    for frame in frames:
+        trajectory.write(frame)
+    trajectory.close()
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: frames[-1])
+    (tmp_path / "atst_artifacts.json").write_text(
+        '{"workflow":"sella","artifacts":[],"metadata":{},"stages":[]}'
+    )
+
+    result = run_workflow(
+        {
+            "calculation": {
+                "type": "sella",
+                "init_structure": "init.traj",
+                "trajectory": "sella.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(profiles=True, world=FakeWorld()),
+    )
+
+    assert result.profiles == (
+        {"step": 0, "energy_eV": 2.0},
+        {"step": 1, "energy_eV": 1.5},
+        {"step": 2, "energy_eV": 0.9},
+    )
+
+
+def test_run_workflow_plots_generate_and_record_png(monkeypatch, tmp_path):
+    """Enabling plots renders one PNG and records it in result and manifest."""
+    from pathlib import Path
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.utils import plot as plot_module
+
+    monkeypatch.chdir(tmp_path)
+    band = _neb_band((0.0, 1.5, 3.2))
+    calls = []
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: band)
+    monkeypatch.setattr(
+        plot_module,
+        "neb_energy_profile",
+        lambda chain, output, **kwargs: calls.append((len(chain), str(output)))
+        or Path(output),
+    )
+
+    result = run_workflow(_neb_config(), RunOptions(plots=True, world=FakeWorld()))
+
+    assert calls == [(3, "neb_energy_profile.png")]
+    assert result.plots == ("neb_energy_profile.png",)
+    manifest = json.loads(
+        (tmp_path / result.artifact_manifest).read_text(encoding="utf-8")
+    )
+    assert manifest["plots"] == ["neb_energy_profile.png"]
+    assert result.to_document(tmp_path)["plots"] == ["neb_energy_profile.png"]
+
+
+def test_run_workflow_plot_failure_omits_plots(monkeypatch, tmp_path):
+    """A plot rendering failure is best-effort: plots are omitted, run succeeds."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.utils import plot as plot_module
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        services, "_dispatch_normalized", lambda config, options: _neb_band((0.0, 1.5, 3.2))
+    )
+    monkeypatch.setattr(
+        plot_module,
+        "neb_energy_profile",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ImportError("no matplotlib")),
+    )
+
+    result = run_workflow(_neb_config(), RunOptions(plots=True, world=FakeWorld()))
+
+    assert result.plots == ()
+    assert "plots" not in result.to_document(tmp_path)
+    manifest = json.loads(
+        (tmp_path / result.artifact_manifest).read_text(encoding="utf-8")
+    )
+    assert "plots" not in manifest

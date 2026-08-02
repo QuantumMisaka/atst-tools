@@ -78,6 +78,14 @@ class RunOptions:
     one NDJSON line per event is written to ``progress_stream`` (standard
     output by default) and the same event mapping is forwarded to
     ``progress_callback``, so Python consumers never need to parse stdout.
+
+    ``profiles`` and ``plots`` are result-envelope extensions (atst-api-result-v1):
+    they are opt-in so that existing consumers keep byte-identical documents.
+    When ``profiles`` is true the driver adds a per-image (NEB/AutoNEB) or
+    per-step (Sella/CCQN) energy/force summary; when ``plots`` is true it
+    renders the workflow energy plot PNG and records its relative path in the
+    result document and artifact manifest.  Both only ever add optional fields
+    and never alter the established result fields.
     """
 
     dry_run: bool = False
@@ -89,6 +97,8 @@ class RunOptions:
     progress: bool = False
     progress_stream: Any | None = None
     progress_callback: Callable[[Mapping[str, Any]], None] | None = None
+    profiles: bool = False
+    plots: bool = False
 
 
 @dataclass(frozen=True)
@@ -128,14 +138,21 @@ class WorkflowResult:
     final_atoms: Any | None = None
     final_images: tuple[Any, ...] | None = None
     ts_atoms: Any | None = None
+    plots: tuple[str, ...] = ()
+    profiles: tuple[dict[str, Any], ...] = ()
 
     def to_document(self, workdir: str | Path) -> dict[str, Any]:
-        """Return the stable JSON handoff envelope without ASE objects."""
+        """Return the stable JSON handoff envelope without ASE objects.
+
+        The ``plots`` and ``profiles`` extensions are optional: they appear in
+        the document only when non-empty, so documents produced without those
+        options stay byte-identical to the original atst-api-result-v1 schema.
+        """
         root = Path(workdir).resolve()
         manifest = Path(self.artifact_manifest)
         if not manifest.is_absolute():
             manifest = root / manifest
-        return {
+        document = {
             "schema": "atst-api-result-v1",
             "status": "success",
             "workflow": self.workflow,
@@ -145,3 +162,8 @@ class WorkflowResult:
             "artifacts": _json_detached(list(self.artifacts)),
             "metadata": _json_detached(self.metadata),
         }
+        if self.plots:
+            document["plots"] = list(self.plots)
+        if self.profiles:
+            document["profiles"] = _json_detached(list(self.profiles))
+        return document
