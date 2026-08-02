@@ -73,6 +73,9 @@ def test_public_api_has_only_the_supported_contract():
         "validate_config",
         "run_workflow",
         "run_ccqn",
+        "neb_energy_profile",
+        "sella_energy_curve",
+        "ccqn_energy_curve",
     ]
 
 

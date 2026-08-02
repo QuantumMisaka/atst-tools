@@ -38,15 +38,18 @@ responsibility.
 
 ## Stable imports
 
-Only these six names are stable root imports in this release:
+Only these nine names are stable root imports in this release:
 
 ```python
 from atst_tools.api import (
     CCQNOptions,
     RunOptions,
     WorkflowResult,
+    ccqn_energy_curve,
+    neb_energy_profile,
     run_ccqn,
     run_workflow,
+    sella_energy_curve,
     validate_config,
 )
 ```
@@ -166,6 +169,44 @@ pseudopotential, orbital, executable/runtime, and site setup must already be
 ready; ATST does not configure it. ATST-Tools does not install or require
 ABACUS as a package dependency for this API.
 
+### Plotting helpers
+
+The plotting helpers render transition-state visualization PNGs with the
+headless matplotlib Agg backend and return the written path. matplotlib is an
+optional dependency (`pip install "atst-tools[plot]"`); when it is missing
+these helpers raise a clear `ImportError` and the CLI reports the same message
+with exit code 1. Importing `atst_tools.api` never requires matplotlib.
+
+```python
+from atst_tools.api import neb_energy_profile, sella_energy_curve, ccqn_energy_curve
+
+profile = neb_energy_profile(chain, "neb_profile.png")    # E vs image + barrier
+curve = sella_energy_curve("run_sella.traj", "sella.png")  # E vs step
+curve = ccqn_energy_curve("ccqn.traj", "ccqn.png")         # E vs step
+```
+
+`neb_energy_profile(chain, output_png, *, title=None, barrier=True, dpi=300)`
+plots the band energies relative to the first image and annotates the maximum
+relative-energy image with its barrier value (disable with `barrier=False`).
+`sella_energy_curve(traj, output_png, *, title=None, dpi=300)` and
+`ccqn_energy_curve(traj, output_png, *, title=None, dpi=300)` consume the
+per-step energies directly from the trajectory frames (frame index == step).
+Trajectory energies are read from frozen calculator results or
+`atoms.info["energy"]`, never by launching new calculations.
+
+The equivalent command-line entry is `python -m atst_tools.utils.plot`, a thin
+adapter over the same functions:
+
+```bash
+python -m atst_tools.utils.plot neb --chain chain.traj --output-png neb_profile.png
+python -m atst_tools.utils.plot sella --traj run_sella.traj --output-png sella.png
+python -m atst_tools.utils.plot ccqn --traj ccqn.traj --output-png ccqn.png
+```
+
+The CLI flags map one-to-one onto the API parameters (`--chain`, `--traj`,
+`--output-png`, `--title`, `--dpi`, `--no-barrier`), and each invocation writes
+the same figure the corresponding Python call would produce.
+
 ## Results and artifacts
 
 `WorkflowResult` is a frozen container with `workflow`, `status`, `is_root`,
@@ -230,7 +271,7 @@ and DMF's `cyipopt`/IPOPT requirement),
 optional workflow name and diagnostic context; the original failure is chained
 as its cause where available. These error types are available from
 `atst_tools.api.models`; they are intentionally not additional stable root
-imports beyond the six names listed above. The CLI unwraps them to retain its
+imports beyond the nine names listed above. The CLI unwraps them to retain its
 existing exception and message surface.
 
 DMF remains experimental. `run_workflow()` preserves its current dependency
@@ -241,7 +282,7 @@ or calculator-embedding API.
 
 This first release is additive: existing CLI commands, YAML fields/defaults,
 output names, relative-path behavior, MPI rules, and exit contracts remain
-unchanged. Only the six root imports in this document receive the stable API
+unchanged. Only the nine root imports in this document receive the stable API
 compatibility promise. Additions may be made in compatible releases; a future
 removal or incompatible behavior change will be documented and deprecated in a
 release before removal.
