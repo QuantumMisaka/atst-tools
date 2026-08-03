@@ -1702,6 +1702,43 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
     assert calls[2] == ("run", 0.03, 12)
 
 
+def test_abacus_sella_warns_on_premature_unconverged_return(monkeypatch, tmp_path, capsys):
+    """Sella 提前返回未收敛时打印可见诊断（不改变返回语义）。"""
+    from atst_tools.mep import sella as sella_module
+
+    class FakeSella:
+        nsteps = 2
+        fmax = 0.3165
+
+        def __init__(self, atoms, trajectory=None, eta=None, order=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            pass
+
+        def converged(self):
+            return False
+
+    calc = DummyCalc(1.5)
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *a, **k: None)
+    monkeypatch.setattr(sella_module, "Sella", FakeSella)
+    monkeypatch.setattr(sella_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: calc)
+
+    ts = Atoms("H", positions=[[0.0, 0.0, 0.0]])
+    workflow = sella_module.AbacusSella(
+        ts,
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "sella_run", "max_steps": 30},
+        traj_file=str(tmp_path / "sella.traj"),
+        fmax=0.1,
+    )
+    assert workflow.run(fmax=0.1) is ts
+    captured = capsys.readouterr()
+    assert "Sella 优化提前返回但未收敛" in captured.out
+    assert "nsteps=2" in captured.out
+
+
 def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch):
     from atst_tools.mep import sella as sella_module
 

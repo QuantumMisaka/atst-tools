@@ -115,4 +115,24 @@ class AbacusSella:
             dyn.run(fmax=fmax)
         else:
             dyn.run(fmax=fmax, steps=self.max_steps)
+        self._warn_if_premature_return(dyn, fmax)
         return ts_atoms
+
+    @staticmethod
+    def _warn_if_premature_return(dyn, fmax: float) -> None:
+        """Sella 提前返回但未收敛时输出可见诊断（不改变返回语义）。
+
+        ABACUS 计算器集成下 Sella 可能提前返回（优化器与计算器的力/收敛交互），
+        此时 dyn.converged() 为 False 且步数远小于上限——打印警告供 Agent 诊断，
+        同时保留 workflow 正常返回（runner 结果由调用方判定）。
+        """
+        try:
+            converged = bool(dyn.converged())
+        except Exception:
+            return
+        if not converged:
+            print(
+                "Warning: Sella 优化提前返回但未收敛（"
+                f"nsteps={dyn.nsteps}, fmax={getattr(dyn, 'fmax', None)}, "
+                f"threshold={fmax}）；请检查 ABACUS 力更新/计算器交互。"
+            )
