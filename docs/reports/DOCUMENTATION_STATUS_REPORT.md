@@ -1,6 +1,6 @@
 # 文档治理状态报告
 
-**版本**: 2.3.0
+**版本**: 2.2.1
 **日期**: 2026-08-03
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
@@ -14,7 +14,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.3.0.md`；2.0.0、2.0.1、2.0.2、
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.1.md`；2.0.0、2.0.1、2.0.2、
   2.1.0、2.1.1、2.1.2、2.1.3、2.1.4 和 2.2.0 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、

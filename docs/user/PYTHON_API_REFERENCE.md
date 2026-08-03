@@ -19,9 +19,9 @@ or a calculator runtime. For command syntax, see the maintained
 [CLI reference](CLI_REFERENCE.md). For project installation, examples, and
 source, see the [repository README](../../README.md) and the
 [ATST-Tools repository](https://github.com/QuantumMisaka/atst-tools).
-This reference tracks the current 2.3.0 release; additions since 2.2.0
+This reference tracks the current 2.2.1 release; additions since 2.2.0
 (progress events, plotting helpers, and the profiles/plots result extensions)
-are marked "(2.3.0)".
+are marked "(2.2.1)".
 
 ## Installation
 
@@ -96,7 +96,7 @@ Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
   check-input preflight.
 - `world` accepts an existing communicator for embedding. It is not a
   scheduler or launcher interface.
-- `progress` (2.3.0) enables structured NDJSON progress events. With
+- `progress` (2.2.1) enables structured NDJSON progress events. With
   `progress_stream` (a writable text stream; standard output by default) the
   driver writes one JSON line per event (`workflow_start`, then one
   `image_step` per NEB/AutoNEB band image with `workflow`, `image`,
@@ -104,9 +104,9 @@ Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
   to `progress_callback` when supplied, so Python consumers never parse
   stdout. The CLI `--progress` flag and this option share the same driver
   emission.
-- `profiles` (2.3.0) adds an opt-in per-image (NEB/AutoNEB) or per-step
+- `profiles` (2.2.1) adds an opt-in per-image (NEB/AutoNEB) or per-step
   (Sella/CCQN) energy and force summary to the result envelope. `plots`
-  (2.3.0) renders the workflow energy plot PNG and records its relative path
+  (2.2.1) renders the workflow energy plot PNG and records its relative path
   in the result document and artifact manifest. Both extensions are
   best-effort: a missing optional dependency or unreadable input omits them
   rather than failing a completed workflow, and they never alter the
@@ -135,7 +135,7 @@ python -m atst_tools.api.runner \
 The runner accepts the same configuration-driven controls as `RunOptions`:
 `--config`, `--workdir`, `--result-json`, `--dry-run`, `--restart`,
 `--check-input`, `--check-input-timeout`, `--abacus-executable`, and
-`--progress`; the 2.3.0 result extensions are enabled with `--profiles` and
+`--progress`; the 2.2.1 result extensions are enabled with `--profiles` and
 `--plots`.
 `--config` is resolved against the caller directory before the runner enters
 `--workdir`; relative paths inside the YAML continue to use the runner work
@@ -182,7 +182,7 @@ ABACUS as a package dependency for this API.
 
 ### Plotting helpers
 
-The plotting helpers (2.3.0) render transition-state visualization PNGs with the
+The plotting helpers (2.2.1) render transition-state visualization PNGs with the
 headless matplotlib Agg backend and return the written path. matplotlib is an
 optional dependency (`pip install "atst-tools[plot]"`); when it is missing
 these helpers raise a clear `ImportError` and the CLI reports the same message
@@ -222,7 +222,7 @@ the same figure the corresponding Python call would produce.
 
 `WorkflowResult` is a frozen container with `workflow`, `status`, `is_root`,
 `artifact_manifest`, `artifacts`, `metadata`, `final_atoms`, `final_images`,
-`ts_atoms`, and the 2.3.0 optional `plots` and `profiles` fields. The artifact
+`ts_atoms`, and the 2.2.1 optional `plots` and `profiles` fields. The artifact
 manifest is the durable, restart-safe record for the Python API; `artifacts`
 is its structured output list and
 `metadata` includes the backend provenance. After a successful API run, a stale
@@ -302,7 +302,7 @@ or calculator-embedding API.
 This release is additive: existing CLI commands, YAML fields/defaults, output
 names, relative-path behavior, MPI rules, and exit contracts remain unchanged.
 Only the nine root imports in this document receive the stable API
-compatibility promise. The 2.3.0 additions (progress events, plotting helpers,
+compatibility promise. The 2.2.1 additions (progress events, plotting helpers,
 and the `profiles`/`plots` result extensions) are optional and do not change
 any existing document or behavior. A future removal or incompatible behavior
 change will be documented and deprecated in a release before removal.

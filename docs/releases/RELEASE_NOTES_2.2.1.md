@@ -1,13 +1,17 @@
-# ATST-Tools 2.3.0 Release Notes
+# ATST-Tools 2.2.1 Release Notes
 
-**Version**: 2.3.0
+**Version**: 2.2.1
 **Date**: 2026-08-03
 **Branch**: pending merge (`feat/agent-facing-progress`)
-**Tag**: `v2.3.0`
+**Tag**: `v2.2.1`
 
 ## Summary
 
-ATST-Tools 2.3.0 extends the stable Python API with agent-facing observability
+> 版本号语义（本仓库约定）：minor（2.x.0）保留给阶段性/重大功能发布；
+> patch（2.2.x）承担小功能加入与新增优化，以及 bug 修复。2.2.1 即按此
+> 语义承载本批 Agent-facing 小功能（进度事件、可视化、结果扩展）。
+
+ATST-Tools 2.2.1 extends the stable Python API with agent-facing observability
 and visualization capabilities: structured NDJSON progress events, energy-plot
 helpers, and opt-in result-envelope extensions. The release is additive:
 existing YAML workflows, command-line entry points, the stable root imports,
@@ -50,7 +54,7 @@ and the `atst-api-result-v1` handoff schema are retained.
 
 ## Compatibility
 
-- Package version: `2.3.0`.
+- Package version: `2.2.1`.
 - Python support remains `>=3.10`.
 - The nine stable `atst_tools.api` root imports and the existing YAML schemas
-  retain their established behavior; 2.3.0 additions are purely optional.
+  retain their established behavior; 2.2.1 additions are purely optional.
