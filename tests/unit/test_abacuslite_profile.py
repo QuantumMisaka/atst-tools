@@ -93,6 +93,25 @@ def test_atst_version_uses_bare_executable_for_wrapped_run_command(monkeypatch):
     assert calls == [["abacus", "--version"]]
 
 
+def test_atst_version_uses_bare_executable_for_full_path_mpirun_wrap(monkeypatch):
+    """完整路径 launcher（如 /opt/devtools/.../mpirun -np N abacus）version 探测必须落到 abacus。"""
+    calls = []
+
+    def fake_read_stdout(command):
+        calls.append(command)
+        return "ABACUS v3.10.1\n"
+
+    monkeypatch.setattr(abacuslite_backend, "read_stdout", fake_read_stdout)
+
+    profile = ATSTAbacusProfile(
+        "/opt/devtools/openmpi/openmpi-5.0.8-nvhpc257-gnu-avx2/bin/mpirun "
+        "-np 4 --map-by ppr:4:node:pe=4 --prtemca plm '^slurm' abacus"
+    )
+
+    assert profile.version() == "v3.10.1"
+    assert calls == [["abacus", "--version"]]
+
+
 def test_atst_version_uses_bare_executable_for_env_sanitized_command(monkeypatch):
     """Version probing should skip env -u prefixes used for MPI env cleanup."""
     calls = []

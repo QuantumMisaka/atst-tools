@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shlex
+from pathlib import Path
 from typing import Literal
 
 from ase.calculators.genericfileio import read_stdout
@@ -33,7 +34,7 @@ def _command_executable(command: str) -> str:
     parts = shlex.split(command)
     if not parts:
         return "abacus"
-    if parts[0] in {"mpirun", "mpiexec", "srun"}:
+    if Path(parts[0]).name in {"mpirun", "mpiexec", "srun"}:
         return parts[-1]
     if parts[0] == "env":
         index = 1
