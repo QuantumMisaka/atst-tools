@@ -17,6 +17,16 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - 对于 abacus 的 ase interfaces，ATST-Tools 将从 ase-abacus 迁移到 abacuslite，此时 ATST-Tools 的基本定位是 abacuslite CLI wrapper，通过 abacuslite 完成abacus相关设置，并配合 ASE 开展计算任务。在这一设计下，ATST-Tools将尽可能不重写 ASE 的已有实现，尽可能做到 ASE-native。
 - temp_repos 不同步到 git 仓库，其中放置开发时可参考代码仓库
 
+### 版本号语义
+
+- minor（2.x.0）：保留给阶段性/重大功能发布——新增独立功能点，或仓库渐进开发一段时间后的整体发布。
+- patch（2.2.x）：承担小功能加入与新增优化，以及 bug 修复。
+- 版本号在 `pyproject.toml` 单一版本源维护；发版时同步新增
+  `docs/releases/RELEASE_NOTES_<版本>.md`，并更新文档账本
+  （`docs/reports/DOCUMENTATION_STATUS_REPORT.md`、`FEATURE_STATUS_MATRIX.md`）。
+- 每个发布须在 release notes 中说明向后兼容性；仅纯增量（不破坏既有
+  YAML/CLI/API 契约）的功能与修复可进入当前 minor 或 patch 序列。
+
 ### 开发测试环境
 
 - 项目当前开发测试在SAI超级计算机登录节点。服务器上有可直接使用的ABACUS LTS 3.10.1 和 DeePMD-kit 3.1.3
