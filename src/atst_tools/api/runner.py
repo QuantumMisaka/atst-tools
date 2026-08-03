@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import traceback
 from typing import Iterator, Sequence
 
 from atst_tools.api import RunOptions, run_workflow
@@ -150,6 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             _write_json_atomic(result_path, _error_document(error))
         return 2
     except Exception:
+        traceback.print_exc()
         return 1
     return 0
 
