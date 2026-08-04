@@ -14,6 +14,8 @@ on:
       - "tests/unit/test_abacuslite_profile.py"
       - "tests/unit/test_abacuslite_snapshot_ci.py"
       - "pyproject.toml"
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

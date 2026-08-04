@@ -137,3 +137,9 @@ def test_snapshot_checker_keeps_non_test_class_test_named_methods(tmp_path, caps
     assert "Implementation drift detected" in output
     assert "-        return 'upstream'" in output
     assert "+        return 'vendored'" in output
+
+
+def test_abacuslite_ci_triggers_on_main_push():
+    workflow = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "abacuslite-ase-interface.yml"
+    text = workflow.read_text(encoding="utf-8")
+    assert "push:" in text and "branches: [main]" in text

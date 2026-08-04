@@ -155,7 +155,19 @@ def _normalize_legacy_band_parser_adaptation(source: str) -> str:
     )
 
 
+def _normalize_efermi_tolerance(relative_path: Path, source: str) -> str:
+    """efermi 容错语义补丁（spec PATCHES.md 登记）：ener['E_Fermi'] -> ener.get('E_Fermi'）。
+    仅作用于 SinglePointDFTCalculator 构造行的 efermi 关键字，不改变其他语义。"""
+    if relative_path not in {
+        Path("abacuslite/io/legacyio.py"),
+        Path("abacuslite/io/latestio.py"),
+    }:
+        return source
+    return source.replace("efermi=ener['E_Fermi']", "efermi=ener.get('E_Fermi')")
+
+
 def _normalize_documented_atst_adaptations(relative_path: Path, source: str) -> str:
+    source = _normalize_efermi_tolerance(relative_path, source)
     if relative_path == Path("abacuslite/io/legacyio.py"):
         return _normalize_legacy_band_parser_adaptation(source)
     return source
