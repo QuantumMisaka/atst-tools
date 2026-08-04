@@ -7,3 +7,4 @@
 | `abacuslite/io/legacyio.py` | SinglePointDFTCalculator 构造 | `efermi=ener['E_Fermi']` → `ener.get('E_Fermi')`（running log 缺 E_Fermi 容错） | 2026-08-04 | 未上游化（待 PR） |
 | `abacuslite/io/latestio.py` | 同上 | 同上 | 2026-08-04 | 未上游化（待 PR） |
 | `abacuslite/io/legacyio.py` | band parser | 容差块（`_legacy_band_parser_tolerant_block`） | 2026-05-10 | 已由 #7588 上游化（checker 归一化保留至基线推进后清理） |
+| `abacuslite/core.py` | `read_results` 帧选择 | scf-only 坐标匹配（`_select_scf_frame_for_structure` 等，Task 3 产出） | 2026-08-04 | 未上游化（待 PR） |

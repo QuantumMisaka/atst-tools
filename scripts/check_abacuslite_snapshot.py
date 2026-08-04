@@ -15,7 +15,22 @@ from typing import Iterable
 
 IGNORED_DIR_NAMES = {"__pycache__", ".pytest_cache"}
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
-VENDORED_ONLY_FILES = {Path("__init__.py")}
+VENDORED_ONLY_FILES = {
+    Path("__init__.py"),
+    Path("ABACUSLITE_SNAPSHOT.md"),
+    Path("PATCHES.md"),
+}
+
+
+def _is_vendored_only(relative_path: Path) -> bool:
+    """atst 自有文件：顶层基线/补丁文档，以及 curated 多帧金样目录（upstream 无此夹具）。"""
+    if relative_path in VENDORED_ONLY_FILES:
+        return True
+    parts = relative_path.parts
+    return (
+        parts[:3] == ("abacuslite", "io", "testfiles")
+        and parts[3].startswith("multiframe_")
+    )
 
 
 def _legacy_band_parser_tolerant_block(indent: str) -> str:
@@ -103,6 +118,36 @@ def _remove_embedded_test_methods(source: str) -> str:
     return f"{text}\n" if source.endswith("\n") else text
 
 
+def _remove_module_level_functions(source: str, names: set[str]) -> str:
+    """移除指定模块级函数（AST 行区间 + 相邻空行清理），未找到则原样返回。"""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    remove_ranges = [
+        _node_line_range(node)
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names
+    ]
+    if not remove_ranges:
+        return source
+
+    lines = source.splitlines()
+    remove_lines: set[int] = set()
+    for line_range in remove_ranges:
+        remove_lines.update(line_range)
+        first_line = line_range.start
+        last_line = line_range.stop - 1
+        if first_line > 1 and not lines[first_line - 2].strip():
+            remove_lines.add(first_line - 1)
+        if last_line < len(lines) and not lines[last_line].strip():
+            remove_lines.add(last_line + 1)
+
+    filtered = [line for lineno, line in enumerate(lines, start=1) if lineno not in remove_lines]
+    text = "\n".join(filtered)
+    return f"{text}\n" if source.endswith("\n") else text
+
+
 def _normalize_packaging_imports(source: str) -> str:
     replacements = {
         "from .io.generalio import": "from abacuslite.io.generalio import",
@@ -166,10 +211,54 @@ def _normalize_efermi_tolerance(relative_path: Path, source: str) -> str:
     return source.replace("efermi=ener['E_Fermi']", "efermi=ener.get('E_Fermi')")
 
 
+_FRAME_SELECTION_BLOCK = re.compile(
+    r"(?P<indent>[ \t]*)outdir = directory / f'OUT\.\{self\.suffix\}'\n"
+    r"(?P=indent)log = outdir / f'running_\{self\.calculation\}\.log'\n"
+    r"(?P=indent)#[^\n]*\n"
+    r"(?P=indent)frames = read_abacus_out\(log, sort_atoms_with=self\.atomorder\)\n"
+    r"(?P=indent)if not frames:\n"
+    r"(?P=indent)    raise RuntimeError\(f\"no ABACUS running-log frames in \{log\}\"\)\n"
+    r"(?P=indent)if self\.calculation != 'scf':\n"
+    r"(?P=indent)    atoms: Optional\[Atoms\] = frames\[-1\][^\n]*\n"
+    r"(?P=indent)else:\n"
+    r"(?:(?P=indent)    #[^\n]*\n)*"
+    r"(?P=indent)    atomorder = self\.atomorder or list\(range\(len\(frames\[0\]\)\)\)\n"
+    r"(?P=indent)    atoms = _select_scf_frame_for_structure\(frames, log, directory, atomorder\)\n"
+    r"(?P=indent)assert atoms is not None"
+)
+
+
+def _upstream_read_results_tail(indent: str) -> str:
+    return (
+        f"{indent}outdir = directory / f'OUT.{{self.suffix}}'\n"
+        f"{indent}# only the last frame\n"
+        f"{indent}atoms: Optional[Atoms] = read_abacus_out(\n"
+        f"{indent}    outdir / f'running_{{self.calculation}}.log',\n"
+        f"{indent}    sort_atoms_with=self.atomorder)[-1]\n"
+        f"{indent}assert atoms is not None"
+    )
+
+
+def _normalize_frame_selection(source: str) -> str:
+    """core.py 帧选择语义补丁（spec PATCHES.md 登记）：移除模块级辅助函数，
+    并把 read_results 的 scf/non-scf 分支还原为上游 [-1] 单行形式。
+    未匹配（补丁已演化）则原样返回，保持未登记 drift 报警。"""
+    source = _remove_module_level_functions(
+        source,
+        {"_stru_positions_in_ase_order", "_frame_coordinate_is_direct", "_select_scf_frame_for_structure"},
+    )
+    return _FRAME_SELECTION_BLOCK.sub(
+        lambda match: _upstream_read_results_tail(match.group("indent")),
+        source,
+    )
+
+
 def _normalize_documented_atst_adaptations(relative_path: Path, source: str) -> str:
     source = _normalize_efermi_tolerance(relative_path, source)
     if relative_path == Path("abacuslite/io/legacyio.py"):
         return _normalize_legacy_band_parser_adaptation(source)
+    if relative_path == Path("abacuslite/core.py"):
+        return _normalize_frame_selection(source)
     return source
 
 
@@ -199,7 +288,7 @@ def compare_snapshots(upstream: Path, vendored: Path) -> int:
     vendored_files = _iter_files(vendored)
 
     missing = upstream_files - vendored_files
-    extra = vendored_files - upstream_files - VENDORED_ONLY_FILES
+    extra = {p for p in (vendored_files - upstream_files) if not _is_vendored_only(p)}
     output: list[str] = []
     output.extend(_format_file_list("Missing vendored files:", missing))
     output.extend(_format_file_list("Unexpected vendored-only files:", extra))
