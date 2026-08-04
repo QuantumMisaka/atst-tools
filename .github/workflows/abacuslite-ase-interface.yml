@@ -13,6 +13,8 @@ on:
       - "tests/unit/test_abacuslite_io_reorder.py"
       - "tests/unit/test_abacuslite_profile.py"
       - "tests/unit/test_abacuslite_snapshot_ci.py"
+      - "tests/unit/test_abacuslite_frame_selection.py"
+      - "tests/unit/test_checker_efermi_whitelist.py"
       - "pyproject.toml"
   push:
     branches: [main]
@@ -84,6 +86,8 @@ jobs:
             tests/unit/test_abacuslite_io_reorder.py \
             tests/unit/test_abacuslite_snapshot_ci.py \
             tests/unit/test_abacuslite_ci.py \
+            tests/unit/test_abacuslite_frame_selection.py \
+            tests/unit/test_checker_efermi_whitelist.py \
             -q
 
       - name: Run vendored abacuslite package unit tests

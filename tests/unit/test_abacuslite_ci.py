@@ -18,6 +18,8 @@ def test_abacuslite_ci_runs_atst_regression_and_vendored_module_tests():
 
     assert "tests/unit/test_abacuslite_profile.py" in workflow
     assert "tests/unit/test_abacus_io.py" in workflow
+    assert "tests/unit/test_abacuslite_frame_selection.py" in workflow
+    assert "tests/unit/test_checker_efermi_whitelist.py" in workflow
     assert "atst_tools.external.ASE_interface.abacuslite.io.generalio" in workflow
     assert "atst_tools.external.ASE_interface.abacuslite.io.legacyio" in workflow
     assert "atst_tools.external.ASE_interface.abacuslite.io.latestio" in workflow
@@ -55,4 +57,6 @@ def test_abacuslite_ci_runs_reorder_and_snapshot_tests_when_ci_changes():
 
     assert "tests/unit/test_abacuslite_io_reorder.py" in workflow
     assert "tests/unit/test_abacuslite_snapshot_ci.py" in workflow
+    assert "tests/unit/test_abacuslite_frame_selection.py" in workflow
+    assert "tests/unit/test_checker_efermi_whitelist.py" in workflow
     assert "scripts/check_abacuslite_snapshot.py" in workflow
