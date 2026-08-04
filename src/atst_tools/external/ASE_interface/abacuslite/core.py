@@ -140,6 +140,74 @@ class AbacusProfile(BaseProfile):
         cmd_ = [*self._split_command, '--version']
         return AbacusProfile.parse_version(read_stdout(cmd_))
 
+
+def _stru_positions_in_ase_order(directory, stru_file, atomorder):
+    """读取本次 write_input 落盘 STRU 的坐标，统一到与帧相同的 ASE 原子序并换算为 Cartesian Å。
+
+    STRU 按物种分组序写出（species[i]['atom'][k]['coord']）；self.atomorder 是
+    species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。返回 (cartesian_angstrom, is_direct)：
+    cartesian_angstrom 为 ASE 序下的 Cartesian Å 坐标；is_direct 标记 STRU/日志为 Direct
+    （Direct 日志 read_abacus_out 返回分数坐标，须与帧换算到同坐标系比较，spec P3 ③）。
+    """
+    from ase.units import Bohr
+    from .io.generalio import read_stru
+
+    stru = read_stru(Path(directory) / (stru_file or 'STRU'))
+    lat = stru['lat']
+    # species 分组序坐标 → ASE 序（atomorder 是 revmap，与 read_abacus_out 的
+    # sort_atoms_with 采用同一映射，保证两侧排列一致）
+    species_xyz = np.concatenate(
+        [np.asarray(a['coord'], dtype=float) for sp in stru['species'] for a in sp['atom']]
+    ).reshape(-1, 3)
+    ase_xyz = np.empty_like(species_xyz)
+    for ase_idx, species_idx in enumerate(atomorder):
+        ase_xyz[ase_idx] = species_xyz[species_idx]
+    # STRU LATTICE_CONSTANT 以 Bohr 给出：Å 格矢 = vec * const * Bohr
+    # Direct -> Cartesian Å = 分数坐标 @ (vec*const*Bohr)；Cartesian 仅缩放（spec P3 ③）
+    is_direct = str(stru['coord_type']).lower().startswith('d')
+    if is_direct:
+        cell = np.asarray(lat['vec'], dtype=float) * lat['const'] * Bohr
+        return ase_xyz @ cell, is_direct
+    return ase_xyz * lat['const'] * Bohr, is_direct
+
+
+def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol=1e-4):
+    """返回坐标与当前 STRU 一致（绝对 Å 容差）的最后一帧；无匹配 fail-closed。
+
+    Parameters
+    ----------
+    frames : list of Atoms
+        按 atomorder 重排后的 running log 帧（read_abacus_out 返回）。
+    log_path : Path
+        running log 路径，用于 fail-closed 异常诊断。
+    directory : Path
+        工作目录（含本次 write_input 落盘的 STRU）。
+    atomorder : list of int
+        species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。
+    atol : float
+        绝对 Å 容差（spec P3 ③，按坐标打印精度取 ~1e-4 Å 量级）。
+
+    Raises
+    ------
+    RuntimeError
+        无与当前 STRU 坐标匹配的帧（异常含 log 路径、帧数与坐标差异摘要）。
+    """
+    expected, is_direct = _stru_positions_in_ase_order(directory, 'STRU', atomorder)
+    for frame in reversed(frames):
+        # Direct 日志 read_abacus_out 返回分数坐标，统一换算到 Cartesian Å 比较
+        frame_pos = frame.positions @ np.asarray(frame.cell) if is_direct else frame.positions
+        if np.allclose(frame_pos, expected, atol=atol):
+            return frame
+    last_pos = frames[-1].positions
+    last_cart = last_pos @ np.asarray(frames[-1].cell) if is_direct else last_pos
+    diff = float(np.abs(last_cart - expected).max())
+    raise RuntimeError(
+        f"scf running log 无与当前结构匹配的帧：{log_path}（共 {len(frames)} 帧；"
+        f"STRU 与末帧 Cartesian Å 坐标最大差异 {diff:.6g} > atol={atol}）——"
+        f"force 读取不一致，fail-closed"
+    )
+
+
 class AbacusTemplate(CalculatorTemplate):
     
     implemented_properties = [
@@ -366,10 +434,15 @@ class AbacusTemplate(CalculatorTemplate):
             from .io.latestio import read_abacus_out
 
         outdir = directory / f'OUT.{self.suffix}'
-        # only the last frame
-        atoms: Optional[Atoms] = read_abacus_out(
-            outdir / f'running_{self.calculation}.log',
-            sort_atoms_with=self.atomorder)[-1]
+        log = outdir / f'running_{self.calculation}.log'
+        # 读取全部帧；scf 下按坐标选择当前结构帧，非 scf（relax/md）保持末帧语义（spec R1/R2）
+        frames = read_abacus_out(log, sort_atoms_with=self.atomorder)
+        if not frames:
+            raise RuntimeError(f"no ABACUS running-log frames in {log}")
+        if self.calculation != 'scf':
+            atoms: Optional[Atoms] = frames[-1]  # 原生 relax/md：既有末帧语义（spec R2/P2）
+        else:
+            atoms = _select_scf_frame_for_structure(frames, log, directory, self.atomorder)
         assert atoms is not None
 
         return dict(atoms.calc.properties())
