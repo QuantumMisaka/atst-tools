@@ -34,6 +34,10 @@ differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`
 - First-occurrence species grouping for generated STRU files.
 - ASE `FixAtoms` and `FixCartesian` constraints written as ABACUS mobility flags.
 - Tolerant legacy ABACUS band-row parsing.
+- SCF coordinate frame selection（防御性改进）：`read_results` 在 `calculation=scf`
+  下按"帧坐标 == 本次落盘 STRU（绝对 Å 容差）"选择当前结构帧并 fail-closed，不再
+  依赖"末帧即当前结构"的假设；原生 relax/md 保持末帧语义。此为防御性改进（多帧累积
+  running log 下消除帧歧义），不改变投影/收敛语义，也不改 `read_abacus_out` 公共签名。
 
 The synchronized snapshot accepts both dotted and undotted prerelease banners
 such as `v3.11.0-beta.1` and `v3.11.0-beta1`; its fixed-density helper also
@@ -49,6 +53,24 @@ The vendored snapshot also carries upstream-sync fixes for numbered backup
 rotation, property-derived ABACUS keyword conflict detection, unsupported TDDFT
 `dipole` de-advertising, and `read_abacus_out` calculator `magmoms` reordering
 when atoms are sorted during result parsing.
+
+### Force / fmax 口径（RAW vs 投影，2026-08-04 确认）
+
+ABACUS 的 `running_*.log` 中 `TOTAL-FORCE` 输出的是**全原子原始力（RAW）**，包含
+STRU 中 `m 0 0 0` 固定原子——这是期望行为（与 VASP OUTCAR 等 DFT 惯例一致），
+固定原子由驱动层约束处理。下游消费口径：
+
+- **计算器层（vendored backend）**：返回 RAW 全原子力，不做预投影；约束投影由 ASE
+  `Atoms.get_forces()`（默认 `apply_constraint=True`，按 `FixAtoms`）执行。
+- **优化器层（sella/ASE）**：收敛判据使用**投影后自由原子力**；不要把 RAW 全原子
+  fmax 直接与收敛阈值比较。
+- **汇总/报告层（transition summary 等）**：报告 fmax 须明确口径（投影后自由原子力
+  与 RAW 全原子力），约束体系收敛以投影后为准。
+- **诊断/取证**：比较力必须同口径（投影后 vs 投影后，或仅自由原子原始力）；禁止把
+  ASE 投影后值与 running log RAW 全原子值直接对比下结论。
+
+该口径是"固定 Au 上 sella 提前收敛"曾被误诊为力读取 bug 的根因（约束投影被误读为
+陈旧缓存），已按此修正。
 
 ## Wrapper Boundary
 
