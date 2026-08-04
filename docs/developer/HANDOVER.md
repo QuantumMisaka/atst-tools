@@ -66,8 +66,17 @@ release 变更，都先从对应小节确认需要同步的文档。
   绕过包上下文。
 - 同步 `temp_repos/abacus-develop/interfaces/ASE_interface` 时，先运行
   `conda run -n atst-dev python scripts/check_abacuslite_snapshot.py --upstream temp_repos/abacus-develop/interfaces/ASE_interface --vendored src/atst_tools/external/ASE_interface`。
-  若上游 reference commit 更新，同步更新
-  `.github/workflows/abacuslite-ase-interface.yml` 的 `ABACUS_DEVELOP_REF`。
+  若上游 reference commit 更新，更新
+  `src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md` 的基线 SHA 与
+  差异摘要；CI 的 `ABACUS_DEVELOP_REF` 从该文件解析（单一事实源），不再直接改
+  `.github/workflows/abacuslite-ase-interface.yml`。
+- `abacuslite` vendored 快照维护遵循"本仓为主 + 定期上游同步"：基线文件与补丁
+  清单是同步纪律的账本，任何对 vendored 的语义修改必须先登记
+  `src/atst_tools/external/ASE_interface/PATCHES.md`（文件/位置/补丁/登记日期/
+  上游状态），并同步更新 `ABACUSLITE_SNAPSHOT.md` 的差异摘要；随后运行
+  `scripts/check_abacuslite_snapshot.py --upstream <基线树> --vendored src/atst_tools/external/ASE_interface`
+  确认对钉扎基线 exit 0（未登记新 drift exit 1）。语义补丁收敛后提交回
+  abacus-develop 上游；合入后推进基线并再同步 vendored。
 - 维护 `abacuslite` property-derived keywords 时，显式用户输入与自动派生值需按
   ABACUS 开关语义比较，例如 `True`、`1`、`"1"` 等价；但 `False`/`0` 与请求
   `forces` 或 `stress` 自动需要的 `"1"` 仍应作为冲突报错。

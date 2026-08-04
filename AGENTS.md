@@ -34,7 +34,15 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - 开展调用ABACUS和DeePMD-kit的测试需要将任务通过slurm脚本交到4V100节点上，使用GPU节点计算。对于ABACUS，你需要在INPUT中设置ks_solver cusolver (在默认的basis lcao下)。
 
 ### 基本边界
-- abacuslite 将成为项目的 ABACUS-ASE backend。它位于temp_repos/abacus-develop/interfaces/ASE_interface。此backend在项目代码中保留一份，但优先使用环境内的abacuslite。
+- abacuslite 是项目的 ABACUS-ASE backend，vendored 快照在
+  `src/atst_tools/external/ASE_interface`（对照上游
+  `temp_repos/abacus-develop/interfaces/ASE_interface`）。abacuslite 尚无稳定
+  发布通道（不在 PyPI），运行时一律走 vendored 快照，external 分支保留为预留
+  通道。维护模式为**本仓为主 + 定期上游同步**：修复先在 vendored 落地并登记
+  `src/atst_tools/external/ASE_interface/PATCHES.md`，再向上游同步；基线 SHA
+  记录于 `src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md`（CI
+  `ABACUS_DEVELOP_REF` 的单一事实源），上游更新按该基线定期拉取。长期目标：
+  abacuslite 可独立安装后改为直接依赖，退位 vendored。
 - ase-abacus 为项目main分支采用的legacy ABACUS-ASE backend，它位于temp_repos/ase-abacus，该仓库仅与main分支一同作为参考功能基线，不能参与项目开发。
 - temp_repo下存放有本项目的可参考代码库，该目录下内容不进入git仓库。
 - 可拓展基于ase的分子动力学计算功能，并为其他的基于ase的模拟功能提供可扩展设计。

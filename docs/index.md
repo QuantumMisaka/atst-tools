@@ -71,9 +71,17 @@ evidence, documentation health, release scope, or cleanup priorities.
 ATST-Tools consumes the official ABACUS ASE interface through `abacuslite`. The
 resolver first tries an independently installed `abacuslite` package, then
 falls back to the vendored snapshot under
-`src/atst_tools/external/ASE_interface/abacuslite`.
+`src/atst_tools/external/ASE_interface/abacuslite`. `abacuslite` has no stable
+release channel yet, so the vendored snapshot is currently the only running
+backend (the external branch stays as a reserved future path).
 
-The vendored snapshot is kept for 2.0.x reproducibility and is not
-intended to be the only long-term integration mode. When `abacuslite` has a
-stable release channel, ATST-Tools should move it to an optional dependency or
-extra and retire the vendored fallback.
+Maintenance is *this-repository-first*: fixes and hardening land in the
+vendored snapshot first, are recorded in
+`src/atst_tools/external/ASE_interface/PATCHES.md`, and are periodically synced
+back upstream to `abacus-develop`. Upstream updates are pulled on a regular
+cadence against the baseline tracked in
+`src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md`.
+
+The long-term goal remains unchanged: once `abacuslite` is independently
+installable with a stable release channel, ATST-Tools should move it to an
+optional dependency or extra and retire the vendored fallback.
