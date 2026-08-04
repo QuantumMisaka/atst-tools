@@ -1,8 +1,9 @@
 name: Publish Python package to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       ref:
@@ -25,7 +26,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check out release source
