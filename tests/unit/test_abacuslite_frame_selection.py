@@ -21,6 +21,7 @@ from atst_tools.external.ASE_interface.abacuslite.core import (
 )
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import read_stru
 from atst_tools.external.ASE_interface.abacuslite.io.legacyio import read_abacus_out
+from atst_tools.external.ASE_interface.abacuslite import core as abacus_core
 
 
 TESTFILES = (
@@ -49,6 +50,17 @@ MD_LATEST_FORCES = np.array(
 )
 MD_LEGACY_ENERGY = -1940.5509086572
 MD_LATEST_ENERGY = -1940.6311063727
+
+
+@pytest.fixture(autouse=True)
+def _pin_legacyio_backend():
+    """本模块以 legacyio 为帧选择主路径（spec R1/R2），测试间钉住 __LEGACYIO__=True，
+    避免其他测试模块（如 test_abacuslite_profile 的 beta 版本用例）改写该模块级全局
+    导致的 CI 顺序依赖失败。latestio 专项用例自行 monkeypatch 为 False 覆盖。"""
+    original = abacus_core.__LEGACYIO__
+    abacus_core.__LEGACYIO__ = True
+    yield
+    abacus_core.__LEGACYIO__ = original
 
 # tauc_/taud_ 原子坐标行（x y z mag vx vy vz）：前 3 个浮点为坐标
 _COORD_LINE = re.compile(r"^(taud_\S+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)(.*)$")

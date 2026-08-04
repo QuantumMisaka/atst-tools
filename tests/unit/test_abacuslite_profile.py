@@ -39,8 +39,17 @@ def test_parse_version_accepts_legacy_abacus_version_line():
     assert AbacusProfile.parse_version("ABACUS version v3.9.0.17\n") == "v3.9.0.17"
 
 
-def test_vendored_abacuslite_accepts_current_beta_version_format():
-    """The fallback parser accepts current upstream beta banners without a dot."""
+def test_vendored_abacuslite_accepts_current_beta_version_format(monkeypatch):
+    """The fallback parser accepts current upstream beta banners without a dot.
+
+    switch_io_backend_version 会改写模块级 __LEGACYIO__ 全局；用 monkeypatch 快照，
+    防止该全局状态泄漏到同一 pytest 进程中的后续测试（CI 顺序依赖防御）。
+    """
+    from atst_tools.external.ASE_interface.abacuslite import core as abacus_core
+
+    monkeypatch.setattr(
+        abacus_core, "__LEGACYIO__", abacus_core.__LEGACYIO__, raising=False
+    )
     assert switch_io_backend_version("v3.11.0-beta1") is False
 
 
