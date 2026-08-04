@@ -50,6 +50,7 @@ examples/18_dmf_production_validation/runs/
 !examples/**/config*.yaml
 !examples/**/inputs/
 !examples/**/inputs/**
+!src/atst_tools/external/ASE_interface/abacuslite/io/testfiles/multiframe_scf_trial_last/*
 !examples/02_neb_H2-Au/outputs/
 examples/02_neb_H2-Au/outputs/*
 !examples/02_neb_H2-Au/outputs/README.md
