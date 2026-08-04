@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "abacuslite-ase-interface.yml"
+SNAPSHOT = ROOT / "src" / "atst_tools" / "external" / "ASE_interface" / "ABACUSLITE_SNAPSHOT.md"
 
 
 def test_abacuslite_ci_workflow_exists():
@@ -24,10 +26,22 @@ def test_abacuslite_ci_runs_atst_regression_and_vendored_module_tests():
 
 
 def test_abacuslite_ci_runs_snapshot_drift_checker():
-    """The abacuslite CI should compare the vendored snapshot with pinned upstream."""
+    """The abacuslite CI should resolve ABACUS_DEVELOP_REF from ABACUSLITE_SNAPSHOT.md (single source of truth)."""
     workflow = WORKFLOW.read_text(encoding="utf-8")
+    snapshot = SNAPSHOT.read_text(encoding="utf-8")
 
-    assert "ABACUS_DEVELOP_REF: 70f7ed69b5677c447afdc78e05240e93da660e66" in workflow
+    # ABACUSLITE_SNAPSHOT.md pins exactly one upstream baseline SHA (spec R4/P6).
+    baselines = re.findall(r"当前基线：上游 `([0-9a-f]{40})`", snapshot)
+    assert len(baselines) == 1
+    baseline = baselines[0]
+
+    # The workflow must parse ABACUS_DEVELOP_REF from ABACUSLITE_SNAPSHOT.md instead of hardcoding it,
+    # so the pinned baseline is never written twice.
+    assert "ABACUSLITE_SNAPSHOT.md" in workflow
+    assert "当前基线：上游" in workflow
+    assert "ABACUS_DEVELOP_REF" in workflow
+    assert baseline not in workflow
+
     assert "repository: deepmodeling/abacus-develop" in workflow
     assert "path: abacus-develop" in workflow
     assert "scripts/check_abacuslite_snapshot.py" in workflow

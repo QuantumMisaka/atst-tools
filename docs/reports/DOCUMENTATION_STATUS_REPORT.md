@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
 **版本**: 2.2.1
-**日期**: 2026-08-03
+**日期**: 2026-08-04
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -89,6 +89,14 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/reports/ABACUS_STRU_IO_ASE_FORMAT_COMPATIBILITY_2026-06-04.md` | ABACUS STRU read/write 与 `ase-abacus` ASE I/O format 的 API/语义兼容性和功能点覆盖审查。 |
 | `docs/reports/UNIT_TEST_MAINTENANCE_2026-06-10.md` | 单元测试维护、legacy NEB script 清理和默认测试边界审查。 |
 | `docs/reports/STABLE_PYTHON_API_CLI_COMPATIBILITY_FIX_2026-07-21.md` | Stable Python API 路由下的 `atst run` 日志、异常和 exit 兼容性修复及回归证据。 |
+
+### Spec / Plan / Review 登记
+
+| 文档 | 生命周期 | 当前职责 |
+| :--- | :--- | :--- |
+| `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
+| `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
+| `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
 
 ### L4: 历史或已被取代材料
 

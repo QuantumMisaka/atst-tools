@@ -25,13 +25,29 @@ defaults:
   run:
     shell: bash
 
-env:
-  ABACUS_DEVELOP_REF: 70f7ed69b5677c447afdc78e05240e93da660e66
-
 jobs:
+  resolve-base:
+    name: Resolve ABACUS baseline from snapshot
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.value }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract baseline SHA from ABACUSLITE_SNAPSHOT.md
+        id: sha
+        run: |
+          SHA=$(grep -oP '(?<=当前基线：上游 `)[0-9a-f]{40}' \
+            src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md)
+          echo "value=$SHA" >> "$GITHUB_OUTPUT"
+
   abacuslite-unit:
     name: abacuslite vendored interface
     runs-on: ubuntu-latest
+    needs: resolve-base
+    env:
+      ABACUS_DEVELOP_REF: ${{ needs.resolve-base.outputs.sha }}
 
     steps:
       - name: Checkout code

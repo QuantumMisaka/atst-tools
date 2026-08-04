@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vendored abacuslite 跨仓维护与力读取一致性设计</title>
+  <style>
+    :root { --ink:#17202a; --muted:#52606d; --line:#cbd2d9; --paper:#fff; --wash:#f5f7f8; --accent:#146c5b; --note:#8a5a00; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,sans-serif; }
+    header,nav,main,footer { width:min(100% - 2rem,980px); margin-inline:auto; } header { padding:3rem 0 1.5rem; border-bottom:3px solid var(--accent); }
+    h1 { margin:0 0 .75rem; font-size:2.4rem; line-height:1.15; } h2 { margin:0 0 .75rem; font-size:1.35rem; } h3 { font-size:1rem; }
+    p,ul,ol,pre { margin:.5rem 0 1rem; } .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; }.meta p { margin:0; }
+    nav { padding:1.25rem 0; } nav ol { columns:2; padding-left:1.25rem; } main { background:var(--paper); border:1px solid var(--line); } section { padding:1.5rem; border-top:1px solid var(--line); } section:first-child { border-top:0; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; } th,td { padding:.65rem; border:1px solid var(--line); text-align:left; vertical-align:top; } th { background:var(--wash); }
+    code { padding:.1rem .3rem; background:var(--wash); } pre { padding:.8rem; overflow-x:auto; background:var(--wash); border:1px solid var(--line); }
+    .decision { border-left:4px solid var(--accent); padding-left:1rem; } .open { border-left-color:var(--note); } footer { padding:1.5rem 0 3rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>vendored abacuslite 跨仓维护与力读取一致性设计</h1>
+    <div class="meta"><p><strong>Status:</strong> Draft for review</p><p><strong>Owner:</strong> ATST-Tools 维护团队（abacuslite 作者）</p><p><strong>Updated:</strong> 2026-08-04</p></div>
+  </header>
+  <nav aria-label="目录"><h2>目录</h2><ol><li><a href="#summary">概述</a></li><li><a href="#core">核心问题与修复方案</a></li><li><a href="#goals">目标与非目标</a></li><li><a href="#requirements">需求</a></li><li><a href="#decisions">决策与备选</a></li><li><a href="#architecture">架构与数据流</a></li><li><a href="#errors">错误处理</a></li><li><a href="#testing">测试与验收</a></li><li><a href="#rollout">发布与迁移</a></li><li><a href="#risks">风险与开放项</a></li></ol></nav>
+  <main>
+    <section id="summary"><h2>概述</h2>
+      <p>过渡态端到端验证暴露出 Sella 在 vendored abacuslite 上 2 步提前返回：sella 试探步后 <code>atoms.get_forces()</code> 返回的力（0.0374）与 ABACUS running log 末帧实际力（0.338）不一致，导致收敛判定使用错误力。该力读取架构（累积多帧 running log + <code>read_abacus_out()[-1]</code> 取末帧）在 abacus-develop 上游 abacuslite 中同样存在——问题属 abacuslite 本体，非 sella 上游，也非 atst-tools 引入。</p>
+      <p>同时核对确认（2026-08-04 审查修正，与快照引入史三阶段对应）：vendored 快照于 2026-05-10 引入（<code>881a926</code>）；drift-check CI 于 2026-07-06（<code>7a04854</code>）钉扎 <code>762919f6</code>（#7588 PR head）；<strong>当前基线 <code>70f7ed69</code> 是上游 2026-07-22 的 commit，于 2026-07-23（<code>b8556c7</code>）写入 CI</strong>。#7588（2026-07-06 合入）是基线 <code>70f7ed69</code> 的<strong>祖先</strong>——vendored 已含 #7588 加固。对上游 develop tip 实测 drift checker：<strong>零上游侧欠账</strong>，仅报 fork 侧 <code>efermi</code> 容错两处未登记 diff。且 <code>abacuslite</code> 不在 PyPI、SIF/本地运行时永远走 vendored 快照（external 分支是死代码）。</p>
+      <p>本设计确立跨仓维护模型：<strong>本仓（atst-tools）维护为主 → 收敛后向 abacus-develop 上游同步 → 阶段性拉取上游关键更新</strong>；并先修复力读取一致性（覆盖 md/relax/sella/ccqn 四条计算路径），建立可记录的同步纪律，收敛后把修复贡献回上游。</p>
+    </section>
+    <section id="core"><h2>核心问题与修复方案</h2>
+      <h3>核心问题（一句话）</h3>
+      <p>abacuslite 在返回力时可能拿到<strong>别的结构</strong>的力：当同一个工作目录里多次调用 ABACUS 时，它无条件取 running log 的"最后一帧"力，而最后一帧不一定是当前结构的力——sella 用这个错误力判断收敛，于是误判已收敛、1-2 步就提前停止。</p>
+      <h3>为什么会这样（机制）</h3>
+      <ol>
+        <li>abacuslite 每次 <code>get_forces()</code> 都在同一个目录里跑一次 ABACUS，ABACUS 把每次计算的结构和力<strong>追加</strong>到同一个 <code>running_scf.log</code> 文件（多帧累积）。</li>
+        <li>abacuslite 读力时<strong>无条件取最后一帧</strong>（<code>read_abacus_out()[-1]</code>）。</li>
+        <li>sella 的每一步内部会做<strong>试探步</strong>（以及初始 Hessian 的<strong>有限差分位移</strong>），这些都会向 running log 追加新帧；当"最后一帧"是试探点/位移点的力、而不是当前结构的力时，sella 就拿错了力。</li>
+      </ol>
+      <p><strong>实证数字</strong>：sella 试探步后读到力 <code>0.0374</code>（小于收敛阈值 0.1 → 误判"已收敛"），而 ABACUS 实际输出的力是 <code>0.338</code>——读错了帧。</p>
+      <h3>为什么 md / relax / ccqn 没炸</h3>
+      <ul>
+        <li><strong>ccqn</strong> 用自己的循环、逐帧读力的一致性更强 → 未触发。</li>
+        <li><strong>relax / md</strong> 在 atst-tools 里是 ASE 逐帧驱动（每次调用追加一帧）→ 通常不触发。</li>
+        <li>问题最容易被 sella 这类"一次调用内多次试探/位移"的优化器放大——这也是为什么只有 sella 暴露出来。</li>
+      </ul>
+      <h3>为什么 sella 会导致"最后一帧不为当前结构"（2026-08-04 确认）</h3>
+      <p><strong>已确认的机制链（代码层）：</strong></p>
+      <ol>
+        <li><strong>sella 一步内发起多次 ABACUS 力计算</strong>（sella 上游标准行为）：试探步 <code>kick</code>（<code>set_x(x0+dx)</code> → <code>eval()</code>）一次；初始/周期 Hessian 的<strong>有限差分位移</strong>（<code>NumericalHessian(self._calc_eg, ...)</code>，对每个位移点 <code>set_x(x)</code> → <code>eval()</code> → <code>restore()</code>）多次。这些调用复用同一个 abacuslite 目录，<strong>全部追加</strong>到同一个 <code>running_scf.log</code>。</li>
+        <li><strong>abacuslite 读力无条件取最后一帧</strong>（<code>read_results</code> → <code>read_abacus_out(...)[-1]</code>），<strong>不校验</strong>该帧是否属于当前结构。</li>
+        <li>两者叠加：sella 场景下 running log 末尾追加的是内部试探/位移计算的帧，而 abacuslite 把"最后一帧"的力当成当前结构的力返回。</li>
+      </ol>
+      <p><strong>实证（sella_repro）</strong>：试探步后 <code>atoms.get_forces()</code>（读回缓存）= <code>0.0374</code>，同一时刻同一文件 <code>read_forces_from_running_log(...)[-1]</code> = <code>0.338</code>——两者基于同一 parser 与同一文件，却不同，说明<strong>读回缓存的力与文件末帧力不一致</strong>（读路径把旧结构的力当成了当前结构的力）。</p>
+      <p><strong>已排除的假设</strong>：若分歧只是"最后一次 ABACUS 调用有 trajectory 帧但无 TOTAL-FORCE 块"，<code>read_abacus_out</code> 的 <code>len(trajectory) == len(forces)</code> 断言会直接崩溃，而实测是<strong>成功返回</strong> 0.0374——因此该"部分缺块"形式不成立。但"末次调用<strong>整体未产新帧</strong>（SCF 未收敛仍正常退出）"（<code>(b')</code>）是另一候选，长度断言全部通过、<code>[-1]</code> 静默返回上一结构力，与观测相容。</p>
+      <p><strong>待 Phase 0 用 SAI 实际 running log 一锤定音的精确分歧点（三候选）</strong>：</p>
+      <ul>
+        <li><strong>(a) 帧错位</strong>：<code>read_abacus_out</code> 的 trajectory/forces 子列表等长但内容错位（zip 配对把旧结构的力配给了当前结构）。</li>
+        <li><strong>(b') 末次调用未产新帧</strong>：末次 ABACUS 调用 exit 0 但未新增任何帧（SCF 未收敛仍正常退出/试探点提前终止），<code>[-1]</code> 静默返回上一结构力。</li>
+        <li><strong>(c) 读入后日志增长</strong>：缓存读入后又追加了帧（读入与读取之间存在一次未入缓存的 ABACUS 写入/时序问题）。</li>
+      </ul>
+      <p><strong>定位</strong>：分歧点落在 <strong>abacuslite 读路径</strong>（帧选择/对齐），被 sella 的多帧写入模式放大；Phase 0 的 SAI 日志核对即为此设计。</p>
+      <h3>修复方案（一句话）</h3>
+      <p>读力时不再无条件取"最后一帧"，而是取<strong>"结构坐标与当前结构一致的那一帧"</strong>（当前结构 = 本次写入目录的 STRU）；找不到匹配帧就<strong>报错（fail-closed）</strong>，绝不静默返回错误结构的力。</p>
+      <h3>修复边界（防止误伤正常功能）</h3>
+      <ul>
+        <li>坐标校验<strong>只对 scf 启用</strong>（单帧-单次调用语义：每次 <code>get_forces</code> = 一次 ABACUS scf = 追加一帧）。</li>
+        <li><strong>ABACUS 原生 relax / md</strong>（一次调用内部多 ion-step，末帧 = 最终结构而非写入的初态）与 <strong>MD 最新格式</strong>（running log 无坐标，走 MD_dump）显式绕过校验，按既有末帧语义读取。</li>
+        <li>坐标比较<strong>带绝对 Å 容差</strong>（按 running log 坐标打印精度推导，见架构节 P3 ③），防误报。</li>
+      </ul>
+    </section>
+    <section id="goals"><h2>目标与非目标</h2>
+      <h3>目标</h3><ul>
+        <li>修复 vendored abacuslite 力读取一致性问题：<code>read_abacus_out</code> 返回的末帧力必须属于当前结构（fail-closed，不允许静默返回错误力）。</li>
+        <li>md/relax/sella/ccqn 四条 ASE 调度路径均覆盖修复与回归（golden-file 多帧 running log 测试，不依赖真实 ABACUS）。</li>
+        <li>建立可记录的跨仓维护机制：基线 SHA 下沉到 vendored 树内、语义补丁清单显式登记、drift gate 语义明确（未登记新 drift 报警）。</li>
+        <li>收敛后把 atst 语义补丁（efermi、band parser tolerance、力读取修复）贡献回 abacus-develop，合并后推进基线，使本地与上游收敛而非永久分叉。</li>
+        <li>与既有机制衔接：复用并扩展 <code>scripts/check_abacuslite_snapshot.py</code> 与 CI workflow，不另起炉灶。</li>
+      </ul>
+      <h3>非目标</h3><ul>
+        <li>不重写 abacuslite 核心架构（不做 per-call 目录隔离等大改，除非 SAI 诊断证实必要）。</li>
+        <li>不立即切换到 install-from-source（external 模式）或等待 abacuslite PyPI 发布；这些是同步循环成熟后的长期目标。</li>
+        <li>不修改 ASE 核心；不改 <code>GenericFileIOCalculator</code> 的公开调用契约。</li>
+        <li>不把过渡态工具（NEB/AutoNEB/Sella/CCQN/d2s）的其他功能改动纳入本设计。</li>
+      </ul>
+    </section>
+    <section id="requirements"><h2>需求</h2><table><thead><tr><th>ID</th><th>需求</th><th>验收信号</th></tr></thead><tbody>
+      <tr><td>R1</td><td><strong>帧选择落在唯一汇聚点 <code>AbacusTemplate.read_results</code></strong>（<code>core.py</code>）：当且仅当 <code>self.calculation == 'scf'</code> 时，从 <code>read_abacus_out</code> 返回的全部帧中选取"坐标与本次写入 STRU 一致的最后一帧"，而非无条件 <code>[-1]</code>；无匹配帧 fail-closed 报错（含 running log 路径、帧数、期望/末帧坐标差异摘要）。<strong>不改 <code>read_abacus_out</code> 签名</strong>，一次覆盖 legacyio/latestio 双后端（P2/P4）。</td><td>多帧金样（末帧为试探/位移结构）断言返回当前结构力或明确报错；对 scf 与非 scf（原生 relax/md）行为分别断言；两个 IO 后端各一条用例。</td></tr>
+      <tr><td>R2</td><td>修复覆盖 md/relax/sella/ccqn 四条 ASE 调度路径与<strong>双 IO 后端</strong>：ABACUS≥3.11/3.9.0.x → latestio，<strong>3.10.x LTS（SAI/SIF 生产路径）→ legacyio</strong>。MD 最新格式（latestio，running log 无坐标、走 MD_dump）与 legacy 原生 md 保持 <code>[-1]</code> 旧语义。</td><td>golden-file 分后端覆盖四路径帧选择；md 用例验证 MD_dump / legacy 原生 md 不受影响；LTS 3.10.1 用例走 legacyio 断言。</td></tr>
+      <tr><td>R3</td><td><strong>补丁清单提为解锁 CI 的前置</strong>（P1）：<code>src/atst_tools/external/ASE_interface/PATCHES.md</code> 登记语义补丁（efermi 容错块级、band parser tolerance 归类说明、力读取修复），沿用 checker 既有"归一化函数 + 文件级/块级登记"风格；结构适配（相对导入/删内嵌测试）机械归一化。</td><td>登记后 <code>check_abacuslite_snapshot.py</code> 对钉扎基线 exit 0；未登记新 drift 保持 exit 1；新增 unit test 覆盖"登记通过/未登记报警"两侧。</td></tr>
+      <tr><td>R4</td><td>基线锚点下沉：<code>src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md</code> 记录<strong>三段历史</strong>（2026-05-10 <code>881a926</code> 快照引入；2026-07-06 drift CI 钉扎 <code>762919f6</code>=#7588 PR head；2026-07-23 基线推进到上游 2026-07-22 的 <code>70f7ed69</code>）+ 差异摘要。<strong>单一事实源</strong>（P6）：CI <code>ABACUS_DEVELOP_REF</code> 从该文件解析 SHA，消除双写。</td><td>文件存在且三段历史与 git 实证一致；workflow 从文件解析 SHA（grep/sed 注入 env 或 unit test 断言一致）。</td></tr>
+      <tr><td>R5</td><td>drift gate 生效且主干可执行（P1）：workflow 补 <code>push: branches: [main]</code> 触发（或独立 drift 巡检 job），不再只有 pull_request；语义补丁合入上游后基线推进、本地与上游归一。</td><td>CI 对钉扎基线 exit 0（登记后）；push 到 main 触发 drift 检查；efermi/力读取修复不再以"未登记 drift"形式存在。</td></tr>
+      <tr><td>R6</td><td>收敛后向上游贡献（E2 修正）：力读取一致性修复 + efermi 容错 PR 回 abacus-develop <code>interfaces/ASE_interface</code>；<strong>band parser tolerance 已在 #7588 上游化，不重复提交</strong>。</td><td>上游 PR 合入（或明确原因留档）；合并后更新基线并再同步 vendored。</td></tr>
+      <tr><td>R7</td><td>文档对齐（P8）：<code>docs/index.md</code>、<code>AGENTS.md</code> 改写为"本仓为主 + 定期上游同步 + 长期目标仍是可独立安装后退位 vendored"；HANDOVER checklist backend 小节新增"基线文件 + 补丁清单"条目；本 spec/plan/诊断报告登记进 <code>docs/reports/DOCUMENTATION_STATUS_REPORT.md</code>。</td><td>文档治理检查通过；措辞与 D1/D4 一致；账本登记齐全。</td></tr>
+      <tr><td>R8</td><td>SIF/本地实证：修复后 Sella 不再 2 步停（多步收敛），md/relax/sella/ccqn 本地链路与 SIF 验证均绿。</td><td>SAI 实证 sella 多步收敛；本地 e2e 四条路径 exit 0；drift checker 对钉扎基线 exit 0。</td></tr>
+    </tbody></table></section>
+    <section id="decisions"><h2>决策与备选</h2>
+      <div class="decision"><p><strong>D1 后端模式：</strong>维持 <strong>vendored-only 作为当前唯一运行后端</strong>；<code>_load_abacuslite_backend</code> 的 external 分支保留（标注"预留"），不删除——它是将来 install-from-source / PyPI 发布后的真实通道。</p>
+      <p><strong>D2 基线锚点：</strong>上游基线 SHA 从 CI env 下沉到 vendored 树内（<code>ABACUSLITE_SNAPSHOT.md</code>，记录三段历史：<code>881a926</code>/<code>762919f6</code>/<code>70f7ed69</code>），让 drift 比较与再同步有锚点；<strong>CI 从该文件解析 SHA（单一事实源，P6）</strong>。</p>
+      <p><strong>D3 补丁清单：</strong>语义补丁显式登记（<code>PATCHES.md</code>，文件级/块级白名单，checker 归一化）；结构适配保持机械归一化。当前 efermi drift 即"未登记语义补丁"活例，修法：先登记、后上游化。<strong>补丁清单是解锁 CI 的前置（P1）</strong>——当前 CI 对自己钉扎的基线即 exit 1（efermi 未登记），且直推 main 绕过 PR-only gate。</p>
+      <p><strong>D4 拉取触发：</strong>发布 atst-tools patch / 支持新 ABACUS 版本 / 上游出现新加固时，对最新上游跑 checker，合并真实上游修复、更新基线 SHA——非持续追踪。<strong>当前零上游侧欠账（#7588 已在基线内，E2 修正）</strong>，仅欠 efermi 登记。</p>
+      <p><strong>D5 贡献回路：</strong>收敛后语义补丁 PR 回 abacus-develop；合并后推进基线、再同步 vendored，本地与上游收敛。</p>
+      <p><strong>D6 文档对齐：</strong>把"vendored 是 2.0.x 临时兜底"的旧表述改写为"本仓为主 + 定期同步 + 长期退位 vendored"；含 HANDOVER backend 小节与 <code>DOCUMENTATION_STATUS_REPORT.md</code> 账本（P8）。</p>
+      <p><strong>D7 帧选择落点（P2/P4）：</strong>帧选择上提到唯一汇聚点 <code>AbacusTemplate.read_results</code>（<code>core.py</code>），scf-only，一次覆盖 legacyio/latestio 双后端；<strong>不改 <code>read_abacus_out</code> 签名</strong>（它还有 calculator 之外消费者 <code>utils/abacus_io.py</code>、<code>workflows/md.py</code>）。</p>
+      <p><strong>D8 CI 触发（P1）：</strong>workflow 补 <code>push: branches: [main]</code>（或独立 drift 巡检 job），杜绝直推 main 绕过 gate。</p></div>
+      <h3>备选与排除</h3><ul>
+        <li><strong>纯上游先行：</strong>拒绝。abacuslite 未发布、SIF 用 vendored，上游先行会无限期阻塞（efermi 已证明：只修上游则 SIF 至今仍坏）。</li>
+        <li><strong>立即切 install-from-source：</strong>拒绝。SIF/CI 变更面大，且上游同步循环尚未成熟；作为 D4/D5 循环的长期结果，不作为本设计前置。</li>
+        <li><strong>永久 fork（放弃上游同步）：</strong>拒绝。违背"尽可能不重写、ASE-native、消费上游"的既有哲学，长期维护成本高。</li>
+        <li><strong>per-call 目录隔离 / 截断 running log：</strong>暂缓。改动面大、影响 restart/续算语义；仅在 SAI 诊断证实坐标校验不足时再评估。</li>
+        <li><strong>改 <code>read_abacus_out</code> 签名加 <code>expected_coords</code>：</strong>拒绝。污染纯解析语义且需改两个 IO 后端签名（P2/P4）；帧选择放 <code>read_results</code> 即可。</li>
+      </ul>
+    </section>
+    <section id="architecture"><h2>架构与数据流</h2>
+      <h3>力读取修复（Phase 1）</h3>
+      <pre>abacuslite AbacusTemplate.read_results(directory)   # 唯一汇聚点（D7）
+  → 若 calculation == 'scf'（单帧-单次调用语义）:
+      expected_coords ← read_stru(directory/'STRU') 的当前结构坐标   # 本次 write() 落盘
+      frames ← read_abacus_out(running_*.log, sort_atoms_with=atomorder)   # 签名不变
+      帧选择 ← frames 中"坐标(与帧同排列) == expected_coords 的最后一帧"    # 核心改动
+      无匹配帧 → 抛明确错误（fail-closed，含 log 路径/帧数/坐标差异摘要）
+      → SinglePointDFTCalculator(forces=该帧力, ...)
+  else:   # 原生 relax/md 与 MD_dump 路径（R2）保持既有 [-1] 语义，不做坐标校验</pre>
+      <p><strong>落点与双后端（P2）</strong>：帧选择在 <code>core.py::read_results</code> 内完成，<code>read_abacus_out</code>（legacyio / latestio 两个实现）<strong>签名与纯解析语义不变</strong>；一次覆盖 LTS 3.10.1 → legacyio（SAI/SIF 生产路径）与 ≥3.11 → latestio 双后端。expected_coords 取自本次 <code>write_input</code> 落盘的 STRU（<code>read_stru(directory/'STRU')</code>），不依赖 ASE 侧 atoms 缓存，避免与 sella <code>set_x/restore</code> 缓存交互耦合。</p>
+      <p><strong>坐标比较细节（P3）</strong>：① STRU 以物种分组序写出（<code>write_stru(atoms[ind])</code>），而 <code>read_abacus_out</code> 帧已按 <code>self.atomorder</code> 重排回 ASE 序——比较前统一到同一排列（建议：对 expected_coords 按分组序重排后与帧比较，或在重排前比较）；② running log 坐标系可为 DIRECT 或 CARTESIAN，比较前统一换算到 Cartesian Å；③ <strong>绝对 Å 容差</strong>（以 running log 坐标打印精度推导，如 1e-4 Å 量级），"相对 1e-5"对分数坐标无意义。</p>
+      <p><strong>fail-closed 作用域（2026-08-04 审查补强，防止误伤正常功能）：</strong>坐标校验仅适用于<strong>scf 计算类型</strong>（每次 <code>get_forces</code> = 一次 ABACUS scf 调用 = running log 追加一帧）——这正是 atst-tools 消费方式（SCF / ASE 驱动 relax / sella / ccqn 均逐 ASE 步调用 scf），也即本问题的目标场景。以下两类必须<strong>显式绕过校验</strong>、按既有末帧语义读取，否则 fail-closed 会误伤正常功能：
+      <ul>
+        <li><strong>ABACUS 原生多帧单次调用</strong>（<code>calculation=relax</code>/<code>md</code> 单次调用内部多 ion-step，末帧为最终结构而非写入 STRU 的初态）——仅当计算类型为 scf 时才启用坐标校验。</li>
+        <li><strong>MD 最新格式</strong>（running log 无坐标，走 <code>read_traj_from_md_dump</code>）——按 R2 单独路径，不做坐标校验。</li>
+      </ul>
+      <p><strong>其他消费者（P4）</strong>：<code>read_abacus_out</code> 还有 calculator 之外消费者——<code>utils/abacus_io.py::_parse_last_abacus_frame</code>（<code>[-1]</code> 语义正确，事后摘要）与 <code>workflows/md.py</code>（MD 帧解析，<strong>硬编码 latestio import，legacy ABACUS 下是潜在 bug，另案记录</strong>）。帧选择不侵入 <code>read_abacus_out</code>，故两者默认行为不变。</p>
+      <p><strong>golden 夹具一次性消费（P5）</strong>：latestio <code>read_abacus_out</code> 读后 <code>unlink() eig_occ.txt</code>——多帧金样若走完整 latestio 读取，须提供与帧数一致的 <code>eig_occ.txt</code> 且注意重复读取需重建文件。</p>
+      <h3>跨仓维护（Phase 2）</h3>
+      <pre>本地迭代（vendored 为运行后端）
+  → 语义补丁：改 vendored + 登记补丁清单 + golden 测试
+  → 收敛（本地/SIF 验证绿）
+  → 上游 PR（abacus-develop interfaces/ASE_interface）
+  → 合入后：更新 ABACUSLITE_SNAPSHOT.md 基线 SHA → 再同步 vendored
+  → 阶段性拉取（D4 触发点）：checker 对最新上游 → 合并真实上游修复 → 更新基线</pre>
+      <p><code>check_abacuslite_snapshot.py</code> 扩展点：语义补丁白名单（登记文件/块），归一化通过；未登记新 drift 返回 1（CI 报警保持）。</p>
+    </section>
+    <section id="errors"><h2>错误处理</h2><ul>
+      <li><strong>帧不匹配（read_results，scf-only）：</strong>无"坐标 == 当前结构"帧时抛明确错误（含 running log 路径、帧数、期望/末帧坐标差异摘要），调用方可见，不静默返回错误力。</li>
+      <li><strong>未登记 drift（P1 现状）：</strong>checker 当前对自己钉扎的基线即 exit 1（efermi 未登记），且 PR-only 触发被直推 main 绕过——补丁清单登记 + push 触发是解锁 CI 的前置。</li>
+      <li><strong>上游同步冲突：</strong>本地语义补丁与上游改动重叠时，以补丁清单 review 人工裁决（先合上游、再重放本地补丁）。</li>
+      <li><strong>Phase 0 子机制判定：</strong>(a) 帧错位 / (b') 末次调用 exit 0 未产新帧 / (c) 读入后日志增长 三候选，以取证清单区分（见测试节）。</li>
+    </ul></section>
+    <section id="testing"><h2>测试与验收</h2>
+      <h3>诊断（Phase 0，SAI，前置）</h3><ul>
+        <li>取回 sella_repro 运行目录：<code>running_scf.log</code>、各步 STRU（含 STRU.bak.*）、INPUT、sella 诊断输出。</li>
+        <li><strong>取证清单（P7）</strong>：逐帧坐标头 + 帧数 + 各帧 TOTAL-FORCE 块计数 + INPUT <code>calculation</code> 值 + sella 调用序列时间线；用 <code>read_forces_from_running_log</code>/<code>read_traj_from_running_log</code> 脚本化输出。</li>
+        <li><strong>判定三候选</strong>：(a) 帧错位 / <strong>(b') 末次调用 exit 0 但未新增任何帧（如 SCF 未收敛仍正常退出，长度断言全过、<code>[-1]</code> 静默返回上一结构力，与观测相容）</strong> / (c) 读入后日志增长；写诊断纪要（入 <code>docs/reports/</code> 并登记账本）。</li>
+        <li>出口准则：子机制证据链闭合、可复现 0.0374 vs 0.338；若坐标校验不足（坐标一致但力块错位），升级解析对齐/目录隔离评估（spec 已预留）。</li>
+      </ul>
+      <h3>本地单元（golden-file，无需真实 ABACUS）</h3><ul>
+        <li>构造多帧 running log（模拟 INIT + diag 位移 + trial + P0 重算的累积序列），断言 scf 下帧选择返回当前结构力；错误结构帧场景断言 fail-closed。</li>
+        <li>md（MD_dump，latestio）/ md（legacy 原生）/ relax（ASE 驱动）/ sella（试探步模式）/ ccqn（自身循环）五条路径 + <strong>双后端</strong>帧选择用例。</li>
+        <li><strong>容差两侧（P3）</strong>：绝对 Å 容差（按打印精度推导，如 1e-4）覆盖"容差内通过 / 容差外 fail-closed"；<strong>DIRECT/CARTESIAN 换算</strong>与<strong>物种分组序 vs atomorder 排列</strong>各一条用例。</li>
+        <li><strong>eig_occ.txt 一次性消费（P5）</strong>：latestio 完整 <code>read_abacus_out</code> 金样须提供与帧数一致的 <code>eig_occ.txt</code>，重复读取用例重建文件。</li>
+        <li>扩展既有 <code>tests/unit/test_abacuslite_ci.py</code>、<code>test_abacuslite_io_reorder.py</code> 等套件；运行 <code>pytest tests/unit -q</code>。</li>
+      </ul>
+      <h3>checker 与 CI</h3><ul>
+        <li>语义补丁登记后，<code>check_abacuslite_snapshot.py --upstream &lt;70f7ed69 树&gt; --vendored &lt;当前&gt;</code> 对钉扎基线 exit 0；未登记新改动 exit 1。</li>
+        <li>CI <code>abacuslite-ase-interface.yml</code> 保持绿；<strong>补 <code>push: branches: [main]</code> 触发（P1）</strong>；基线 SHA 由 CI 从 <code>ABACUSLITE_SNAPSHOT.md</code> 解析（P6，单一事实源）。</li>
+      </ul>
+      <h3>SAI/SIF 实证</h3><ul>
+        <li>修复后 sella e2e 由 2 步停变为多步收敛（fmax 持续下降或正常收敛）；md/relax/ccqn 链路 exit 0。</li>
+        <li>drift checker 对钉扎基线 exit 0（登记后）；SAI 实证在 LTS 3.10.1（legacyio 生产路径）上完成。</li>
+      </ul>
+    </section>
+    <section id="rollout"><h2>发布与迁移</h2><ol>
+      <li>Phase 0（诊断）→ Phase 1（修复 + golden 测试）在 atst-tools 未发布版本内完成；本地 + SIF 验证，不 bump 版本号（走 sai-local-e2e）。</li>
+      <li><strong>Phase 2 中"efermi 登记 + CI push 触发"尽早单独先行（P1）</strong>——当前 CI 对 vendored 路径 PR 为红，阻塞其它工作；其余随 Phase 1 同批。</li>
+      <li>收敛后按 D4/D5 提交上游 PR（力读取修复 + efermi；band parser 已上游化不重复）；上游合入后更新基线并再同步 vendored。若需对外发布，语义补丁以 <strong>2.2.x patch</strong> 承载（AGENTS.md 版本语义，release notes + FEATURE_STATUS_MATRIX 同步）。</li>
+      <li>文档治理：更新 <code>docs/index.md</code>、<code>AGENTS.md</code>、HANDOVER checklist backend 小节；本 spec/plan/诊断报告登记 <code>docs/reports/DOCUMENTATION_STATUS_REPORT.md</code>（P8）；spec 完成后进入 <code>writing-plans</code> 分阶段实施。</li>
+    </ol></section>
+    <section id="risks"><h2>风险与开放项</h2><div class="decision open">
+      <p><strong>风险：</strong>力读取不一致的精确子机制需 SAI 日志确认——若坐标校验不足（如 running log 末帧坐标本身与 STRU 一致但力块内容错位），需升级为解析对齐修复；上游 PR 合入周期不可控，可能长期以"已登记补丁"形态存在。</p>
+      <p><strong>风险（fail-closed 误伤，2026-08-04 审查补强）：</strong>坐标校验若不加作用域，会误伤 ABACUS 原生多帧单次调用（<code>calculation=relax</code>/<code>md</code>）与 MD 最新格式（running log 无坐标）——正常功能被 fail-closed 阻塞。缓解：校验仅启用 scf 计算类型 + MD 走 MD_dump 单独路径 + 容差匹配（已写入 Phase 1 作用域规则）。</p>
+      <p><strong>风险（审查新增，2026-08-04）：</strong>① <strong>P1 CI 现状</strong>——drift gate 对自己钉扎基线即红、直推 main 绕过 PR-only 触发；缓解：efermi 登记 + push 触发尽早先行；② <strong>P3 容差/排列</strong>——容差过紧 → 正常 scf false fail-closed、排列不一致 → 误判；缓解：绝对 Å 容差按打印精度推导、比较前统一排列、金样覆盖两侧；③ <strong>P7 (b')</strong>——若证实"末次调用未产新帧"，坐标校验无法区分"新帧缺失"与"尚未运行"；缓解：结合帧数单调性/调用序号（ION MOVE 头计数）补强，必要时退目录隔离评估；④ <strong>P4 md.py latestio 硬编码</strong>——legacy ABACUS 下潜在 bug，另案记录。</p>
+      <p><strong>开放项：</strong>Phase 0 诊断结果将锁定 Phase 1 修法细节（坐标校验 vs 解析对齐 vs 截断/隔离）；补丁清单的具体登记格式（文件级/块级）在实施计划中按 checker 现状固定。</p>
+    </div></section>
+  </main>
+  <footer>请审阅并指出需要修改的段落。</footer>
+</body>
+</html>
