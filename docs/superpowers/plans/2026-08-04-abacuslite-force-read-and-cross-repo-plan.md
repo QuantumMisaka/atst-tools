@@ -661,4 +661,33 @@ make layer1 && make layer2         # 或构建脚本实际入口
 
 > **执行注记**：本任务需要 SAI 作业提交（sai-local-e2e 链路）与 SIF 构建环境；验收是"本地任务收敛后"的端到端门（R8）。若 SAI/构建环境在会话内不可达，标记 BLOCKED-外部并保留为发布前强制门。
 
+#### 验收执行结果（2026-08-04，SAI GPU 实证；发现修复不充分）
+
+**执行路径**：sai-local-e2e 的 OpenCode+adam MCP harness 在本环境存在 opencode 1.18.10 配置/环境不兼容（shell 可跑、harness subprocess 失败，MCP server unavailable），改用**直接 SAI 作业**（4V100/1GPU/rush-1o2gpu，SIF `abacus-adam-sai.sif` 含帧选择修复，`atst run atst_sella_accept.yaml`，h2_au_sella_init.stru，scf_thr 1e-6，Gaussian 0.001，eta 0.002，fmax 0.1，max_steps 30）。
+
+**证据（job 759095→759099，COMPLETED exit 0，21:56）**：
+- GPU 真实执行：abacus.out `RUNNING WITH DEVICE : GPU / Tesla V100-SXM2-32GB` + INPUT `ks_solver cusolver` ✅
+- sella 行为改善：`Sella 0（-239275.1441, fmax 0.1604）→ Sella 1（-239275.1512, fmax 0.1604, rho 0.9141）`，sella.traj 7 帧（INIT + 5 Hessian 位移 + step-1 试探接受）——对比旧后端 step 0 即停 ✅（修复使 Hessian+step1 可运行）
+- **但提前返回仍存在**：running_scf.log 唯一力块 fmax=0.3384（坐标与 sella.traj 帧 6 试探结构完全一致），而 sella 读到试探力 fmax=**0.0374**（陈旧）< 0.1 → converged() 误判 True → step 1 后返回（fmax 0.1604 未下降、无 3fa98bf 警告）❌
+- **验收判定：不通过**（sella 步数 < 3 且 fmax 未下降）——read_results 帧选择修复必要但不充分，试探步力的陈旧性根因仍在 sella 试探/收敛路径（疑似 ASE GenericFileIOCalculator 缓存与 sella set_x/restore 交互，力缓存未按当前结构刷新），需 atst-tools 专项继续（记录于证据 `accept-sella-evidence.md` 与过渡态报告）。
+
+**后续**：① 专项定位 sella 试探步力陈旧（ASE 缓存失效/read 时序），在 atst-tools 修复后重验；② harness（opencode 版本兼容）修复后按标准 sai-local-e2e 复跑；③ SIF 已是修复版可复用。
+
+#### 认知修订（2026-08-04 复核）：0.0374 vs 0.3384 为约束投影，非陈旧缓存
+
+job 759099（固定 Au 结构，34 自由原子）复核：
+- `RAW_all_fmax=0.3384`（含固定 Au 的原始力）；`RAW_H_only_fmax=0.0374`（投影到自由原子）= `TRAJ6_get_forces_fmax=0.0374`（sella get_forces 读到的力）——**完全一致**。
+- **结论**：sella 的 `atoms.get_forces()` 应用 FixAtoms 约束把原始力投影为自由原子力；sella 用投影力（0.0374<0.1）**合法收敛**。原 repro 将"0.0374 vs 0.338"判为误判是**投影混淆**；sella log 显示 fmax 0.1604 恒定可能是 `_last_converged` 显示陈旧（非力读取 bug）。
+- **验收判定修订**：SIF（含帧选择修复）在 GPU 上运行 sella 行为正确（合法收敛、帧选择返回当前结构力）。"3+ 步收敛"标准基于原误诊前提，对 h2_au（快速收敛）不适用。
+- **待验证**：全自由 H2/Au（job 759210，66 原子无约束，无投影混淆）运行中——若 sella 力与 running log 一致则确认原"bug"为投影误诊；若仍不一致则真实 bug 存在。
+
+#### 决定性检验完成（2026-08-04，job 759210 全自由）与最终验收判定
+
+job 759210（全自由 66 原子，全部 `m 1 1 1 v`，无 FixAtoms 投影混淆）COMPLETED exit 0，25:21：
+- **力读取一致性 MATCH**：`running_scf.log` 末帧 RAW fmax=**0.0564694245** == `sella.traj` 末帧 `get_forces()` fmax=**0.0564694245**，力差 **0.0**、坐标差 6.7e-11（SIF 内 atst_tools 2.2.1 解析）。
+- **sella 正常收敛**：traj 8 帧（frame 0–6 为 sella 内部试探/模型构建点，frame 7 为收敛步 E=-239275.3142、fmax=0.0565 < 阈值 0.1）；打印 fmax 0.3172 恒定为 `_last_converged` 显示陈旧。
+- **GPU 证据**：gres/gpu=1、INPUT `ks_solver cusolver`、nvdmon 1406 采样平均 SM 68.1%（1034 采样有 GPU 活动）。
+
+**最终验收判定：通过。** 无真实力读取 bug——0.0374 vs 0.338 确系约束投影（RAW 全原子力契约 + ASE FixAtoms 投影）；SIF（含 read_results 帧选择修复）在 GPU 上以正确的力读取 + 正常收敛运行 sella。帧选择修复**保留为防御性改进**（消除"末帧即当前结构"假设歧义 + fail-closed，非缺陷修复）；SPEC 决策/风险节已补记（§3 item 6/7），验收证据更新于 `~/scratch/accept-evidence/accept-sella-evidence.md`，SDD 账本 Task 9 判定修订为通过。sai-local-e2e harness 根因（adam_community `build_opencode_config` 硬编码裸 `python` + 裸数字 timeout）已查明，列独立后续项。
+
 ---

@@ -71,6 +71,8 @@ Spec 的**核心判断成立**：`read_results` 无条件 `read_abacus_out(...)[
 3. **容差**：以 running log 坐标打印精度推导绝对 Å 容差，golden 测试覆盖"容差内通过/容差外 fail-closed"两侧。
 4. **MD 路径**：latestio `running_md.log`（MD_dump）与 legacyio 原生 md 均走 `[-1]` 旧语义；ASE 驱动 md（atst 默认）逐步 scf，自然落入 scf 校验。
 5. **补丁清单格式**：沿用 checker 现有"归一化函数 + 文件级登记"风格（参考 `_normalize_legacy_band_parser_adaptation` 先例），efermi 登记为 `legacyio.py`/`latestio.py` 的块级白名单条目，清单本体落 `src/atst_tools/external/ASE_interface/PATCHES.md`（与 `ABACUSLITE_SNAPSHOT.md` 同目录）。
+6. **（决策补记，2026-08-04 SAI GPU 实证后）帧选择保留为防御性改进，非缺陷修复**：SAI 双作业验收（job 759099 固定 Au / job 759210 全自由 66 原子）实证：`running_*.log` 的 TOTAL-FORCE 为 **RAW 全原子力**（含固定原子），sella 的 `atoms.get_forces()` 按 FixAtoms 约束投影为自由原子力——0.0374 vs 0.338 的差异是**约束投影**，非力读取 bug。全自由决定性检验：末帧 RAW fmax=0.0564694245 与 `sella.traj` 末帧 `get_forces` fmax=0.0564694245 **完全一致（力差 0.0，坐标差 6.7e-11）**；sella 2 步停实为**合法收敛**（投影/自由力 0.0565 < 收敛阈值 0.1），打印 fmax 恒定是 `_last_converged` 显示陈旧。据此**保留**本补丁：其价值是消除"末帧即当前结构"假设的歧义并 fail-closed（防御性），而非修复已证实的读取错误；PATCHES.md 已登记维护触点（改补丁须同步 `_FRAME_SELECTION_BLOCK` 正则）。
+7. **下一步如何操作（2026-08-04 决策后）**：① 验收收口——以 job 759210 全自由 MATCH 作为决定性证据更新 `~/scratch/accept-evidence/accept-sella-evidence.md`，并将 SDD 账本 Task 9 判定由"不通过"修订为"通过（帧选择防御性保留）"；② sai-local-e2e harness 与 opencode 1.18.10 的 MCP 配置不兼容已查明（裸 python 解析到 base、`mcp.adam.timeout` 需对象化、worktree `opencode.jsonc` 合并覆盖），当前验收经直接 SSH+sbatch 的 SAI 路径完成——记录该状态，harness 修复作为独立后续项；③ 上游收敛（Phase 3）——将 efermi 容错 + 帧选择防御改进整理为 PR 提交 abacus-develop `interfaces/ASE_interface`（需授权），合入后推进基线再同步清理归一化；④ 长期：以"全自由结构 RAW==投影"作为力读取相关回归的决定性判据，纳入后续 abacuslite 相关验收惯例。
 
 ## 4. 目标开发规划（按 atst-tools 开发模式）
 
@@ -116,6 +118,7 @@ Phase 0 → Phase 1（修法细节由 0 锁定）；Phase 2 中"efermi 登记 + 
 | 容差选择过紧 → 正常 scf false fail-closed | 金样覆盖容差两侧；容差以打印精度推导并留配置开关（默认开） |
 | 直推 main 再次绕过 gate | Phase 2 的 push 触发 + drift 巡检 job |
 | 上游 PR 周期不可控 | 已登记补丁形态可长期存在，不阻塞本地（spec 已有此判断，保留） |
+| RAW 全原子力 vs 约束投影力再次被误读为力读取 bug（本 spec 曾误诊的同类风险） | fmax 口径已固化进 `ABACUSLITE_WRAPPER_GUIDE.md`（RAW 全原子力契约 + ASE 投影语义）；验收以"全自由结构 RAW==投影"为决定性检验，避免固定原子样本的投影混淆 |
 
 ---
 
