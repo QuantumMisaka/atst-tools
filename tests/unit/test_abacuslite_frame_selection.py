@@ -4,14 +4,21 @@ Task 3 GREEN：`AbacusTemplate.read_results` 对 calculation=='scf' 按坐标选
 （core.py::_select_scf_frame_for_structure），非 scf（relax/md）保持 [-1] 末帧语义。
 金样 multiframe_scf_trial_last/running_scf.log 共 4 帧：帧 0（ION=1）= INIT（== 当前 STRU），
 帧 1-2 为位移/trial 试探结构，末帧（ION=4）= P0 重算（≠ STRU）。
+
+Task 4 扩充（回归矩阵）：容差两侧、md/relax/sella/ccqn 五路径、双后端（legacyio/latestio）、
+真实非 scf 金样（multiframe_md_legacy / multiframe_md_latest）、latestio eig_occ.txt 一次性消费（P5）。
 """
 import re
+import shutil
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from atst_tools.external.ASE_interface.abacuslite.core import AbacusTemplate
+from atst_tools.external.ASE_interface.abacuslite.core import (
+    AbacusTemplate,
+    _select_scf_frame_for_structure,
+)
 from atst_tools.external.ASE_interface.abacuslite.io.generalio import read_stru
 from atst_tools.external.ASE_interface.abacuslite.io.legacyio import read_abacus_out
 
@@ -30,6 +37,18 @@ STRU_FRAME_FORCES = np.array(
 LAST_FRAME_FORCES = np.array(
     [[-0.45, -0.014, 0.0], [0.45, 0.014, 0.0], [0.0, 0.0, 0.0]]
 )
+
+# 真实 md 金样末帧力（multiframe_md_legacy=首个 MD 步/唯一帧；multiframe_md_latest=MD_dump 第 2 帧）
+MD_LEGACY_FORCES = np.array(
+    [[1.0712942948, 2.1781413019, 1.2152201133],
+     [-1.0712942948, -2.1781413019, -1.2152201133]]
+)
+MD_LATEST_FORCES = np.array(
+    [[0.1191299488, 0.2678988387, 1.5033416041],
+     [-0.1191299488, -0.2678988387, -1.5033416041]]
+)
+MD_LEGACY_ENERGY = -1940.5509086572
+MD_LATEST_ENERGY = -1940.6311063727
 
 # tauc_/taud_ 原子坐标行（x y z mag vx vy vz）：前 3 个浮点为坐标
 _COORD_LINE = re.compile(r"^(taud_\S+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)(.*)$")
@@ -114,6 +133,26 @@ def _read_results_fixture(tmp_path, calc="scf", stru_text=None, log_text=None):
     return tmp_path
 
 
+def _md_fixture_legacy(tmp_path):
+    """布置真实 legacy md 金样：OUT.ABACUS/running_md.log（multiframe_md_legacy，真实 ABACUS md 日志）。
+
+    刻意不写 STRU：原生 md 路径不做坐标匹配，缺 STRU 也必须正常返回（不 fail-closed）。
+    """
+    out = tmp_path / "OUT.ABACUS"
+    out.mkdir()
+    shutil.copy(TESTFILES / "multiframe_md_legacy" / "running_md.log", out / "running_md.log")
+    return tmp_path
+
+
+def _md_fixture_latest(tmp_path):
+    """布置 latestio MD_dump 金样：OUT.ABACUS/running_md.log + MD_dump + eig_occ.txt。"""
+    out = tmp_path / "OUT.ABACUS"
+    out.mkdir()
+    for name in ("running_md.log", "MD_dump", "eig_occ.txt"):
+        shutil.copy(TESTFILES / "multiframe_md_latest" / name, out / name)
+    return tmp_path
+
+
 def test_golden_last_frame_differs_from_current_structure():
     """金样语义：末帧为试探/P0 重算结构，与当前 STRU 不一致（RED 场景前提）。"""
     frames = read_abacus_out(LOG, sort_atoms_with=None)
@@ -160,13 +199,108 @@ def test_scf_read_results_fails_closed_when_no_frame_matches(tmp_path):
     assert "fail-closed" in msg
 
 
-def test_non_scf_read_results_keeps_last_frame_semantics(tmp_path):
-    """非 scf（relax）：read_results 保持 [-1] 末帧语义，不做坐标帧选择（spec R2/P2）。"""
+def test_native_relax_multiframe_keeps_last_frame_semantics(tmp_path):
+    """relax 五路径之一（原生单次调用）：ABACUS 内部 relax 一次调用在 running_relax.log 累积
+    多帧，read_results 保持 [-1] 末帧语义、不做坐标匹配（spec R2/P2）。"""
     directory = _read_results_fixture(tmp_path, calc="relax")
     results = _template(calc="relax").read_results(directory)
 
     assert not np.allclose(STRU_FRAME_FORCES, LAST_FRAME_FORCES)  # 语义：两帧力不同
     assert np.allclose(results["forces"], LAST_FRAME_FORCES, atol=1e-12)
+
+
+def test_frame_selection_tolerance_both_sides(tmp_path):
+    """绝对 Å 容差两侧（spec P3 ③）：容差内近帧命中；容差外无匹配帧 fail-closed。
+
+    同源数据对照：金样帧 0（== 当前 STRU，Cartesian Å 最大差异≈4e-7）在默认 atol=1e-4 内命中；
+    帧 1（位移帧，差异 0.2 Å）在 atol=1e-4 外 fail-closed；放宽 atol=0.5 后同一帧命中。
+    """
+    directory = _read_results_fixture(tmp_path)
+    log = directory / "OUT.ABACUS" / "running_scf.log"
+    frames = read_abacus_out(log, sort_atoms_with=[0, 1, 2])
+    expected = _stru_positions_cartesian(read_stru(directory / "STRU"), frames[0].cell)
+
+    # 容差内：返回"当前结构帧"（帧 0），而非末帧（试探结构）
+    selected = _select_scf_frame_for_structure(frames, log, directory, [0, 1, 2], atol=1e-4)
+    assert selected is frames[0]
+    assert np.allclose(selected.positions @ np.asarray(selected.cell), expected, atol=1e-4)
+
+    # 容差外：仅位移帧（0.2 Å > 1e-4）→ 无匹配帧 fail-closed（异常含日志路径/帧数/差异摘要）
+    with pytest.raises(RuntimeError) as excinfo:
+        _select_scf_frame_for_structure([frames[1]], log, directory, [0, 1, 2], atol=1e-4)
+    msg = str(excinfo.value)
+    assert "fail-closed" in msg
+    assert "running_scf.log" in msg
+    assert "1 帧" in msg
+
+    # 对照：放宽容差（0.5 Å）后同一位移帧命中 → 容差两侧语义
+    loose = _select_scf_frame_for_structure([frames[1]], log, directory, [0, 1, 2], atol=0.5)
+    assert loose is frames[1]
+
+
+def test_native_md_legacy_keeps_last_frame_semantics_real_gold(tmp_path):
+    """真实 legacy md 金样（multiframe_md_legacy，真实 ABACUS md 日志的首个完整 MD 步）：
+    原生 md 走 [-1] 末帧语义、不做坐标匹配——目录无 STRU 也正常返回力/能量（不 fail-closed）。"""
+    directory = _md_fixture_legacy(tmp_path)
+    results = _template(calc="md", atomorder=[0, 1]).read_results(directory)
+    assert np.allclose(results["forces"], MD_LEGACY_FORCES, atol=1e-12)
+    assert results["energy"] == pytest.approx(MD_LEGACY_ENERGY)
+
+
+def test_native_md_latestio_md_dump_keeps_last_frame_semantics(tmp_path, monkeypatch):
+    """latestio MD_dump 路径（ABACUS ≥3.11，md 轨迹在 MD_dump 而非 running log）：
+    原生 md 走 [-1] 末帧语义（MD_dump 2 帧取最后一帧的力）、不做坐标匹配——无 STRU 正常返回。"""
+    from atst_tools.external.ASE_interface.abacuslite import core as abacus_core
+
+    monkeypatch.setattr(abacus_core, "__LEGACYIO__", False)
+    directory = _md_fixture_latest(tmp_path)
+    results = _template(calc="md", atomorder=[0, 1]).read_results(directory)
+    assert np.allclose(results["forces"], MD_LATEST_FORCES, atol=1e-12)
+    assert results["energy"] == pytest.approx(MD_LATEST_ENERGY)
+
+
+def test_latestio_md_eig_occ_single_consumption(tmp_path, monkeypatch):
+    """P5 eig_occ.txt 一次性消费：latestio read_abacus_out 读取后 unlink；
+    重复读取前须重建 eig_occ.txt（未重建 → FileNotFoundError；重建后恢复完整读取）。"""
+    from atst_tools.external.ASE_interface.abacuslite import core as abacus_core
+
+    monkeypatch.setattr(abacus_core, "__LEGACYIO__", False)
+    directory = _md_fixture_latest(tmp_path)
+    eig_occ = directory / "OUT.ABACUS" / "eig_occ.txt"
+    gold_eig_occ = (TESTFILES / "multiframe_md_latest" / "eig_occ.txt").read_text(encoding="utf-8")
+
+    results = _template(calc="md", atomorder=[0, 1]).read_results(directory)
+    assert not eig_occ.exists()  # 读取后已 unlink（一次性消费语义）
+
+    # 未重建 → 第二次读取失败（eig_occ.txt 缺失）
+    with pytest.raises(FileNotFoundError):
+        _template(calc="md", atomorder=[0, 1]).read_results(directory)
+
+    # 重建 eig_occ.txt 后可再次完整读取
+    eig_occ.write_text(gold_eig_occ, encoding="utf-8")
+    results2 = _template(calc="md", atomorder=[0, 1]).read_results(directory)
+    assert np.allclose(results2["forces"], MD_LATEST_FORCES, atol=1e-12)
+
+
+def test_relax_ase_driven_stepwise_scf_uses_frame_selection(tmp_path):
+    """relax 五路径之一（ASE 驱动）：ASE 逐步 relax 每步以 calculation='scf' 调 ABACUS，
+    多帧累积 running_scf.log 下走 scf 帧选择——返回当前结构帧力，而非末帧试探结构力。"""
+    directory = _read_results_fixture(tmp_path)
+    results = _template(calc="scf").read_results(directory)
+    assert not np.allclose(STRU_FRAME_FORCES, LAST_FRAME_FORCES)  # 语义：两帧力不同
+    assert np.allclose(results["forces"], STRU_FRAME_FORCES, atol=1e-12)
+
+
+@pytest.mark.parametrize("scenario", ["sella", "ccqn"])
+def test_trial_step_optimizer_reuses_scf_frame_selection(scenario, tmp_path):
+    """sella（试探步模式）/ccqn（自循环）冒烟：优化器以 calculation='scf' 逐试探点调 ABACUS
+    （无专门分支），多帧日志下复用 scf 帧选择——返回当前结构帧力，避免末帧试探结构力被误当
+    当前结构力（sella 2 步停根因）。"""
+    directory = _read_results_fixture(tmp_path)
+    results = _template(calc="scf").read_results(directory)
+    assert np.allclose(results["forces"], STRU_FRAME_FORCES, atol=1e-12), (
+        f"{scenario}: 试探步优化器应复用 scf 帧选择（返回当前结构帧力）"
+    )
 
 
 def test_scf_frame_selection_respects_atomorder_revmap(tmp_path):

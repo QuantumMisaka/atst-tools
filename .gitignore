@@ -51,6 +51,8 @@ examples/18_dmf_production_validation/runs/
 !examples/**/inputs/
 !examples/**/inputs/**
 !src/atst_tools/external/ASE_interface/abacuslite/io/testfiles/multiframe_scf_trial_last/*
+!src/atst_tools/external/ASE_interface/abacuslite/io/testfiles/multiframe_md_legacy/*
+!src/atst_tools/external/ASE_interface/abacuslite/io/testfiles/multiframe_md_latest/*
 !examples/02_neb_H2-Au/outputs/
 examples/02_neb_H2-Au/outputs/*
 !examples/02_neb_H2-Au/outputs/README.md
