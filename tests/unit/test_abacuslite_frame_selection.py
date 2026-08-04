@@ -282,25 +282,18 @@ def test_latestio_md_eig_occ_single_consumption(tmp_path, monkeypatch):
     assert np.allclose(results2["forces"], MD_LATEST_FORCES, atol=1e-12)
 
 
-def test_relax_ase_driven_stepwise_scf_uses_frame_selection(tmp_path):
-    """relax 五路径之一（ASE 驱动）：ASE 逐步 relax 每步以 calculation='scf' 调 ABACUS，
-    多帧累积 running_scf.log 下走 scf 帧选择——返回当前结构帧力，而非末帧试探结构力。"""
+def test_scf_frame_selection_reused_by_relax_ase_sella_ccqn(tmp_path):
+    """relax-ASE / sella / ccqn 以 calculation='scf' 驱动，无专门分支，复用 scf 帧选择。
+
+    ABACUS 无 sella/ccqn 计算类型；relax-ASE 逐步、sella 试探步、ccqn 自循环均在每个试探点
+    以 calculation='scf' 调用 ABACUS（多帧累积 running_scf.log），与既有
+    test_multiframe_scf_read_results_returns_current_structure_force 同夹具同路径。本冒烟锁定
+    该复用语义（sella 2 步停根因回归钉）：返回当前结构帧力，而非末帧试探结构力。
+    """
     directory = _read_results_fixture(tmp_path)
     results = _template(calc="scf").read_results(directory)
     assert not np.allclose(STRU_FRAME_FORCES, LAST_FRAME_FORCES)  # 语义：两帧力不同
     assert np.allclose(results["forces"], STRU_FRAME_FORCES, atol=1e-12)
-
-
-@pytest.mark.parametrize("scenario", ["sella", "ccqn"])
-def test_trial_step_optimizer_reuses_scf_frame_selection(scenario, tmp_path):
-    """sella（试探步模式）/ccqn（自循环）冒烟：优化器以 calculation='scf' 逐试探点调 ABACUS
-    （无专门分支），多帧日志下复用 scf 帧选择——返回当前结构帧力，避免末帧试探结构力被误当
-    当前结构力（sella 2 步停根因）。"""
-    directory = _read_results_fixture(tmp_path)
-    results = _template(calc="scf").read_results(directory)
-    assert np.allclose(results["forces"], STRU_FRAME_FORCES, atol=1e-12), (
-        f"{scenario}: 试探步优化器应复用 scf 帧选择（返回当前结构帧力）"
-    )
 
 
 def test_scf_frame_selection_respects_atomorder_revmap(tmp_path):
