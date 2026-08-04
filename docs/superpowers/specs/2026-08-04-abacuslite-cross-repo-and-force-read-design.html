@@ -60,8 +60,19 @@
         <li><strong>(c) 读入后日志增长</strong>：缓存读入后又追加了帧（读入与读取之间存在一次未入缓存的 ABACUS 写入/时序问题）。</li>
       </ul>
       <p><strong>定位</strong>：分歧点落在 <strong>abacuslite 读路径</strong>（帧选择/对齐），被 sella 的多帧写入模式放大；Phase 0 的 SAI 日志核对即为此设计。</p>
+      <p><strong>认知修正（2026-08-04，SIF 重建 + SAI GPU 验收实证）</strong>：上述"三候选"的观测基础（试探步后读到的力 0.0374 vs running log 末帧 0.338）经复核为<strong>约束投影</strong>，非力读取不一致——h2_au 结构 Au 固定（<code>m 0 0 0</code>），ABACUS 输出<strong>全原子（含固定 Au）原始力</strong>（fmax 0.338），ASE <code>atoms.get_forces()</code>（默认 <code>apply_constraint=True</code>）按 FixAtoms 投影为<strong>自由原子力</strong>（fmax 0.0374，与 raw 投影到自由原子完全一致）。sella 用投影后自由原子力（0.0374 &lt; 0.1）<strong>合法收敛并提前返回</strong>；sella log fmax 恒 0.1604 为 <code>_last_converged</code> 显示陈旧。佐证：atst-tools 1.5.0（legacy <code>ase.calculators.abacus</code>）sella 14 步收敛。因此：<strong>vendored abacuslite 力读取本身无 bug</strong>（返回 RAW 全原子力、投影交 ASE 是正确契约）；<code>read_results</code> 帧选择是本设计的防御性改进（显式返回当前结构帧、无匹配 fail-closed），非修复实际 bug。后续评估与 Phase 0 取证按"投影口径一致性 + 显示陈旧"重定向，不再以"末帧不为当前结构"为 bug 前提。</p>
       <h3>修复方案（一句话）</h3>
       <p>读力时不再无条件取"最后一帧"，而是取<strong>"结构坐标与当前结构一致的那一帧"</strong>（当前结构 = 本次写入目录的 STRU）；找不到匹配帧就<strong>报错（fail-closed）</strong>，绝不静默返回错误结构的力。</p>
+      <h3>ABACUS running log 的 RAW 力输出契约与下游适配（2026-08-04 确认）</h3>
+      <p><strong>期望行为确认</strong>：ABACUS 的 <code>running_*.log</code> 中 <code>TOTAL-FORCE</code> 输出<strong>全原子原始力</strong>（含 STRU 中 <code>m 0 0 0</code> 固定原子）——这是期望行为，与 DFT 惯例一致（VASP OUTCAR、CP2K 等同理：力是物理输出，固定原子由驱动层约束）。fmax（全原子）因此是 RAW 上限，不直接等于优化器收敛判据。</p>
+      <p><strong>下游理解与适配</strong>：</p>
+      <ul>
+        <li><strong>计算器层（abacuslite/vendored backend）</strong>：返回 RAW 全原子力，<strong>不做预投影</strong>；约束投影由 ASE <code>Atoms.get_forces()</code>（默认 <code>apply_constraint=True</code>）按 FixAtoms 执行——这是正确契约。本项目 vendored backend 符合此契约（实证：投影后自由原子力与 sella 读到的一致）。</li>
+        <li><strong>优化器层（sella/ASE）</strong>：收敛判据使用<strong>投影后自由原子力</strong>（<code>atoms.get_forces()</code> 默认行为）——正确；不应把 RAW 全原子 fmax 直接与收敛阈值比较。</li>
+        <li><strong>汇总/报告层（transition summary 等）</strong>：报告 fmax 时<strong>明确口径</strong>（投影后自由原子力 vs RAW 全原子力）；约束体系的收敛以投影后为准。</li>
+        <li><strong>诊断/取证（Phase 0 工具、sella_repro 类脚本）</strong>：比较力必须<strong>同口径</strong>（投影后 vs 投影后，或仅自由原子的原始力）；禁止把 ASE 投影后值与 running log RAW 全原子值直接对比下结论。</li>
+        <li><strong>帧选择修复定位</strong>：返回当前结构帧的 RAW 力（正确），投影仍在 ASE 层；修复是防御性改进，不是投影语义的改变。</li>
+      </ul>
       <h3>修复边界（防止误伤正常功能）</h3>
       <ul>
         <li>坐标校验<strong>只对 scf 启用</strong>（单帧-单次调用语义：每次 <code>get_forces</code> = 一次 ABACUS scf = 追加一帧）。</li>
