@@ -145,9 +145,9 @@ def _stru_positions_in_ase_order(directory, stru_file, atomorder):
     """读取本次 write_input 落盘 STRU 的坐标，统一到与帧相同的 ASE 原子序并换算为 Cartesian Å。
 
     STRU 按物种分组序写出（species[i]['atom'][k]['coord']）；self.atomorder 是
-    species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。返回 (cartesian_angstrom, is_direct)：
-    cartesian_angstrom 为 ASE 序下的 Cartesian Å 坐标；is_direct 标记 STRU/日志为 Direct
-    （Direct 日志 read_abacus_out 返回分数坐标，须与帧换算到同坐标系比较，spec P3 ③）。
+    species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。返回 ASE 序下的 Cartesian Å 坐标；
+    STRU 可为 Direct 或 Cartesian（write_stru 默认 Cartesian），统一换算到 Cartesian Å，
+    与帧侧（按其 running log 实际坐标系换算）同坐标系比较（spec P3 ③）。
     """
     from ase.units import Bohr
     from .io.generalio import read_stru
@@ -167,8 +167,26 @@ def _stru_positions_in_ase_order(directory, stru_file, atomorder):
     is_direct = str(stru['coord_type']).lower().startswith('d')
     if is_direct:
         cell = np.asarray(lat['vec'], dtype=float) * lat['const'] * Bohr
-        return ase_xyz @ cell, is_direct
-    return ase_xyz * lat['const'] * Bohr, is_direct
+        return ase_xyz @ cell
+    return ase_xyz * lat['const'] * Bohr
+
+
+def _frame_coordinate_is_direct(log_path):
+    """从 running log 的实际坐标头推导帧侧坐标系，不依赖 STRU 的 coord_type。
+
+    read_abacus_out 对 DIRECT 日志返回分数坐标、对 CARTESIAN 日志返回 Cartesian（原样），
+    因此帧侧换算必须以日志实际坐标系为准（spec P3 ③）。STRU 的 coord_type 可能与日志不一致
+    （如 write_stru 默认写 Cartesian STRU 而 ABACUS 打印坐标可仍为 DIRECT），不能作为
+    帧侧坐标系依据（fix round 1 F1）。坐标头格式两后端一致，取 backend 的
+    read_traj_from_running_log 的 `coordinate` 字段（与 read_abacus_out 同解析器，单一事实源）。
+    """
+    global __LEGACYIO__
+    if __LEGACYIO__:
+        from .io.legacyio import read_traj_from_running_log
+    else:
+        from .io.latestio import read_traj_from_running_log
+    traj = read_traj_from_running_log(log_path)
+    return str(traj[0]['coordinate']).lower().startswith('d')
 
 
 def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol=1e-4):
@@ -192,14 +210,15 @@ def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol
     RuntimeError
         无与当前 STRU 坐标匹配的帧（异常含 log 路径、帧数与坐标差异摘要）。
     """
-    expected, is_direct = _stru_positions_in_ase_order(directory, 'STRU', atomorder)
+    expected = _stru_positions_in_ase_order(directory, 'STRU', atomorder)
+    frame_is_direct = _frame_coordinate_is_direct(log_path)
     for frame in reversed(frames):
-        # Direct 日志 read_abacus_out 返回分数坐标，统一换算到 Cartesian Å 比较
-        frame_pos = frame.positions @ np.asarray(frame.cell) if is_direct else frame.positions
+        # 按日志实际坐标系换算：Direct 帧为分数坐标 @ cell，Cartesian 帧已是 Å（fix round 1 F1）
+        frame_pos = frame.positions @ np.asarray(frame.cell) if frame_is_direct else frame.positions
         if np.allclose(frame_pos, expected, atol=atol):
             return frame
     last_pos = frames[-1].positions
-    last_cart = last_pos @ np.asarray(frames[-1].cell) if is_direct else last_pos
+    last_cart = last_pos @ np.asarray(frames[-1].cell) if frame_is_direct else last_pos
     diff = float(np.abs(last_cart - expected).max())
     raise RuntimeError(
         f"scf running log 无与当前结构匹配的帧：{log_path}（共 {len(frames)} 帧；"
@@ -442,7 +461,10 @@ class AbacusTemplate(CalculatorTemplate):
         if self.calculation != 'scf':
             atoms: Optional[Atoms] = frames[-1]  # 原生 relax/md：既有末帧语义（spec R2/P2）
         else:
-            atoms = _select_scf_frame_for_structure(frames, log, directory, self.atomorder)
+            # atomorder 默认 None（未走 write_input 时）；与 read_abacus_out 的
+            # sort_atoms_with=None 语义一致，按 identity 处理（fix round 1 F2）
+            atomorder = self.atomorder or list(range(len(frames[0])))
+            atoms = _select_scf_frame_for_structure(frames, log, directory, atomorder)
         assert atoms is not None
 
         return dict(atoms.calc.properties())
