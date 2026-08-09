@@ -16,7 +16,6 @@ from atst_tools.utils.neb_endpoints import (
     ENDPOINT_RESULT_KEY,
     ensure_neb_endpoint_results,
     freeze_current_results,
-    has_endpoint_results,
     mark_endpoint_result,
 )
 
@@ -128,15 +127,20 @@ def test_auto_recomputes_unmarked_readable_endpoint():
     assert chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
 
 
-def test_never_accepts_unmarked_readable_endpoint_without_raising():
+def test_never_preserves_unmarked_readable_endpoint():
     chain = [_atoms(1.0), _atoms(2.0), _atoms(3.0)]
+    calls = []
 
-    ensure_neb_endpoint_results(chain, lambda directory: DummyCalc(energy=9.0), policy="never")
+    def get_calculator(directory):
+        calls.append(directory)
+        return DummyCalc(energy=9.0)
 
-    # "never" must not raise for readable unmarked endpoints (unchanged policy);
-    # endpoints remain valid after the call.
-    assert has_endpoint_results(chain[0])
-    assert has_endpoint_results(chain[-1])
+    ensure_neb_endpoint_results(chain, get_calculator, policy="never")
+
+    # "never" preserves user-provided readable endpoints: no recompute and no raise.
+    assert calls == []
+    assert chain[0].get_potential_energy() == 1.0
+    assert chain[-1].get_potential_energy() == 3.0
 
 
 def test_endpoint_helper_never_rejects_placeholder():

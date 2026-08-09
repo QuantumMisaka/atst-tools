@@ -73,7 +73,7 @@ def freeze_current_results(atoms, status: str = ENDPOINT_COMPUTED):
     return atoms
 
 
-def freeze_results(atoms, energy: float, forces, status: str):
+def freeze_results(atoms, energy: float, forces, status: str | None):
     """Freeze explicit endpoint results using SinglePointCalculator."""
     atoms.calc = SinglePointCalculator(atoms, energy=float(energy), forces=np.asarray(forces, dtype=float))
     mark_endpoint_result(atoms, status)
@@ -105,7 +105,8 @@ def ensure_neb_endpoint_results(
             ``provided``/``computed``/``optimized`` and recomputes missing,
             placeholder, or unmarked (e.g. uploaded-chain/foreign) results with
             the current run's calculator; ``always`` recomputes both endpoints;
-            ``never`` rejects invalid endpoints.
+            ``never`` preserves user-provided readable endpoints (and raises only
+            when an endpoint lacks meaningful energy/force results).
         directories: Directory suffixes for initial and final endpoint
             calculations.
         context: Text used in warning/error messages.
@@ -121,12 +122,13 @@ def ensure_neb_endpoint_results(
     endpoint_specs = ((0, "initial", directories[0]), (-1, "final", directories[1]))
     for index, label, directory in endpoint_specs:
         atoms = images[index]
-        valid = has_endpoint_results(atoms)
-        if policy == "never" and not valid:
-            raise ValueError(
-                f"{context} {label} endpoint lacks meaningful energy/force results. "
-                "Run endpoint single-point/optimization first or set endpoint_singlepoint=auto."
-            )
+        if policy == "never":
+            if not has_endpoint_results(atoms):
+                raise ValueError(
+                    f"{context} {label} endpoint lacks meaningful energy/force results. "
+                    "Run endpoint single-point/optimization first or set endpoint_singlepoint=auto."
+                )
+            continue  # never = explicit preserve of user-provided readable endpoints
         if policy == "auto" and has_trusted_endpoint_results(atoms):
             continue
         if policy == "auto":
