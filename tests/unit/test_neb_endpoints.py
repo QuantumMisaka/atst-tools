@@ -10,10 +10,13 @@ from ase.mep.neb import NEBTools
 
 from atst_tools.utils.neb_endpoints import (
     ENDPOINT_COMPUTED,
+    ENDPOINT_OPTIMIZED,
     ENDPOINT_PLACEHOLDER,
+    ENDPOINT_PROVIDED,
     ENDPOINT_RESULT_KEY,
     ensure_neb_endpoint_results,
     freeze_current_results,
+    has_endpoint_results,
     mark_endpoint_result,
 )
 
@@ -90,13 +93,50 @@ def test_freeze_current_results_does_not_request_missing_stress():
     assert calc.stress_calls == 0
 
 
-def test_endpoint_helper_keeps_valid_endpoint_in_auto_mode():
+@pytest.mark.parametrize("status", [ENDPOINT_COMPUTED, ENDPOINT_PROVIDED, ENDPOINT_OPTIMIZED])
+def test_auto_keeps_atst_marked_endpoint(status):
     chain = [_atoms(1.0), _atoms(2.0), _atoms(3.0)]
+    mark_endpoint_result(chain[0], status)
+    mark_endpoint_result(chain[-1], status)
+    calls = []
 
-    ensure_neb_endpoint_results(chain, lambda directory: DummyCalc(energy=9.0), policy="auto")
+    def get_calculator(directory):
+        calls.append(directory)
+        return DummyCalc(energy=9.0)
 
+    ensure_neb_endpoint_results(chain, get_calculator, policy="auto")
+
+    assert calls == []
     assert chain[0].get_potential_energy() == 1.0
     assert chain[-1].get_potential_energy() == 3.0
+
+
+def test_auto_recomputes_unmarked_readable_endpoint():
+    chain = [_atoms(1.0), _atoms(2.0), _atoms(3.0)]
+    calls = []
+
+    def get_calculator(directory):
+        calls.append(directory)
+        return DummyCalc(energy=9.0)
+
+    ensure_neb_endpoint_results(chain, get_calculator, policy="auto")
+
+    assert calls == ["endpoint_initial", "endpoint_final"]
+    assert chain[0].get_potential_energy() == 9.0
+    assert chain[-1].get_potential_energy() == 9.0
+    assert chain[0].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+    assert chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+
+
+def test_never_accepts_unmarked_readable_endpoint_without_raising():
+    chain = [_atoms(1.0), _atoms(2.0), _atoms(3.0)]
+
+    ensure_neb_endpoint_results(chain, lambda directory: DummyCalc(energy=9.0), policy="never")
+
+    # "never" must not raise for readable unmarked endpoints (unchanged policy);
+    # endpoints remain valid after the call.
+    assert has_endpoint_results(chain[0])
+    assert has_endpoint_results(chain[-1])
 
 
 def test_endpoint_helper_never_rejects_placeholder():
