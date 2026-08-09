@@ -1009,6 +1009,48 @@ def test_autoneb_runner_preserves_endpoint_results_when_copying_middle_condition
     assert runner.init_chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
 
 
+def test_autoneb_runner_keeps_unmarked_endpoints_untrusted_and_auto_recomputes(monkeypatch):
+    from atst_tools.mep import autoneb
+    from atst_tools.utils.neb_endpoints import (
+        ENDPOINT_COMPUTED,
+        ENDPOINT_RESULT_KEY,
+        ensure_neb_endpoint_results,
+        has_trusted_endpoint_results,
+    )
+
+    # Uploaded chain: endpoints carry readable foreign SPC results but no ATST marker.
+    chain = [_atoms(1.0), _atoms(0.1), _atoms(0.2), _atoms(2.0)]
+    monkeypatch.setattr(autoneb, "read", lambda *args, **kwargs: chain)
+
+    runner = autoneb.AutoNEBRunner(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "autoneb", "init_chain": "chain.traj", "parallel": False},
+    )
+
+    # The legacy condition copy must NOT invent a "provided" marker for unmarked
+    # readable endpoints; they must stay untrusted so auto recomputes them.
+    assert runner.init_chain[0].info.get(ENDPOINT_RESULT_KEY) is None
+    assert runner.init_chain[-1].info.get(ENDPOINT_RESULT_KEY) is None
+    assert not has_trusted_endpoint_results(runner.init_chain[0])
+    assert not has_trusted_endpoint_results(runner.init_chain[-1])
+
+    # auto policy recomputes unmarked endpoints with the run calculator.
+    calls = []
+
+    def get_calculator(directory):
+        calls.append(directory)
+        return DummyCalc(energy=9.0)
+
+    ensure_neb_endpoint_results(runner.init_chain, get_calculator, policy="auto", context="AutoNEB")
+
+    assert calls == ["endpoint_initial", "endpoint_final"]
+    assert runner.init_chain[0].get_potential_energy() == pytest.approx(9.0)
+    assert runner.init_chain[-1].get_potential_energy() == pytest.approx(9.0)
+    assert runner.init_chain[0].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+    assert runner.init_chain[-1].info[ENDPOINT_RESULT_KEY] == ENDPOINT_COMPUTED
+
+
 def test_autoneb_runner_passes_optimizer_kwargs_to_optimizer(monkeypatch):
     from atst_tools.mep import autoneb
 

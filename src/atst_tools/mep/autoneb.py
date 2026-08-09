@@ -731,7 +731,7 @@ class AutoNEBRunner:
                 endpoint_results[index] = (
                     results[0],
                     results[1],
-                    self.init_chain[index].info.get("atst_endpoint_result", "provided"),
+                    self.init_chain[index].info.get("atst_endpoint_result"),
                 )
         reference = self.init_chain[len(self.init_chain) // 2]
         magmoms = reference.get_initial_magnetic_moments()
