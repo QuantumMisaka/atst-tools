@@ -45,6 +45,21 @@ def has_endpoint_results(atoms) -> bool:
     return get_endpoint_results(atoms) is not None
 
 
+def has_trusted_endpoint_results(atoms) -> bool:
+    """Return whether an endpoint carries ATST-marked trustworthy results.
+
+    Only endpoints explicitly marked as ``provided``, ``computed``, or
+    ``optimized`` by this tool are trusted. Readable results without such a
+    marker (e.g. foreign/uploaded-chain values) are not trusted so that the
+    ``auto`` policy can recompute them with the current run's calculator.
+    """
+    return (
+        atoms.info.get(ENDPOINT_RESULT_KEY)
+        in {ENDPOINT_PROVIDED, ENDPOINT_COMPUTED, ENDPOINT_OPTIMIZED}
+        and get_endpoint_results(atoms) is not None
+    )
+
+
 def freeze_current_results(atoms, status: str = ENDPOINT_COMPUTED):
     """Freeze current calculator results on an endpoint using SinglePointCalculator."""
     energy = float(atoms.get_potential_energy())
@@ -58,7 +73,7 @@ def freeze_current_results(atoms, status: str = ENDPOINT_COMPUTED):
     return atoms
 
 
-def freeze_results(atoms, energy: float, forces, status: str):
+def freeze_results(atoms, energy: float, forces, status: str | None):
     """Freeze explicit endpoint results using SinglePointCalculator."""
     atoms.calc = SinglePointCalculator(atoms, energy=float(energy), forces=np.asarray(forces, dtype=float))
     mark_endpoint_result(atoms, status)
@@ -86,8 +101,12 @@ def ensure_neb_endpoint_results(
         images: NEB chain including endpoints.
         get_calculator: Callable receiving a directory suffix and returning an
             ASE calculator.
-        policy: ``auto`` computes missing/placeholder endpoints, ``always``
-            recomputes both endpoints, and ``never`` rejects invalid endpoints.
+        policy: ``auto`` only trusts endpoints explicitly marked by ATST as
+            ``provided``/``computed``/``optimized`` and recomputes missing,
+            placeholder, or unmarked (e.g. uploaded-chain/foreign) results with
+            the current run's calculator; ``always`` recomputes both endpoints;
+            ``never`` preserves user-provided readable endpoints (and raises only
+            when an endpoint lacks meaningful energy/force results).
         directories: Directory suffixes for initial and final endpoint
             calculations.
         context: Text used in warning/error messages.
@@ -103,18 +122,20 @@ def ensure_neb_endpoint_results(
     endpoint_specs = ((0, "initial", directories[0]), (-1, "final", directories[1]))
     for index, label, directory in endpoint_specs:
         atoms = images[index]
-        valid = has_endpoint_results(atoms)
-        if policy == "never" and not valid:
-            raise ValueError(
-                f"{context} {label} endpoint lacks meaningful energy/force results. "
-                "Run endpoint single-point/optimization first or set endpoint_singlepoint=auto."
-            )
-        if policy == "auto" and valid:
+        if policy == "never":
+            if not has_endpoint_results(atoms):
+                raise ValueError(
+                    f"{context} {label} endpoint lacks meaningful energy/force results. "
+                    "Run endpoint single-point/optimization first or set endpoint_singlepoint=auto."
+                )
+            continue  # never = explicit preserve of user-provided readable endpoints
+        if policy == "auto" and has_trusted_endpoint_results(atoms):
             continue
         if policy == "auto":
             print(
-                f"Warning: {context} {label} endpoint has missing or placeholder "
-                "energy/force results; running an endpoint single-point calculation."
+                f"Warning: {context} {label} endpoint has missing, placeholder, or "
+                "untrusted (unmarked) energy/force results; running an endpoint "
+                "single-point calculation."
             )
         elif policy == "always":
             print(f"Warning: {context} {label} endpoint is being recomputed by endpoint_singlepoint=always.")

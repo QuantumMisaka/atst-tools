@@ -120,7 +120,19 @@ calculation:
   endpoint_singlepoint: auto  # auto, always, or never
 ```
 
-`auto` computes only missing/placeholder endpoint results and prints a warning. `always` recomputes both endpoints. `never` rejects missing/placeholder endpoint results.
+`auto` (default) trusts only endpoint results explicitly marked by ATST as
+`computed`/`optimized`/`provided`; missing, placeholder, or unmarked (e.g.
+uploaded-chain/foreign) results are recomputed with the current run's calculator so
+the path and its endpoints stay consistent. `always` recomputes both endpoints.
+`never` preserves user-provided readable endpoint results and raises only when an
+endpoint lacks meaningful energy/force results.
+
+The trust marker is the per-image `atst_endpoint_result` attribute that ATST
+workflows write (`computed` after a single-point, `optimized` after endpoint
+relaxation, `provided` when readable input results are adopted). A foreign chain
+(e.g. an uploaded trajectory) carries no such marker and its readable values are
+therefore recomputed under `auto` — this prevents stale/foreign endpoint energies
+from poisoning the path profile (a known AutoNEB climbing-image phase crash root cause).
 
 For CI-NEB stability, `two_stage: true` first constructs the band with `climb=False`, runs ordinary NEB with `stage1_fmax` and `stage1_steps`, then sets `neb.climb = climb` and runs the final stage with `fmax` and `max_steps`. The first stage uses ASE optimizer stop semantics: it stops when either `stage1_fmax` is reached or `stage1_steps` is exhausted. The default `stage1_steps: 20` is a bounded warm-up, not a guarantee that the ordinary NEB stage will reach `stage1_fmax`. Set `stage1_steps: null` only when you intentionally want the first stage to rely on `stage1_fmax` and ASE's very large default optimizer step limit; this can be expensive for ABACUS.
 

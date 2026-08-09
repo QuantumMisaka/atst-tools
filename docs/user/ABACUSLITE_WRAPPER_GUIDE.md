@@ -132,8 +132,10 @@ atst run examples/10_irc_H2/config.yaml
 
 For D2S, ATST-Tools uses the same ABACUS calculator backend through rough NEB
 and the selected single-ended method. For NEB and AutoNEB, endpoint
-single-point governance repairs placeholder endpoint results before ASE NEB
-construction when configured with `endpoint_singlepoint: auto` or `always`.
+single-point governance repairs missing, placeholder, or unmarked (e.g.
+uploaded-chain/foreign) endpoint results before ASE NEB construction when
+configured with `endpoint_singlepoint: auto`, and recomputes both endpoints under
+`always`; `never` preserves user-provided readable endpoint results.
 
 ## NEB Image-Level MPI
 

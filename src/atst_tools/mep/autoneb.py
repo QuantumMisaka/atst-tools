@@ -467,7 +467,16 @@ class AbacusAutoNEB(AutoNEB):
                 print("****Now doing the CI-NEB calculation****")
             to_run, climb_safe = self.which_images_to_run_on()
 
-            assert climb_safe, "climb_safe should be true at this point!"
+            if not climb_safe:
+                raise ValueError(
+                    "AutoNEB climbing-image phase: the highest-energy image is an "
+                    "endpoint (initial or final) of the chain. Climbing-image NEB "
+                    "requires an interior maximum; this usually means the endpoint "
+                    "results are inconsistent with this run's calculator (e.g., "
+                    "stale/uploaded energies) or the reaction path has no interior "
+                    "transition state. Re-run with endpoint_singlepoint=always or "
+                    "provide consistent endpoint results."
+                )
             self.execute_one_neb(n_cur, to_run, climb=True, many_steps=True)
 
         if not self.smooth_curve:
@@ -731,7 +740,7 @@ class AutoNEBRunner:
                 endpoint_results[index] = (
                     results[0],
                     results[1],
-                    self.init_chain[index].info.get("atst_endpoint_result", "provided"),
+                    self.init_chain[index].info.get("atst_endpoint_result"),
                 )
         reference = self.init_chain[len(self.init_chain) // 2]
         magmoms = reference.get_initial_magnetic_moments()

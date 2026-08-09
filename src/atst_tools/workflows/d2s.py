@@ -23,7 +23,9 @@ from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
+    ENDPOINT_COMPUTED,
     ENDPOINT_OPTIMIZED,
+    ENDPOINT_PROVIDED,
     endpoint_policy,
     ensure_neb_endpoint_results,
     freeze_current_results,
@@ -165,7 +167,7 @@ class D2SWorkflow:
                 (
                     results[0],
                     results[1],
-                    atoms.info.get("atst_endpoint_result", "provided"),
+                    atoms.info.get("atst_endpoint_result"),
                 )
                 if results is not None
                 else None
@@ -191,7 +193,8 @@ class D2SWorkflow:
         for index, cached in zip((0, -1), input_endpoint_results):
             if cached is not None:
                 energy, forces, status = cached
-                freeze_results(images[index], energy, forces, status=status)
+                if status in {ENDPOINT_PROVIDED, ENDPOINT_COMPUTED, ENDPOINT_OPTIMIZED}:
+                    freeze_results(images[index], energy, forces, status=status)
         allow_shared = should_share_calculator(self.calc_name, self.config, parallel=False)
         shared_calc = self._get_calc("NEB/shared", shared=True) if allow_shared else None
         for index, image in enumerate(images[1:-1], start=1):

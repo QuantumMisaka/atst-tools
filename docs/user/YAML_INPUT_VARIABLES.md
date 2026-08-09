@@ -34,7 +34,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.max_steps | calculation.type=neb | `int` | `100` | Maximum optimizer steps. |
 | calculation.neb.optimizer | calculation.type=neb | `str` | `'FIRE'` | ASE optimizer name. |
 | calculation.neb.optimizer_kwargs | calculation.type=neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the ASE optimizer constructor. |
-| calculation.neb.endpoint_singlepoint | calculation.type=neb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy before NEB starts. |
+| calculation.neb.endpoint_singlepoint | calculation.type=neb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy before NEB starts: `auto` trusts only ATST-marked endpoint results (computed/optimized/provided) and recomputes missing, placeholder, or unmarked (e.g. uploaded-chain/foreign) ones with the current calculator; `always` recomputes both endpoints; `never` preserves user-provided readable endpoint results. |
 | calculation.neb.endpoint_optimization | calculation.type=neb | `dict` | `schema defaults` | Optional endpoint relaxation before ordinary NEB. |
 | calculation.neb.endpoint_optimization.enabled | calculation.neb.endpoint_optimization | `bool` | `False` | Relax endpoints before ordinary NEB. |
 | calculation.neb.endpoint_optimization.skip_if_has_results | calculation.neb.endpoint_optimization | `bool` | `True` | Skip endpoints that already have energy and forces. |
@@ -56,7 +56,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.autoneb.iter_folder | calculation.type=autoneb | `str` | `'AutoNEB_iter'` | Directory for AutoNEB iteration history. |
 | calculation.autoneb.restart | calculation.type=autoneb | `bool` | `False` | Reuse existing AutoNEB image files. |
 | calculation.autoneb.directory | calculation.type=autoneb | `str` | `'autoneb_run'` | Base calculator directory. |
-| calculation.autoneb.endpoint_singlepoint | calculation.type=autoneb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy. |
+| calculation.autoneb.endpoint_singlepoint | calculation.type=autoneb | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy: `auto` trusts only ATST-marked endpoint results (computed/optimized/provided) and recomputes missing, placeholder, or unmarked (e.g. uploaded-chain/foreign) ones with the current calculator; `always` recomputes both endpoints; `never` preserves user-provided readable endpoint results. |
 | calculation.dimer.type | calculation.type=dimer | `'dimer'` | `required` | Select the standalone ASE Dimer workflow. |
 | calculation.dimer.init_structure | calculation.type=dimer | `str` | `required` | Initial transition-state guess. |
 | calculation.dimer.trajectory | calculation.type=dimer | `str` | `'dimer.traj'` | Dimer trajectory output. |
@@ -116,7 +116,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.directory | calculation.type=d2s | `str` | `'run_d2s'` | Base workflow directory. |
 | calculation.d2s.artifact_manifest | calculation.type=d2s | `str` | `'atst_artifacts.json'` | Workflow artifact manifest JSON output. |
 | calculation.d2s.restart | calculation.type=d2s | `bool` | `False` | Reuse rough NEB and single-ended checkpoints. |
-| calculation.d2s.endpoint_singlepoint | calculation.type=d2s | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy. |
+| calculation.d2s.endpoint_singlepoint | calculation.type=d2s | `'auto' \| 'always' \| 'never'` | `'auto'` | Endpoint result policy: `auto` trusts only ATST-marked endpoint results (computed/optimized/provided) and recomputes missing, placeholder, or unmarked (e.g. uploaded-chain/foreign) ones with the current calculator; `always` recomputes both endpoints; `never` preserves user-provided readable endpoint results. |
 | calculation.d2s.endpoint_optimization | calculation.type=d2s | `dict` | `schema defaults` | Endpoint optimization policy. |
 | calculation.d2s.endpoint_optimization.enabled | calculation.d2s.endpoint_optimization | `bool` | `True` | Optimize endpoints before rough DyNEB. |
 | calculation.d2s.endpoint_optimization.skip_if_has_results | calculation.d2s.endpoint_optimization | `bool` | `True` | Skip endpoints that already have energy and forces. |
