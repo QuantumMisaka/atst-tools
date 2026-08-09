@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
 **版本**: 2.2.1
-**日期**: 2026-08-04
+**日期**: 2026-08-09
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -20,6 +20,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
 - `docs/archive/pending_delete/` 是待删除复核区；本轮只移动和记录，不最终删除。
+- 2026-08-09：`endpoint_singlepoint` 语义更新（`auto` 只信任 ATST 标记端点并重算
+  未标记/外来结果；`never` 保留用户提供的可读端点结果）已同步至
+  `config_schema.py`（重新生成 `YAML_INPUT_VARIABLES.md`）、
+  `docs/user/CONFIG_REFERENCE.md`（含 `atst_endpoint_result` 信任标记机制说明）与
+  `docs/user/ABACUSLITE_WRAPPER_GUIDE.md`。
 
 ## 2. 活跃 User 文档
 

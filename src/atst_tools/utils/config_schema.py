@@ -89,7 +89,13 @@ class NEBCalculation(StrictConfig):
     )
     endpoint_singlepoint: Literal["auto", "always", "never"] = Field(
         default="auto",
-        description="Endpoint result policy before NEB starts.",
+        description=(
+            "Endpoint result policy before NEB starts: `auto` trusts only ATST-marked "
+            "endpoint results (computed/optimized/provided) and recomputes missing, "
+            "placeholder, or unmarked (e.g. uploaded-chain/foreign) ones with the current "
+            "calculator; `always` recomputes both endpoints; `never` preserves "
+            "user-provided readable endpoint results."
+        ),
     )
     endpoint_optimization: NEBEndpointOptimizationConfig = Field(
         default_factory=NEBEndpointOptimizationConfig,
@@ -139,7 +145,15 @@ class AutoNEBCalculation(StrictConfig):
     iter_folder: str = Field(default="AutoNEB_iter", description="Directory for AutoNEB iteration history.")
     restart: bool = Field(default=False, description="Reuse existing AutoNEB image files.")
     directory: str = Field(default="autoneb_run", description="Base calculator directory.")
-    endpoint_singlepoint: Literal["auto", "always", "never"] = Field(default="auto", description="Endpoint result policy.")
+    endpoint_singlepoint: Literal["auto", "always", "never"] = Field(
+        default="auto",
+        description=(
+            "Endpoint result policy: `auto` trusts only ATST-marked endpoint results "
+            "(computed/optimized/provided) and recomputes missing, placeholder, or unmarked "
+            "(e.g. uploaded-chain/foreign) ones with the current calculator; `always` "
+            "recomputes both endpoints; `never` preserves user-provided readable endpoint results."
+        ),
+    )
 
     @field_validator("fmax")
     @classmethod
@@ -481,7 +495,15 @@ class D2SCalculation(StrictConfig):
     directory: str = Field(default="run_d2s", description="Base workflow directory.")
     artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
     restart: bool = Field(default=False, description="Reuse rough NEB and single-ended checkpoints.")
-    endpoint_singlepoint: Literal["auto", "always", "never"] = Field(default="auto", description="Endpoint result policy.")
+    endpoint_singlepoint: Literal["auto", "always", "never"] = Field(
+        default="auto",
+        description=(
+            "Endpoint result policy: `auto` trusts only ATST-marked endpoint results "
+            "(computed/optimized/provided) and recomputes missing, placeholder, or unmarked "
+            "(e.g. uploaded-chain/foreign) ones with the current calculator; `always` "
+            "recomputes both endpoints; `never` preserves user-provided readable endpoint results."
+        ),
+    )
     endpoint_optimization: EndpointOptimizationConfig = Field(
         default_factory=EndpointOptimizationConfig,
         description="Endpoint optimization policy.",
