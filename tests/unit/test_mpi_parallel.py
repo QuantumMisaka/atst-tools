@@ -1190,3 +1190,71 @@ def test_abacus_autoneb_passes_its_world_to_executing_and_interpolating_nebs(
 
     assert len(constructed) == 2
     assert all(kwargs["world"] is supplied_world for kwargs in constructed)
+
+
+@pytest.mark.parametrize(
+    "energies",
+    [
+        [2.0, 0.1, 0.2, 0.3],  # initial endpoint is the band maximum
+        [0.0, 0.1, 0.2, 2.0],  # final endpoint is the band maximum
+    ],
+)
+def test_abacus_autoneb_endpoint_peak_raises_diagnostic_value_error(
+    monkeypatch, tmp_path, energies
+):
+    """The CI phase raises a clear ValueError (not a cryptic assert) for endpoint maxima."""
+    from atst_tools.mep import autoneb
+
+    monkeypatch.chdir(tmp_path)
+    auto = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="run",
+        n_simul=1,
+        n_max=4,
+        parallel=False,
+        world=FakeWorld(size=1, rank=0),
+    )
+    auto.all_images = [_atoms(energy) for energy in energies]
+    auto.k = [0.1, 0.1, 0.1]
+    auto.iteration = 0
+    auto.climb = True
+    auto.smooth_curve = False
+    auto.__initialize__ = lambda: len(auto.all_images)
+
+    with pytest.raises(ValueError) as excinfo:
+        auto.run()
+
+    message = str(excinfo.value)
+    assert "endpoint" in message
+    assert "climbing-image" in message
+
+
+def test_abacus_autoneb_interior_peak_proceeds_into_climbing_phase(monkeypatch, tmp_path):
+    """An interior band maximum must not be reported as an endpoint failure."""
+    from atst_tools.mep import autoneb
+
+    monkeypatch.chdir(tmp_path)
+    calls = []
+
+    def fake_execute_one_neb(n_cur, to_run, climb=False, many_steps=False):
+        calls.append((climb, many_steps))
+
+    auto = autoneb.AbacusAutoNEB(
+        attach_calculators=lambda images: None,
+        prefix="run",
+        n_simul=1,
+        n_max=4,
+        parallel=False,
+        world=FakeWorld(size=1, rank=0),
+    )
+    auto.all_images = [_atoms(0.0), _atoms(2.0), _atoms(0.2), _atoms(0.1)]
+    auto.k = [0.1, 0.1, 0.1]
+    auto.iteration = 0
+    auto.climb = True
+    auto.smooth_curve = False
+    auto.__initialize__ = lambda: len(auto.all_images)
+    auto.execute_one_neb = fake_execute_one_neb
+
+    auto.run()
+
+    assert calls == [(True, True)], "an interior maximum should run the CI NEB step"
