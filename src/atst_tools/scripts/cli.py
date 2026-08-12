@@ -148,6 +148,51 @@ def _config_validate_command(args):
         print("Configuration is valid")
 
 
+def _add_prepare_parser(subparsers):
+    parser = subparsers.add_parser(
+        "prepare",
+        help="Generate an ATST transition YAML from an ABACUS run directory",
+        description=(
+            "Reverse-generate a runnable ATST workflow config from a "
+            "completed ABACUS run directory (INPUT/STRU/KPT/PP/ORB)."
+        ),
+        epilog=dedent(
+            """\
+            Examples:
+              atst prepare run_dir --workflow neb \
+                --init-structure init/STRU --final-structure final/STRU \
+                -o atst_neb.yaml
+            """
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("abacus_run_dir", help="ABACUS run directory")
+    parser.add_argument("--workflow", choices=("neb",), default="neb")
+    parser.add_argument("--init-structure", default=None, help="NEB initial structure file")
+    parser.add_argument("--final-structure", default=None, help="NEB final structure file")
+    parser.add_argument("--n-images", type=int, default=5, help="Number of interior NEB images")
+    parser.add_argument("--no-gate", action="store_true", help="Skip the endpoint energy+forces gate")
+    parser.add_argument("-o", "--output", default=None, help="Output YAML path")
+    parser.set_defaults(func=_prepare_command)
+
+
+def _prepare_command(args):
+    from atst_tools.utils.reverse_config import build_config_from_abacus_dir
+
+    config = build_config_from_abacus_dir(
+        args.abacus_run_dir,
+        workflow=args.workflow,
+        init_structure=args.init_structure,
+        final_structure=args.final_structure,
+        n_images=args.n_images,
+        gate_dirs=None if args.no_gate else [args.abacus_run_dir],
+    )
+    _write_yaml(config, args.output)
+    if args.output:
+        print(f"Wrote {args.output}")
+    return config
+
+
 def _add_abacus_parser(subparsers):
     parser = subparsers.add_parser(
         "abacus",
@@ -800,6 +845,7 @@ def build_parser():
     _add_banner_parser(subparsers)
     _add_run_parser(subparsers)
     _add_config_parser(subparsers)
+    _add_prepare_parser(subparsers)
     _add_abacus_parser(subparsers)
     _add_neb_parser(subparsers)
     _add_dimer_parser(subparsers)

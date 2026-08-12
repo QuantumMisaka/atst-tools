@@ -1416,3 +1416,58 @@ def test_vibration_post_rejects_invalid_cache(monkeypatch, tmp_path):
         assert "Invalid vibration cache" in str(exc)
     else:
         raise AssertionError("expected invalid cache to raise")
+
+
+def test_atst_prepare_cli_generates_valid_yaml(tmp_path, monkeypatch):
+    """`atst prepare` writes a YAML that config validate and run --dry-run accept."""
+    from atst_tools.scripts import cli
+    from tests.unit.test_reverse_config import _write_minimal_run
+
+    run = _write_minimal_run(tmp_path)
+    out = tmp_path / "atst_neb.yaml"
+    monkeypatch.chdir(tmp_path)
+    cli.main(
+        [
+            "prepare",
+            str(run),
+            "--workflow",
+            "neb",
+            "--init-structure",
+            str(run / "STRU"),
+            "--final-structure",
+            str(run / "STRU"),
+            "-o",
+            str(out),
+        ]
+    )
+    assert out.is_file()
+    cli.main(["config", "validate", str(out)])
+    cli.main(["run", "--dry-run", str(out)])
+
+
+def test_atst_prepare_cli_rejects_endpoint_without_forces(tmp_path, monkeypatch):
+    """The default endpoint gate makes `atst prepare` fail non-zero on a bad dir."""
+    from atst_tools.scripts import cli
+    from tests.unit.test_reverse_config import _write_minimal_run
+
+    run = _write_minimal_run(tmp_path)
+    (run / "OUT.abacus" / "running_scf.log").unlink()
+    monkeypatch.chdir(tmp_path)
+    # The CLI raises the reverse-config ValueError (business-logic error, same
+    # convention as `atst config validate`); the console wrapper turns it into a
+    # non-zero exit with the message naming the endpoint and the missing output.
+    with pytest.raises(ValueError, match="energy|forces"):
+        cli.main(
+            [
+                "prepare",
+                str(run),
+                "--workflow",
+                "neb",
+                "--init-structure",
+                str(run / "STRU"),
+                "--final-structure",
+                str(run / "STRU"),
+                "-o",
+                str(tmp_path / "out.yaml"),
+            ]
+        )
