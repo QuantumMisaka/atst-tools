@@ -7,6 +7,7 @@ from atst_tools.utils.plot import (
     neb_energy_profile,
     sella_energy_curve,
 )
+from atst_tools.utils.reverse_config import build_config_from_abacus_dir
 
 __all__ = [
     "CCQNOptions",
@@ -18,4 +19,5 @@ __all__ = [
     "neb_energy_profile",
     "sella_energy_curve",
     "ccqn_energy_curve",
+    "build_config_from_abacus_dir",
 ]

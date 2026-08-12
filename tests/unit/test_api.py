@@ -76,7 +76,18 @@ def test_public_api_has_only_the_supported_contract():
         "neb_energy_profile",
         "sella_energy_curve",
         "ccqn_energy_curve",
+        "build_config_from_abacus_dir",
     ]
+
+
+def test_api_exposes_build_config_from_abacus_dir(tmp_path):
+    from atst_tools.api import build_config_from_abacus_dir, validate_config
+    from tests.unit.test_reverse_config import _write_minimal_run
+
+    run = _write_minimal_run(tmp_path)
+    config = build_config_from_abacus_dir(run, gate_dirs=[])
+    validate_config(config)
+    assert config["calculation"]["type"] == "neb"
 
 
 def test_public_dependency_error_is_typed_without_expanding_root_imports():
