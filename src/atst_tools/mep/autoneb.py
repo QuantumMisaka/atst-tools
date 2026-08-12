@@ -45,19 +45,38 @@ def _store_E_and_F_in_spc_reduced(neb):
 
     energies = np.zeros(neb.nimages)
     forces = np.zeros((neb.nimages, neb.natoms, 3))
+    stresses = np.zeros((neb.nimages, 6))
     image_index = neb.world.rank * (neb.nimages - 2) // neb.world.size + 1
     forces[image_index] = images[image_index].get_forces()
     energies[image_index] = images[image_index].get_potential_energy()
+    stress = getattr(images[image_index].calc, "results", {}).get("stress")
+    if stress is not None:
+        stresses[image_index] = np.asarray(stress, dtype=float)
 
     neb.world.sum(energies)
     neb.world.sum(forces)
+    neb.world.sum(stresses)
 
     for i in range(1, neb.nimages - 1):
-        images[i].calc = SinglePointCalculator(
-            images[i],
-            energy=energies[i],
-            forces=forces[i],
-        )
+        kwargs = {"energy": energies[i], "forces": forces[i]}
+        if np.any(stresses[i] != 0.0) or getattr(neb, "stresses", None) is not None:
+            kwargs["stress"] = stresses[i]
+        images[i].calc = SinglePointCalculator(images[i], **kwargs)
+
+
+def _store_E_and_F_in_spc_with_stress(neb):
+    """Freeze serial NEB image results including cached stress."""
+    neb.get_forces()
+    images = neb.images
+    stresses = getattr(neb, "stresses", None)
+    for i in range(1, neb.nimages - 1):
+        kwargs = {
+            "energy": neb.energies[i],
+            "forces": neb.real_forces[i],
+        }
+        if stresses is not None:
+            kwargs["stress"] = stresses[i]
+        images[i].calc = SinglePointCalculator(images[i], **kwargs)
 
 
 class AbacusAutoNEB(AutoNEB):
@@ -655,7 +674,7 @@ class SynchronizedAutoNEB(AutoNEB):
             else self.fmax
         )
         qn.run(fmax=fmax, steps=steps)
-        neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
+        neb.distribute = types.MethodType(_store_E_and_F_in_spc_with_stress, neb)
         neb.distribute()
 
 class AutoNEBRunner:
