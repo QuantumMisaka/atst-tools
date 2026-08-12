@@ -5,6 +5,7 @@ from atst_tools.utils.mpi import bootstrap_mpi_for_ase
 bootstrap_mpi_for_ase()
 
 import threading
+from typing import Any
 
 import numpy as np
 from ase.build import minimize_rotation_and_translation
@@ -205,3 +206,19 @@ class AbacusNEB(NEB):
             spring1 = spring2
 
         return precon_forces.reshape((-1, 3))
+
+    def iterimages(self):
+        """Freeze interior images with cached stress when available."""
+        for i, atoms in enumerate(self.images):
+            if i == 0 or i == self.nimages - 1:
+                yield atoms
+            else:
+                atoms = atoms.copy()
+                kwargs: dict[str, Any] = {
+                    "energy": self.energies[i],
+                    "forces": self.real_forces[i],
+                }
+                if self.stresses is not None:
+                    kwargs["stress"] = self.stresses[i]
+                self.freeze_results_on_image(atoms, **kwargs)
+                yield atoms

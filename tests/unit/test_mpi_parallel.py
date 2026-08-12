@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 
+import numpy as np
 import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
@@ -1283,3 +1284,29 @@ def test_abacus_neb_get_forces_stresses_none_without_stress():
     neb = AbacusNEB(chain, parallel=False)
     neb.get_forces()
     assert neb.stresses is None
+
+
+def test_abacus_neb_iterimages_freezes_inner_images_with_stress():
+    from atst_tools.mep.neb import AbacusNEB
+
+    chain = [_atoms_with_stress(0.0), _atoms_with_stress(1.0), _atoms_with_stress(2.0)]
+    neb = AbacusNEB(chain, parallel=False)
+    neb.get_forces()
+    frames = list(neb.iterimages())
+    assert frames[0].calc is chain[0].calc  # endpoint yielded as-is
+    inner = frames[1]
+    assert isinstance(inner.calc.results, dict)
+    assert "stress" in inner.calc.results
+    assert np.asarray(inner.calc.results["stress"]).shape == (6,)
+    assert "energy" in inner.calc.results
+    assert "forces" in inner.calc.results
+
+
+def test_abacus_neb_iterimages_no_stress_key_when_unavailable():
+    from atst_tools.mep.neb import AbacusNEB
+
+    chain = [_atoms(0.0), _atoms(1.0), _atoms(2.0)]
+    neb = AbacusNEB(chain, parallel=False)
+    neb.get_forces()
+    frames = list(neb.iterimages())
+    assert "stress" not in frames[1].calc.results
