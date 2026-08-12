@@ -1258,3 +1258,28 @@ def test_abacus_autoneb_interior_peak_proceeds_into_climbing_phase(monkeypatch, 
     auto.run()
 
     assert calls == [(True, True)], "an interior maximum should run the CI NEB step"
+
+
+def _atoms_with_stress(x: float) -> Atoms:
+    atoms = Atoms("H", positions=[[x, 0.0, 0.0]])
+    atoms.calc = DummyCalc()  # DummyCalc.results includes stress = np.zeros(6)
+    return atoms
+
+
+def test_abacus_neb_get_forces_collects_stresses_serial():
+    from atst_tools.mep.neb import AbacusNEB
+
+    chain = [_atoms_with_stress(0.0), _atoms_with_stress(1.0), _atoms_with_stress(2.0)]
+    neb = AbacusNEB(chain, parallel=False)
+    neb.get_forces()
+    assert neb.stresses is not None
+    assert neb.stresses.shape == (3, 6)
+
+
+def test_abacus_neb_get_forces_stresses_none_without_stress():
+    from atst_tools.mep.neb import AbacusNEB
+
+    chain = [_atoms(0.0), _atoms(1.0), _atoms(2.0)]  # _atoms has no stress key
+    neb = AbacusNEB(chain, parallel=False)
+    neb.get_forces()
+    assert neb.stresses is None

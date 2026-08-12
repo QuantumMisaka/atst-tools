@@ -19,6 +19,14 @@ def _world_sum_scalar(world, value):
     return world.sum(value)
 
 
+def _image_stress(image):
+    """Return the cached Voigt-6 stress of an image, or None when unavailable."""
+    results = getattr(image.calc, "results", {}) if image.calc is not None else {}
+    if "stress" in results:
+        return np.asarray(results["stress"], dtype=float)
+    return None
+
+
 class AbacusNEB(NEB):
     """NEB wrapper retaining ATST's public class name.
 
@@ -76,6 +84,8 @@ class AbacusNEB(NEB):
         forces = np.zeros(((self.nimages - 2), self.natoms, 3))
         energies = np.zeros(self.nimages)
         real_forces = np.zeros((self.nimages, self.natoms, 3))
+        stresses = np.zeros((self.nimages, 6))
+        has_stress = False
 
         if self.remove_rotation_and_translation:
             for i in range(1, self.nimages):
@@ -90,6 +100,10 @@ class AbacusNEB(NEB):
                 forces[i - 1] = images[i].get_forces()
                 energies[i] = images[i].get_potential_energy()
                 real_forces[i] = images[i].get_forces(apply_constraint=False)
+                stress = _image_stress(images[i])
+                if stress is not None:
+                    stresses[i] = stress
+                    has_stress = True
 
         elif self.world.size == 1:
 
@@ -114,6 +128,11 @@ class AbacusNEB(NEB):
                 thread.start()
             for thread in threads:
                 thread.join()
+            for i in range(1, self.nimages - 1):
+                stress = _image_stress(images[i])
+                if stress is not None:
+                    stresses[i] = stress
+                    has_stress = True
         else:
             i = self.world.rank * (self.nimages - 2) // self.world.size + 1
             local_energies = np.zeros(self.nimages)
@@ -122,6 +141,10 @@ class AbacusNEB(NEB):
                 energies[i] = images[i].get_potential_energy()
                 local_energies[i] = energies[i]
                 real_forces[i] = images[i].get_forces(apply_constraint=False)
+                local_stress = _image_stress(images[i])
+                if local_stress is not None:
+                    stresses[i] = local_stress
+                has_stress_local = 1.0 if local_stress is not None else 0.0
             except Exception:
                 error = _world_sum_scalar(self.world, 1.0)
                 raise
@@ -133,6 +156,8 @@ class AbacusNEB(NEB):
             self.world.sum(local_energies)
             self.world.sum(forces)
             self.world.sum(real_forces)
+            self.world.sum(stresses)
+            has_stress = _world_sum_scalar(self.world, has_stress_local) > 0
             energies[1:-1] = local_energies[1:-1]
 
         if self.precon is None or isinstance(self.precon, (str, Precon, list)):
@@ -142,6 +167,7 @@ class AbacusNEB(NEB):
 
         self.energies = energies
         self.real_forces = real_forces
+        self.stresses = stresses if has_stress else None
 
         state = NEBState(self, images, energies)
         self.imax = state.imax
