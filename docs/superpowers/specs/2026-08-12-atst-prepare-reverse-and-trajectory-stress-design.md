@@ -1,7 +1,7 @@
 # atst-tools 侧设计记录：`atst prepare` 反向生成 + 轨迹应力保留
 
 **日期**: 2026-08-12
-**状态**: 已实施（2026-08-12，feature branch feat/atst-prepare-and-trajectory-stress，2.3.0）
+**状态**: 已实施（2026-08-12，feature branch feat/atst-prepare-and-trajectory-stress，2.2.3）
 **权威规格**: ABACUS toolbox
 `docs/superpowers/specs/2026-08-12-atst-prepare-reverse-and-trajectory-stress-design.html`
 （跨仓库协调文档，本记录只固化 atst-tools 上游专属决策，不复制全文）
@@ -38,8 +38,9 @@
   方式进入——解析后落在 `calculator.abacus.pseudo_dir`/`orbital_dir` 顶层字段
   （经 `AbacusProfile` 注入写 INPUT），**不进 `parameters`**；STRU 元素头 →
   `pseudopotentials`/`basissets`（同为顶层）。
-- **版本归属**: 新增独立功能点，倾向 minor（2.3.0）；发布说明须声明向后兼容
-  （纯增量，`cal_stress: 0` 下轨迹与现状一致）。
+- **版本归属**: 按仓库约定（minor 保留给阶段性/重大发布，patch 承担小功能
+  加入与 bug 修复）定为 **patch 2.2.3**（2026-08-13 维护者裁定）；发布说明
+  声明向后兼容（纯增量，`cal_stress: 0` 下轨迹与现状一致）。
 - **基线**: 开发前先将 main 拉平到 v2.2.2（当前 main 停在 2.2.0 finalize，
   toolbox 子模块 pin v2.2.2）。
 

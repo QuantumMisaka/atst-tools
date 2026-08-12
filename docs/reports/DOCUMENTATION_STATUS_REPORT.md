@@ -1,6 +1,6 @@
 # 文档治理状态报告
 
-**版本**: 2.3.0
+**版本**: 2.2.3
 **日期**: 2026-08-09
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
@@ -14,7 +14,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.3.0.md`；2.0.0、2.0.1、2.0.2、
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.3.md`；2.0.0、2.0.1、2.0.2、
   2.1.0、2.1.1、2.1.2、2.1.3、2.1.4、2.2.0、2.2.1 和 2.2.2 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
@@ -25,11 +25,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `config_schema.py`（重新生成 `YAML_INPUT_VARIABLES.md`）、
   `docs/user/CONFIG_REFERENCE.md`（含 `atst_endpoint_result` 信任标记机制说明）与
   `docs/user/ABACUSLITE_WRAPPER_GUIDE.md`。
-- 2026-08-12：2.3.0 阶段性发布（`atst prepare` 反向配置生成 + 轨迹应力保留）。
+- 2026-08-12：2.2.3 阶段性发布（`atst prepare` 反向配置生成 + 轨迹应力保留）。
   新增 `atst prepare` 顶层命令与 `build_config_from_abacus_dir` 稳定 API，文档同步至
   `docs/user/CLI_REFERENCE.md`、`docs/user/USER_GUIDE_CN.md`、
   `docs/user/CONFIG_REFERENCE.md` 与 `docs/reports/FEATURE_STATUS_MATRIX.md`；
-  新增 `docs/releases/RELEASE_NOTES_2.3.0.md`。YAML schema 未变，不重新生成
+  新增 `docs/releases/RELEASE_NOTES_2.2.3.md`。YAML schema 未变，不重新生成
   `YAML_INPUT_VARIABLES.md`。
 
 ## 2. 活跃 User 文档

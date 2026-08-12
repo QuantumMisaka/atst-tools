@@ -1,17 +1,18 @@
-# ATST-Tools 2.3.0 Release Notes
+# ATST-Tools 2.2.3 Release Notes
 
-**Version**: 2.3.0
+**Version**: 2.2.3
 **Date**: 2026-08-12
 **Branch**: pending merge (`feat/atst-prepare-and-trajectory-stress`)
-**Tag**: `v2.3.0`
+**Tag**: `v2.2.3`
 
 ## Summary
 
 > 版本号语义（本仓库约定）：minor（2.x.0）保留给阶段性/重大功能发布；
-> patch（2.2.x）承担小功能加入与新增优化，以及 bug 修复。2.3.0 按 minor
-> 语义承载本批阶段性功能：`atst prepare` 反向配置生成与轨迹应力保留。
+> patch（2.2.x）承担小功能加入与新增优化，以及 bug 修复。2.2.3 按 patch
+> 语义承载本批小功能与修复：`atst prepare` 反向配置生成（小功能加入）与
+> NEB/AutoNEB 轨迹应力保留（根因 bug 修复）。
 
-ATST-Tools 2.3.0 adds two additive capabilities. First, a new top-level
+ATST-Tools 2.2.3 adds two additive capabilities. First, a new top-level
 `atst prepare` command and its stable Python API
 `atst_tools.api.build_config_from_abacus_dir` reverse-generate a runnable
 transition (NEB) YAML from a completed ABACUS run directory
