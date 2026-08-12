@@ -40,3 +40,17 @@ def test_autoneb_store_E_and_F_in_spc_with_stress_absent():
     neb = AbacusNEB(chain, parallel=False)
     _store_E_and_F_in_spc_with_stress(neb)
     assert "stress" not in neb.images[1].calc.results
+
+
+def test_abacus_autoneb_serial_reduced_routes_through_stress_variant():
+    """R8: atst-backend serial AutoNEB (AbacusAutoNEB, parallel=False) must freeze
+    interior images with stress — the serial fallback of
+    ``_store_E_and_F_in_spc_reduced`` routes through ``_store_E_and_F_in_spc_with_stress``."""
+    from atst_tools.mep.autoneb import _store_E_and_F_in_spc_reduced
+    from atst_tools.mep.neb import AbacusNEB
+
+    chain = [_image(0.0, True), _image(1.0, True), _image(2.0, True)]
+    neb = AbacusNEB(chain, parallel=False)
+    _store_E_and_F_in_spc_reduced(neb)
+    assert "stress" in neb.images[1].calc.results
+    assert np.asarray(neb.images[1].calc.results["stress"]).shape == (6,)

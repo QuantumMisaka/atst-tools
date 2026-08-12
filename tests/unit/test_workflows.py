@@ -1121,7 +1121,7 @@ def test_abacus_autoneb_preserves_ase_fmax_and_maxsteps_schedule(monkeypatch, tm
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
-    monkeypatch.setattr(autoneb, "store_E_and_F_in_spc", lambda neb: None, raising=False)
+    monkeypatch.setattr(autoneb, "_store_E_and_F_in_spc_with_stress", lambda neb: None, raising=False)
 
     auto = autoneb.AbacusAutoNEB(
         attach_calculators=lambda atoms: None,
@@ -1180,7 +1180,7 @@ def test_issue25_serial_autoneb_uses_expected_fmax_schedule(monkeypatch, tmp_pat
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(autoneb, "AbacusNEB", FakeNEB)
-    monkeypatch.setattr(autoneb, "store_E_and_F_in_spc", lambda neb: None, raising=False)
+    monkeypatch.setattr(autoneb, "_store_E_and_F_in_spc_with_stress", lambda neb: None, raising=False)
 
     auto = autoneb.AbacusAutoNEB(
         attach_calculators=lambda atoms: None,

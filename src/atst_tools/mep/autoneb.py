@@ -41,7 +41,7 @@ def _store_E_and_F_in_spc_reduced(neb):
     neb.get_forces()
     images = neb.images
     if not neb.parallel:
-        return store_E_and_F_in_spc(neb)
+        return _store_E_and_F_in_spc_with_stress(neb)
 
     energies = np.zeros(neb.nimages)
     forces = np.zeros((neb.nimages, neb.natoms, 3))
