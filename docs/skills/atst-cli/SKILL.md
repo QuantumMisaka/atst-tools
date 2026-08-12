@@ -24,6 +24,7 @@ git status --short
 atst --version
 atst banner
 atst --help
+atst prepare RUN_DIR --workflow neb --init-structure INIT/STRU --final-structure FINAL/STRU -o atst_neb.yaml
 ```
 
 Before launching expensive calculations, validate YAML:
