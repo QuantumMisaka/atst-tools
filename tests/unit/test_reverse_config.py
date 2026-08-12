@@ -152,6 +152,13 @@ def test_build_config_point_kpt_passthrough(tmp_path):
     assert isinstance(kpts, dict)
     assert kpts["mode"] == "point"
     assert len(kpts["kpoints"]) == 2
+    # Multi-point decimal coordinates must round-trip exactly (regression:
+    # the abacuslite point parser previously mis-parsed fractional coords).
+    assert [tuple(map(float, row)) for row in kpts["kpoints"]] == [
+        (0.0, 0.0, 0.0),
+        (0.5, 0.5, 0.5),
+    ]
+    assert kpts["weights"] == [1, 1]
 
 
 def test_build_config_kspacing_derives_grid(tmp_path):

@@ -602,8 +602,8 @@ def _read_kpoint(raw: List[str]) -> Dict[str, Any]:
     assert raw[2].lower() in ['direct', 'cartesian'], \
              f'Invalid KPT file, expected "Direct" or "Cartesian" in the third line, ' \
              f'got {raw[2]}'
-    mymatch = [re.match(r'^(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s*'
-                        r'(\d+).*', l) 
+    mymatch = [re.match(r'^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*'
+                        r'(\d+).*', l)
               for l in raw[3:]]
     assert all(m for m in mymatch), \
              'Invalid KPT file, expected the k-points to be in the format ' \
@@ -614,7 +614,7 @@ def _read_kpoint(raw: List[str]) -> Dict[str, Any]:
         'coordinate': 'Cartesian' if raw[2].lower() == 'cartesian' else 'Direct',
         'nk': int(raw[1]),
         'kpoints': [tuple(map(float, m.groups()[:3])) for m in mymatch],
-        'weights': [int(m.groups()[6]) for m in mymatch]
+        'weights': [int(m.groups()[3]) for m in mymatch]
     }
 
 def read_kpt(fn: str) -> Dict[str, Any]:
