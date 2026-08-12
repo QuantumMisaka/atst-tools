@@ -104,7 +104,14 @@ def test_build_config_from_abacus_dir_basic(tmp_path):
     assert abacus["pseudo_dir"] == str((run / "data").resolve())
     assert abacus["pseudopotentials"] == {"H": "H.upf"}
     assert abacus["basissets"] == {"H": "H.orb"}
-    assert abacus["kpts"] == [1, 1, 1]
+    # KPT Gamma file maps to the mp-sampling dict (identical shape to the
+    # ABACUS toolbox _runtime_kpts, so Agent delegation is byte-identical).
+    assert abacus["kpts"] == {
+        "mode": "mp-sampling",
+        "gamma-centered": True,
+        "nk": [1, 1, 1],
+        "kshift": [0, 0, 0],
+    }
 
 
 def test_build_config_rejects_line_mode(tmp_path):

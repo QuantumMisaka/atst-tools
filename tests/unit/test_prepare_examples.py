@@ -55,6 +55,8 @@ def test_examples_generate_valid_configs():
     assert abacus["parameters"]["cal_force"] == 1  # floor
     assert "pseudo_dir" not in abacus["parameters"]  # promoted to top level
     assert "orbital_dir" not in abacus["parameters"]
-    assert isinstance(abacus["kpts"], list) and len(abacus["kpts"]) == 3
+    # kpts shape mirrors the toolbox _runtime_kpts: list grid for INPUT
+    # selectors (gamma_only/kspacing) or an mp-sampling dict for KPT files.
+    assert isinstance(abacus["kpts"], (list, dict))
     assert abacus["pseudopotentials"]
     assert abacus["basissets"]

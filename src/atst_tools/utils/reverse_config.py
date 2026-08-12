@@ -114,7 +114,15 @@ def _resolve_kpts(run_dir: Path, parameters: dict[str, Any]) -> Any:
             "Line 模式 KPT 不适用于过渡态力计算；请改用 Gamma/MP 网格或 point 显式 K 点"
         )
     if mode == "mp-sampling":
-        return list(parsed["nk"])
+        # Mirrors the ABACUS toolbox `_runtime_kpts` shape (parse_abacus_kpt):
+        # a dict with list nk/kshift, so the Agent delegation stays byte-identical
+        # with today's prepared-input behavior (SPEC R6 / cross-repo equivalence).
+        return {
+            "mode": "mp-sampling",
+            "gamma-centered": bool(parsed.get("gamma-centered", True)),
+            "nk": list(parsed["nk"]),
+            "kshift": list(parsed["kshift"]),
+        }
     if mode == "point":
         return parsed
     raise ValueError(f"不支持的 KPT 模式: {mode}")
