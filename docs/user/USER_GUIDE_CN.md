@@ -165,8 +165,26 @@ ATST-Tools 是分层 wrapper：
 - 简单前处理通过 `atst abacus prepare` 生成 `INPUT`、`KPT`、`STRU`。
 - 简单后处理通过 `atst abacus collect` 生成只读 JSON 摘要，并在文件齐全时
   解析最终结构。
+- 反向生成通过 `atst prepare` 从已完成 ABACUS 运行目录（`INPUT`/`STRU`/`KPT`/
+  `PP`/`ORB`）生成可运行的过渡态 YAML，无需手工编写配置。
 - ATST-Tools 不替代 ABACUS CLI，不负责站点调度提交策略，不承诺覆盖全部
   abacuslite IO API。
+
+从 ABACUS 运行目录生成 NEB 配置（`atst prepare` 不运行 ABACUS）：
+
+```bash
+atst prepare run_dir --workflow neb \
+  --init-structure init/STRU --final-structure final/STRU \
+  --n-images 5 -o atst_neb.yaml
+```
+
+`--workflow` 当前支持 `neb`（默认）；`--init-structure`/`--final-structure`
+指定端点结构（默认取运行目录 `STRU`），`--n-images` 设置内点个数（默认 5）。
+默认会校验端点目录含可解析的末帧 energy+forces（端点门控），可用 `--no-gate`
+跳过；`-o` 指定输出 YAML 路径。生成时用户可控的 ABACUS 值原样带入，仅施加三个
+技术地板：`calculation` 归一化为 `scf`、`cal_force` 归一化为 `1`、KPT 拒绝
+line 模式（接受 Gamma/MP 网格与 point 显式 K 点）。等价能力也可通过 Python
+API `atst_tools.api.build_config_from_abacus_dir` 调用。
 
 ## 6. 常用轻量命令
 
@@ -196,6 +214,7 @@ ABACUS 前后处理：
 ```bash
 atst abacus prepare config.yaml --structure inputs/init.stru --output-dir abacus_input
 atst abacus collect run_abacus --output abacus_results.json
+atst prepare run_dir --workflow neb --init-structure init/STRU --final-structure final/STRU -o atst_neb.yaml
 ```
 
 更多命令见 [CLI_REFERENCE.md](CLI_REFERENCE.md)。

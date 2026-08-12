@@ -53,6 +53,31 @@ atst config validate config.yaml --output used_config.yaml
 defaults have been applied. This is the recommended way to confirm the exact
 workflow settings before launching expensive ABACUS or DP calculations.
 
+## Transition Config Generation
+
+```bash
+atst prepare run_dir --workflow neb \
+  --init-structure init/STRU --final-structure final/STRU \
+  --n-images 5 --no-gate -o atst_neb.yaml
+```
+
+`atst prepare` reverse-generates a runnable ATST workflow YAML from a completed
+ABACUS run directory (`INPUT`/`STRU`/`KPT`/`PP`/`ORB`). It does not run ABACUS.
+`--workflow` currently accepts `neb` (the default). For NEB,
+`--init-structure` and `--final-structure` select the endpoint structure files
+(default: the run directory's `STRU` for both), `--n-images` sets the number of
+interior images (default 5), and `-o/--output` chooses the output YAML path
+(without it the YAML is printed to stdout). By default the command requires the
+endpoint directory to carry parseable last-frame energy and forces (the
+endpoint gate); pass `--no-gate` to skip that check.
+
+The generated config keeps user-controlled ABACUS values verbatim and applies
+three technical floors required by NEB interior single-point force evaluation:
+`calculation` is normalized to `scf`, `cal_force` to `1`, and line-mode `KPT`
+files are rejected (Gamma/MP grids and explicit point K points are accepted).
+The same reverse-generation is available to Python callers through
+`atst_tools.api.build_config_from_abacus_dir`.
+
 ## ABACUS Tools
 
 ```bash
@@ -166,7 +191,12 @@ It supports the same thermochemistry configuration as `calculation.type: vibrati
 
 ## Workflow CLI Boundary
 
-`config validate`, `abacus prepare/collect`, `neb make/post/summary`, `md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`, `sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary` are lightweight commands. They do not create workflow calculators, run ABACUS/DP, or submit scheduled work. Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
+`prepare`, `config validate`, `abacus prepare/collect`, `neb make/post/summary`,
+`md post/summary`, `dimer make-from-neb/summary`, `relax post/summary`,
+`sella summary`, `ccqn summary`, `d2s summary`, and `vibration post/summary`
+are lightweight commands. They do not create workflow calculators, run
+ABACUS/DP, or submit scheduled work. Dimer, Sella, CCQN, D2S, Relax,
+Vibration, IRC, and MD calculations remain YAML workflows through `atst run`.
 
 For programmatic embedding, the stable Python API calls the same normalization
 and workflow services while this CLI retains command parsing, terminal messages,

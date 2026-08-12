@@ -567,6 +567,15 @@ This writes `INPUT`, `KPT`, and `STRU` through the active `abacuslite` writer.
 It is a pre-processing helper only; run submission and resource management stay
 outside ATST-Tools.
 
+`pseudopotentials`, `basissets`, `pseudo_dir`, and `orbital_dir` are ABACUS
+top-level fields, not `parameters` entries. `atst prepare` (reverse
+configuration generation from a completed ABACUS run directory) resolves
+`pseudo_dir`/`orbital_dir` and the STRU-derived
+`pseudopotentials`/`basissets` into these top-level fields, and the active
+`abacuslite` writer injects them into the generated `INPUT` accordingly. Only
+`pseudo_dir`/`orbital_dir` have a schema default (`.`); `pseudopotentials` and
+`basissets` are required.
+
 ### 3.2 Deep Potential (DP)
 **Name**: `dp`
 

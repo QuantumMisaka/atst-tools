@@ -1,7 +1,7 @@
 # atst-tools 侧设计记录：`atst prepare` 反向生成 + 轨迹应力保留
 
 **日期**: 2026-08-12
-**状态**: 待实施（设计已确认，等待 canonical spec 审阅批准）
+**状态**: 已实施（2026-08-12，feature branch feat/atst-prepare-and-trajectory-stress，2.3.0）
 **权威规格**: ABACUS toolbox
 `docs/superpowers/specs/2026-08-12-atst-prepare-reverse-and-trajectory-stress-design.html`
 （跨仓库协调文档，本记录只固化 atst-tools 上游专属决策，不复制全文）
