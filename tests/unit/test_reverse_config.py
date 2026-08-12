@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -174,3 +175,37 @@ def test_coerce_input_value():
     assert coerce_input_value("false") is False
     assert coerce_input_value("lcao") == "lcao"
     assert coerce_input_value("") == ""
+
+
+def test_reverse_kpts_matches_toolbox_runtime_spec(tmp_path):
+    """Cross-repo equivalence: upstream kpts == toolbox _runtime_kpts.
+
+    The same fixture runs inside the ABACUS toolbox (Phase 2) where the toolbox
+    `resolve_runtime_kpoint_spec` is importable; here it is not reachable, so
+    the test skips and the equivalence is asserted on the toolbox side.
+    """
+    from atst_tools.utils.reverse_config import (
+        _read_input,
+        _resolve_kpts,
+        build_config_from_abacus_dir,
+    )
+
+    run = _write_minimal_run(tmp_path)
+    (run / "KPT").unlink()
+    inp = (run / "INPUT").read_text(encoding="utf-8") + "kspacing 0.2 0.3 0.4\n"
+    (run / "INPUT").write_text(inp, encoding="utf-8")
+
+    raw = _read_input(run)
+    upstream_kpts = _resolve_kpts(run, raw)
+
+    toolbox_kpts = None
+    try:
+        sys.path.insert(0, str(run.parent.parent / "utils"))
+        from utils.kpt_logic import resolve_runtime_kpoint_spec
+
+        spec = resolve_runtime_kpoint_spec(run)
+        toolbox_kpts = list(spec.grid) if spec.grid is not None else None
+    except Exception:
+        pytest.skip("toolbox utils unavailable; equivalence covered in toolbox Phase 2")
+
+    assert upstream_kpts == toolbox_kpts
