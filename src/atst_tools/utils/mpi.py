@@ -35,11 +35,12 @@ def bootstrap_mpi_for_ase() -> None:
         importlib.import_module("mpi4py")
     except ImportError as exc:
         raise RuntimeError(
-            "MPI-launched ATST-Tools requires mpi4py before ASE can expose "
-            "image-level parallelism. Create an MPI-enabled environment with "
-            "the same OpenMPI stack as ABACUS LTS 3.10.1, for example: "
-            "module load abacus/LTSv3.10.1-sm70-auto; "
-            "MPICC=\"$(which mpicc)\" python -m pip install --no-binary=mpi4py mpi4py"
+            "MPI-launched ATST-Tools image parallelism requires mpi4py. "
+            'Install the optional dependency with `python -m pip install "atst-tools[parallel]"`. '
+            "For a site-managed or vendor MPI stack, load the same site MPI implementation "
+            "used by your launcher and ABACUS, then rebuild mpi4py with that compiler: "
+            'MPICC="$(command -v mpicc)" python -m pip install '
+            "--no-cache-dir --force-reinstall --no-binary=mpi4py mpi4py."
         ) from exc
 
 

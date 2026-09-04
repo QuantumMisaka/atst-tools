@@ -80,8 +80,16 @@ def test_bootstrap_requires_mpi4py_under_mpi_launcher(monkeypatch):
 
     monkeypatch.setattr(mpi.importlib, "import_module", fake_import)
 
-    with pytest.raises(RuntimeError, match="mpi4py"):
+    with pytest.raises(RuntimeError) as excinfo:
         mpi.bootstrap_mpi_for_ase()
+
+    message = str(excinfo.value)
+    assert "atst-tools[parallel]" in message
+    assert "site MPI implementation" in message
+    assert "MPICC" in message
+    assert "--no-binary=mpi4py" in message
+    assert "SAI" not in message
+    assert "LTS" not in message
 
 
 def test_pre_run_construction_synchronizes_rank_local_failure():
