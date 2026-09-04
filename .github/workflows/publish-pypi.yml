@@ -90,7 +90,6 @@ jobs:
       name: pypi
       url: https://pypi.org/project/atst-tools/
     permissions:
-      contents: read
       id-token: write
 
     steps:

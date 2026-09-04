@@ -3,11 +3,27 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[2]
 GENERAL_TESTS_WORKFLOW = ROOT / ".github" / "workflows" / "tests.yml"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-pypi.yml"
+
+
+def _job_block(workflow: str, job_name: str) -> str:
+    """Return one top-level GitHub Actions job block from static YAML text."""
+    pattern = rf"(?ms)^  {re.escape(job_name)}:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)"
+    match = re.search(pattern, workflow)
+    assert match is not None, f"missing workflow job: {job_name}"
+    return match.group(0)
+
+
+def _job_permissions(job: str) -> list[str]:
+    """Return the entries in a job-local permissions mapping."""
+    match = re.search(r"(?ms)^    permissions:\n(?P<body>(?:^      [^\n]+\n)+)", job)
+    assert match is not None, "missing job-local permissions mapping"
+    return [line.strip() for line in match.group("body").splitlines()]
 
 
 def test_general_pr_ci_workflow_runs_full_pytest_suite():
@@ -38,38 +54,42 @@ def test_general_ci_covers_main_and_documentation_governance():
 def test_release_workflow_separates_resolution_preflight_and_publish():
     """Release publication must consume a verified preflight artifact."""
     workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+    preflight = _job_block(workflow, "release-preflight")
 
     assert "  resolve-release:\n" in workflow
     assert "  release-preflight:\n" in workflow
     assert "  publish:\n" in workflow
     assert "ref: ${{ steps.resolve-release.outputs.ref }}" in workflow
-    assert "needs: resolve-release" in workflow
-    assert "ref: ${{ needs.resolve-release.outputs.ref }}" in workflow
-    assert "python scripts/check_release_readiness.py --tag \"$RELEASE_TAG\"" in workflow
-    assert "python -m pytest tests -q" in workflow
-    assert "python scripts/check_docs_governance.py" in workflow
-    assert "python -m build" in workflow
-    assert "python -m twine check --strict dist/*" in workflow
-    assert "python scripts/verify_wheel_api.py" in workflow
-    assert "path: dist/*" in workflow
+    assert "needs: resolve-release" in preflight
+    assert "ref: ${{ needs.resolve-release.outputs.ref }}" in preflight
+    assert "python scripts/check_release_readiness.py --tag \"$RELEASE_TAG\"" in preflight
+    assert "python -m pytest tests -q" in preflight
+    assert "python scripts/check_docs_governance.py" in preflight
+    assert "python -m build" in preflight
+    assert "python -m twine check --strict dist/*" in preflight
+    assert "python scripts/verify_wheel_api.py" in preflight
+    assert "actions/upload-artifact@v4" in preflight
+    assert "path: dist/*" in preflight
 
-    readiness = workflow.index("python scripts/check_release_readiness.py")
-    pytest = workflow.index("python -m pytest tests -q", readiness)
-    docs = workflow.index("python scripts/check_docs_governance.py", pytest)
-    build = workflow.index("python -m build", docs)
-    twine = workflow.index("python -m twine check --strict dist/*", build)
-    verify = workflow.index("python scripts/verify_wheel_api.py", twine)
-    artifact = workflow.index("actions/upload-artifact@v4", verify)
+    readiness = preflight.index("python scripts/check_release_readiness.py")
+    pytest = preflight.index("python -m pytest tests -q", readiness)
+    docs = preflight.index("python scripts/check_docs_governance.py", pytest)
+    build = preflight.index("python -m build", docs)
+    twine = preflight.index("python -m twine check --strict dist/*", build)
+    verify = preflight.index("python scripts/verify_wheel_api.py", twine)
+    artifact = preflight.index("actions/upload-artifact@v4", verify)
     assert readiness < pytest < docs < build < twine < verify < artifact
 
 
 def test_release_publish_has_only_preflight_dependency_and_oidc_permission():
     """Only the publish job may request the PyPI OIDC token."""
     workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
-    publish = workflow.split("  publish:\n", 1)[1]
+    publish = _job_block(workflow, "publish")
 
     assert "needs: release-preflight" in publish
     assert "needs: resolve-release" not in publish
-    assert "id-token: write" in publish
+    assert "actions/download-artifact@v4" in publish
+    assert "actions/checkout@v4" not in publish
+    assert "python -m build" not in publish
+    assert _job_permissions(publish) == ["id-token: write"]
     assert workflow.count("id-token: write") == 1
-    assert "id-token: write" not in workflow.split("  publish:\n", 1)[0]
