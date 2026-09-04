@@ -147,8 +147,13 @@ ABACUS CCQN injection requires a caller-created, correctly configured
 executable/runtime, and site setup. ATST does not configure that calculator;
 ATST-Tools does not install or require ABACUS as a package dependency.
 
-For image-level MPI configuration and the maintained execution records, see the
-[example validation operations guide](../docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md).
+For image-level MPI configuration, see the [ABACUSLite wrapper guide](../docs/user/ABACUSLITE_WRAPPER_GUIDE.md); maintained execution records are maintainer evidence, not an example prerequisite.
+
+Launch image-parallel workflows with one Python rank per active image:
+
+```bash
+mpirun -np <number-of-interior-images> atst run config.yaml
+```
 
 ## Chemical Systems Summary
 

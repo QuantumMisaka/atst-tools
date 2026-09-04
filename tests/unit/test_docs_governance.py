@@ -5,6 +5,17 @@ from pathlib import Path
 import pytest
 
 
+MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)\s]+)\)")
+CANONICAL_REPOSITORIES = {
+    "GitHub": "https://github.com/QuantumMisaka/atst-tools",
+    "Gitee": "https://gitee.com/jamesmisaka/atst-tools",
+}
+
+
+def _markdown_targets(text: str) -> set[str]:
+    return {match.group(1).strip("<>") for match in MARKDOWN_LINK.finditer(text)}
+
+
 # User-facing pages may describe product capabilities and portable execution
 # concepts, but must not become a maintenance runbook.  Keep this list
 # explicit: adding a term requires an intentional documentation-boundary
@@ -76,6 +87,30 @@ def test_docs_governance_cli_returns_success_for_current_tree():
     module = _load_governance_script()
 
     assert module.main(["--root", str(root)]) == 0
+
+
+def test_readme_has_absolute_cross_channel_user_entrypoints():
+    targets = _markdown_targets(Path("README.md").read_text(encoding="utf-8"))
+
+    expected = {
+        "https://github.com/QuantumMisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md",
+        "https://gitee.com/jamesmisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md",
+        "https://github.com/QuantumMisaka/atst-tools/tree/main/examples",
+        "https://gitee.com/jamesmisaka/atst-tools/tree/main/examples",
+    }
+    assert expected <= targets
+
+
+def test_active_user_docs_use_current_repository_and_release_facts():
+    texts = {
+        path: Path(path).read_text(encoding="utf-8")
+        for path in ("README.md", "docs/user/USER_GUIDE_CN.md")
+    }
+
+    assert all("https://github.com/QuantumMisaka/atst-tools.git" in text for text in texts.values())
+    assert all("https://github.com/deepmodeling/atst-tools.git" not in text for text in texts.values())
+    assert "当前 2.2.3 版本" in texts["docs/user/USER_GUIDE_CN.md"]
+    assert "RELEASE_NOTES_2.2.3.md" in texts["docs/user/USER_GUIDE_CN.md"]
 
 
 @pytest.mark.parametrize(

@@ -157,6 +157,16 @@ separately with `calculator.abacus.command`. When a bare single-process
 outer MPI launcher environment for the ABACUS subprocess so it remains a
 one-image calculation.
 
+If the installed wheel is incompatible with the site MPI implementation, rebuild
+`mpi4py` with the site compiler:
+
+```bash
+MPICC="$(command -v mpicc)" \
+  python -m pip install --no-cache-dir --force-reinstall --no-binary=mpi4py mpi4py
+```
+
+The site's ABACUS executable and outer launcher must use the same MPI implementation.
+
 For site setup, example validation, and maintainer operations, use the
 [developer handover](../developer/HANDOVER.md) and the
 [example validation operations guide](../developer/EXAMPLE_VALIDATION_OPERATIONS.md).

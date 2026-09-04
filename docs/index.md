@@ -9,6 +9,8 @@ documentation set.
 Use this path when you want to install ATST-Tools, choose an example, validate a
 YAML file, and run a workflow.
 
+从 PyPI 阅读 README 时，请使用 README 顶部的 GitHub/Gitee 绝对用户文档入口；仓库内浏览继续使用下列本地链接。
+
 1. [README quick start](../README.md) for project scope, supported workflows,
    installation, and minimal commands.
 2. [Chinese user guide](user/USER_GUIDE_CN.md) for a 10-minute onboarding path

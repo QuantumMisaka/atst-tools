@@ -3,7 +3,7 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.2.1 版本（详见 [release notes](../releases/RELEASE_NOTES_2.2.1.md)）把原 main branch 的脚本集合整理为可安装 Python package，
+当前 2.2.3 版本（详见 [release notes](../releases/RELEASE_NOTES_2.2.3.md)）把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
 
@@ -42,19 +42,33 @@ atst --version
 从源代码安装主分支版本：
 
 ```bash
-git clone https://github.com/deepmodeling/atst-tools.git
+git clone https://github.com/QuantumMisaka/atst-tools.git
 cd atst-tools
 pip install .
 ```
 
 ATST-Tools 需要 Python 3.10 或更新版本。默认安装包含轻量工作流层和
-Sella 2.5+；绘图、DP 和 MPI 并行栈按需安装：
+Sella 2.5+；按需选择以下安装 profile：
+
+- **Serial（默认）**：`pip install atst-tools`；不安装也不需要 `mpi4py`，可运行全部非 image-parallel 工作流和串行 NEB/AutoNEB。
+- **DP**：`pip install "atst-tools[dp]"`；仅 DeePMD-kit calculator 工作流需要。
+- **Image-parallel NEB/AutoNEB**：`pip install "atst-tools[parallel]"`；仅当通过外部 `mpirun`/`srun` 启动一个 Python rank 对应一个活动 image 时需要。
+
+使用 image-parallel 前，先验证 `mpi4py` 导入和 two-rank launcher：
 
 ```bash
-pip install "atst-tools[plot]"      # NEB plotting helpers
-pip install "atst-tools[dp]"        # DeePMD-kit calculator workflows
-pip install "atst-tools[parallel]"  # MPI image-level NEB/AutoNEB
+python -c "from mpi4py import MPI; print(MPI.Get_library_version())"
+mpiexec -n 2 python -c "from mpi4py import MPI; print(MPI.COMM_WORLD.Get_rank())"
 ```
+
+如需恢复与站点 MPI 实现匹配的构建：
+
+```bash
+MPICC="$(command -v mpicc)" \
+  python -m pip install --no-cache-dir --force-reinstall --no-binary=mpi4py mpi4py
+```
+
+仅在站点已加载与外层 launcher 和 ABACUS 一致的 MPI 实现后执行该重装；串行用户不需要安装 mpi4py。
 
 ATST-Tools 只安装 Python 工作流层。真实计算还需要后端运行时：
 

@@ -29,8 +29,11 @@ ATST-Tools requires Python 3.10 or later:
 
 ```bash
 pip install atst-tools
-pip install "atst-tools[parallel]"  # only for externally launched MPI workflows
+pip install "atst-tools[parallel]"  # only for externally launched image-parallel NEB/AutoNEB; serial use does not install mpi4py
 ```
+
+For image-parallel execution, the external host owns a `mpi4py` installation
+that matches its MPI launcher; serial API use does not need `mpi4py`.
 
 The package installs the workflow layer, not a universal calculation backend.
 Install and configure the ASE calculator runtime required by your calculation.

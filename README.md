@@ -4,6 +4,14 @@
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
+> 用户文档与示例：
+> [GitHub 用户指南](https://github.com/QuantumMisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md)
+> · [Gitee 用户指南](https://gitee.com/jamesmisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md)
+> · [GitHub 示例](https://github.com/QuantumMisaka/atst-tools/tree/main/examples)
+> · [Gitee 示例](https://gitee.com/jamesmisaka/atst-tools/tree/main/examples)
+>
+> 协作与规范源在 GitHub；Gitee 是维护者从 GitHub 手动拉取的同内容只读镜像；PyPI 仅发布 Python 包。
+
 ATST-Tools is a pip-installable **ASE transition-state workflow toolkit** for
 ABACUS and DeePMD-kit calculators. It turns the project's legacy script
 collection into one governed command-line interface:
@@ -74,18 +82,16 @@ ATST-Tools requires Python 3.10 or newer. Sella-backed workflows install
 `sella>=2.5` with the default package because Sella is a first-class workflow
 backend.
 
-Optional feature stacks are installed explicitly:
+安装 profile：
 
-```bash
-pip install "atst-tools[plot]"      # NEB plotting helpers
-pip install "atst-tools[dp]"        # DeePMD-kit calculator workflows
-pip install "atst-tools[parallel]"  # MPI image-level NEB/AutoNEB
-```
+- **Serial（默认）**：`pip install atst-tools`；不安装也不需要 `mpi4py`，可运行全部非 image-parallel 工作流和串行 NEB/AutoNEB。
+- **DP**：`pip install "atst-tools[dp]"`；仅 DeePMD-kit calculator 工作流需要。
+- **Image-parallel NEB/AutoNEB**：`pip install "atst-tools[parallel]"`；仅当通过外部 `mpirun`/`srun` 启动一个 Python rank 对应一个活动 image 时需要。
 
 ### From Source
 
 ```bash
-git clone https://github.com/deepmodeling/atst-tools.git
+git clone https://github.com/QuantumMisaka/atst-tools.git
 cd atst-tools
 pip install .
 ```

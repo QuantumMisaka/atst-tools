@@ -38,6 +38,14 @@ def test_runtime_dependency_policy_is_explicit() -> None:
     ]
 
 
+def test_serial_install_keeps_mpi4py_outside_base_dependencies() -> None:
+    """Only the explicit image-parallel extra may request mpi4py."""
+    project = _project_metadata()
+
+    assert all("mpi4py" not in dependency for dependency in project["dependencies"])
+    assert project["optional-dependencies"]["parallel"] == ["mpi4py>=4.1.2"]
+
+
 def test_optional_dependency_groups_cover_feature_specific_stacks() -> None:
     """Heavy or feature-specific stacks should be opt-in extras."""
     optional = _project_metadata()["optional-dependencies"]

@@ -152,6 +152,8 @@ the ABACUS subprocess count for one image. ATST-Tools does not run or generate
 Slurm submission commands; use your site launch script to start the outer Python
 MPI command, and keep all ABACUS executable details in `calculator.abacus`.
 
+Image parallel 是可选能力；默认的单进程 NEB/AutoNEB 不导入 mpi4py。通过外部 MPI 启动前，先按用户指南完成 mpi4py import 与 two-rank launcher 预检；若 wheel 与站点 MPI 不兼容，应使用站点 `mpicc` 从源码重装 mpi4py。
+
 ### 2.3 AutoNEB
 **Type**: `autoneb`
 
