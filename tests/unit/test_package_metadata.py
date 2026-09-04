@@ -53,12 +53,13 @@ def test_optional_dependency_groups_cover_feature_specific_stacks() -> None:
     assert optional["plot"] == ["matplotlib>=3.9,<4"]
     assert optional["dp"] == ["deepmd-kit>=3.1.3"]
     assert optional["parallel"] == ["mpi4py>=4.1.2"]
-    assert optional["test"] == ["pytest>=8.4,<10"]
-    assert optional["release"] == ["build>=1.5,<2", "twine>=6.2,<7"]
+    assert optional["test"] == ["pytest>=8.4,<10", "tomli>=2.0,<3"]
+    assert optional["release"] == ["build>=1.5,<2", "twine>=6.2,<7", "tomli>=2.0,<3"]
     assert optional["dev"] == [
         "pytest>=8.4,<10",
         "build>=1.5,<2",
         "twine>=6.2,<7",
+        "tomli>=2.0,<3",
     ]
 
 
