@@ -381,7 +381,7 @@
   - Package version: `2.2.3`.
   ```
 
-  Mark the SPEC status as “已实施” only after every verification in this plan has passed. Register this plan in the “Spec / Plan / Review 登记” table and update the SPEC ledger description from “待实施” to “已实施” in `DOCUMENTATION_STATUS_REPORT.md`.
+  After local verification, record the SPEC as “本地实施完成，待发布后外部渲染验证”; register this plan in the “Spec / Plan / Review 登记” table and keep the remaining external-render validation explicit in `DOCUMENTATION_STATUS_REPORT.md`.
 
 - [x] **Step 4: Run focused tests to verify GREEN**
 
@@ -409,7 +409,7 @@
 
   Expected: the first two commands have no output; governance prints `documentation governance checks passed`; pytest passes with only the existing opt-in MPI/toolbox skips.
 
-- [x] **Step 6: Inspect external render targets without changing them, then commit**
+- [ ] **Step 6: Inspect external render targets without changing them, then commit**
 
   Manually open the GitHub, Gitee, and PyPI README renderings. Confirm that GitHub and Gitee show the same README content, and that the PyPI absolute guide/example links point outside `pypi.org/project/atst-tools/`. Do not push, publish, or trigger mirror synchronization from this task.
 
