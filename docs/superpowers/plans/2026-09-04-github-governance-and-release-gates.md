@@ -5,6 +5,7 @@
 **Goal:** Make current stable-state documentation and GitHub CI mechanically enforceable before a PyPI upload, while retaining independent cross-model governance review as a human gate.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` (R1-R7; decisions confirmed by the user on 2026-09-04).
+**Status:** 本地实施完成，待 GitHub 设置与发布后外部验收。
 
 **Architecture:** A small repository-local readiness checker owns tag/version/release-note consistency and is tested through temporary repository fixtures. General CI runs tests plus documentation governance on PR/main. The PyPI workflow resolves one release ref, performs all release checks and artifact creation before its OIDC-only publish job. Developer documentation names the manual cross-family and GitHub-settings gates without trying to automate them.
 
@@ -130,21 +131,21 @@ git commit -m "ci: gate releases before PyPI publishing"
 
 **Interfaces:** Documents Task 1 checker, Task 2 jobs, existing `GOVERNANCE_REVIEW.md` launcher, and external administrator/post-push responsibilities without adding automation.
 
-- [ ] **Step 1: Add a focused documentation-entrypoint test**
+- [x] **Step 1: Add a focused documentation-entrypoint test**
 
 Extend the relevant docs governance test so `docs/index.md` contains a local link to `developer/GOVERNANCE_AND_RELEASE_GATES.md` and the new guide names the checker plus `pypi` Environment boundary.
 
-- [ ] **Step 2: Run it to verify RED**
+- [x] **Step 2: Run it to verify RED**
 
 Run `conda run -n atst-dev python -m pytest tests/unit/test_docs_governance.py -q`.
 
 Expected: FAIL because the new guide/link is absent.
 
-- [ ] **Step 3: Write the minimum durable guide and close the ledger**
+- [x] **Step 3: Write the minimum durable guide and close the ledger**
 
 Document three phases: local/CI mechanical checks, cross-family governance trigger/process, and GitHub/PyPI/Gitee post-push administrator checks. State explicitly that branch protection, pypi environment reviewers/tag restrictions, Trusted Publisher identity, tag/release, push, and mirror pull are not repository-file side effects. Register spec/plan and the guide in the documentation ledger; mark local implementation only after final verification, leaving external settings/render checks pending.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 Run:
 
@@ -158,7 +159,7 @@ conda run -n atst-dev python -m pytest tests -q
 
 Also run a local wheel preflight: `conda run -n atst-dev python -m build`, `conda run -n atst-dev python -m twine check --strict dist/*`, and `conda run -n atst-dev python scripts/verify_wheel_api.py`; move any temporary `dist/` to `$HOME/scratch/atst-tools-release-gate-dist` rather than deleting it.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```bash
 git add docs/developer/GOVERNANCE_AND_RELEASE_GATES.md docs/index.md \

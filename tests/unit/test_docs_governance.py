@@ -165,6 +165,19 @@ def test_stable_release_facts_are_derived_across_entrypoints():
     assert "Primary trigger: publishing a GitHub Release" not in release_automation
 
 
+def test_governance_release_gate_guide_is_linked_and_names_boundaries():
+    """The developer index exposes the release gate guide and its interfaces."""
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs/developer/GOVERNANCE_AND_RELEASE_GATES.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "developer/GOVERNANCE_AND_RELEASE_GATES.md" in index
+    assert "scripts/check_release_readiness.py" in guide
+    assert "pypi" in guide
+    assert "Environment" in guide
+
+
 @pytest.mark.parametrize(
     ("phrase", "term"),
     [

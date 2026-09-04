@@ -6,6 +6,10 @@ repository and PyPI Trusted Publishing. The workflow builds the source
 distribution and wheel from a pushed release tag, checks the artifacts with
 Twine, and uploads them without a stored PyPI token.
 
+The complete mechanical and human boundary is maintained in
+[Governance and release gates](GOVERNANCE_AND_RELEASE_GATES.md). This page
+describes the PyPI-specific part of that contract.
+
 ## Repository Workflow
 
 The release workflow lives at `.github/workflows/publish-pypi.yml`.
@@ -18,6 +22,10 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
   `v2.2.3` must match `2.2.3`.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
+- Before publishing, `release-preflight` checks out the resolved ref and runs
+  readiness, full pytest, documentation governance, build, strict Twine, and
+  clean-wheel API checks in that order. The publisher receives only the checked
+  distribution artifact.
 
 ## Local Readiness Gate
 
@@ -34,6 +42,10 @@ TOML compatibility parser. The checker verifies the tag against
 `pyproject.toml` and requires the exact package version line in
 `docs/releases/RELEASE_NOTES_<version>.md`. It reads local files only and does
 not create tags, push commits, or contact GitHub or PyPI.
+
+This local documentation change has not configured the GitHub `pypi`
+Environment, its reviewers or tag restrictions, or the PyPI Trusted Publisher
+identity. Those settings remain administrator work.
 
 ## PyPI Setup
 
@@ -73,13 +85,18 @@ Recommended environment protection:
 
 ## Publishing `<version>`
 
-After the release branch is verified and the PyPI/GitHub setup above is
-complete, publish with one of these paths:
+After the release branch is verified, the cross-family governance gate is
+accepted when applicable, and the PyPI/GitHub setup above is confirmed by an
+administrator, publish with one of these paths:
 
 1. Push the checked tag `v<version>` to
    `https://github.com/QuantumMisaka/atst-tools`.
 2. Or run `Publish Python package to PyPI` manually from the Actions tab with
    input `v<version>`.
+
+Neither push/tag/release nor a Gitee mirror pull is performed by this
+repository-file workflow. After an authorized publish, the maintainer must
+check the GitHub, PyPI, and manually synchronized Gitee renderings.
 
 Verify the published package from a clean environment:
 

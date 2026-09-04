@@ -52,6 +52,9 @@ backend, CLI command, example, or documentation.
    usage and validation snippets.
 8. [PyPI release automation](developer/PYPI_RELEASE_AUTOMATION.md) for release
    publishing and the local readiness gate.
+9. [Governance and release gates](developer/GOVERNANCE_AND_RELEASE_GATES.md)
+   for mechanical checks, cross-family review, and administrator/post-push
+   responsibilities.
 
 ## Project Manager Path
 

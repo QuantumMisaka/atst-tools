@@ -18,13 +18,13 @@
 <body>
   <header>
     <h1>ATST-Tools GitHub 治理与发布前门禁设计</h1>
-    <p><strong>状态：</strong>已确认，待实施</p>
+    <p><strong>状态：</strong>本地实施完成，待 GitHub 设置与发布后外部验收</p>
     <p><strong>决策来源：</strong>2026-09-04 用户确认“硬门禁 + 人工跨模型终审”，并要求 README、用户文档和开发者文档在推送 main 前反映最新稳定态。</p>
   </header>
   <main>
     <section id="evidence">
       <h2>现状与证据</h2>
-      <p>包单一版本源为 <code>pyproject.toml</code> 的 2.2.3；PyPI 和远端 <code>v2.2.3</code> tag 亦为该稳定版本。本地 main 包含待推送的文档/MPI 改进。现有 <code>tests.yml</code> 仅覆盖 PR，<code>publish-pypi.yml</code> 在 <code>v*</code> tag push 或手动 ref 后直接 build/Twine/upload；发布文档却陈述“GitHub Release 触发”、<code>deepmodeling</code> 所有者和 2.1.0 示例。</p>
+      <p>包单一版本源为 <code>pyproject.toml</code> 的 2.2.3；对应的 release note 和预期 <code>v2.2.3</code> 发布标识必须与该稳定版本一致。本地 main 包含待推送的文档/MPI 改进。现有 <code>tests.yml</code> 仅覆盖 PR，<code>publish-pypi.yml</code> 在 <code>v*</code> tag push 或手动 ref 后直接 build/Twine/upload；发布文档却陈述“GitHub Release 触发”、<code>deepmodeling</code> 所有者和 2.1.0 示例。</p>
     </section>
     <section id="goals">
       <h2>目标与非目标</h2>
@@ -68,7 +68,7 @@
     <section id="rollout">
       <h2>实施与发布后检查</h2>
       <ol>
-        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；运行全套本地验证和独立治理终审。</li>
+        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，治理路径变更仍须按现有流程完成独立跨家族终审。</li>
         <li>经授权 push main 后，确认 GitHub Tests/Governance jobs green；维护者手动从 GitHub 拉取同步 Gitee 后，检查两端 README 指向相同用户指南/示例。</li>
         <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
       </ol>

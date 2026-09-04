@@ -16,7 +16,8 @@ release 变更，都先从对应小节确认需要同步的文档。
   [YAML_INPUT_VARIABLES.md](../user/YAML_INPUT_VARIABLES.md)。
 - 开发入口：[YAML_INPUT_GOVERNANCE.md](YAML_INPUT_GOVERNANCE.md)、
   [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)、
-  [EXAMPLE_VALIDATION_OPERATIONS.md](EXAMPLE_VALIDATION_OPERATIONS.md)。
+  [EXAMPLE_VALIDATION_OPERATIONS.md](EXAMPLE_VALIDATION_OPERATIONS.md) 和
+  [GOVERNANCE_AND_RELEASE_GATES.md](GOVERNANCE_AND_RELEASE_GATES.md)。
 - 项目状态入口：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 和
   [DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)。
 
@@ -127,6 +128,11 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 更新 `docs/releases/RELEASE_NOTES_<version>.md`。
 - 更新 README badge、版本说明和 release scope。
 - 运行离线门禁：`python scripts/check_release_readiness.py --tag v<version>`。
+- 按 [GOVERNANCE_AND_RELEASE_GATES.md](GOVERNANCE_AND_RELEASE_GATES.md) 完成本地/CI
+  机械门禁；触及 AGENTS、SKILL 或治理契约时，先完成现有跨家族人工终审。
+- GitHub 分支保护、`pypi` Environment 审批/标签限制、PyPI Trusted Publisher、
+  push/tag/release、Gitee 手动同步及发布后渲染检查均由管理员/维护者负责，
+  不是仓库文件修改的副作用。
 - 若 release 包含示例或 curated-output 变更，按
   `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` 复核运行证据与溯源。
 - 更新 `FEATURE_STATUS_MATRIX.md` 和 `DOCUMENTATION_STATUS_REPORT.md`。
