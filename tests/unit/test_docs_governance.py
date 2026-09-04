@@ -93,28 +93,37 @@ def test_readme_has_absolute_cross_channel_user_entrypoints():
     targets = _markdown_targets(Path("README.md").read_text(encoding="utf-8"))
 
     expected = {
-        "https://github.com/QuantumMisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md",
-        "https://gitee.com/jamesmisaka/atst-tools/blob/main/docs/user/USER_GUIDE_CN.md",
-        "https://github.com/QuantumMisaka/atst-tools/tree/main/examples",
-        "https://gitee.com/jamesmisaka/atst-tools/tree/main/examples",
+        f"{CANONICAL_REPOSITORIES['GitHub']}/blob/main/docs/user/USER_GUIDE_CN.md",
+        f"{CANONICAL_REPOSITORIES['Gitee']}/blob/main/docs/user/USER_GUIDE_CN.md",
+        f"{CANONICAL_REPOSITORIES['GitHub']}/tree/main/examples",
+        f"{CANONICAL_REPOSITORIES['Gitee']}/tree/main/examples",
     }
     assert expected <= targets
 
 
 def test_active_user_docs_use_current_repository_and_release_facts():
-    texts = {
+    repository_docs = {
         path: Path(path).read_text(encoding="utf-8")
         for path in ("README.md", "docs/user/USER_GUIDE_CN.md")
     }
-    api_reference = Path("docs/user/PYTHON_API_REFERENCE.md").read_text(encoding="utf-8")
+    active_user_docs = {
+        path: Path(path).read_text(encoding="utf-8")
+        for path in (
+            "docs/user/USER_GUIDE_CN.md",
+            "docs/user/CONFIG_REFERENCE.md",
+            "docs/user/PYTHON_API_REFERENCE.md",
+        )
+    }
 
-    assert all("https://github.com/QuantumMisaka/atst-tools.git" in text for text in texts.values())
-    assert all("https://github.com/deepmodeling/atst-tools.git" not in text for text in texts.values())
-    assert "当前 2.2.3 版本" in texts["docs/user/USER_GUIDE_CN.md"]
-    assert "RELEASE_NOTES_2.2.3.md" in texts["docs/user/USER_GUIDE_CN.md"]
-    assert "This reference tracks the current 2.2.3 release" in api_reference
-    assert "This reference tracks the current 2.2.1 release" not in api_reference
-    assert "(2.2.1)" in api_reference
+    assert all("https://github.com/QuantumMisaka/atst-tools.git" in text for text in repository_docs.values())
+    assert all("https://github.com/deepmodeling/atst-tools.git" not in text for text in repository_docs.values())
+    assert "当前 2.2.3 版本" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
+    assert "RELEASE_NOTES_2.2.3.md" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
+    assert "**Version**: 2.2.3" in active_user_docs["docs/user/CONFIG_REFERENCE.md"]
+    assert "**Version**: 2.2.1" not in active_user_docs["docs/user/CONFIG_REFERENCE.md"]
+    assert "This reference tracks the current 2.2.3 release" in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
+    assert "This reference tracks the current 2.2.1 release" not in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
+    assert "(2.2.1)" in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
 
 
 @pytest.mark.parametrize(

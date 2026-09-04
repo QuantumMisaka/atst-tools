@@ -1,6 +1,6 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.2.1
+**Version**: 2.2.3
 **Last Updated**: 2026-06-27
 **Status**: Maintained
 
