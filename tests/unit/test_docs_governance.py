@@ -106,11 +106,15 @@ def test_active_user_docs_use_current_repository_and_release_facts():
         path: Path(path).read_text(encoding="utf-8")
         for path in ("README.md", "docs/user/USER_GUIDE_CN.md")
     }
+    api_reference = Path("docs/user/PYTHON_API_REFERENCE.md").read_text(encoding="utf-8")
 
     assert all("https://github.com/QuantumMisaka/atst-tools.git" in text for text in texts.values())
     assert all("https://github.com/deepmodeling/atst-tools.git" not in text for text in texts.values())
     assert "当前 2.2.3 版本" in texts["docs/user/USER_GUIDE_CN.md"]
     assert "RELEASE_NOTES_2.2.3.md" in texts["docs/user/USER_GUIDE_CN.md"]
+    assert "This reference tracks the current 2.2.3 release" in api_reference
+    assert "This reference tracks the current 2.2.1 release" not in api_reference
+    assert "(2.2.1)" in api_reference
 
 
 @pytest.mark.parametrize(
