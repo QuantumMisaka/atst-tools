@@ -90,6 +90,34 @@ def test_bootstrap_requires_mpi4py_under_mpi_launcher(monkeypatch):
     assert "--no-binary=mpi4py" in message
     assert "SAI" not in message
     assert "LTS" not in message
+    assert isinstance(excinfo.value.__cause__, ImportError)
+    assert str(excinfo.value.__cause__) == "missing mpi4py"
+
+
+def test_bootstrap_does_not_import_mpi4py_without_mpi_launcher(monkeypatch):
+    from atst_tools.utils import mpi
+
+    for key in (
+        "OMPI_COMM_WORLD_SIZE",
+        "PMI_SIZE",
+        "PMIX_RANK",
+        "PMIX_NAMESPACE",
+        "MPI_LOCALRANKID",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    imported = []
+    real_import = mpi.importlib.import_module
+
+    def spy_import(name):
+        imported.append(name)
+        return real_import(name)
+
+    monkeypatch.setattr(mpi.importlib, "import_module", spy_import)
+
+    mpi.bootstrap_mpi_for_ase()
+
+    assert "mpi4py" not in imported
 
 
 def test_pre_run_construction_synchronizes_rank_local_failure():
