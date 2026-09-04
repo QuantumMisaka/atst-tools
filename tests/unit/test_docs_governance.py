@@ -178,6 +178,19 @@ def test_governance_release_gate_guide_is_linked_and_names_boundaries():
     assert "Environment" in guide
 
 
+def test_governance_spec_labels_baseline_and_current_local_workflow_state():
+    """The governance SPEC distinguishes pre-implementation evidence from current files."""
+    spec = (
+        ROOT / "docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html"
+    ).read_text(encoding="utf-8")
+
+    assert "实施前基线（2026-09-04）" in spec
+    assert "当前本地状态（2026-09-05）" in spec
+    assert "PR、main push 和手动触发" in spec
+    assert "release-preflight" in spec
+    assert "OIDC" in spec
+
+
 @pytest.mark.parametrize(
     ("phrase", "term"),
     [
