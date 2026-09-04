@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import sys
 
 import numpy as np
 import pytest
@@ -71,6 +72,7 @@ def _atoms(x: float) -> Atoms:
 def test_bootstrap_requires_mpi4py_under_mpi_launcher(monkeypatch):
     from atst_tools.utils import mpi
 
+    monkeypatch.delitem(sys.modules, "mpi4py", raising=False)
     monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "4")
 
     def fake_import(name):
