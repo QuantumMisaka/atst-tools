@@ -26,26 +26,36 @@ def _job_permissions(job: str) -> list[str]:
     return [line.strip() for line in match.group("body").splitlines()]
 
 
+def _artifact_name(job: str, action: str) -> str:
+    """Return the artifact name configured for one upload/download action."""
+    action_start = job.index(f"uses: {action}@v4")
+    match = re.search(r"(?m)^          name: ([^\n]+)", job[action_start:])
+    assert match is not None, f"missing artifact name for {action}"
+    return match.group(1).strip()
+
+
 def test_general_pr_ci_workflow_runs_full_pytest_suite():
     """General PR CI should run the full unit test suite on Python 3.10."""
     workflow = GENERAL_TESTS_WORKFLOW.read_text(encoding="utf-8")
+    test_job = _job_block(workflow, "test")
 
     assert "name: Tests" in workflow
     assert "pull_request:" in workflow
     assert "workflow_dispatch:" in workflow
     assert 'python-version: "3.10"' in workflow
     assert 'python -m pip install -e ".[test]"' in workflow
-    assert "python -m pytest tests -q" in workflow
+    assert "python -m pytest tests -q" in test_job
 
 
 def test_general_ci_covers_main_and_documentation_governance():
     """General CI should cover main pushes and the documentation checker."""
     workflow = GENERAL_TESTS_WORKFLOW.read_text(encoding="utf-8")
+    docs_job = _job_block(workflow, "documentation-governance")
 
     assert "  push:\n    branches: [main]" in workflow
     assert "  test:\n" in workflow
     assert "  documentation-governance:\n" in workflow
-    assert "python scripts/check_docs_governance.py" in workflow
+    assert "python scripts/check_docs_governance.py" in docs_job
     assert workflow.count('python-version: "3.10"') == 2
     assert workflow.count('python -m pip install -e ".[test]"') == 2
     assert "id-token: write" not in workflow
@@ -55,6 +65,7 @@ def test_release_workflow_separates_resolution_preflight_and_publish():
     """Release publication must consume a verified preflight artifact."""
     workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
     preflight = _job_block(workflow, "release-preflight")
+    publish = _job_block(workflow, "publish")
 
     assert "  resolve-release:\n" in workflow
     assert "  release-preflight:\n" in workflow
@@ -70,6 +81,8 @@ def test_release_workflow_separates_resolution_preflight_and_publish():
     assert "python scripts/verify_wheel_api.py" in preflight
     assert "actions/upload-artifact@v4" in preflight
     assert "path: dist/*" in preflight
+    assert _artifact_name(preflight, "actions/upload-artifact") == "python-distributions"
+    assert _artifact_name(publish, "actions/download-artifact") == "python-distributions"
 
     readiness = preflight.index("python scripts/check_release_readiness.py")
     pytest = preflight.index("python -m pytest tests -q", readiness)

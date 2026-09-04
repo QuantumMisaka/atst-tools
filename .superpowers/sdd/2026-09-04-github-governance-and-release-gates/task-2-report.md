@@ -110,3 +110,21 @@ YAML OK: .github/workflows/abacuslite-ase-interface.yml, .github/workflows/publi
 conda run -n atst-dev python -m pytest tests -q
 ... [all tests passed; existing MPI and toolbox-dependent tests skipped by guards]
 ```
+
+## Final review test hardening
+
+The final review requested stronger ownership assertions without changing the
+workflows. The existing job-block helper now scopes the general CI assertions
+so `test` must own full pytest and `documentation-governance` must own the docs
+checker. It also scopes the release artifact checks and compares the explicit
+upload/download names, requiring both jobs to use `python-distributions`.
+
+Post-hardening verification:
+
+```text
+conda run -n atst-dev python -m pytest tests/unit/test_ci_workflows.py -q
+....                                                                     [100%]
+
+conda run -n atst-dev python -c 'import yaml, pathlib; paths = sorted(pathlib.Path(".github/workflows").glob("*.yml")); [yaml.safe_load(p.read_text()) for p in paths]; print("YAML OK:", ", ".join(map(str, paths)))'
+YAML OK: .github/workflows/abacuslite-ase-interface.yml, .github/workflows/publish-pypi.yml, .github/workflows/tests.yml
+```
