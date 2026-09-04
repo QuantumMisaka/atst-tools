@@ -13,8 +13,6 @@ Use this skill for ATST-Tools CLI work in this repository.
 - Prefer the project environment: `conda activate atst-dev`.
 - If the default Python cannot import `ase`, run checks with
   `conda run -n atst-dev <command>`.
-- Do not modify `main` for 2.x work; active CLI/refactor work belongs on
-  `develop` or a derived branch. `main` is the v1.5.x legacy line until merge.
 
 ## First Checks
 

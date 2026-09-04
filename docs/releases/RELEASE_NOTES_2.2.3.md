@@ -62,7 +62,7 @@ the produced NEB/AutoNEB trajectories are identical to 2.2.x.
 
 ## Compatibility
 
-- Package version: `2.3.0`.
+- Package version: `2.2.3`.
 - Python support remains `>=3.10`.
 - The new `atst prepare` command and `build_config_from_abacus_dir` API are
   additive; no existing CLI entry point, stable root import, or YAML field

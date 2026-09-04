@@ -64,7 +64,7 @@
 - Consumes: the approved repository identities and README policy from SPEC R1-R6.
 - Produces: a portable documentation/installation contract consumed by Task 2 diagnostics and Task 3 governance documentation.
 
-- [ ] **Step 1: Write failing documentation and metadata contract tests**
+- [x] **Step 1: Write failing documentation and metadata contract tests**
 
   Add these constants and tests to `tests/unit/test_docs_governance.py`; use parsed Markdown targets rather than asserting the whole prose body:
 
@@ -114,7 +114,7 @@
       assert project["optional-dependencies"]["parallel"] == ["mpi4py>=4.1.2"]
   ```
 
-- [ ] **Step 2: Run the focused tests to verify RED**
+- [x] **Step 2: Run the focused tests to verify RED**
 
   Run:
 
@@ -127,7 +127,7 @@
 
   Expected: FAIL because the current README has no Gitee absolute guide/example links, uses the obsolete source clone URL, and the Chinese guide still claims 2.2.1.
 
-- [ ] **Step 3: Implement the smallest coherent README and user-document update**
+- [x] **Step 3: Implement the smallest coherent README and user-document update**
 
   At the top of `README.md`, after the badges and before the project paragraph, add one identical cross-channel navigation block:
 
@@ -185,7 +185,7 @@
 
   In `examples/README.md`, replace the link sentence “For image-level MPI configuration and the maintained execution records, see the example validation operations guide” with a Markdown link whose label is `ABACUSLite wrapper guide`, whose target is `../docs/user/ABACUSLITE_WRAPPER_GUIDE.md`, followed by: “maintained execution records are maintainer evidence, not an example prerequisite.” Keep `mpirun` as a generic outer-launch example; do not introduce module, partition, QOS, SAI, or job text into user entrypoints.
 
-- [ ] **Step 4: Run focused tests to verify GREEN**
+- [x] **Step 4: Run focused tests to verify GREEN**
 
   Run:
 
@@ -198,7 +198,7 @@
 
   Expected: PASS, including the new cross-channel URL, current-release, and serial-dependency tests.
 
-- [ ] **Step 5: Refactor the documentation test helpers and run the owning suite**
+- [x] **Step 5: Refactor the documentation test helpers and run the owning suite**
 
   Keep `_markdown_targets()` as the one parser helper for entry-link assertions; do not add prose-wide snapshot assertions. Re-run:
 
@@ -212,7 +212,7 @@
 
   Expected: PASS. The existing user-boundary test must still report no forbidden SAI/site-operation terms in all user entrypoints.
 
-- [ ] **Step 6: Commit the user-entrypoint change**
+- [x] **Step 6: Commit the user-entrypoint change**
 
   ```bash
   git add README.md docs/index.md docs/user/USER_GUIDE_CN.md \
@@ -238,7 +238,7 @@
 - Consumes: `bootstrap_mpi_for_ase()` in `atst_tools.utils.mpi`; Task 1's user-facing MPI terminology.
 - Produces: unchanged `RuntimeError` exception type with a portable diagnostic string for API/CLI error wrapping.
 
-- [ ] **Step 1: Write the failing missing-mpi4py diagnostic test**
+- [x] **Step 1: Write the failing missing-mpi4py diagnostic test**
 
   Replace the broad `match="mpi4py"` assertion in `test_bootstrap_requires_mpi4py_under_mpi_launcher` with the following focused assertions after capturing `excinfo`:
 
@@ -252,7 +252,7 @@
   assert "LTS" not in message
   ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [x] **Step 2: Run the focused test to verify RED**
 
   Run:
 
@@ -264,7 +264,7 @@
 
   Expected: FAIL because the current message names an ABACUS LTS module and has no `atst-tools[parallel]` or site-MPI wording.
 
-- [ ] **Step 3: Replace the SAI-specific recovery message with a portable message**
+- [x] **Step 3: Replace the SAI-specific recovery message with a portable message**
 
   In the `except ImportError` block in `bootstrap_mpi_for_ase()`, retain `RuntimeError` and `from exc`, but replace the string with:
 
@@ -281,7 +281,7 @@
 
   Do not import mpi4py earlier, change launcher detection, or add any fallback MPI implementation.
 
-- [ ] **Step 4: Run the focused test to verify GREEN**
+- [x] **Step 4: Run the focused test to verify GREEN**
 
   Run:
 
@@ -293,7 +293,7 @@
 
   Expected: PASS; the same test must still create an `ImportError` only under the mocked MPI launcher environment.
 
-- [ ] **Step 5: Run the MPI/API ownership suites after refactor**
+- [x] **Step 5: Run the MPI/API ownership suites after refactor**
 
   Run:
 
@@ -307,7 +307,7 @@
 
   Expected: PASS, with real-launcher integration tests skipped unless `ATST_RUN_MPI_TESTS=1` is explicitly set.
 
-- [ ] **Step 6: Commit the MPI diagnostic change**
+- [x] **Step 6: Commit the MPI diagnostic change**
 
   ```bash
   git add src/atst_tools/utils/mpi.py tests/unit/test_mpi_parallel.py
@@ -335,7 +335,7 @@
 - Consumes: Task 1's user-boundary test and the completed portable installation content; SPEC R7-R9.
 - Produces: governed metadata that marks the SPEC implemented and records the implementation plan, with no user-facing SAI expansion.
 
-- [ ] **Step 1: Write failing stale-fact and maintenance-boundary tests**
+- [x] **Step 1: Write failing stale-fact and maintenance-boundary tests**
 
   Add this test to `tests/unit/test_docs_governance.py`:
 
@@ -351,7 +351,7 @@
       assert "- Package version: `2.2.3`." in release_notes
   ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [x] **Step 2: Run the focused test to verify RED**
 
   Run:
 
@@ -363,7 +363,7 @@
 
   Expected: FAIL because AGENTS currently calls the SAI paragraph “开发测试环境”, the CLI skill still calls main a v1.5 legacy line, and 2.2.3 release notes still state 2.3.0 in Compatibility.
 
-- [ ] **Step 3: Apply the minimum governance/documentation corrections**
+- [x] **Step 3: Apply the minimum governance/documentation corrections**
 
   In `AGENTS.md`, rename the relevant heading to “维护验证环境（SAI）”; state that SAI details govern maintainer validation evidence and do not limit end-user sites. Replace “项目当前在开发并行NEB模块” with the current fact that image-level NEB/AutoNEB is supported and needs an MPI-compatible Python environment for real parallel validation.
 
@@ -383,7 +383,7 @@
 
   Mark the SPEC status as “已实施” only after every verification in this plan has passed. Register this plan in the “Spec / Plan / Review 登记” table and update the SPEC ledger description from “待实施” to “已实施” in `DOCUMENTATION_STATUS_REPORT.md`.
 
-- [ ] **Step 4: Run focused tests to verify GREEN**
+- [x] **Step 4: Run focused tests to verify GREEN**
 
   Run:
 
@@ -396,7 +396,7 @@
 
   Expected: PASS. SAI remains visible to maintainers but no new term enters the README, docs index, user guide, or examples learning map.
 
-- [ ] **Step 5: Run documentation and complete-suite verification**
+- [x] **Step 5: Run documentation and complete-suite verification**
 
   Run:
 
@@ -409,7 +409,7 @@
 
   Expected: the first two commands have no output; governance prints `documentation governance checks passed`; pytest passes with only the existing opt-in MPI/toolbox skips.
 
-- [ ] **Step 6: Inspect external render targets without changing them, then commit**
+- [x] **Step 6: Inspect external render targets without changing them, then commit**
 
   Manually open the GitHub, Gitee, and PyPI README renderings. Confirm that GitHub and Gitee show the same README content, and that the PyPI absolute guide/example links point outside `pypi.org/project/atst-tools/`. Do not push, publish, or trigger mirror synchronization from this task.
 

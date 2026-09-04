@@ -27,10 +27,10 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - 每个发布须在 release notes 中说明向后兼容性；仅纯增量（不破坏既有
   YAML/CLI/API 契约）的功能与修复可进入当前 minor 或 patch 序列。
 
-### 开发测试环境
+### 维护验证环境（SAI）
 
-- 项目当前开发测试在SAI超级计算机登录节点。服务器上有可直接使用的ABACUS LTS 3.10.1 和 DeePMD-kit 3.1.3
-- 项目当前在开发并行NEB模块，需依赖mpi4py，所用仓库在新创建的conda环境 atst-dev 中。
+- SAI 相关 module、队列和软件版本仅用于维护者验证证据，不构成终端用户的运行前提。服务器上有可直接使用的ABACUS LTS 3.10.1 和 DeePMD-kit 3.1.3。
+- image-level NEB/AutoNEB 已受支持；真实并行验证需在具备站点兼容 MPI 的 Python 环境中进行，并使用新创建的 conda 环境 atst-dev。
 - 开展调用ABACUS和DeePMD-kit的测试需要将任务通过slurm脚本交到4V100节点上，使用GPU节点计算。对于ABACUS，你需要在INPUT中设置ks_solver cusolver (在默认的basis lcao下)。
 
 ### 基本边界
@@ -58,7 +58,7 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 #### 用户入口
 - `README.md`：项目目标、支持 workflow、快速开始、参数入口和状态入口。
 - `docs/index.md`：用户、开发者、项目管理者三条阅读路径。
-- `docs/user/USER_GUIDE_CN.md`：中文 10 分钟快速上手、SAI/ABACUS/DP 注意事项。
+- `docs/user/USER_GUIDE_CN.md`：中文 10 分钟快速上手、ABACUS/DP 注意事项。
 - `examples/README.md`：示例学习路径和可运行配置说明。
 - `docs/user/CONFIG_REFERENCE.md`：手写 YAML 语义参考。
 - `docs/user/YAML_INPUT_VARIABLES.md`：由 schema 生成的 YAML 参数总表。

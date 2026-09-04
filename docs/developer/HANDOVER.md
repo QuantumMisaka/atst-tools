@@ -89,6 +89,8 @@ release 变更，都先从对应小节确认需要同步的文档。
   明确兼容性回退证据。
 - DP 工作流使用 `dp` extra，MPI image-level parallelism 使用 `parallel`
   extra，NEB plotting helper 使用 `plot` extra。
+- 基础安装测试必须保持不依赖 `mpi4py`；使用 `parallel` extra 的用户在 image-parallel
+  验证前必须确认站点兼容的 MPI import 与 launcher。
 - 修改依赖范围时，更新 README、`docs/user/USER_GUIDE_CN.md` 和本文件。
 - 添加或更新 package metadata 测试，并运行构建检查：
   `pytest tests/unit/test_package_metadata.py -q`、`python -m build` 和
