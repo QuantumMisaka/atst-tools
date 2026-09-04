@@ -18,14 +18,14 @@
 <body>
   <header>
     <h1>ATST-Tools GitHub 治理与发布前门禁设计</h1>
-    <p><strong>状态：</strong>本地实施完成，待 GitHub 设置与发布后外部验收</p>
+    <p><strong>状态：</strong>本地实施完成（含 exact tag-to-HEAD 绑定），待 GitHub 设置与发布后外部验收</p>
     <p><strong>决策来源：</strong>2026-09-04 用户确认“硬门禁 + 人工跨模型终审”，并要求 README、用户文档和开发者文档在推送 main 前反映最新稳定态。</p>
   </header>
   <main>
     <section id="evidence">
       <h2>实施前基线（2026-09-04）</h2>
       <p>在 Task1-3 实施前，包单一版本源为 <code>pyproject.toml</code> 的 2.2.3；对应的 release note 和预期 <code>v2.2.3</code> 发布标识必须与该稳定版本一致。本地 main 包含待推送的文档/MPI 改进。基线中的 <code>tests.yml</code> 仅覆盖 PR，<code>publish-pypi.yml</code> 在 <code>v*</code> tag push 或手动 ref 后直接 build/Twine/upload；发布文档却陈述“GitHub Release 触发”、<code>deepmodeling</code> 所有者和 2.1.0 示例。</p>
-      <p><strong>当前本地状态（2026-09-05）：</strong>仓库文件现已定义 <code>tests.yml</code> 的 PR、main push 和手动触发，并由独立文档治理 job 运行文档检查；发布工作流先解析 ref，再由 <code>release-preflight</code> 完成发布前机械门禁，最后才进入带 OIDC 的 PyPI upload job。这些是本地 workflow 定义，不表示 GitHub workflow 已执行，也不表示外部设置已通过。</p>
+      <p><strong>当前本地状态（2026-09-05）：</strong>2.2.3 仍是已发布稳定版本；当前 main 是未发布工作，不能由旧的 <code>v2.2.3</code> tag 代表。仓库文件现已定义 <code>tests.yml</code> 的 PR、main push 和手动触发，并由独立文档治理 job 运行文档检查；发布工作流只接受并解析 exact tag，在 checkout 后由 <code>release-preflight</code> 的 readiness checker 绑定 tag 与 <code>HEAD</code>，完成发布前机械门禁，最后才进入带 OIDC 的 PyPI upload job。这些是本地 workflow 定义，不表示 GitHub workflow 已执行，也不表示外部设置已通过。</p>
     </section>
     <section id="goals">
       <h2>目标与非目标</h2>
@@ -42,7 +42,7 @@
       <table><thead><tr><th>ID</th><th>要求</th><th>验收信号</th></tr></thead><tbody>
         <tr><td>R1</td><td>README、docs index、用户参考和开发者发布文档必须与当前稳定版本和实际仓库/工作流事实一致。</td><td>动态文档测试从 <code>pyproject.toml</code> 读取版本；无 2.1.0/deepmodeling/GitHub-Release 旧发布叙述；维护日期已更新。</td></tr>
         <tr><td>R2</td><td>常规 GitHub CI 必须在 PR、main push 和手动触发时运行完整 pytest 与文档治理。</td><td><code>tests.yml</code> 具有三个触发面、最小权限和两个明确 jobs；工作流契约测试保护它们。</td></tr>
-        <tr><td>R3</td><td>发布前检查必须验证给定 <code>v&lt;version&gt;</code>、项目版本与 release note 一致，并作为可本地执行脚本复用。</td><td><code>python scripts/check_release_readiness.py --tag v2.2.3</code> 成功；错误 tag/version/note 均明确失败。</td></tr>
+        <tr><td>R3</td><td>发布前检查必须验证给定 <code>v&lt;version&gt;</code> 的本地 tag 指向当前 <code>HEAD</code>，并验证项目版本与 release note 一致，且作为可本地执行脚本复用。</td><td>fixture 覆盖匹配、缺失和错指 commit 的 tag；错误 tag/version/note 均明确失败。</td></tr>
         <tr><td>R4</td><td>PyPI 上传 job 只能依赖完成的 preflight，且只取得 <code>id-token: write</code>；preflight 不拥有发布权限。</td><td>workflow 将 ref 解析、验证/build artifact、publish 分为显式依赖 jobs；静态测试锁定 <code>needs</code> 与权限。</td></tr>
         <tr><td>R5</td><td>发布前检查依次运行 release readiness、pytest、文档治理、build、Twine 和 clean-wheel API gate。</td><td>同一 checkout ref 的 workflow step 顺序及本地维护命令被测试和开发者文档覆盖。</td></tr>
         <tr><td>R6</td><td>跨模型治理终审的触发和证据边界清楚：治理路径变更先独立审查，再允许 tag/release；CI 只能验证可机械证明的部分。</td><td>开发者门禁文档给出触发、命令、禁止的替代方式及 GitHub 管理员配置；不新增凭据或自动 reviewer。</td></tr>
@@ -52,9 +52,9 @@
     <section id="architecture">
       <h2>架构与决策</h2>
       <ol>
-        <li><strong>仓库内机械门禁：</strong><code>scripts/check_release_readiness.py</code> 接受 <code>--tag</code> 与可选 <code>--root</code>，读取 <code>pyproject.toml</code>，验证 v-prefix、版本、<code>docs/releases/RELEASE_NOTES_&lt;version&gt;.md</code> 和 Compatibility package-version 行。它不访问网络、不创建 tag、不发布。</li>
+        <li><strong>仓库内机械门禁：</strong><code>scripts/check_release_readiness.py</code> 接受 <code>--tag</code> 与可选 <code>--root</code>，只用离线 Git plumbing 解析 <code>refs/tags/&lt;tag&gt;^{commit}</code> 并与 <code>HEAD</code> 比较，再读取 <code>pyproject.toml</code>，验证 v-prefix、版本、<code>docs/releases/RELEASE_NOTES_&lt;version&gt;.md</code> 和 Compatibility package-version 行。它不访问网络、不创建 tag、不发布。</li>
         <li><strong>常规 CI：</strong>保留现有 tests workflow，增加 main push，并拆出文档治理 job。两者均 <code>contents: read</code>。</li>
-        <li><strong>发布 preflight：</strong>发布工作流先解析 tag/ref，再在同一 ref checkout 安装 dev 依赖并完成 R5，上传已检查的 distributions artifact；publish job 下载唯一 artifact 并使用 pypi Environment/OIDC 上传。</li>
+        <li><strong>发布 preflight：</strong>发布工作流先从 push 事件或 env 传入的 manual <code>tag</code> 验证 exact <code>v&lt;version&gt;</code> 形式并解析 <code>refs/tags/&lt;tag&gt;</code>，再在该 tag checkout 安装 dev 依赖；checkout 后 readiness checker 绑定 tag 与 <code>HEAD</code> 并完成 R5，上传已检查的 distributions artifact；publish job 下载唯一 artifact 并使用 pypi Environment/OIDC 上传。</li>
         <li><strong>人工治理：</strong>AGENTS/GOVERNANCE_REVIEW 的跨家族终审由受控 launcher 完成；其结果包是审阅证据，不进入发布工件，也不由 Actions 伪造。GitHub 分支保护和 pypi Environment 审批由仓库管理员在设置页配置。</li>
       </ol>
     </section>
@@ -62,6 +62,7 @@
       <h2>失败处理</h2>
       <ul>
         <li>tag 不以 <code>v</code> 开头、版本不匹配、release note 缺失或 Compatibility 行不匹配：preflight 失败，upload 不可运行。</li>
+        <li>tag 缺失、不是 commit，或指向的 commit 不同于 checkout 的 <code>HEAD</code>：readiness 失败，upload 不可运行。</li>
         <li>pytest、文档治理、build、Twine 或 wheel gate 失败：artifact 不上传，PyPI job 因 <code>needs</code> 不会开始。</li>
         <li>治理文本有实质改动却没有独立跨家族审查：维护者不得 tag/release；CI 成功不等价于该门禁通过。</li>
       </ul>
@@ -71,7 +72,7 @@
       <ol>
         <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，治理路径变更仍须按现有流程完成独立跨家族终审。</li>
         <li>经授权 push main 后，确认 GitHub Tests/Governance jobs green；维护者手动从 GitHub 拉取同步 Gitee 后，检查两端 README 指向相同用户指南/示例。</li>
-        <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
+        <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，维护者必须针对候选 commit deliberate 创建并检查 exact tag；随后配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
       </ol>
     </section>
   </main>

@@ -31,6 +31,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/user/CONFIG_REFERENCE.md` 与 `docs/reports/FEATURE_STATUS_MATRIX.md`；
   新增 `docs/releases/RELEASE_NOTES_2.2.3.md`。YAML schema 未变，不重新生成
   `YAML_INPUT_VARIABLES.md`。
+- 2026-09-05：GitHub 治理与发布门禁已在本地实现 exact tag-to-HEAD 绑定；2.2.3
+  仍为已发布稳定版本，当前 main 作为未发布工作，旧 tag 不代表当前 main。
+  发布、推送、外部设置和跨渠道渲染检查仍待维护者执行。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
   AGENTS/SKILL 等治理契约的跨家族人工终审，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。

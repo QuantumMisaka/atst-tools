@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,14 @@ def _fixture_root(tmp_path: Path, compatibility: str = "9.8.7") -> Path:
         f"- Package version: `{compatibility}`.\n",
         encoding="utf-8",
     )
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "fixture@example.invalid"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Fixture"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "pyproject.toml", "docs"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "fixture"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "tag", "v9.8.7"], cwd=tmp_path, check=True)
     return tmp_path
 
 
@@ -40,6 +49,36 @@ def test_release_readiness_accepts_matching_tag_and_compatibility_line(tmp_path)
     checker = _load_checker()
 
     assert checker.main(["--root", str(_fixture_root(tmp_path)), "--tag", "v9.8.7"]) == 0
+
+
+@pytest.mark.parametrize("tag_setup", ["missing", "non-commit", "mismatched"])
+def test_release_readiness_requires_tag_to_resolve_to_checked_out_head(tmp_path, tag_setup, capsys):
+    """Readiness rejects a missing, non-commit, or mismatched release tag."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    if tag_setup == "missing":
+        subprocess.run(["git", "tag", "-d", "v9.8.7"], cwd=root, check=True, capture_output=True)
+    elif tag_setup == "non-commit":
+        subprocess.run(["git", "tag", "-d", "v9.8.7"], cwd=root, check=True, capture_output=True)
+        blob = subprocess.run(
+            ["git", "rev-parse", "HEAD:pyproject.toml"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        subprocess.run(["git", "tag", "v9.8.7", blob], cwd=root, check=True)
+    else:
+        (root / "marker").write_text("different commit\n", encoding="utf-8")
+        subprocess.run(["git", "add", "marker"], cwd=root, check=True)
+        subprocess.run(["git", "commit", "-qm", "different commit"], cwd=root, check=True)
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "tag" in captured.err.lower()
+    assert "Traceback" not in captured.err
 
 
 @pytest.mark.parametrize(

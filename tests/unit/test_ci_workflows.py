@@ -82,10 +82,25 @@ def test_release_workflow_separates_resolution_preflight_and_publish():
     assert "  resolve-release:\n" in workflow
     assert "  release-preflight:\n" in workflow
     assert "  publish:\n" in workflow
+    assert "      tag:\n" in workflow
+    assert "      ref:\n" not in workflow
+    assert "inputs.ref" not in workflow
+    assert "DISPATCH_TAG: ${{ inputs.tag }}" in workflow
+    resolver_run = re.search(r"(?ms)^        run:.*?(?=^      - |\Z)", workflow)
+    assert resolver_run is not None
+    assert "${{ inputs.tag }}" not in resolver_run.group(0)
+    assert "refs/tags/$RELEASE_TAG" in workflow
+    assert 'echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"' in workflow
+    validation = workflow.index('if [[ ! "$RELEASE_TAG"')
+    first_output = workflow.index("GITHUB_OUTPUT", validation)
+    assert validation < first_output
     assert "ref: ${{ steps.resolve-release.outputs.ref }}" in workflow
     assert "needs: resolve-release" in preflight
     assert "ref: ${{ needs.resolve-release.outputs.ref }}" in preflight
     assert "python scripts/check_release_readiness.py --tag \"$RELEASE_TAG\"" in preflight
+    checkout = preflight.index("ref: ${{ needs.resolve-release.outputs.ref }}")
+    readiness = preflight.index("python scripts/check_release_readiness.py", checkout)
+    assert checkout < readiness
     assert "python -m pytest tests -q" in preflight
     assert "python scripts/check_docs_governance.py" in preflight
     assert "python -m build" in preflight

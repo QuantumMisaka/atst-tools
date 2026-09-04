@@ -5,9 +5,9 @@
 **Goal:** Make current stable-state documentation and GitHub CI mechanically enforceable before a PyPI upload, while retaining independent cross-model governance review as a human gate.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` (R1-R7; decisions confirmed by the user on 2026-09-04).
-**Status:** 本地实施完成，待 GitHub 设置与发布后外部验收。
+**Status:** Task 4 本地实现完成：当前 main 是未发布工作；已补齐 exact tag/commit 绑定门禁。治理终审、GitHub 设置、推送和后续发布验收仍待授权维护者执行。
 
-**Architecture:** A small repository-local readiness checker owns tag/version/release-note consistency and is tested through temporary repository fixtures. General CI runs tests plus documentation governance on PR/main. The PyPI workflow resolves one release ref, performs all release checks and artifact creation before its OIDC-only publish job. Developer documentation names the manual cross-family and GitHub-settings gates without trying to automate them.
+**Architecture:** A small repository-local readiness checker owns exact tag-to-`HEAD`, tag/version/release-note consistency and is tested through temporary repository fixtures. General CI runs tests plus documentation governance on PR/main. The PyPI workflow resolves one exact tag namespace ref, performs all release checks and artifact creation before its OIDC-only publish job. Developer documentation names the manual cross-family and GitHub-settings gates without trying to automate them.
 
 **Tech Stack:** Python 3.10+, stdlib `tomllib`, pytest, GitHub Actions YAML, setuptools build, Twine.
 
@@ -171,9 +171,52 @@ git add docs/developer/GOVERNANCE_AND_RELEASE_GATES.md docs/index.md \
 git commit -m "docs: govern GitHub release gates"
 ```
 
+## Task 4: Immutable release-tag binding after final-review finding
+
+**Decision source:** The whole-branch final review on 2026-09-05 found that `v2.2.3` already resolves to the pre-change baseline while `pyproject.toml` still declares `2.2.3`; it also found that a manual ref could reach the OIDC publisher. The user authorized continued implementation, but did not authorize a version bump, tag, push, or publication.
+
+**Files:**
+- Modify: `scripts/check_release_readiness.py`, `tests/unit/test_release_readiness.py`
+- Modify: `.github/workflows/publish-pypi.yml`, `tests/unit/test_ci_workflows.py`
+- Modify: `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md`, `docs/developer/PYPI_RELEASE_AUTOMATION.md`
+- Modify: this plan and its linked design SPEC/status ledger as needed
+
+**Ruling:** Keep `2.2.3` as the published stable version and treat the current main range as unreleased work. Do not invent `2.2.4` release notes or retag an immutable published release. The release path must require a future maintainer-created exact `v<pyproject version>` tag that resolves to the checked-out commit. Cost if wrong: a later maintenance release needs a separate deliberate patch-version/release-note task, but no published artifact is misrepresented today.
+
+**Test strategy:** Fixture repositories create an annotated or lightweight tag and prove readiness accepts only a tag resolving to the checked-out commit; missing, malformed, or mismatched tags fail. Workflow contract tests prove the manual input is a tag (not arbitrary ref), is passed through `env`, is validated before `GITHUB_OUTPUT`, resolves `refs/tags/<tag>`, and checks the tag target after checkout before preflight can publish.
+
+**Interfaces:** `check_release_readiness.py --tag v<version>` validates the exact repository tag and current `HEAD` in addition to metadata/release-note facts. The workflow dispatch input is named `tag`; the resolver emits one validated tag/ref for checkout.
+
+- [x] **Step 1: Add focused failing tag-binding and workflow-contract tests**
+
+Extend readiness fixtures with a minimal Git repository whose `HEAD` and `refs/tags/v9.8.7` initially match. Cover an absent tag and a tag pointing at another commit. Extend CI workflow tests for the tag-only dispatch input, env-mediated input handling, `refs/tags/` resolution, and post-checkout tag-to-`HEAD` verification.
+
+- [x] **Step 2: Run RED**
+
+```bash
+conda run -n atst-dev python -m pytest tests/unit/test_release_readiness.py tests/unit/test_ci_workflows.py -q
+```
+
+Expected: failures show the checker does not inspect Git tags and the workflow still accepts arbitrary refs/direct expression interpolation.
+
+- [x] **Step 3: Bind checker and publisher to an exact tag**
+
+Use Git plumbing without network access to resolve only `refs/tags/<tag>` and its peeled commit; reject missing/non-commit tags and a target that differs from `HEAD`. In the workflow, accept only a `tag` input, place it in an env variable, validate the exact `v<version>` form before output, resolve the tag namespace, and run the same checker after checkout. Preserve preflight order, artifact handoff, least-privilege publish, and no-Gitee/no-secrets boundaries. Update developer instructions to say a main commit is not a release until a new exact tag is deliberately created; do not state a new version exists.
+
+- [x] **Step 4: Verify GREEN**
+
+Run focused tests, YAML parse, docs governance, and fixture readiness. The repository-root check for `v2.2.3` must now fail because the existing tag targets the old release; this is expected evidence, not a bypass. Then run the full suite and clean-wheel preflight; move generated `dist/` to `$HOME/scratch/atst-tools-release-gate-dist` rather than deleting it.
+
+- [x] **Step 5: Commit Task 4**
+
+```bash
+git add scripts/check_release_readiness.py tests/unit/test_release_readiness.py .github/workflows/publish-pypi.yml tests/unit/test_ci_workflows.py docs/developer/GOVERNANCE_AND_RELEASE_GATES.md docs/developer/PYPI_RELEASE_AUTOMATION.md docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md
+git commit -m "ci: bind releases to immutable tags"
+```
+
 ## Plan Self-Review
 
-- R1 is Task 1; R2/R4/R5 are Task 2; R3 spans Tasks 1–2; R6/R7 are Task 3.
+- R1 is Task 1; R2/R4/R5 are Tasks 2 and 4; R3 spans Tasks 1–2 and 4; R6/R7 are Task 3.
 - No task creates credentials, Gitee automation, tags, releases, or external administrator settings.
 - Task 1 creates the exact script consumed by Task 2; Task 3 only documents established interfaces.
 - The plan contains exact paths, tests, commands, and commit scopes; no placeholder, temporary production API, or unassigned requirement remains.

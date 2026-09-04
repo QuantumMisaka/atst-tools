@@ -3,7 +3,7 @@
 ATST-Tools publishes release artifacts to PyPI through the
 [QuantumMisaka/atst-tools](https://github.com/QuantumMisaka/atst-tools) GitHub
 repository and PyPI Trusted Publishing. The workflow builds the source
-distribution and wheel from a pushed release tag, checks the artifacts with
+distribution and wheel from an exact release tag, checks the artifacts with
 Twine, and uploads them without a stored PyPI token.
 
 The complete mechanical and human boundary is maintained in
@@ -15,11 +15,13 @@ describes the PyPI-specific part of that contract.
 The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
 - Primary trigger: pushing a `v*` tag.
-- Manual trigger: `workflow_dispatch` with a `v`-prefixed tag or ref, used for
-  an already-created tag such as `v2.2.3`.
-- Release guard: the workflow requires the release tag to match
-  `pyproject.toml` `[project].version`. For example, the current stable tag
-  `v2.2.3` must match `2.2.3`.
+- Manual trigger: `workflow_dispatch` with the `tag` input naming an
+  already-created exact tag such as `v2.2.3`; arbitrary branches, commits, and
+  refs are not accepted.
+- Release guard: the workflow requires the tag to match
+  `pyproject.toml` `[project].version`, resolves it under `refs/tags/`, and
+  checks after checkout that it points to `HEAD`. The current stable release
+  remains `2.2.3`; the current main range is unreleased work.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
 - Before publishing, `release-preflight` checks out the resolved ref and runs
@@ -29,8 +31,8 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
 ## Local Readiness Gate
 
-Before pushing `v<version>`, run the offline release gate from the repository
-root:
+For a candidate commit with its deliberate local `v<version>` tag already
+created, run the offline release gate from a checkout of that tagged commit:
 
 ```bash
 python -m pip install ".[release]"
@@ -38,10 +40,11 @@ python scripts/check_release_readiness.py --tag v<version>
 ```
 
 The `[release]` extra provides the build/release tooling and the Python 3.10
-TOML compatibility parser. The checker verifies the tag against
-`pyproject.toml` and requires the exact package version line in
-`docs/releases/RELEASE_NOTES_<version>.md`. It reads local files only and does
-not create tags, push commits, or contact GitHub or PyPI.
+TOML compatibility parser. The checker verifies the exact local tag and its
+target against `HEAD`, then checks `pyproject.toml` and requires the exact
+package version line in `docs/releases/RELEASE_NOTES_<version>.md`. It reads
+local files only and does not create tags, push commits, or contact GitHub or
+PyPI.
 
 This local documentation change has not configured the GitHub `pypi`
 Environment, its reviewers or tag restrictions, or the PyPI Trusted Publisher
@@ -89,10 +92,10 @@ After the release branch is verified, the cross-family governance gate is
 accepted when applicable, and the PyPI/GitHub setup above is confirmed by an
 administrator, publish with one of these paths:
 
-1. Push the checked tag `v<version>` to
+1. Push the checked exact tag `v<version>` to
    `https://github.com/QuantumMisaka/atst-tools`.
 2. Or run `Publish Python package to PyPI` manually from the Actions tab with
-   input `v<version>`.
+   the `tag` input set to `v<version>`.
 
 Neither push/tag/release nor a Gitee mirror pull is performed by this
 repository-file workflow. After an authorized publish, the maintainer must

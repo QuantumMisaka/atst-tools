@@ -19,15 +19,21 @@ conda run -n atst-dev python -m twine check --strict dist/*
 conda run -n atst-dev python scripts/verify_wheel_api.py
 ```
 
-For another version, replace `v2.2.3` with the matching `v<version>` tag. The
-readiness checker is offline: it compares the tag with the version in
-`pyproject.toml` and the corresponding release note. It does not create a tag,
-push a commit, publish an artifact, or contact GitHub, Gitee, or PyPI.
+Run the readiness command from a checkout whose `HEAD` is the exact commit
+targeted by the existing `v<version>` tag; the checker compares that peeled tag
+commit with `HEAD` as well as checking the version and release note. For
+another version, replace `v2.2.3` with its matching exact tag. On the current
+main range, the `v2.2.3` command is expected to fail because that published
+stable tag points to the earlier release commit; current main is unreleased
+work. The checker is offline and does not create a tag, push a commit, publish
+an artifact, or contact GitHub, Gitee, or PyPI.
 
 The same mechanical contracts run in CI. The general workflow runs the full
 pytest suite and `documentation-governance` runs
-`python scripts/check_docs_governance.py`. The PyPI workflow resolves one ref,
-then `release-preflight` checks that exact ref in this order: release
+`python scripts/check_docs_governance.py`. The PyPI workflow accepts a pushed
+tag or a manual `tag` input only, validates its exact `v<version>` form, and
+resolves `refs/tags/<tag>`. After checkout, `release-preflight` runs the same
+readiness checker (including tag-to-`HEAD` binding) in this order: release
 readiness, pytest, documentation governance, build, strict Twine, and the
 clean-wheel API gate. Only a successful preflight hands an artifact to the
 `publish` job. The `publish` job is the only job that requests the `pypi`
@@ -37,8 +43,8 @@ Environment and `id-token: write`.
 
 Changes to `AGENTS.md`, a `SKILL.md`, a role contract, governance triggers,
 reviewer routing, or another declared governance effect require the existing
-cross-family review process. This Task3 documentation itself describes that
-boundary; it does not replace the process.
+cross-family review process. This guide describes that boundary; it does not
+replace the process.
 
 After local checks pass, freeze the exact commit range and use the existing
 `GOVERNANCE_REVIEW.md` launcher and its `governance-review prepare`, `run`,
@@ -65,13 +71,16 @@ editing repository files:
    `QuantumMisaka/atst-tools`, workflow filename, and `pypi` Environment match
    the workflow. Keep credentials out of repository files.
 3. After the governance gate is accepted, the authorized maintainer may push
-   the intended commit/tag or create the intended release. The local Task3
-   implementation does not push, create a tag, or create a release.
+   the intended commit/tag or create the intended release. A main commit is
+   not a release until a maintainer deliberately creates the exact
+   `v<pyproject version>` tag; the local implementation does not push, create
+   a tag, or create a release.
 4. After publishing, the maintainer checks GitHub Actions and PyPI artifact
    metadata/rendering from the published ref, then performs the manual Gitee
    mirror pull and checks the Gitee rendering. This repository adds no Gitee
    synchronization automation.
 
-At Task3 completion, branch protection, `pypi` Environment reviewers/tag
+At Task4 completion, `2.2.3` remains the published stable version and the
+current main range remains unreleased. Branch protection, `pypi` Environment reviewers/tag
 restrictions, Trusted Publisher identity, push/tag/release, Gitee mirror pull,
 and GitHub/Gitee/PyPI rendering verification remain pending external work.

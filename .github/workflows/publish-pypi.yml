@@ -6,10 +6,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      ref:
-        description: Git tag or ref to publish, for example v2.0.1
+      tag:
+        description: Exact existing release tag to publish, for example v2.2.3
         required: true
-        default: v2.0.1
+        default: v2.2.3
 
 permissions:
   contents: read
@@ -19,17 +19,28 @@ jobs:
     name: Resolve release ref
     runs-on: ubuntu-latest
     outputs:
+      tag: ${{ steps.resolve-release.outputs.tag }}
       ref: ${{ steps.resolve-release.outputs.ref }}
 
     steps:
       - name: Resolve release ref
         id: resolve-release
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_TAG: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            RELEASE_TAG="$DISPATCH_TAG"
           else
-            echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            RELEASE_TAG="$PUSH_TAG"
           fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: release tag must match v<major>.<minor>.<patch>: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "ref=refs/tags/$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
   release-preflight:
     name: Release preflight
@@ -54,7 +65,7 @@ jobs:
 
       - name: Check release readiness
         env:
-          RELEASE_TAG: ${{ needs.resolve-release.outputs.ref }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
         run: |
           python scripts/check_release_readiness.py --tag "$RELEASE_TAG"
 
