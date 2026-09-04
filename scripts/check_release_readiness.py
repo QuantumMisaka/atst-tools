@@ -19,17 +19,21 @@ _PROJECT_VERSION = re.compile(
 )
 
 
-def _project_version(root: Path) -> str:
+def load_project_version(root: Path) -> str:
     """Read the package version from ``pyproject.toml``."""
     path = root / "pyproject.toml"
     if tomllib is not None:
         with path.open("rb") as handle:
-            return tomllib.load(handle)["project"]["version"]
+            version = tomllib.load(handle)["project"]["version"]
+    else:
+        match = _PROJECT_VERSION.search(path.read_text(encoding="utf-8"))
+        if match is None:
+            raise ValueError("pyproject.toml has no [project].version")
+        version = match.group(1)
 
-    match = _PROJECT_VERSION.search(path.read_text(encoding="utf-8"))
-    if match is None:
-        raise ValueError("pyproject.toml has no [project].version")
-    return match.group(1)
+    if not isinstance(version, str) or not version:
+        raise ValueError("pyproject.toml [project].version must be a non-empty string")
+    return version
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -46,8 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = args.root.resolve()
 
     try:
-        version = _project_version(root)
-    except (OSError, KeyError, TypeError, ValueError) as exc:
+        version = load_project_version(root)
+    except (OSError, UnicodeDecodeError, KeyError, TypeError, ValueError) as exc:
         print(f"ERROR: unable to read project version: {exc}", file=sys.stderr)
         return 1
 
@@ -60,12 +64,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     release_note = root / "docs" / "releases" / f"RELEASE_NOTES_{version}.md"
-    if not release_note.is_file():
-        print(f"ERROR: release note is missing: {release_note.relative_to(root)}", file=sys.stderr)
+    try:
+        if not release_note.is_file():
+            print(
+                f"ERROR: release note is missing: {release_note.relative_to(root)}",
+                file=sys.stderr,
+            )
+            return 1
+        text = release_note.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"ERROR: unable to read release note: {exc}", file=sys.stderr)
         return 1
 
     compatibility_line = f"- Package version: `{version}`."
-    text = release_note.read_text(encoding="utf-8")
     if compatibility_line not in text.splitlines():
         print(
             f"ERROR: release note must contain the exact Compatibility line {compatibility_line!r}",

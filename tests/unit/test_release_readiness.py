@@ -43,16 +43,16 @@ def test_release_readiness_accepts_matching_tag_and_compatibility_line(tmp_path)
 
 
 @pytest.mark.parametrize(
-    ("tag", "fixture_kwargs", "remove_note"),
+    ("tag", "fixture_kwargs", "remove_note", "message"),
     [
-        ("9.8.7", {}, False),
-        ("v9.8.8", {}, False),
-        ("v9.8.7", {}, True),
-        ("v9.8.7", {"compatibility": "9.8.6"}, False),
+        ("9.8.7", {}, False, "must exactly match"),
+        ("v9.8.8", {}, False, "must exactly match"),
+        ("v9.8.7", {}, True, "release note is missing"),
+        ("v9.8.7", {"compatibility": "9.8.6"}, False, "exact Compatibility line"),
     ],
 )
 def test_release_readiness_rejects_invalid_release_contract(
-    tmp_path, tag, fixture_kwargs, remove_note
+    tmp_path, tag, fixture_kwargs, remove_note, message, capsys
 ):
     """A malformed tag, missing note, or wrong compatibility line blocks readiness."""
     checker = _load_checker()
@@ -61,3 +61,74 @@ def test_release_readiness_rejects_invalid_release_contract(
         (root / "docs" / "releases" / "RELEASE_NOTES_9.8.7.md").unlink()
 
     assert checker.main(["--root", str(root), "--tag", tag]) != 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert message in captured.err
+
+
+@pytest.mark.parametrize(
+    "pyproject_contents",
+    [
+        b"[project]\nversion = [\n",
+        b"[project]\nversion = \"9.8.7\"\n\xff",
+    ],
+)
+def test_release_readiness_reports_malformed_or_undecodable_metadata(tmp_path, pyproject_contents, capsys):
+    """Malformed or undecodable project metadata returns one diagnostic."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    (root / "pyproject.toml").write_bytes(pyproject_contents)
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "project version" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_release_readiness_reports_missing_project_metadata(tmp_path, capsys):
+    """A missing project file returns one clear diagnostic rather than a traceback."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    (root / "pyproject.toml").unlink()
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "project version" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_release_readiness_reports_undecodable_release_note(tmp_path, capsys):
+    """An undecodable release note returns one clear diagnostic."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    (root / "docs" / "releases" / "RELEASE_NOTES_9.8.7.md").write_bytes(b"\xff")
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "release note" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_release_readiness_reports_unreadable_release_note(tmp_path, capsys):
+    """An unreadable release note returns one clear diagnostic."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    release_note = root / "docs" / "releases" / "RELEASE_NOTES_9.8.7.md"
+    release_note.chmod(0)
+    try:
+        assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    finally:
+        release_note.chmod(0o644)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "unable to read release note" in captured.err
+    assert "Traceback" not in captured.err

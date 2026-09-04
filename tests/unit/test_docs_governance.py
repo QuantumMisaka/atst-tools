@@ -2,11 +2,6 @@ import importlib.util
 import re
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10 compatibility.
-    import tomli as tomllib
-
 import pytest
 
 
@@ -16,7 +11,6 @@ CANONICAL_REPOSITORIES = {
     "Gitee": "https://gitee.com/jamesmisaka/atst-tools",
 }
 ROOT = Path(__file__).resolve().parents[2]
-STABLE_VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 
 
 def _markdown_targets(text: str) -> set[str]:
@@ -80,6 +74,18 @@ def _load_governance_script():
     return module
 
 
+def _load_release_checker():
+    script = ROOT / "scripts" / "check_release_readiness.py"
+    spec = importlib.util.spec_from_file_location("check_release_readiness", script)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+STABLE_VERSION = _load_release_checker().load_project_version(ROOT)
+
+
 def test_docs_governance_checks_pass_for_current_tree():
     root = Path(__file__).resolve().parents[2]
     module = _load_governance_script()
@@ -139,6 +145,7 @@ def test_stable_release_facts_are_derived_across_entrypoints():
     index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
     config = (ROOT / "docs/user/CONFIG_REFERENCE.md").read_text(encoding="utf-8")
     api_reference = (ROOT / "docs/user/PYTHON_API_REFERENCE.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs/developer/DOCS_ARCHITECTURE.md").read_text(encoding="utf-8")
     user_guide = (ROOT / "docs/user/USER_GUIDE_CN.md").read_text(encoding="utf-8")
     release_automation = (ROOT / "docs/developer/PYPI_RELEASE_AUTOMATION.md").read_text(
         encoding="utf-8"
@@ -148,6 +155,7 @@ def test_stable_release_facts_are_derived_across_entrypoints():
     assert f"Current {STABLE_VERSION} status" in readme
     assert f"RELEASE_NOTES_{STABLE_VERSION}.md" in readme
     assert f"releases/RELEASE_NOTES_{STABLE_VERSION}.md" in index
+    assert f"../releases/RELEASE_NOTES_{STABLE_VERSION}.md" in architecture
     assert f"{STABLE_VERSION} release" in api_reference
     assert f"{STABLE_VERSION}" in config
     assert f"{STABLE_VERSION}" in user_guide
