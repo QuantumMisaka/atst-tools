@@ -1,22 +1,37 @@
 # PyPI Release Automation
 
-ATST-Tools publishes release artifacts to PyPI through GitHub Actions and PyPI
-Trusted Publishing. The workflow builds the source distribution and wheel from a
-GitHub release tag, checks the artifacts with Twine, and uploads them without a
-stored PyPI token.
+ATST-Tools publishes release artifacts to PyPI through the
+[QuantumMisaka/atst-tools](https://github.com/QuantumMisaka/atst-tools) GitHub
+repository and PyPI Trusted Publishing. The workflow builds the source
+distribution and wheel from a pushed release tag, checks the artifacts with
+Twine, and uploads them without a stored PyPI token.
 
 ## Repository Workflow
 
 The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
-- Primary trigger: publishing a GitHub Release.
+- Primary trigger: pushing a `v*` tag.
 - Manual trigger: `workflow_dispatch` with a `v`-prefixed tag or ref, used for
-  already-created tags such as `v2.1.0`.
+  an already-created tag such as `v2.2.3`.
 - Release guard: the workflow requires the release tag to match
-  `pyproject.toml` `[project].version`. For example, `v2.1.0` must match
-  `2.1.0`.
+  `pyproject.toml` `[project].version`. For example, the current stable tag
+  `v2.2.3` must match `2.2.3`.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
+
+## Local Readiness Gate
+
+Before pushing `v<version>`, run the offline release gate from the repository
+root:
+
+```bash
+python scripts/check_release_readiness.py --tag v<version>
+```
+
+It checks the tag against `pyproject.toml` and requires the exact package
+version line in `docs/releases/RELEASE_NOTES_<version>.md`. The checker reads
+local files only and does not create tags, push commits, or contact GitHub or
+PyPI.
 
 ## PyPI Setup
 
@@ -30,7 +45,7 @@ Use these exact values:
 
 ```text
 PyPI project name: atst-tools
-Owner: deepmodeling
+Owner: QuantumMisaka
 Repository name: atst-tools
 Workflow filename: publish-pypi.yml
 Environment name: pypi
@@ -54,21 +69,22 @@ Recommended environment protection:
 - Limit deployment branches/tags to release tags if the repository policy
   supports it.
 
-## Publishing 2.1.0
+## Publishing `<version>`
 
 After the release branch is verified and the PyPI/GitHub setup above is
 complete, publish with one of these paths:
 
-1. Create and publish a GitHub Release from tag `v2.1.0`.
+1. Push the checked tag `v<version>` to
+   `https://github.com/QuantumMisaka/atst-tools`.
 2. Or run `Publish Python package to PyPI` manually from the Actions tab with
-   input `v2.1.0`.
+   input `v<version>`.
 
 Verify the published package from a clean environment:
 
 ```bash
-python -m pip install --no-cache-dir atst-tools==2.1.0
+python -m pip install --no-cache-dir atst-tools==<version>
 python -c "import atst_tools; print(atst_tools.package_version())"
 atst --version
 ```
 
-Both version commands should report `2.1.0`.
+Both version commands should report `<version>`.

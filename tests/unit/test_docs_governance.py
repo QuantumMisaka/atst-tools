@@ -2,6 +2,11 @@ import importlib.util
 import re
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 compatibility.
+    import tomli as tomllib
+
 import pytest
 
 
@@ -10,6 +15,8 @@ CANONICAL_REPOSITORIES = {
     "GitHub": "https://github.com/QuantumMisaka/atst-tools",
     "Gitee": "https://gitee.com/jamesmisaka/atst-tools",
 }
+ROOT = Path(__file__).resolve().parents[2]
+STABLE_VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 
 
 def _markdown_targets(text: str) -> set[str]:
@@ -117,13 +124,37 @@ def test_active_user_docs_use_current_repository_and_release_facts():
 
     assert all("https://github.com/QuantumMisaka/atst-tools.git" in text for text in repository_docs.values())
     assert all("https://github.com/deepmodeling/atst-tools.git" not in text for text in repository_docs.values())
-    assert "当前 2.2.3 版本" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
-    assert "RELEASE_NOTES_2.2.3.md" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
-    assert "**Version**: 2.2.3" in active_user_docs["docs/user/CONFIG_REFERENCE.md"]
+    assert f"当前 {STABLE_VERSION} 版本" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
+    assert f"RELEASE_NOTES_{STABLE_VERSION}.md" in active_user_docs["docs/user/USER_GUIDE_CN.md"]
+    assert f"**Version**: {STABLE_VERSION}" in active_user_docs["docs/user/CONFIG_REFERENCE.md"]
     assert "**Version**: 2.2.1" not in active_user_docs["docs/user/CONFIG_REFERENCE.md"]
-    assert "This reference tracks the current 2.2.3 release" in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
-    assert "This reference tracks the current 2.2.1 release" not in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
+    assert f"This reference tracks the current {STABLE_VERSION} release" in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
+    assert f"This reference tracks the current 2.2.1 release" not in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
     assert "(2.2.1)" in active_user_docs["docs/user/PYTHON_API_REFERENCE.md"]
+
+
+def test_stable_release_facts_are_derived_across_entrypoints():
+    """Stable-version links and release automation agree with package metadata."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    index = (ROOT / "docs/index.md").read_text(encoding="utf-8")
+    config = (ROOT / "docs/user/CONFIG_REFERENCE.md").read_text(encoding="utf-8")
+    api_reference = (ROOT / "docs/user/PYTHON_API_REFERENCE.md").read_text(encoding="utf-8")
+    user_guide = (ROOT / "docs/user/USER_GUIDE_CN.md").read_text(encoding="utf-8")
+    release_automation = (ROOT / "docs/developer/PYPI_RELEASE_AUTOMATION.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert f"version-{STABLE_VERSION}-blue" in readme
+    assert f"Current {STABLE_VERSION} status" in readme
+    assert f"RELEASE_NOTES_{STABLE_VERSION}.md" in readme
+    assert f"releases/RELEASE_NOTES_{STABLE_VERSION}.md" in index
+    assert f"{STABLE_VERSION} release" in api_reference
+    assert f"{STABLE_VERSION}" in config
+    assert f"{STABLE_VERSION}" in user_guide
+    assert "QuantumMisaka/atst-tools" in release_automation
+    assert f"v{STABLE_VERSION}" in release_automation
+    assert "Owner: deepmodeling" not in release_automation
+    assert "Primary trigger: publishing a GitHub Release" not in release_automation
 
 
 @pytest.mark.parametrize(

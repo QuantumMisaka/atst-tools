@@ -328,6 +328,7 @@ Developer governance starts from these maintained entry points:
 - [Documentation architecture](docs/developer/DOCS_ARCHITECTURE.md)
 - [ABACUS wrapper guide](docs/user/ABACUSLITE_WRAPPER_GUIDE.md)
 - [Maintained atst-cli skill](docs/skills/atst-cli/SKILL.md)
+- [Release readiness gate](docs/developer/PYPI_RELEASE_AUTOMATION.md#local-readiness-gate)
 
 Project status and validation entry points:
 

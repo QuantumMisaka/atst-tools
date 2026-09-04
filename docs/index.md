@@ -51,7 +51,7 @@ backend, CLI command, example, or documentation.
 7. [Maintained atst-cli skill](skills/atst-cli/SKILL.md) for operational CLI
    usage and validation snippets.
 8. [PyPI release automation](developer/PYPI_RELEASE_AUTOMATION.md) for release
-   publishing.
+   publishing and the local readiness gate.
 
 ## Project Manager Path
 

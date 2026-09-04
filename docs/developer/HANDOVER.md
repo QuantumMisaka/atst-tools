@@ -1,7 +1,7 @@
 # 文档系统交接与维护
 
-**版本**: 2026-06-27
-**日期**: 2026-06-27
+**版本**: 2026-09-04
+**日期**: 2026-09-04
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -126,6 +126,7 @@ release 变更，都先从对应小节确认需要同步的文档。
 
 - 更新 `docs/releases/RELEASE_NOTES_<version>.md`。
 - 更新 README badge、版本说明和 release scope。
+- 运行离线门禁：`python scripts/check_release_readiness.py --tag v<version>`。
 - 若 release 包含示例或 curated-output 变更，按
   `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` 复核运行证据与溯源。
 - 更新 `FEATURE_STATUS_MATRIX.md` 和 `DOCUMENTATION_STATUS_REPORT.md`。
