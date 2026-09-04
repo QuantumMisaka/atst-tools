@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATST-Tools 用户分发、文档入口与 MPI 安装分层设计</title>
+  <style>
+    :root { --ink:#17202a; --muted:#52606d; --line:#cbd2d9; --paper:#fff; --wash:#f5f7f8; --accent:#146c5b; --note:#8a5a00; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header,nav,main,footer { width:min(100% - 2rem,980px); margin-inline:auto; } header { padding:3rem 0 1.5rem; border-bottom:3px solid var(--accent); }
+    h1 { margin:0 0 .75rem; font-size:2.35rem; line-height:1.15; } h2 { margin:0 0 .75rem; font-size:1.35rem; } h3 { font-size:1rem; }
+    p,ul,ol,pre { margin:.5rem 0 1rem; } .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; } .meta p { margin:0; }
+    nav { padding:1.25rem 0; } nav ol { columns:2; padding-left:1.25rem; } main { background:var(--paper); border:1px solid var(--line); }
+    section { padding:1.5rem; border-top:1px solid var(--line); } section:first-child { border-top:0; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; } th,td { padding:.65rem; border:1px solid var(--line); text-align:left; vertical-align:top; } th { background:var(--wash); }
+    code { padding:.1rem .3rem; background:var(--wash); } pre { padding:.8rem; overflow-x:auto; background:var(--wash); border:1px solid var(--line); }
+    .decision { border-left:4px solid var(--accent); padding:.5rem 1rem; background:var(--wash); } .open { border-left-color:var(--note); } footer { padding:1.5rem 0 3rem; color:var(--muted); }
+    @media (max-width:640px) { h1 { font-size:1.9rem; } nav ol { columns:1; } section { padding:1rem; } .table-wrap { overflow-x:auto; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATST-Tools 用户分发、文档入口与 MPI 安装分层设计</h1>
+    <div class="meta">
+      <p><strong>状态：</strong>已确认设计，待实施</p>
+      <p><strong>责任人：</strong>ATST-Tools maintainers</p>
+      <p><strong>更新：</strong>2026-09-04</p>
+    </div>
+  </header>
+  <nav aria-label="目录"><h2>目录</h2><ol>
+    <li><a href="#summary">概述与证据</a></li><li><a href="#goals">目标与非目标</a></li><li><a href="#requirements">需求</a></li><li><a href="#decisions">决策与备选</a></li><li><a href="#architecture">入口与责任边界</a></li><li><a href="#errors">失败处理</a></li><li><a href="#testing">验证</a></li><li><a href="#rollout">实施与发布</a></li><li><a href="#risks">风险与开放项</a></li>
+  </ol></nav>
+  <main>
+    <section id="summary"><h2>概述与证据</h2>
+      <p>ATST-Tools 已具备 README、中文用户指南、示例学习路径、CLI/API/YAML reference 与功能状态矩阵；问题不是缺少资料，而是不同分发渠道不能保证把用户送到同一份资料。GitHub 主仓为 <code>QuantumMisaka/atst-tools</code>，Gitee 镜像为 <code>jamesmisaka/atst-tools</code>，两者均以 <code>main</code> 为当前分支并在本设计确认时指向同一提交。镜像由维护者从 GitHub 手动拉取同步；它不拥有专属 README、分支策略或同步代码。PyPI 复用 README 时会把仓库相对链接解析为 PyPI 子路径，致使用户指南、示例和 reference 链接 404。</p>
+      <p>审查还确认：用户入口（README、<code>docs/index.md</code>、<code>docs/user/</code>、<code>examples/README.md</code>）未写入 SAI 分区、QOS 或作业命令；SAI 特定事实已经主要位于维护者操作指南和验证报告。这个分层应保留。当前待修正的事实漂移包括错误的源码 clone URL、<code>USER_GUIDE_CN.md</code> 仍称 2.2.1、2.2.3 release notes 的 Compatibility 版本仍为 2.3.0，以及 atst-cli skill 的旧分支叙述。</p>
+      <p>另外，<code>mpi4py</code> 已经是 <code>[parallel]</code> optional extra，而非默认依赖。用户反馈的 wheel 加载崩溃属于外层 MPI launcher、动态库和 mpi4py 构建 ABI 不一致风险；不应以拆分两个 ATST 包来解决，而应明确串行默认档与 image-parallel 档，并在后者给出通用的站点 MPI 预检和恢复路径。</p>
+    </section>
+    <section id="goals"><h2>目标与非目标</h2>
+      <h3>目标</h3><ul>
+        <li>用户从 GitHub、Gitee 或 PyPI README 出发，在一次点击内到达中文用户指南和示例入口。</li>
+        <li>明确 GitHub、Gitee 与 PyPI 的权威边界，避免镜像被误认为可接受 issue、PR 或发布的规范源。</li>
+        <li>让默认安装保持纯串行、无需安装或加载 mpi4py；仅 image-level NEB/AutoNEB 用户进入 MPI 安装路径。</li>
+        <li>使面向用户的文档保持站点无关，同时保留 SAI 作为维护验证证据与维护操作环境。</li>
+        <li>用自动检查防止版本、仓库 URL、README 链接和安装契约再次漂移。</li>
+      </ul>
+      <h3>非目标</h3><ul>
+        <li>不新建独立文档站，不建立第二套文档内容，也不改变 Markdown 文档的本地规范源地位。</li>
+        <li>不创建 <code>atst-tools-serial</code>、<code>atst-tools-mpi</code> 或 vendor MPI 变体包。</li>
+        <li>不把 SAI 的 module、partition、QOS、job ID 迁入用户指南；也不删除已有验证报告中的历史事实。</li>
+        <li>不在本设计中配置 Gitee 认证、webhook、同步机器人、镜像专属 README/代码或发包凭据；镜像继续由维护者手动拉取同步。</li>
+      </ul>
+    </section>
+    <section id="requirements"><h2>需求</h2><div class="table-wrap"><table><thead><tr><th>ID</th><th>要求</th><th>验收信号</th></tr></thead><tbody>
+      <tr><td>R1</td><td>在同一份 README 与相关维护文档中写明 GitHub 主仓、Gitee 手动只读镜像、PyPI 包分发的职责。</td><td>三处职责无矛盾；同一 README 并列 GitHub/Gitee 链接并将协作入口指向 GitHub；无 Gitee 专属文件或代码。</td></tr>
+      <tr><td>R2</td><td>README 第一屏或 Quick Start 前提供 GitHub/Gitee 的绝对“用户指南”“示例”入口；仓库内现有相对链接可保留。</td><td>从 PyPI README 点击两个入口均非 <code>pypi.org/project/.../docs/...</code>，并到达相应 <code>main</code> 文档。</td></tr>
+      <tr><td>R3</td><td>所有面向用户的源码安装命令使用真实主仓 URL <code>https://github.com/QuantumMisaka/atst-tools.git</code>；镜像下载方式另列为可选通道。</td><td>对 README 与用户指南运行 URL/文本回归检查；旧 <code>deepmodeling/atst-tools</code> 不再出现在活跃用户文档。</td></tr>
+      <tr><td>R4</td><td>用户安装页提供三档：Serial default、DP optional、Image-parallel optional；明确默认安装不安装 mpi4py。</td><td><code>pip install atst-tools</code> 的元数据不含 mpi4py；<code>pip install "atst-tools[parallel]"</code> 是唯一文档化的 image-parallel 依赖路径。</td></tr>
+      <tr><td>R5</td><td>MPI 文档说明 image parallel 仅用于外部启动的 NEB/AutoNEB，要求 mpi4py 与用户 site MPI/launcher/ABACUS MPI 一致，并提供无 SAI 专名的预检与从源码重装命令。</td><td>用户文档与运行时错误均不含 SAI module、partition 或 ABACUS LTS 专名；包含 <code>from mpi4py import MPI</code> 与两 rank launcher 预检。</td></tr>
+      <tr><td>R6</td><td>串行和非 image-parallel 工作流即使使用默认 NEB/AutoNEB schema，也不得要求 mpi4py 导入。</td><td>单进程 dry-run 与 unit suite 在无 mpi4py 环境通过；MPI launcher 才给出缺少 mpi4py 的可诊断错误。</td></tr>
+      <tr><td>R7</td><td>SAI 仅作为维护验证环境保留在 <code>docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md</code>、reports 和 AGENTS 的维护段落；用户文档只描述通用 scheduler/MPI/后端责任。</td><td>对 README、docs/index、docs/user、examples/README 的站点专名扫描为空；维护文档仍保留历史证据。</td></tr>
+      <tr><td>R8</td><td>纠正已发现的版本与分支事实漂移，并让 AGENTS 以“维护验证环境”而非用户运行前提描述 SAI。</td><td>USER_GUIDE 为 2.2.3；2.2.3 release notes Compatibility 为 2.2.3；atst-cli skill 不再宣称 main 是 v1.5 legacy。</td></tr>
+      <tr><td>R9</td><td>链接、安装档位和事实版本拥有可维护的回归断言，不依赖人工浏览发现错误。</td><td>相关 unit/docs-governance tests 断言绝对 PyPI 入口、主仓 URL、extras、无 SAI 用户入口与错误消息契约。</td></tr>
+    </tbody></table></div></section>
+    <section id="decisions"><h2>决策与备选</h2>
+      <div class="decision"><p><strong>确认决策：</strong>不建设文档站。GitHub 是唯一规范源和协作入口；Gitee 是由维护者手动从 GitHub 拉取的只读镜像；PyPI 是唯一 Python 包发布入口。Markdown 原件继续在本仓维护。README 同时提供 GitHub 与 Gitee 的绝对用户文档入口，解决 PyPI 无法解析相对链接的问题；两边展示同一份 README，不维护镜像专属文本或代码。</p>
+      <p><strong>确认决策：</strong>保留一个 <code>atst-tools</code> distribution 与 <code>[parallel]</code> extra。默认安装代表串行档；image-parallel 是显式 opt-in。MPI ABI 风险由文档化的 site-compatible 安装与预检处理，不通过发明 ATST MPI wheel 或第二套包名处理。</p>
+      <p><strong>拒绝的备选：</strong>双向 GitHub/Gitee 同步会制造冲突和权威歧义；独立文档站增加部署与版本同步面；将 mpi4py 设为默认依赖会扩大串行用户的失败面；删除所有 SAI 记录会损失可审计验证证据。</p></div>
+    </section>
+    <section id="architecture"><h2>入口与责任边界</h2>
+      <pre>规范内容：本仓 Markdown（main）
+      |                     |
+GitHub 主仓（协作权威）    Gitee 镜像（只读浏览/clone）
+      |                     |
+      +---- README 相对导航 -+
+                 |
+PyPI README ----绝对 GitHub/Gitee 用户指南与示例链接
+
+安装：atst-tools → Serial 默认（无 mpi4py）
+      + [dp] → DeePMD-kit
+      + [parallel] → 仅外部 launcher 的 image-parallel NEB/AutoNEB</pre>
+      <p>用户文档只拥有产品接口、后端前提与通用启动责任：ATST 不替用户提交 scheduler 作业，也不决定 site MPI。维护者文档拥有 SAI module、队列、作业和历史运行证据。运行时代码只在检测到外部 MPI launcher 时导入 mpi4py；错误信息指向“加载同一站点 MPI、使用该 <code>mpicc</code> 重装”的通用动作，不能假设任何特定平台。</p>
+      <p>预期实施范围：<code>README.md</code>、<code>docs/index.md</code>、<code>docs/user/USER_GUIDE_CN.md</code>、<code>docs/user/CONFIG_REFERENCE.md</code>、<code>docs/user/PYTHON_API_REFERENCE.md</code>、<code>docs/user/ABACUSLITE_WRAPPER_GUIDE.md</code>、<code>examples/README.md</code>、<code>AGENTS.md</code>、<code>docs/skills/atst-cli/SKILL.md</code>、<code>docs/releases/RELEASE_NOTES_2.2.3.md</code>、<code>src/atst_tools/utils/mpi.py</code> 与对应 tests。镜像通过同一 Git history 的维护者手动拉取同步；本实施不创建 fork 专属正文、配置或自动化。</p>
+    </section>
+    <section id="errors"><h2>失败处理</h2>
+      <table><thead><tr><th>情形</th><th>用户可见行为</th><th>恢复</th></tr></thead><tbody>
+        <tr><td>从 PyPI 点击仓库相对链接</td><td>实施后不再把主入口设计为相对链接；绝对入口可直接定位平台文档。</td><td>保留 GitHub/Gitee 双入口；回归测试阻止相对主入口复发。</td></tr>
+        <tr><td>默认安装后尝试外部 MPI image parallel</td><td>明确报缺少 mpi4py 和 image-parallel extra，而非静默串行或崩溃。</td><td>安装 <code>[parallel]</code>；再做 MPI 预检。</td></tr>
+        <tr><td>mpi4py wheel 与站点 MPI 不兼容</td><td>错误不引用 SAI；说明 launcher/MPI ABI 需一致。</td><td>加载站点 MPI，以其 <code>mpicc</code> 通过 <code>--no-binary=mpi4py</code>、<code>--no-cache-dir</code> 重装，再运行预检。</td></tr>
+        <tr><td>镜像暂时落后</td><td>同一 README 始终将协作入口指向 GitHub；镜像不承担发布或协作职责。</td><td>维护者按既有手动拉取方式恢复同步；不接受镜像侧修复或发布。</td></tr>
+      </tbody></table>
+    </section>
+    <section id="testing"><h2>测试与验收</h2>
+      <ol>
+        <li><strong>文档静态检查：</strong><code>git diff --check -- README.md docs examples/README.md AGENTS.md</code> 与冲突标记扫描通过。</li>
+        <li><strong>治理检查：</strong><code>python scripts/check_docs_governance.py</code> 通过，并登记本 SPEC。</li>
+        <li><strong>包元数据：</strong>扩展 <code>tests/unit/test_package_metadata.py</code>，断言默认 dependencies 无 mpi4py、<code>parallel</code> extra 仍为 mpi4py；测试一个无 mpi4py 的串行 dry-run。</li>
+        <li><strong>MPI 错误契约：</strong>扩展 MPI helper/API tests，断言 launcher 下缺依赖的错误包含通用恢复说明、没有 SAI 专名；既有 opt-in real-launcher suite 继续覆盖多 rank 同步失败。</li>
+        <li><strong>入口契约：</strong>扩展 docs/example tests，断言 README 有 GitHub/Gitee absolute entry links、活跃用户文档无旧 clone URL/旧 release 标注/SAI 专名，并检查目标路径存在。</li>
+        <li><strong>渠道人工验收：</strong>从 GitHub、Gitee 与 PyPI 渲染页各点击一次用户指南和示例入口；三者均到达预期的 <code>main</code> 文档。</li>
+      </ol>
+    </section>
+    <section id="rollout"><h2>实施与发布</h2>
+      <ol>
+        <li>先修复事实漂移和 README 分发入口；维护者按既有手动方式拉取镜像，并人工确认 PyPI 展示的最新 README。</li>
+        <li>接着整理串行/MPI 安装矩阵、通用预检与 <code>utils/mpi.py</code> 错误文案，新增回归测试。</li>
+        <li>最后仅重分类 AGENTS 的 SAI 段落与 atst-cli skill 的过时分支说明；维护者 SAI 操作/报告不改写为用户文档。</li>
+        <li>这是向后兼容的文档、诊断和测试增强；不改 YAML、CLI 名称或 API。按仓库版本规则可作为当前 patch 系列的兼容修订，在 release notes 说明零接口破坏。</li>
+      </ol>
+    </section>
+    <section id="risks"><h2>风险与开放项</h2>
+      <div class="decision open"><p><strong>风险：</strong>GitHub 与 Gitee 的绝对链接会随 owner/默认分支迁移而需更新；用入口测试和单向镜像状态检查降低风险。site MPI 生态无法由 ATST 自动统一，因而只承诺清晰的 preflight、错误与 source-build 路径，不承诺任何 wheel 可在所有集群运行。</p>
+      <p><strong>已关闭的设计项：</strong>用户已确认“无独立文档站、GitHub 规范源 + Gitee 只读镜像 + PyPI 包分发、双绝对入口、保留 extras”策略。本 SPEC 无阻塞开放决策；批准后应进入实施计划，不应直接在设计阶段修改产品行为。</p></div>
+    </section>
+  </main>
+  <footer>本地 HTML SPEC 是本主题的规范源；GitHub/Gitee/PyPI 页面均为用户分发渠道，不反向修改本规范。</footer>
+</body>
+</html>

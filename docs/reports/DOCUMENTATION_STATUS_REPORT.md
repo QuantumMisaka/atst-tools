@@ -108,6 +108,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
+| `docs/superpowers/specs/2026-09-04-user-distribution-and-mpi-installation-design.html` | spec | 已确认的 GitHub 规范源 / 维护者手动拉取的 Gitee 同内容只读镜像 / PyPI 分发、跨渠道用户入口、串行与 image-parallel MPI 安装分层，以及 SAI 维护证据边界设计；待实施。 |
+| `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | plan | 用户分发、跨渠道 README 入口、串行与 image-parallel MPI 安装诊断、SAI 维护边界和文档事实修正的 TDD 实施计划；待批准执行。 |
 
 ### L4: 历史或已被取代材料
 
