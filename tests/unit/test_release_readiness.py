@@ -132,3 +132,55 @@ def test_release_readiness_reports_unreadable_release_note(tmp_path, capsys):
     assert captured.err.count("ERROR:") == 1
     assert "unable to read release note" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_release_readiness_rejects_malformed_toml_after_valid_version(tmp_path, capsys):
+    """A malformed TOML suffix cannot be hidden by an earlier valid version."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "fixture-package"\nversion = "9.8.7"\n[broken\n',
+        encoding="utf-8",
+    )
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "project version" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_release_readiness_ignores_multiline_string_version_decoy(tmp_path, capsys):
+    """A version-looking line inside a multiline string is not project metadata."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    (root / "pyproject.toml").write_text(
+        '[project]\n'
+        'description = """\n'
+        'version = "9.8.7"\n'
+        '"""\n'
+        'version = "9.8.8"\n',
+        encoding="utf-8",
+    )
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "must exactly match 'v9.8.8'" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_release_readiness_reports_missing_tomli_without_traceback(tmp_path, monkeypatch, capsys):
+    """A Python 3.10 environment without tomli fails with one clear diagnostic."""
+    checker = _load_checker()
+    root = _fixture_root(tmp_path)
+    monkeypatch.setattr(checker, "tomllib", None)
+
+    assert checker.main(["--root", str(root), "--tag", "v9.8.7"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.count("ERROR:") == 1
+    assert "tomli" in captured.err
+    assert "Traceback" not in captured.err

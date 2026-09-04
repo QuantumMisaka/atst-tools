@@ -25,13 +25,15 @@ Before pushing `v<version>`, run the offline release gate from the repository
 root:
 
 ```bash
+python -m pip install ".[release]"
 python scripts/check_release_readiness.py --tag v<version>
 ```
 
-It checks the tag against `pyproject.toml` and requires the exact package
-version line in `docs/releases/RELEASE_NOTES_<version>.md`. The checker reads
-local files only and does not create tags, push commits, or contact GitHub or
-PyPI.
+The `[release]` extra provides the build/release tooling and the Python 3.10
+TOML compatibility parser. The checker verifies the tag against
+`pyproject.toml` and requires the exact package version line in
+`docs/releases/RELEASE_NOTES_<version>.md`. It reads local files only and does
+not create tags, push commits, or contact GitHub or PyPI.
 
 ## PyPI Setup
 

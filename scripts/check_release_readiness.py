@@ -3,33 +3,31 @@
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10 compatibility for the maintenance env.
-    tomllib = None
-
-
-_PROJECT_VERSION = re.compile(
-    r"(?ms)^\[project\]\s*(?:[^\[]*?)^version\s*=\s*['\"]([^'\"]+)['\"]"
-)
+if sys.version_info >= (3, 11):
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # pragma: no cover - part of the Python 3.11 stdlib.
+        tomllib = None
+else:
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        tomllib = None
 
 
 def load_project_version(root: Path) -> str:
     """Read the package version from ``pyproject.toml``."""
+    if tomllib is None:
+        raise RuntimeError(
+            "TOML parser is unavailable; install the release extra (tomli on Python <3.11)"
+        )
     path = root / "pyproject.toml"
-    if tomllib is not None:
-        with path.open("rb") as handle:
-            version = tomllib.load(handle)["project"]["version"]
-    else:
-        match = _PROJECT_VERSION.search(path.read_text(encoding="utf-8"))
-        if match is None:
-            raise ValueError("pyproject.toml has no [project].version")
-        version = match.group(1)
+    with path.open("rb") as handle:
+        version = tomllib.load(handle)["project"]["version"]
 
     if not isinstance(version, str) or not version:
         raise ValueError("pyproject.toml [project].version must be a non-empty string")
@@ -51,7 +49,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         version = load_project_version(root)
-    except (OSError, UnicodeDecodeError, KeyError, TypeError, ValueError) as exc:
+    except (OSError, UnicodeDecodeError, KeyError, TypeError, ValueError, RuntimeError) as exc:
         print(f"ERROR: unable to read project version: {exc}", file=sys.stderr)
         return 1
 
