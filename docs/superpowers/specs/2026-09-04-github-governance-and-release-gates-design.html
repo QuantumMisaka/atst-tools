@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATST-Tools GitHub 治理与发布前门禁设计</title>
+  <style>
+    :root { --ink:#17202a; --muted:#52606d; --line:#cbd2d9; --paper:#fff; --wash:#f5f7f8; --accent:#146c5b; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header,main,footer { width:min(100% - 2rem,980px); margin-inline:auto; } header { padding:3rem 0 1.5rem; border-bottom:3px solid var(--accent); }
+    h1 { margin:0 0 .75rem; font-size:2.3rem; line-height:1.15; } h2 { margin:0 0 .75rem; font-size:1.35rem; } h3 { font-size:1rem; }
+    main { margin-top:1.25rem; background:var(--paper); border:1px solid var(--line); } section { padding:1.5rem; border-top:1px solid var(--line); } section:first-child { border-top:0; }
+    p,ul,ol,pre { margin:.5rem 0 1rem; } code { background:var(--wash); padding:.1rem .3rem; } pre { overflow:auto; padding:.8rem; border:1px solid var(--line); }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; } th,td { border:1px solid var(--line); padding:.65rem; text-align:left; vertical-align:top; } th { background:var(--wash); }
+    footer { padding:1.5rem 0 3rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATST-Tools GitHub 治理与发布前门禁设计</h1>
+    <p><strong>状态：</strong>已确认，待实施</p>
+    <p><strong>决策来源：</strong>2026-09-04 用户确认“硬门禁 + 人工跨模型终审”，并要求 README、用户文档和开发者文档在推送 main 前反映最新稳定态。</p>
+  </header>
+  <main>
+    <section id="evidence">
+      <h2>现状与证据</h2>
+      <p>包单一版本源为 <code>pyproject.toml</code> 的 2.2.3；PyPI 和远端 <code>v2.2.3</code> tag 亦为该稳定版本。本地 main 包含待推送的文档/MPI 改进。现有 <code>tests.yml</code> 仅覆盖 PR，<code>publish-pypi.yml</code> 在 <code>v*</code> tag push 或手动 ref 后直接 build/Twine/upload；发布文档却陈述“GitHub Release 触发”、<code>deepmodeling</code> 所有者和 2.1.0 示例。</p>
+    </section>
+    <section id="goals">
+      <h2>目标与非目标</h2>
+      <ul>
+        <li>main 与 PR 均有可重复的测试和文档治理 CI。</li>
+        <li>任何 PyPI 上传前先对同一 tag/ref 通过发布就绪检查、完整 pytest、文档治理、构建、Twine 和 clean-wheel API 验证。</li>
+        <li>用户/开发者入口及发布文档从单一稳定版本事实得到一致、可回归的说明。</li>
+        <li>将跨模型治理终审保留为真实的人工受控门禁，而不是在公共 CI 中伪造模型审查。</li>
+      </ul>
+      <p><strong>非目标：</strong>不推送、不打 tag、不发布 PyPI、不配置 GitHub 环境或分支保护、不自动同步 Gitee；这些是维护者授权的外部动作。</p>
+    </section>
+    <section id="requirements">
+      <h2>需求</h2>
+      <table><thead><tr><th>ID</th><th>要求</th><th>验收信号</th></tr></thead><tbody>
+        <tr><td>R1</td><td>README、docs index、用户参考和开发者发布文档必须与当前稳定版本和实际仓库/工作流事实一致。</td><td>动态文档测试从 <code>pyproject.toml</code> 读取版本；无 2.1.0/deepmodeling/GitHub-Release 旧发布叙述；维护日期已更新。</td></tr>
+        <tr><td>R2</td><td>常规 GitHub CI 必须在 PR、main push 和手动触发时运行完整 pytest 与文档治理。</td><td><code>tests.yml</code> 具有三个触发面、最小权限和两个明确 jobs；工作流契约测试保护它们。</td></tr>
+        <tr><td>R3</td><td>发布前检查必须验证给定 <code>v&lt;version&gt;</code>、项目版本与 release note 一致，并作为可本地执行脚本复用。</td><td><code>python scripts/check_release_readiness.py --tag v2.2.3</code> 成功；错误 tag/version/note 均明确失败。</td></tr>
+        <tr><td>R4</td><td>PyPI 上传 job 只能依赖完成的 preflight，且只取得 <code>id-token: write</code>；preflight 不拥有发布权限。</td><td>workflow 将 ref 解析、验证/build artifact、publish 分为显式依赖 jobs；静态测试锁定 <code>needs</code> 与权限。</td></tr>
+        <tr><td>R5</td><td>发布前检查依次运行 release readiness、pytest、文档治理、build、Twine 和 clean-wheel API gate。</td><td>同一 checkout ref 的 workflow step 顺序及本地维护命令被测试和开发者文档覆盖。</td></tr>
+        <tr><td>R6</td><td>跨模型治理终审的触发和证据边界清楚：治理路径变更先独立审查，再允许 tag/release；CI 只能验证可机械证明的部分。</td><td>开发者门禁文档给出触发、命令、禁止的替代方式及 GitHub 管理员配置；不新增凭据或自动 reviewer。</td></tr>
+        <tr><td>R7</td><td>发布后 GitHub/Gitee/PyPI 渲染检查与 Gitee 手动同步被明确为外部 checklist，非本次自动动作。</td><td>文档说明推送后时序和责任；工作流及仓库不含 Gitee 同步配置。</td></tr>
+      </tbody></table>
+    </section>
+    <section id="architecture">
+      <h2>架构与决策</h2>
+      <ol>
+        <li><strong>仓库内机械门禁：</strong><code>scripts/check_release_readiness.py</code> 接受 <code>--tag</code> 与可选 <code>--root</code>，读取 <code>pyproject.toml</code>，验证 v-prefix、版本、<code>docs/releases/RELEASE_NOTES_&lt;version&gt;.md</code> 和 Compatibility package-version 行。它不访问网络、不创建 tag、不发布。</li>
+        <li><strong>常规 CI：</strong>保留现有 tests workflow，增加 main push，并拆出文档治理 job。两者均 <code>contents: read</code>。</li>
+        <li><strong>发布 preflight：</strong>发布工作流先解析 tag/ref，再在同一 ref checkout 安装 dev 依赖并完成 R5，上传已检查的 distributions artifact；publish job 下载唯一 artifact 并使用 pypi Environment/OIDC 上传。</li>
+        <li><strong>人工治理：</strong>AGENTS/GOVERNANCE_REVIEW 的跨家族终审由受控 launcher 完成；其结果包是审阅证据，不进入发布工件，也不由 Actions 伪造。GitHub 分支保护和 pypi Environment 审批由仓库管理员在设置页配置。</li>
+      </ol>
+    </section>
+    <section id="errors">
+      <h2>失败处理</h2>
+      <ul>
+        <li>tag 不以 <code>v</code> 开头、版本不匹配、release note 缺失或 Compatibility 行不匹配：preflight 失败，upload 不可运行。</li>
+        <li>pytest、文档治理、build、Twine 或 wheel gate 失败：artifact 不上传，PyPI job 因 <code>needs</code> 不会开始。</li>
+        <li>治理文本有实质改动却没有独立跨家族审查：维护者不得 tag/release；CI 成功不等价于该门禁通过。</li>
+      </ul>
+    </section>
+    <section id="rollout">
+      <h2>实施与发布后检查</h2>
+      <ol>
+        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；运行全套本地验证和独立治理终审。</li>
+        <li>经授权 push main 后，确认 GitHub Tests/Governance jobs green；维护者手动从 GitHub 拉取同步 Gitee 后，检查两端 README 指向相同用户指南/示例。</li>
+        <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
+      </ol>
+    </section>
+  </main>
+  <footer>本地 Markdown/HTML 为规范源；Gitee 继续由维护者手动同步，不产生专属代码或自动化。</footer>
+</body>
+</html>
