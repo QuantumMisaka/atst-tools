@@ -15,7 +15,7 @@
 
 - `pyproject.toml` remains the sole package-version source; current stable release is 2.2.3 until maintainers deliberately change it.
 - Never push, tag, publish, alter GitHub Environment/branch-protection settings, or synchronize Gitee in this implementation.
-- Publish only uses the already configured `pypi` Environment and OIDC; no token or credential is added to repository files.
+- The workflow references the named `pypi` Environment and requests OIDC once those external settings are configured; no token or credential is added to repository files.
 - CI may verify mechanical evidence only. AGENTS/SKILL/governance-effect changes retain the existing cross-family review process.
 - User documentation stays site-neutral and Gitee remains a manually synchronized same-content mirror.
 
