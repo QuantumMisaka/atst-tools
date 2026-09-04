@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,10 +28,20 @@ def _job_permissions(job: str) -> list[str]:
     return [line.strip() for line in match.group("body").splitlines()]
 
 
+def _artifact_step(job: str, action: str) -> str:
+    """Return the step containing one upload/download action."""
+    action_start = job.index(f"        uses: {action}@v4")
+    step_start = job.rfind("      - ", 0, action_start)
+    assert step_start >= 0, f"missing step for {action}"
+    next_step = re.search(r"(?m)^      - ", job[action_start:])
+    step_end = action_start + next_step.start() if next_step else len(job)
+    return job[step_start:step_end]
+
+
 def _artifact_name(job: str, action: str) -> str:
     """Return the artifact name configured for one upload/download action."""
-    action_start = job.index(f"uses: {action}@v4")
-    match = re.search(r"(?m)^          name: ([^\n]+)", job[action_start:])
+    step = _artifact_step(job, action)
+    match = re.search(r"(?m)^          name: ([^\n]+)", step)
     assert match is not None, f"missing artifact name for {action}"
     return match.group(1).strip()
 
@@ -106,3 +118,19 @@ def test_release_publish_has_only_preflight_dependency_and_oidc_permission():
     assert "python -m build" not in publish
     assert _job_permissions(publish) == ["id-token: write"]
     assert workflow.count("id-token: write") == 1
+
+
+def test_artifact_name_does_not_leak_from_a_later_step():
+    """Artifact extraction must not accept a later step's ``with.name``."""
+    job = """      - name: Upload distributions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/*
+      - name: Later step
+        run: echo done
+        with:
+          name: python-distributions
+"""
+
+    with pytest.raises(AssertionError, match="missing artifact name"):
+        _artifact_name(job, "actions/upload-artifact")

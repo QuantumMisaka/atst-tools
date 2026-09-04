@@ -59,6 +59,24 @@ conda run -n atst-dev python -c 'import yaml, pathlib; paths = sorted(pathlib.Pa
 YAML OK: .github/workflows/abacuslite-ase-interface.yml, .github/workflows/publish-pypi.yml, .github/workflows/tests.yml
 ```
 
+## Narrow final-review follow-up
+
+The artifact-name helper was tightened to bound extraction to the selected
+`      - ` step, from its `uses: actions/{upload,download}-artifact@v4` line
+through the next step. A regression test supplies a step with no `with.name`
+followed by a later step containing `name: python-distributions`; the helper
+must reject that fixture instead of leaking across the step boundary.
+
+Final verification:
+
+```text
+conda run -n atst-dev python -m pytest tests/unit/test_ci_workflows.py -q
+.....                                                                    [100%]
+
+conda run -n atst-dev python -c 'import yaml, pathlib; paths = sorted(pathlib.Path(".github/workflows").glob("*.yml")); [yaml.safe_load(p.read_text()) for p in paths]; print("YAML OK:", ", ".join(map(str, paths)))'
+YAML OK: .github/workflows/abacuslite-ase-interface.yml, .github/workflows/publish-pypi.yml, .github/workflows/tests.yml
+```
+
 Additional checks passed:
 
 ```text
