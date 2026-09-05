@@ -21,8 +21,8 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
 - Release guard: the workflow requires the tag to match
   `pyproject.toml` `[project].version`, resolves it under `refs/tags/`, and
   checks after checkout that it points to `HEAD`. The current repository state
-  prepares `2.2.4` as a release candidate; publication is confirmed only by the
-  exact tag and PyPI artifact.
+  records the published `2.2.4` release; its exact tag and PyPI artifact are
+  the publication evidence.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
 - Before publishing, `release-preflight` checks out the resolved ref and runs
@@ -47,7 +47,7 @@ package version line in `docs/releases/RELEASE_NOTES_<version>.md`. It reads
 local files only and does not create tags, push commits, or contact GitHub or
 PyPI.
 
-This local documentation change has not configured the GitHub `pypi`
+This repository documentation does not configure the GitHub `pypi`
 Environment, its reviewers or tag restrictions, or the PyPI Trusted Publisher
 identity. Those settings remain administrator work.
 
@@ -102,8 +102,9 @@ available. Publish with one of these paths:
    the `tag` input set to `v<version>`.
 
 Neither push/tag/release nor a Gitee mirror pull is performed by this
-repository-file workflow. After an authorized publish, the maintainer must
-check the GitHub, PyPI, and manually synchronized Gitee renderings.
+repository-file workflow. For 2.2.4, GitHub Actions and PyPI artifact
+metadata/rendering were checked; Gitee mirror/rendering was explicitly
+excluded from release acceptance.
 
 Verify the published package from a clean environment:
 

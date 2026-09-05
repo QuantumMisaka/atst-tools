@@ -14,8 +14,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.4.md`；该文件记录当前候选版本，
-  待 exact tag 和 PyPI artifact 确认发布。2.0.0、2.0.1、2.0.2、2.1.0、2.1.1、
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.4.md`；2.2.4 已由
+  `v2.2.4` 发布，exact tag、CI、PyPI artifact 与渲染证据已登记。2.0.0、2.0.1、2.0.2、2.1.0、2.1.1、
   2.1.2、2.1.3、2.1.4、2.2.0、2.2.1、2.2.2 和 2.2.3 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
@@ -37,10 +37,20 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   当前模型家族独立审查作为正常终审；跨家族审查是维护者按需判断的 owner-judged
   advisory evidence，不构成合入、推送或发布门禁。发布、推送、外部设置和跨渠道
   渲染检查仍待维护者执行。
-- 2026-09-06：2.2.4 release candidate 已准备；active version metadata 和导航已切换
+- 2026-09-06（发布前记录）：2.2.4 release candidate 已准备；active version metadata 和导航已切换
   至 2.2.4，补充 portable MPI 缺失依赖诊断与 Serial/DP/image-parallel 安装边界。
   `parallel` extra 已在 2.2.3 存在，本候选不承诺修复任意 MPI ABI 崩溃；exact tag 和
   PyPI 发布确认仍待维护者执行。
+- 2026-09-06（发布后结案）：`v2.2.4` 指向
+  `eaac64a76215e33588d362a788c138464519a7ba`；GitHub Tests run `33980730827`、
+  abacuslite run `33980730831` 和 PyPI publication run `33980788260` 成功。PyPI
+  JSON 列出 wheel 与 sdist，渲染页显示四个绝对 GitHub/Gitee 用户指南与示例链接；
+  Gitee 渲染按维护者明确指示排除。clean-install、CLI/API 版本和 base 安装无
+  `mpi4py` 已完成验证。tag commit 同时登记了 point-KPT parser CI drift 修复。
+  PyPI 已上传 README 不可变，仍保留发布前 candidate wording；这是已知 cosmetic
+  限制，仓库 README 已更新，不触发新 patch、retag 或 republish。
+  [GitHub release](https://github.com/QuantumMisaka/atst-tools/releases/tag/v2.2.4)
+  已创建。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
   AGENTS/SKILL 等治理契约的按需跨家族人工审阅，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。
@@ -122,8 +132,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
-| `docs/superpowers/specs/2026-09-04-user-distribution-and-mpi-installation-design.html` | spec | 本地实施完成，待发布后外部渲染验证：GitHub 规范源 / 维护者手动拉取的 Gitee 同内容只读镜像 / PyPI 分发、跨渠道用户入口、串行与 image-parallel MPI 安装分层，以及 SAI 维护证据边界设计。 |
-| `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | plan | 本地实施完成，待发布后外部渲染验证：用户分发、跨渠道 README 入口、串行与 image-parallel MPI 安装诊断、SAI 维护边界和文档事实修正 TDD 计划。 |
+| `docs/superpowers/specs/2026-09-04-user-distribution-and-mpi-installation-design.html` | spec | 本地实施完成，2.2.4 已发布；GitHub/PyPI 外部验收已登记，Gitee 渲染按授权范围排除：GitHub 规范源 / 维护者手动拉取的 Gitee 同内容只读镜像 / PyPI 分发、跨渠道用户入口、串行与 image-parallel MPI 安装分层，以及 SAI 维护证据边界设计。 |
+| `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | plan | 执行完成并已发布 2.2.4；记录 GitHub/PyPI 验收、clean-install 证据、CI drift 注册修复和 Gitee 排除范围。 |
 | `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` | spec | 本地实施完成，待 GitHub 设置与发布后外部验收：GitHub 治理、按需跨家族审阅证据、发布前机械门禁和 GitHub/PyPI/Gitee 发布后责任边界。 |
 | `docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md` | plan | 本地实施完成，待 GitHub 设置与发布后外部验收：发布就绪检查、CI/PyPI preflight、治理文档和最终外部验收边界。 |
 

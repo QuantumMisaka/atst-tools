@@ -22,9 +22,9 @@
   <header>
     <h1>ATST-Tools 用户分发、文档入口与 MPI 安装分层设计</h1>
     <div class="meta">
-      <p><strong>状态：</strong>本地实施完成，待发布后外部渲染验证</p>
+      <p><strong>状态：</strong>本地实施完成；2.2.4 已发布；GitHub/PyPI 外部验收已完成（Gitee 渲染按授权范围排除）</p>
       <p><strong>责任人：</strong>ATST-Tools maintainers</p>
-      <p><strong>更新：</strong>2026-09-04</p>
+      <p><strong>更新：</strong>2026-09-06</p>
     </div>
   </header>
   <nav aria-label="目录"><h2>目录</h2><ol>
@@ -59,7 +59,7 @@
       <tr><td>R5</td><td>MPI 文档说明 image parallel 仅用于外部启动的 NEB/AutoNEB，要求 mpi4py 与用户 site MPI/launcher/ABACUS MPI 一致，并提供无 SAI 专名的预检与从源码重装命令。</td><td>用户文档与运行时错误均不含 SAI module、partition 或 ABACUS LTS 专名；包含 <code>from mpi4py import MPI</code> 与两 rank launcher 预检。</td></tr>
       <tr><td>R6</td><td>串行和非 image-parallel 工作流即使使用默认 NEB/AutoNEB schema，也不得要求 mpi4py 导入。</td><td>单进程 dry-run 与 unit suite 在无 mpi4py 环境通过；MPI launcher 才给出缺少 mpi4py 的可诊断错误。</td></tr>
       <tr><td>R7</td><td>SAI 仅作为维护验证环境保留在 <code>docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md</code>、reports 和 AGENTS 的维护段落；用户文档只描述通用 scheduler/MPI/后端责任。</td><td>对 README、docs/index、docs/user、examples/README 的站点专名扫描为空；维护文档仍保留历史证据。</td></tr>
-      <tr><td>R8</td><td>纠正已发现的版本与分支事实漂移，并让 AGENTS 以“维护验证环境”而非用户运行前提描述 SAI。</td><td>USER_GUIDE 为 2.2.3；2.2.3 release notes Compatibility 为 2.2.3；atst-cli skill 不再宣称 main 是 v1.5 legacy。</td></tr>
+      <tr><td>R8</td><td>纠正已发现的版本与分支事实漂移，并让 AGENTS 以“维护验证环境”而非用户运行前提描述 SAI。</td><td>USER_GUIDE 为 2.2.4；2.2.3 release notes Compatibility 保持为 2.2.3；atst-cli skill 不再宣称 main 是 v1.5 legacy。</td></tr>
       <tr><td>R9</td><td>链接、安装档位和事实版本拥有可维护的回归断言，不依赖人工浏览发现错误。</td><td>相关 unit/docs-governance tests 断言绝对 PyPI 入口、主仓 URL、extras、无 SAI 用户入口与错误消息契约。</td></tr>
     </tbody></table></div></section>
     <section id="decisions"><h2>决策与备选</h2>
@@ -97,7 +97,7 @@ PyPI README ----绝对 GitHub/Gitee 用户指南与示例链接
         <li><strong>包元数据：</strong>扩展 <code>tests/unit/test_package_metadata.py</code>，断言默认 dependencies 无 mpi4py、<code>parallel</code> extra 仍为 mpi4py；测试一个无 mpi4py 的串行 dry-run。</li>
         <li><strong>MPI 错误契约：</strong>扩展 MPI helper/API tests，断言 launcher 下缺依赖的错误包含通用恢复说明、没有 SAI 专名；既有 opt-in real-launcher suite 继续覆盖多 rank 同步失败。</li>
         <li><strong>入口契约：</strong>扩展 docs/example tests，断言 README 有 GitHub/Gitee absolute entry links、活跃用户文档无旧 clone URL/旧 release 标注/SAI 专名，并检查目标路径存在。</li>
-        <li><strong>渠道人工验收：</strong>从 GitHub、Gitee 与 PyPI 渲染页各点击一次用户指南和示例入口；三者均到达预期的 <code>main</code> 文档。</li>
+        <li><strong>渠道人工验收：</strong>GitHub 与 PyPI 渲染已检查；PyPI 页面显示四个绝对 GitHub/Gitee 用户指南与示例入口，并指向预期的 <code>main</code> 文档。Gitee 渲染验证按维护者明确指示不纳入本次验收。</li>
       </ol>
     </section>
     <section id="rollout"><h2>实施与发布</h2>

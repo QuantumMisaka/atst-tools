@@ -381,7 +381,10 @@
   - Package version: `2.2.3`.
   ```
 
-  After local verification, record the SPEC as “本地实施完成，待发布后外部渲染验证”; register this plan in the “Spec / Plan / Review 登记” table and keep the remaining external-render validation explicit in `DOCUMENTATION_STATUS_REPORT.md`.
+  After local verification, record the SPEC as implemented and register this
+  plan in the “Spec / Plan / Review 登记” table. The current SPEC and status
+  ledger retain the completed GitHub/PyPI evidence and the explicit Gitee
+  exclusion.
 
 - [x] **Step 4: Run focused tests to verify GREEN**
 
@@ -409,9 +412,14 @@
 
   Expected: the first two commands have no output; governance prints `documentation governance checks passed`; pytest passes with only the existing opt-in MPI/toolbox skips.
 
-- [ ] **Step 6: Inspect external render targets without changing them, then commit**
+- [x] **Step 6: Inspect authorized external render targets without changing them, then commit**
 
-  Manually open the GitHub, Gitee, and PyPI README renderings. Confirm that GitHub and Gitee show the same README content, and that the PyPI absolute guide/example links point outside `pypi.org/project/atst-tools/`. Do not push, publish, or trigger mirror synchronization from this task.
+  On 2026-09-06, GitHub rendering was checked with `gh` HTML output and the
+  PyPI project page was checked in a web rendering. The PyPI page shows four
+  absolute GitHub/Gitee guide and example links that point outside
+  `pypi.org/project/atst-tools/`. Gitee rendering verification was explicitly
+  excluded by the maintainer. No mirror synchronization was triggered by this
+  step.
 
   ```bash
   git add AGENTS.md docs/skills/atst-cli/SKILL.md docs/developer/HANDOVER.md \
@@ -430,13 +438,13 @@
 
 **Files:** `pyproject.toml`, `README.md`, active version-bearing documents under `docs/user`, `docs/index.md`, `docs/developer/DOCS_ARCHITECTURE.md`, `docs/developer/PYPI_RELEASE_AUTOMATION.md`, `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md`, `docs/reports/DOCUMENTATION_STATUS_REPORT.md`, `docs/reports/FEATURE_STATUS_MATRIX.md`, new `docs/releases/RELEASE_NOTES_2.2.4.md`, and publisher manual-input example/default.
 
-**Requirements:** Prepare backward-compatible patch 2.2.4. Describe improved portable MPI diagnostics and installation/user navigation accurately: the parallel extra already existed in 2.2.3; this release does not claim to fix arbitrary MPI ABI crashes. Preserve historical release facts and notes. Current documentation must distinguish the release candidate from confirmed publication. Keep version source in pyproject, exact-tag readiness and OIDC workflow unchanged except the manual version example/default. Do not change global rules or introduce Gitee work.
+**Requirements:** Prepare backward-compatible patch 2.2.4. Describe improved portable MPI diagnostics and installation/user navigation accurately: the parallel extra already existed in 2.2.3; this release does not claim to fix arbitrary MPI ABI crashes. Preserve historical release facts and notes. Current documentation must record confirmed publication and distinguish the immutable prepublication PyPI README wording as a cosmetic limitation. Keep version source in pyproject, exact-tag readiness and OIDC workflow unchanged except the manual version example/default. Do not change global rules or introduce Gitee verification work.
 
 - [x] Update version and active documentation, add release notes including exact `- Package version: ` compatibility entry for 2.2.4, and reconcile obsolete current-main/2.2.3 prose. Keep historical sections dated.
 - [x] Run `conda run -n atst-dev python -m pytest tests -q`, `conda run -n atst-dev python scripts/check_docs_governance.py`, and `git diff --check`; repair relevant failures without weakening checks. Commit the scoped release preparation.
-- [ ] Independently review the release increment and repair any material findings; diagnose and repair the abacuslite CI failure before release.
-- [ ] Build wheel/sdist, run strict Twine and clean-wheel API verification; create new v2.2.4 tag at the reviewed release commit and verify readiness. Push the release commit and tag under the maintainer's publication authorization; observe the exact workflow run through completion.
-- [ ] Verify PyPI 2.2.4 artifacts and README absolute guide/example links, clean-environment installation and CLI/API version. Record actual publication evidence and close the plan; Gitee is out of scope by explicit instruction.
+- [x] Independently review the release increment and repair any material findings; the abacuslite CI drift registration fix was completed in the tagged release commit and independently reviewed.
+- [x] Build wheel/sdist, run strict Twine and clean-wheel API verification; create the `v2.2.4` tag at the reviewed release commit and verify readiness. Push the release commit and tag under the maintainer's publication authorization; observe the successful GitHub Tests run `33980730827`, abacuslite run `33980730831`, and PyPI publication run `33980788260`.
+- [x] Verify PyPI 2.2.4 artifacts and README absolute guide/example links, clean-environment installation, and CLI/API version. PyPI JSON lists wheel and sdist; the rendered page shows four absolute GitHub/Gitee links; clean verification passed in `/tmp/atst-224-pypi-verify.7qwIIs/venv`; Gitee rendering remains out of scope by explicit instruction. Record the immutable uploaded-README candidate wording as a cosmetic limitation; no new patch, retag, or republish is planned.
 
 ### Spec coverage
 
@@ -446,7 +454,7 @@
 - R7 is preserved by Task 1's user-boundary suite and Task 3's maintenance-only label.
 - R8 is handled by Task 1 (user-guide facts) and Task 3 (AGENTS, CLI skill, release note).
 - R9 is covered by the added Markdown-target, stale-fact, package metadata, MPI diagnostic, docs-governance, and full-suite checks.
-- The confirmed manual-mirror constraint is carried in the global constraints, Task 1 README block, and Task 3's no-push/no-sync manual inspection step.
+- The confirmed manual-mirror constraint is carried in the global constraints, Task 1 README block, and Task 3's manual inspection step; Gitee rendering was explicitly excluded from release acceptance.
 
 ### Placeholder and interface review
 
@@ -454,11 +462,8 @@ The plan has no unassigned paths, generic test instruction, temporary probe, or 
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md`.
-
-Two execution options:
-
-1. **Subagent-Driven (recommended)** — dispatch a fresh worker per task with review between tasks.
-2. **Inline Execution** — execute task-by-task in this session with checkpoints.
-
-Choose one option after reviewing this plan.
+Plan execution is complete and saved to
+`docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md`.
+The release, CI, artifact, rendering, and clean-install evidence is recorded
+above; Gitee rendering was excluded by explicit instruction. No further plan
+task remains. The parent maintainer owns any separate GitHub Release page work.

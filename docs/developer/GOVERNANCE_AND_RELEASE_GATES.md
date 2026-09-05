@@ -24,13 +24,11 @@ conda run -n atst-dev python scripts/verify_wheel_api.py
 
 Run the readiness command from a checkout whose `HEAD` is the exact commit
 targeted by the existing `v<version>` tag; the checker compares that peeled tag
-commit with `HEAD` as well as checking the version and release note. For the
-2.2.4 release candidate, run it after the maintainer creates the exact
-`v2.2.4` tag at the reviewed commit; before that tag exists, readiness is not
-publication evidence. The 2026-09-05 record that `v2.2.3` pointed to the
-earlier published release remains historical evidence. The checker is offline
-and does not create a tag, push a commit, publish an artifact, or contact
-GitHub, Gitee, or PyPI.
+commit with `HEAD` as well as checking the version and release note. The
+published `v2.2.4` tag points to `eaac64a76215e33588d362a788c138464519a7ba`.
+The 2026-09-05 record that `v2.2.3` pointed to the earlier published release
+remains historical evidence. The checker is offline and does not create a tag,
+push a commit, publish an artifact, or contact GitHub, Gitee, or PyPI.
 
 The same mechanical contracts run in CI. The general workflow runs the full
 pytest suite and `documentation-governance` runs
@@ -88,12 +86,14 @@ editing repository files:
    `v<pyproject version>` tag; the local implementation does not push, create
    a tag, or create a release.
 4. After publishing, the maintainer checks GitHub Actions and PyPI artifact
-   metadata/rendering from the published ref, then performs the manual Gitee
-   mirror pull and checks the Gitee rendering. This repository adds no Gitee
+   metadata/rendering from the published ref. Gitee mirror synchronization and
+   rendering are separate manual operations; they were explicitly excluded
+   from the 2.2.4 release acceptance. This repository adds no Gitee
    synchronization automation.
 
-At this Task4 preparation checkpoint (2026-09-06), `2.2.4` is the release
-candidate and publication remains pending; `2.2.3` is the historical published
-baseline. Branch protection, `pypi` Environment reviewers/tag restrictions,
-Trusted Publisher identity, push/tag/release, Gitee mirror pull, and
-GitHub/Gitee/PyPI rendering verification remain external responsibilities.
+At the 2026-09-06 release closure, `2.2.4` is published from the exact tag
+above, with successful GitHub Tests run `33980730827`, abacuslite run
+`33980730831`, and PyPI publication run `33980788260`. PyPI metadata and
+rendering were verified; clean-environment installation and CLI/API checks are
+recorded in the release notes. Gitee mirror/rendering verification was
+explicitly excluded and is not represented as verified here.
