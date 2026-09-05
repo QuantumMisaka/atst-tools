@@ -50,27 +50,27 @@
 
 **Interfaces:** Produces `main(argv: Sequence[str] | None = None) -> int` in `check_release_readiness.py`; `--root PATH` makes fixture tests and CI use the same checker.
 
-- [ ] **Step 1: Write failing readiness and document-fact tests**
+- [x] **Step 1: Write failing readiness and document-fact tests**
 
 Add tests that create a temporary root with `pyproject.toml` version `9.8.7` and a release note. Assert `main(["--root", str(root), "--tag", "v9.8.7"]) == 0`; parameterize wrong tag, missing note, and wrong Compatibility line as nonzero. Extend docs governance so README badge/table, docs index release link, user guide, configuration reference, and API reference use the version loaded from root `pyproject.toml`; assert release automation contains `QuantumMisaka/atst-tools`, `v<version>`, and no `Owner: deepmodeling` / `Primary trigger: publishing a GitHub Release`.
 
-- [ ] **Step 2: Run focused tests to verify RED**
+- [x] **Step 2: Run focused tests to verify RED**
 
 Run `conda run -n atst-dev python -m pytest tests/unit/test_release_readiness.py tests/unit/test_docs_governance.py -q`.
 
 Expected: collection fails because the checker is absent, and documentation assertions expose stale release automation/date/link facts.
 
-- [ ] **Step 3: Implement the smallest checker and documentation correction**
+- [x] **Step 3: Implement the smallest checker and documentation correction**
 
 Implement stdlib-only argument parsing and `tomllib` loading. Fail with one explanatory stderr message for each invalid contract; do not inspect git remotes or touch files. Rewrite release automation around `<version>` and actual tag-push/manual-ref workflow; update release entrypoint links/dates and add a concise developer gate link. Keep user prose limited to current stable version and installation facts.
 
-- [ ] **Step 4: Verify GREEN and owning suites**
+- [x] **Step 4: Verify GREEN and owning suites**
 
 Run `conda run -n atst-dev python -m pytest tests/unit/test_release_readiness.py tests/unit/test_docs_governance.py -q` and `conda run -n atst-dev python scripts/check_release_readiness.py --tag v2.2.3`.
 
 Expected: both pass; command prints a release-ready confirmation without network access.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add scripts/check_release_readiness.py tests/unit/test_release_readiness.py \
@@ -91,27 +91,27 @@ git commit -m "docs: align stable release and readiness facts"
 
 **Interfaces:** Consumes Task 1 command `python scripts/check_release_readiness.py --tag "$RELEASE_TAG"`. Produces GitHub job names `test`, `documentation-governance`, `resolve-release`, `release-preflight`, and `publish` with explicit `needs` relations.
 
-- [ ] **Step 1: Write failing workflow-contract tests**
+- [x] **Step 1: Write failing workflow-contract tests**
 
 Extend `test_ci_workflows.py` with assertions that general CI has `push: branches: [main]`, a documentation-governance job running `python scripts/check_docs_governance.py`, and full pytest. Assert publisher defines resolve/preflight/publish jobs; preflight checks out `${{ needs.resolve-release.outputs.ref }}`, runs readiness, pytest, docs governance, build, Twine, and `scripts/verify_wheel_api.py`; publish needs preflight and has `id-token: write` only there.
 
-- [ ] **Step 2: Run the workflow tests to verify RED**
+- [x] **Step 2: Run the workflow tests to verify RED**
 
 Run `conda run -n atst-dev python -m pytest tests/unit/test_ci_workflows.py -q`.
 
 Expected: FAIL because current workflows lack main push/docs job and release preflight separation.
 
-- [ ] **Step 3: Implement the two workflow contracts**
+- [x] **Step 3: Implement the two workflow contracts**
 
 In `tests.yml`, retain PR/manual triggers and read-only permissions; add main push and a separate documentation-governance job with Python 3.10 and `.[test]`. In publisher, move ref resolution to an output job; preflight checks out that exact ref, installs `.[dev]`, executes the required checks in order, and uploads `dist/*`. Publish downloads that artifact and keeps `pypi` environment plus OIDC permission. Do not add Gitee, secrets, tags, releases, or checkout of an unverified ref.
 
-- [ ] **Step 4: Verify GREEN and YAML syntax**
+- [x] **Step 4: Verify GREEN and YAML syntax**
 
 Run `conda run -n atst-dev python -m pytest tests/unit/test_ci_workflows.py -q` and `ruby -e 'require "yaml"; Dir[".github/workflows/*.yml"].each { |p| YAML.load_file(p); puts p }'` if Ruby/Psych is available; otherwise use Python's installed YAML parser only if available without adding a dependency.
 
 Expected: contract tests pass and every workflow parses.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```bash
 git add .github/workflows/tests.yml .github/workflows/publish-pypi.yml tests/unit/test_ci_workflows.py
