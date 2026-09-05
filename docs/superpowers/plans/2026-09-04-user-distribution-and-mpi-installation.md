@@ -424,6 +424,20 @@
 
 ## Plan Self-Review
 
+### Task 4: Prepare and publish 2.2.4
+
+**Decision source:** On 2026-09-06 the maintainer explicitly requested new-version development closure and publication and removed Gitee verification from this task. This supersedes the earlier no-publish and Gitee-render acceptance restrictions. Continue on the maintainer-authorized main branch.
+
+**Files:** `pyproject.toml`, `README.md`, active version-bearing documents under `docs/user`, `docs/index.md`, `docs/developer/DOCS_ARCHITECTURE.md`, `docs/developer/PYPI_RELEASE_AUTOMATION.md`, `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md`, `docs/reports/DOCUMENTATION_STATUS_REPORT.md`, `docs/reports/FEATURE_STATUS_MATRIX.md`, new `docs/releases/RELEASE_NOTES_2.2.4.md`, and publisher manual-input example/default.
+
+**Requirements:** Prepare backward-compatible patch 2.2.4. Describe improved portable MPI diagnostics and installation/user navigation accurately: the parallel extra already existed in 2.2.3; this release does not claim to fix arbitrary MPI ABI crashes. Preserve historical release facts and notes. Current documentation must distinguish the release candidate from confirmed publication. Keep version source in pyproject, exact-tag readiness and OIDC workflow unchanged except the manual version example/default. Do not change global rules or introduce Gitee work.
+
+- [x] Update version and active documentation, add release notes including exact `- Package version: ` compatibility entry for 2.2.4, and reconcile obsolete current-main/2.2.3 prose. Keep historical sections dated.
+- [x] Run `conda run -n atst-dev python -m pytest tests -q`, `conda run -n atst-dev python scripts/check_docs_governance.py`, and `git diff --check`; repair relevant failures without weakening checks. Commit the scoped release preparation.
+- [ ] Independently review the release increment and repair any material findings; diagnose and repair the abacuslite CI failure before release.
+- [ ] Build wheel/sdist, run strict Twine and clean-wheel API verification; create new v2.2.4 tag at the reviewed release commit and verify readiness. Push the release commit and tag under the maintainer's publication authorization; observe the exact workflow run through completion.
+- [ ] Verify PyPI 2.2.4 artifacts and README absolute guide/example links, clean-environment installation and CLI/API version. Record actual publication evidence and close the plan; Gitee is out of scope by explicit instruction.
+
 ### Spec coverage
 
 - R1-R3 are implemented and tested in Task 1 through the shared README, exact repository links, and corrected source-clone facts.

@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
-**版本**: 2.2.3
-**日期**: 2026-09-04
+**版本**: 2.2.4
+**日期**: 2026-09-06
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -14,8 +14,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.3.md`；2.0.0、2.0.1、2.0.2、
-  2.1.0、2.1.1、2.1.2、2.1.3、2.1.4、2.2.0、2.2.1 和 2.2.2 release notes 保留为历史版本说明。
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.4.md`；该文件记录当前候选版本，
+  待 exact tag 和 PyPI artifact 确认发布。2.0.0、2.0.1、2.0.2、2.1.0、2.1.1、
+  2.1.2、2.1.3、2.1.4、2.2.0、2.2.1、2.2.2 和 2.2.3 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
@@ -36,6 +37,10 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   当前模型家族独立审查作为正常终审；跨家族审查是维护者按需判断的 owner-judged
   advisory evidence，不构成合入、推送或发布门禁。发布、推送、外部设置和跨渠道
   渲染检查仍待维护者执行。
+- 2026-09-06：2.2.4 release candidate 已准备；active version metadata 和导航已切换
+  至 2.2.4，补充 portable MPI 缺失依赖诊断与 Serial/DP/image-parallel 安装边界。
+  `parallel` extra 已在 2.2.3 存在，本候选不承诺修复任意 MPI ABI 崩溃；exact tag 和
+  PyPI 发布确认仍待维护者执行。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
   AGENTS/SKILL 等治理契约的按需跨家族人工审阅，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。

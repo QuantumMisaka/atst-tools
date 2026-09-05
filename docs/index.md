@@ -66,8 +66,9 @@ evidence, documentation health, release scope, or cleanup priorities.
 2. [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md) for
    the active documentation ledger, report levels, archive state, and
    pending-delete status.
-3. [2.2.3 release notes](releases/RELEASE_NOTES_2.2.3.md) for version-level
-   delivery scope.
+3. [2.2.4 release candidate notes](releases/RELEASE_NOTES_2.2.4.md) for
+   version-level delivery scope; publication remains pending until the exact
+   tag and PyPI artifact are confirmed.
 4. Current validation reports linked from the governance report when judging a
    specific feature, backend, or environment.
 

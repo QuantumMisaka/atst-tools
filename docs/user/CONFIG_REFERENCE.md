@@ -1,7 +1,7 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.2.3
-**Last Updated**: 2026-09-04
+**Version**: 2.2.4
+**Last Updated**: 2026-09-06
 **Status**: Maintained
 
 This document is the hand-written semantic reference for `config.yaml` files

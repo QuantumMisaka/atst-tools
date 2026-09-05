@@ -15,7 +15,7 @@ Run these checks from the repository root before asking for a release review:
 
 ```bash
 conda run -n atst-dev python scripts/check_docs_governance.py
-conda run -n atst-dev python scripts/check_release_readiness.py --tag v2.2.3
+conda run -n atst-dev python scripts/check_release_readiness.py --tag v2.2.4
 conda run -n atst-dev python -m pytest tests -q
 conda run -n atst-dev python -m build
 conda run -n atst-dev python -m twine check --strict dist/*
@@ -24,12 +24,13 @@ conda run -n atst-dev python scripts/verify_wheel_api.py
 
 Run the readiness command from a checkout whose `HEAD` is the exact commit
 targeted by the existing `v<version>` tag; the checker compares that peeled tag
-commit with `HEAD` as well as checking the version and release note. For
-another version, replace `v2.2.3` with its matching exact tag. On the current
-main range, the `v2.2.3` command is expected to fail because that published
-stable tag points to the earlier release commit; current main is unreleased
-work. The checker is offline and does not create a tag, push a commit, publish
-an artifact, or contact GitHub, Gitee, or PyPI.
+commit with `HEAD` as well as checking the version and release note. For the
+2.2.4 release candidate, run it after the maintainer creates the exact
+`v2.2.4` tag at the reviewed commit; before that tag exists, readiness is not
+publication evidence. The 2026-09-05 record that `v2.2.3` pointed to the
+earlier published release remains historical evidence. The checker is offline
+and does not create a tag, push a commit, publish an artifact, or contact
+GitHub, Gitee, or PyPI.
 
 The same mechanical contracts run in CI. The general workflow runs the full
 pytest suite and `documentation-governance` runs
@@ -91,7 +92,8 @@ editing repository files:
    mirror pull and checks the Gitee rendering. This repository adds no Gitee
    synchronization automation.
 
-At Task4 completion, `2.2.3` remains the published stable version and the
-current main range remains unreleased. Branch protection, `pypi` Environment reviewers/tag
-restrictions, Trusted Publisher identity, push/tag/release, Gitee mirror pull,
-and GitHub/Gitee/PyPI rendering verification remain pending external work.
+At this Task4 preparation checkpoint (2026-09-06), `2.2.4` is the release
+candidate and publication remains pending; `2.2.3` is the historical published
+baseline. Branch protection, `pypi` Environment reviewers/tag restrictions,
+Trusted Publisher identity, push/tag/release, Gitee mirror pull, and
+GitHub/Gitee/PyPI rendering verification remain external responsibilities.

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Exact existing release tag to publish, for example v2.2.3
+        description: Exact existing release tag to publish, for example v2.2.4
         required: true
-        default: v2.2.3
+        default: v2.2.4
 
 permissions:
   contents: read
