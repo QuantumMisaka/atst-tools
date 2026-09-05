@@ -4,7 +4,10 @@ This guide defines the boundary between checks that repository files can
 prove, the existing independent governance review, and administrator actions
 outside the repository. A green local or CI check is evidence for its own
 mechanical contract; it is not evidence that an external setting or release
-operation has happened.
+operation has happened. A current-family independent review is the normal
+final check. An independent cross-family review is owner-judged advisory
+evidence when the maintainer considers it useful, not a merge, push, or release
+gate.
 
 ## Phase 1: local and CI mechanical gates
 
@@ -42,22 +45,27 @@ Environment and `id-token: write`.
 ## Phase 2: cross-family governance review
 
 Changes to `AGENTS.md`, a `SKILL.md`, a role contract, governance triggers,
-reviewer routing, or another declared governance effect require the existing
-cross-family review process. This guide describes that boundary; it does not
-replace the process.
+reviewer routing, or another declared governance effect should receive the
+existing governance review process when the maintainer judges that useful.
+This guide describes that boundary; it does not replace the process.
 
-After local checks pass, freeze the exact commit range and use the existing
-`GOVERNANCE_REVIEW.md` launcher and its `governance-review prepare`, `run`,
-`record-decision`, and `check` interfaces. The parent maintainer must inspect
-the reviewer result against the frozen diff and evidence before accepting the
-decision. The reviewer must be independent of every substantive author family.
+After local checks pass, the maintainer may freeze the exact commit range and
+use the existing `GOVERNANCE_REVIEW.md` launcher and its
+`governance-review prepare`, `run`, `record-decision`, and `check` interfaces
+as an optional convenience. The parent maintainer must inspect any reviewer
+result against the frozen diff and evidence before accepting it. An
+owner-confirmed frozen-diff review supplied through another channel is equally
+valid advisory evidence when its reviewer is independent of every substantive
+author family. A review is described as cross-family only when that independence
+is established.
 
-CI cannot establish model-family independence or manufacture a reviewer
-result. A failed, missing, same-family, stale, or otherwise invalid review
-keeps the governance gate closed. If an external family backend is unavailable
-and the existing process falls back to a same-family review, record explicitly
-that cross-family review is incomplete and requires follow-up; do not call the
-cross-family gate passed.
+CI cannot establish model-family independence. CI cannot manufacture
+model-family evidence. A missing, same-family, stale, or otherwise unavailable cross-family
+review is recorded honestly as not performed or incomplete; it does not by
+itself close a governance gate. A same-family review remains acceptable as the
+normal current-family final check, but it must not be represented as
+cross-family evidence. Any actual findings still require maintainer review and
+appropriate correction.
 
 ## Phase 3: GitHub, PyPI, and Gitee administrator/post-push checklist
 
@@ -70,9 +78,10 @@ editing repository files:
 2. In PyPI Trusted Publishing, verify the Trusted Publisher identity for
    `QuantumMisaka/atst-tools`, workflow filename, and `pypi` Environment match
    the workflow. Keep credentials out of repository files.
-3. After the governance gate is accepted, the authorized maintainer may push
-   the intended commit/tag or create the intended release. A main commit is
-   not a release until a maintainer deliberately creates the exact
+3. After the local mechanical checks pass and the maintainer has considered
+   any owner-judged advisory evidence, the authorized maintainer may push the
+   intended commit/tag or create the intended release. A main commit is not a
+   release until a maintainer deliberately creates the exact
    `v<pyproject version>` tag; the local implementation does not push, create
    a tag, or create a release.
 4. After publishing, the maintainer checks GitHub Actions and PyPI artifact

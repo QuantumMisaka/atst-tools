@@ -19,7 +19,7 @@
   <header>
     <h1>ATST-Tools GitHub 治理与发布前门禁设计</h1>
     <p><strong>状态：</strong>本地实施完成（含 exact tag-to-HEAD 绑定），待 GitHub 设置与发布后外部验收</p>
-    <p><strong>决策来源：</strong>2026-09-04 用户确认“硬门禁 + 人工跨模型终审”，并要求 README、用户文档和开发者文档在推送 main 前反映最新稳定态。</p>
+    <p><strong>决策来源：</strong>2026-09-04 用户确认“机械硬门禁 + 人工治理审阅”，并要求 README、用户文档和开发者文档在推送 main 前反映最新稳定态；2026-09-05 进一步确认跨家族审阅是按需的 owner-judged advisory evidence，不是强制门禁。</p>
   </header>
   <main>
     <section id="evidence">
@@ -33,7 +33,7 @@
         <li>main 与 PR 均有可重复的测试和文档治理 CI。</li>
         <li>任何 PyPI 上传前先对同一 tag/ref 通过发布就绪检查、完整 pytest、文档治理、构建、Twine 和 clean-wheel API 验证。</li>
         <li>用户/开发者入口及发布文档从单一稳定版本事实得到一致、可回归的说明。</li>
-        <li>将跨模型治理终审保留为真实的人工受控门禁，而不是在公共 CI 中伪造模型审查。</li>
+        <li>将跨模型治理审阅保留为真实的人工受控 advisory evidence，而不是在公共 CI 中伪造模型审查或将其作为强制发布门禁。</li>
       </ul>
       <p><strong>非目标：</strong>不推送、不打 tag、不发布 PyPI、不配置 GitHub 环境或分支保护、不自动同步 Gitee；这些是维护者授权的外部动作。</p>
     </section>
@@ -45,7 +45,7 @@
         <tr><td>R3</td><td>发布前检查必须验证给定 <code>v&lt;version&gt;</code> 的本地 tag 指向当前 <code>HEAD</code>，并验证项目版本与 release note 一致，且作为可本地执行脚本复用。</td><td>fixture 覆盖匹配、缺失和错指 commit 的 tag；错误 tag/version/note 均明确失败。</td></tr>
         <tr><td>R4</td><td>PyPI 上传 job 只能依赖完成的 preflight，且只取得 <code>id-token: write</code>；preflight 不拥有发布权限。</td><td>workflow 将 ref 解析、验证/build artifact、publish 分为显式依赖 jobs；静态测试锁定 <code>needs</code> 与权限。</td></tr>
         <tr><td>R5</td><td>发布前检查依次运行 release readiness、pytest、文档治理、build、Twine 和 clean-wheel API gate。</td><td>同一 checkout ref 的 workflow step 顺序及本地维护命令被测试和开发者文档覆盖。</td></tr>
-        <tr><td>R6</td><td>跨模型治理终审的触发和证据边界清楚：治理路径变更先独立审查，再允许 tag/release；CI 只能验证可机械证明的部分。</td><td>开发者门禁文档给出触发、命令、禁止的替代方式及 GitHub 管理员配置；不新增凭据或自动 reviewer。</td></tr>
+        <tr><td>R6</td><td>跨模型治理审阅的按需触发和证据边界清楚：治理路径变更可由维护者判断是否需要独立审阅；CI 只能验证可机械证明的部分。</td><td>开发者门禁文档说明当前家族正常终审、可选 launcher、owner-confirmed frozen-diff 证据和 GitHub 管理员配置；不新增凭据或自动 reviewer。</td></tr>
         <tr><td>R7</td><td>发布后 GitHub/Gitee/PyPI 渲染检查与 Gitee 手动同步被明确为外部 checklist，非本次自动动作。</td><td>文档说明推送后时序和责任；工作流及仓库不含 Gitee 同步配置。</td></tr>
       </tbody></table>
     </section>
@@ -55,7 +55,7 @@
         <li><strong>仓库内机械门禁：</strong><code>scripts/check_release_readiness.py</code> 接受 <code>--tag</code> 与可选 <code>--root</code>，只用离线 Git plumbing 解析 <code>refs/tags/&lt;tag&gt;^{commit}</code> 并与 <code>HEAD</code> 比较，再读取 <code>pyproject.toml</code>，验证 v-prefix、版本、<code>docs/releases/RELEASE_NOTES_&lt;version&gt;.md</code> 和 Compatibility package-version 行。它不访问网络、不创建 tag、不发布。</li>
         <li><strong>常规 CI：</strong>保留现有 tests workflow，增加 main push，并拆出文档治理 job。两者均 <code>contents: read</code>。</li>
         <li><strong>发布 preflight：</strong>发布工作流先从 push 事件或 env 传入的 manual <code>tag</code> 验证 exact <code>v&lt;version&gt;</code> 形式并解析 <code>refs/tags/&lt;tag&gt;</code>，再在该 tag checkout 安装 dev 依赖；checkout 后 readiness checker 绑定 tag 与 <code>HEAD</code> 并完成 R5，上传已检查的 distributions artifact；publish job 下载唯一 artifact 并使用 pypi Environment/OIDC 上传。</li>
-        <li><strong>人工治理：</strong>AGENTS/GOVERNANCE_REVIEW 的跨家族终审由受控 launcher 完成；其结果包是审阅证据，不进入发布工件，也不由 Actions 伪造。GitHub 分支保护和 pypi Environment 审批由仓库管理员在设置页配置。</li>
+        <li><strong>人工治理：</strong>当前模型家族的独立审阅是正常终审；跨家族审阅由维护者按需判断，受控 launcher 只是可选便利工具。owner-confirmed 的 frozen-diff 独立审阅可从其他渠道提供，结果包是 advisory evidence，不进入发布工件，也不由 Actions 伪造。GitHub 分支保护和 pypi Environment 审批由仓库管理员在设置页配置。</li>
       </ol>
     </section>
     <section id="errors">
@@ -64,13 +64,13 @@
         <li>tag 不以 <code>v</code> 开头、版本不匹配、release note 缺失或 Compatibility 行不匹配：preflight 失败，upload 不可运行。</li>
         <li>tag 缺失、不是 commit，或指向的 commit 不同于 checkout 的 <code>HEAD</code>：readiness 失败，upload 不可运行。</li>
         <li>pytest、文档治理、build、Twine 或 wheel gate 失败：artifact 不上传，PyPI job 因 <code>needs</code> 不会开始。</li>
-        <li>治理文本有实质改动却没有独立跨家族审查：维护者不得 tag/release；CI 成功不等价于该门禁通过。</li>
+        <li>治理文本有实质改动却没有跨家族审阅：如实记录未启动或未完成；这不单独阻断交付。CI 成功也不能制造模型家族证据，维护者仍须依据实际发现和发布授权作决定。</li>
       </ul>
     </section>
     <section id="rollout">
       <h2>实施与发布后检查</h2>
       <ol>
-        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，治理路径变更仍须按现有流程完成独立跨家族终审。</li>
+        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，由维护者判断是否需要当前家族终审或可选跨家族 advisory review。</li>
         <li>经授权 push main 后，确认 GitHub Tests/Governance jobs green；维护者手动从 GitHub 拉取同步 Gitee 后，检查两端 README 指向相同用户指南/示例。</li>
         <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，维护者必须针对候选 commit deliberate 创建并检查 exact tag；随后配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
       </ol>

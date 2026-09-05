@@ -88,9 +88,12 @@ Recommended environment protection:
 
 ## Publishing `<version>`
 
-After the release branch is verified, the cross-family governance gate is
-accepted when applicable, and the PyPI/GitHub setup above is confirmed by an
-administrator, publish with one of these paths:
+After the release branch is verified and the PyPI/GitHub setup above is
+confirmed by an administrator, the authorized maintainer may consider the
+normal current-family review and any owner-judged advisory cross-family
+evidence before publishing. Cross-family review is not a release gate; an
+owner-confirmed frozen-diff review from another channel is valid evidence when
+available. Publish with one of these paths:
 
 1. Push the checked exact tag `v<version>` to
    `https://github.com/QuantumMisaka/atst-tools`.

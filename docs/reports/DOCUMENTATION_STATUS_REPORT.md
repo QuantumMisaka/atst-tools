@@ -33,9 +33,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `YAML_INPUT_VARIABLES.md`。
 - 2026-09-05：GitHub 治理与发布门禁已在本地实现 exact tag-to-HEAD 绑定；2.2.3
   仍为已发布稳定版本，当前 main 作为未发布工作，旧 tag 不代表当前 main。
-  发布、推送、外部设置和跨渠道渲染检查仍待维护者执行。
+  当前模型家族独立审查作为正常终审；跨家族审查是维护者按需判断的 owner-judged
+  advisory evidence，不构成合入、推送或发布门禁。发布、推送、外部设置和跨渠道
+  渲染检查仍待维护者执行。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
-  AGENTS/SKILL 等治理契约的跨家族人工终审，以及 GitHub/PyPI/Gitee 管理员和
+  AGENTS/SKILL 等治理契约的按需跨家族人工审阅，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。
 
 ## 2. 活跃 User 文档
@@ -59,7 +61,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/developer/EXAMPLE_VALIDATION_OPERATIONS.md` | guide | 示例本地维护检查、SAI/Slurm 执行模式、curated-output 溯源和证据报告生命周期；不作为用户快速上手。 |
 | `docs/developer/YAML_INPUT_GOVERNANCE.md` | guide | YAML schema、变量新增、文档导出和测试治理规则。 |
 | `docs/developer/PYPI_RELEASE_AUTOMATION.md` | guide | PyPI 发布自动化流程。 |
-| `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md` | guide | 本地/CI 机械门禁、跨家族治理终审触发，以及 GitHub/PyPI/Gitee 外部管理员和发布后 checklist。 |
+| `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md` | guide | 本地/CI 机械门禁、按需跨家族治理审阅证据，以及 GitHub/PyPI/Gitee 外部管理员和发布后 checklist。 |
 
 ## 4. Reports L1-L4 账本
 
@@ -117,7 +119,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
 | `docs/superpowers/specs/2026-09-04-user-distribution-and-mpi-installation-design.html` | spec | 本地实施完成，待发布后外部渲染验证：GitHub 规范源 / 维护者手动拉取的 Gitee 同内容只读镜像 / PyPI 分发、跨渠道用户入口、串行与 image-parallel MPI 安装分层，以及 SAI 维护证据边界设计。 |
 | `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | plan | 本地实施完成，待发布后外部渲染验证：用户分发、跨渠道 README 入口、串行与 image-parallel MPI 安装诊断、SAI 维护边界和文档事实修正 TDD 计划。 |
-| `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` | spec | 本地实施完成，待 GitHub 设置与发布后外部验收：GitHub 治理、跨家族人工终审、发布前机械门禁和 GitHub/PyPI/Gitee 发布后责任边界。 |
+| `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` | spec | 本地实施完成，待 GitHub 设置与发布后外部验收：GitHub 治理、按需跨家族审阅证据、发布前机械门禁和 GitHub/PyPI/Gitee 发布后责任边界。 |
 | `docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md` | plan | 本地实施完成，待 GitHub 设置与发布后外部验收：发布就绪检查、CI/PyPI preflight、治理文档和最终外部验收边界。 |
 
 ### L4: 历史或已被取代材料

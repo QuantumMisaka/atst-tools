@@ -178,6 +178,38 @@ def test_governance_release_gate_guide_is_linked_and_names_boundaries():
     assert "Environment" in guide
 
 
+def test_governance_release_guidance_is_advisory_and_preserves_external_boundaries():
+    """Governance review remains owner-judged evidence, not a release gate."""
+    guide = " ".join(
+        (ROOT / "docs/developer/GOVERNANCE_AND_RELEASE_GATES.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    release_guide = " ".join(
+        (ROOT / "docs/developer/PYPI_RELEASE_AUTOMATION.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+
+    assert "owner-judged advisory evidence" in guide
+    assert "current-family independent review" in guide
+    assert "owner-confirmed" in guide
+    assert "frozen diff" in guide
+    assert "CI cannot manufacture model-family evidence" in guide
+    assert "keeps the governance gate closed" not in guide
+    assert "cross-family gate passed" not in guide
+    assert "launcher" in guide
+    assert "optional convenience" in guide
+    assert "pypi" in release_guide
+    assert "authorized maintainer" in release_guide
+    assert "administrator" in release_guide
+    boundary_guidance = f"{guide} {release_guide}"
+    for operation in ("push", "tag", "publish", "credentials"):
+        assert operation in boundary_guidance
+    assert "GitHub" in boundary_guidance
+    assert "PyPI" in boundary_guidance
+
+
 def test_governance_spec_labels_baseline_and_current_local_workflow_state():
     """The governance SPEC distinguishes pre-implementation evidence from current files."""
     spec = (

@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make current stable-state documentation and GitHub CI mechanically enforceable before a PyPI upload, while retaining independent cross-model governance review as a human gate.
+**Goal:** Make current stable-state documentation and GitHub CI mechanically enforceable before a PyPI upload, while documenting independent governance review as advisory evidence rather than a release gate.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` (R1-R7; decisions confirmed by the user on 2026-09-04).
-**Status:** Task 4 本地实现完成：当前 main 是未发布工作；已补齐 exact tag/commit 绑定门禁。治理终审、GitHub 设置、推送和后续发布验收仍待授权维护者执行。
+**Status:** Task 5 本地实现完成：当前 main 是未发布工作；已补齐 exact tag/commit 绑定门禁，并将项目文档对齐 2026-09-05 已更新的 owner-judged advisory governance 策略。GitHub 设置、推送和后续发布验收仍待授权维护者执行。
 
-**Architecture:** A small repository-local readiness checker owns exact tag-to-`HEAD`, tag/version/release-note consistency and is tested through temporary repository fixtures. General CI runs tests plus documentation governance on PR/main. The PyPI workflow resolves one exact tag namespace ref, performs all release checks and artifact creation before its OIDC-only publish job. Developer documentation names the manual cross-family and GitHub-settings gates without trying to automate them.
+**Architecture:** A small repository-local readiness checker owns exact tag-to-`HEAD`, tag/version/release-note consistency and is tested through temporary repository fixtures. General CI runs tests plus documentation governance on PR/main. The PyPI workflow resolves one exact tag namespace ref, performs all release checks and artifact creation before its OIDC-only publish job. Developer documentation separates optional, independent governance evidence from mandatory GitHub/PyPI release safety checks without trying to automate either.
 
 **Tech Stack:** Python 3.10+, stdlib `tomllib`, pytest, GitHub Actions YAML, setuptools build, Twine.
 
@@ -16,7 +16,7 @@
 - `pyproject.toml` remains the sole package-version source; current stable release is 2.2.3 until maintainers deliberately change it.
 - Never push, tag, publish, alter GitHub Environment/branch-protection settings, or synchronize Gitee in this implementation.
 - The workflow references the named `pypi` Environment and requests OIDC once those external settings are configured; no token or credential is added to repository files.
-- CI may verify mechanical evidence only. AGENTS/SKILL/governance-effect changes retain the existing cross-family review process.
+- CI may verify mechanical evidence only. Independent cross-family governance review is owner-judged advisory evidence; it never substitutes for authorization of a push, tag, publish, credential, or irreversible action.
 - User documentation stays site-neutral and Gitee remains a manually synchronized same-content mirror.
 
 ---
@@ -214,6 +214,64 @@ git add scripts/check_release_readiness.py tests/unit/test_release_readiness.py 
 git commit -m "ci: bind releases to immutable tags"
 ```
 
+### Task 5: Align project guidance with advisory governance policy
+
+**Decision source:** On 2026-09-05 the maintainer updated the global governance contract: cross-family review is optional advisory evidence, not a hard merge/push/release gate. The maintainer instructed this project to continue; global contracts are owned elsewhere and are out of scope here.
+
+**Files:**
+- Modify: `tests/unit/test_docs_governance.py`
+- Modify: `docs/developer/GOVERNANCE_AND_RELEASE_GATES.md`, `docs/developer/PYPI_RELEASE_AUTOMATION.md`, `docs/developer/HANDOVER.md`
+- Modify: `docs/reports/DOCUMENTATION_STATUS_REPORT.md`
+- Modify: `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html`
+- Modify: this plan
+
+**Test strategy:** The existing documentation-governance suite becomes the contract owner. Its new behavior test must require that the project guide describes independent review as owner-judged advisory evidence, retains the honest CI boundary, accepts an owner-confirmed frozen-diff review as evidence, and does not make launcher use or a missing cross-family result a release gate. The test must still require explicit authorization/external administrator ownership for push, tag, publish, credentials, and GitHub/PyPI configuration.
+
+**Interfaces:** Consumes the existing `GOVERNANCE_AND_RELEASE_GATES.md` entrypoint and `GOVERNANCE_REVIEW.md` reference. Produces consistent developer/release guidance only; no workflow, credential, tag, push, external setting, or global-contract change.
+
+- [x] **Step 1: Write the failing documentation-policy test**
+
+Extend `test_governance_release_gate_guide_is_linked_and_names_boundaries` (or add one focused sibling) to assert that the guide contains an advisory/owner-judged independent-review statement, says CI cannot manufacture model-family evidence, and identifies an owner-confirmed frozen-diff review as acceptable evidence. Assert it does not say a missing or same-family review closes a governance gate, and that the release guidance still names `pypi` Environment plus authorized maintainer/external administrator boundaries.
+
+- [x] **Step 2: Run the focused test to verify RED**
+
+Run:
+
+```bash
+conda run -n atst-dev python -m pytest tests/unit/test_docs_governance.py::test_governance_release_guidance_is_advisory_and_preserves_external_boundaries -q
+```
+
+Expected: FAIL because the current guide still says a failed, missing, same-family, or stale review closes the governance gate.
+
+- [x] **Step 3: Replace stale hard-gate prose with the project boundary**
+
+In the developer guide, describe a current-family independent review as the normal final check; permit an independent cross-family review when the maintainer judges it useful, and describe the launcher only as an optional convenience. State that an owner-confirmed, frozen-diff independent review supplied through another channel is valid advisory evidence. Keep CI mechanical-only and say it cannot prove reviewer independence. Update the PyPI guide, handover, report ledger, SPEC, and plan status/architecture/errors/rollout language so none calls cross-family review a mandatory release gate. Retain all exact-tag, preflight, OIDC, authorization, administrator-setting, and manual Gitee responsibilities.
+
+- [x] **Step 4: Verify GREEN and documentation checks**
+
+Run:
+
+```bash
+conda run -n atst-dev python -m pytest tests/unit/test_docs_governance.py -q
+conda run -n atst-dev python scripts/check_docs_governance.py
+git diff --check -- docs tests
+rg -n "^<<<<<<<|^=======|^>>>>>>>" docs tests
+```
+
+Expected: all tests/checks pass; no conflict markers or whitespace errors. Do not run a release command for `v2.2.3`, because its intentional old-tag failure is unrelated to this documentation-only task.
+
+- [x] **Step 5: Commit Task 5**
+
+```bash
+git add tests/unit/test_docs_governance.py \
+  docs/developer/GOVERNANCE_AND_RELEASE_GATES.md \
+  docs/developer/PYPI_RELEASE_AUTOMATION.md docs/developer/HANDOVER.md \
+  docs/reports/DOCUMENTATION_STATUS_REPORT.md \
+  docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html \
+  docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md
+git commit -m "docs: make governance review advisory"
+```
+
 ## Plan Self-Review
 
 - R1 is Task 1; R2/R4/R5 are Tasks 2 and 4; R3 spans Tasks 1–2 and 4; R6/R7 are Task 3.
@@ -223,4 +281,4 @@ git commit -m "ci: bind releases to immutable tags"
 
 ## Execution Handoff
 
-User approved the design and requested continued implementation on 2026-09-04. Execute serially with fresh task review between tasks; governance-path edits require the project cross-family final gate before any push.
+User approved the design and requested continued implementation on 2026-09-04. Execute serially with fresh task review between tasks; governance-path edits receive the normal current-family final review, while any cross-family review is owner-judged advisory evidence. Push, tag, publish, credentials, and external settings remain separately authorized maintainer actions.
