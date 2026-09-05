@@ -23,6 +23,74 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+_POINT_KPOINT_UPSTREAM = r"""
+def _read_kpoint(raw):
+    mymatch = [re.match(r'^(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s*'
+                        r'(\d+).*', l)
+              for l in raw[3:]]
+    return {
+        'kpoints': [tuple(map(float, m.groups()[:3])) for m in mymatch],
+        'weights': [int(m.groups()[6]) for m in mymatch],
+    }
+
+def unrelated():
+    return 1
+""".lstrip()
+
+_POINT_KPOINT_PATCHED = r"""
+def _read_kpoint(raw):
+    mymatch = [re.match(r'^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*'
+                        r'(\d+).*', l)
+              for l in raw[3:]]
+    return {
+        'kpoints': [tuple(map(float, m.groups()[:3])) for m in mymatch],
+        'weights': [int(m.groups()[3]) for m in mymatch],
+    }
+
+def unrelated():
+    return 1
+""".lstrip()
+
+
+def _compare_point_kpoint_fixture(tmp_path: Path, vendored_source: str) -> int:
+    checker = _load_checker()
+    upstream = tmp_path / "upstream"
+    vendored = tmp_path / "vendored"
+    _write(upstream / "abacuslite" / "io" / "generalio.py", _POINT_KPOINT_UPSTREAM)
+    _write(vendored / "abacuslite" / "io" / "generalio.py", vendored_source)
+    return checker.compare_snapshots(upstream, vendored)
+
+
+def test_snapshot_checker_accepts_documented_point_kpoint_parser_patch(tmp_path, capsys):
+    assert _compare_point_kpoint_fixture(tmp_path, _POINT_KPOINT_PATCHED) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_snapshot_checker_reports_altered_point_kpoint_coordinate_regex(tmp_path, capsys):
+    altered_regex = _POINT_KPOINT_PATCHED.replace(
+        r"(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)",
+        r"(-?\d+(\.\d+)?)\s+(-?\d+(?:\.\d+)?)",
+        1,
+    )
+
+    assert _compare_point_kpoint_fixture(tmp_path, altered_regex) == 1
+    assert "Implementation drift detected in abacuslite/io/generalio.py" in capsys.readouterr().out
+
+
+def test_snapshot_checker_reports_wrong_point_kpoint_weight_index(tmp_path, capsys):
+    wrong_weight_index = _POINT_KPOINT_PATCHED.replace("groups()[3]", "groups()[6]")
+
+    assert _compare_point_kpoint_fixture(tmp_path, wrong_weight_index) == 1
+    assert "Implementation drift detected in abacuslite/io/generalio.py" in capsys.readouterr().out
+
+
+def test_snapshot_checker_reports_unrelated_generalio_function_change(tmp_path, capsys):
+    unrelated_change = _POINT_KPOINT_PATCHED.replace("return 1", "return 2")
+
+    assert _compare_point_kpoint_fixture(tmp_path, unrelated_change) == 1
+    assert "Implementation drift detected in abacuslite/io/generalio.py" in capsys.readouterr().out
+
+
 def test_snapshot_checker_accepts_packaging_imports_and_embedded_test_churn(tmp_path, capsys):
     checker = _load_checker()
     upstream = tmp_path / "upstream"

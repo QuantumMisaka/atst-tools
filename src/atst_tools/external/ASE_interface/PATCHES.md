@@ -8,6 +8,7 @@
 | `abacuslite/io/latestio.py` | 同上 | 同上 | 2026-08-04 | 未上游化（待 PR） |
 | `abacuslite/io/legacyio.py` | band parser | 容差块（`_legacy_band_parser_tolerant_block`） | 2026-05-10 | 已由 #7588 上游化（checker 归一化保留至基线推进后清理） |
 | `abacuslite/core.py` | `read_results` 帧选择 | scf-only 坐标匹配（`_select_scf_frame_for_structure` 等，Task 3 产出） | 2026-08-04 | 未上游化（待 PR） |
+| `abacuslite/io/generalio.py` | `_read_kpoint` | `0b01ed2`：坐标正则的小数部分改为非捕获组，并将权重读取从捕获组 6 修正为组 3（保证 point-KPT 小数坐标精确往返） | 2026-08-12 | 未上游化（待 PR） |
 
 ## 维护触点
 

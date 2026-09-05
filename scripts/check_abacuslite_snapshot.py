@@ -211,6 +211,65 @@ def _normalize_efermi_tolerance(relative_path: Path, source: str) -> str:
     return source.replace("efermi=ener['E_Fermi']", "efermi=ener.get('E_Fermi')")
 
 
+_POINT_KPOINT_UPSTREAM_REGEX = r"r'^(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s*'"
+_POINT_KPOINT_PATCHED_REGEX = r"r'^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*'"
+_POINT_KPOINT_UPSTREAM_WEIGHT = "'weights': [int(m.groups()[6]) for m in mymatch]"
+_POINT_KPOINT_PATCHED_WEIGHT = "'weights': [int(m.groups()[3]) for m in mymatch]"
+
+
+def _normalize_point_kpoint_parser(relative_path: Path, source: str) -> str:
+    """Normalize the documented ``_read_kpoint`` parser bugfix only.
+
+    The vendored parser changed the three coordinate regex fractional groups
+    to non-capturing groups and consequently changed the weight group index.
+    Both exact changes must occur inside ``_read_kpoint`` before either is
+    normalized, so an altered regex or an independently changed weight index
+    remains visible to the snapshot drift check.
+    """
+    if relative_path != Path("abacuslite/io/generalio.py"):
+        return source
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+
+    read_kpoint = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "_read_kpoint"
+        ),
+        None,
+    )
+    if read_kpoint is None or read_kpoint.end_lineno is None:
+        return source
+
+    lines = source.splitlines(keepends=True)
+    start = read_kpoint.lineno - 1
+    end = read_kpoint.end_lineno
+    if start < 0 or end > len(lines):
+        return source
+
+    function_source = "".join(lines[start:end])
+    if (
+        function_source.count(_POINT_KPOINT_PATCHED_REGEX) != 1
+        or function_source.count(_POINT_KPOINT_PATCHED_WEIGHT) != 1
+    ):
+        return source
+
+    normalized = function_source.replace(
+        _POINT_KPOINT_PATCHED_REGEX,
+        _POINT_KPOINT_UPSTREAM_REGEX,
+    ).replace(
+        _POINT_KPOINT_PATCHED_WEIGHT,
+        _POINT_KPOINT_UPSTREAM_WEIGHT,
+    )
+    lines[start:end] = [normalized]
+    return "".join(lines)
+
+
 _FRAME_SELECTION_BLOCK = re.compile(
     r"(?P<indent>[ \t]*)outdir = directory / f'OUT\.\{self\.suffix\}'\n"
     r"(?P=indent)log = outdir / f'running_\{self\.calculation\}\.log'\n"
@@ -255,6 +314,7 @@ def _normalize_frame_selection(source: str) -> str:
 
 def _normalize_documented_atst_adaptations(relative_path: Path, source: str) -> str:
     source = _normalize_efermi_tolerance(relative_path, source)
+    source = _normalize_point_kpoint_parser(relative_path, source)
     if relative_path == Path("abacuslite/io/legacyio.py"):
         return _normalize_legacy_band_parser_adaptation(source)
     if relative_path == Path("abacuslite/core.py"):
