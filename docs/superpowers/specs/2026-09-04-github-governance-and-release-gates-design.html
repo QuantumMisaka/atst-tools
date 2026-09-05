@@ -70,7 +70,7 @@
     <section id="rollout">
       <h2>实施与发布后检查</h2>
       <ol>
-        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，由维护者判断是否需要当前家族终审或可选跨家族 advisory review。</li>
+        <li>先以 TDD 实现脚本、workflow 契约和文档事实修正；完成本地机械门禁后，按正常流程完成当前模型家族的独立终审；是否额外请求跨家族 advisory review 由维护者判断。</li>
         <li>经授权 push main 后，确认 GitHub Tests/Governance jobs green；维护者手动从 GitHub 拉取同步 Gitee 后，检查两端 README 指向相同用户指南/示例。</li>
         <li>下一次 <code>v&lt;version&gt;</code> tag 发布前，维护者必须针对候选 commit deliberate 创建并检查 exact tag；随后配置 GitHub main branch protection、pypi Environment review/tag restriction 和 PyPI Trusted Publisher 的 <code>QuantumMisaka/atst-tools</code> 绑定；发布后在干净环境安装并检查 PyPI README 链接。</li>
       </ol>

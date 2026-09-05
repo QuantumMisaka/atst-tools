@@ -58,13 +58,15 @@ owner-confirmed frozen-diff review supplied through another channel is equally
 valid advisory evidence when its reviewer is independent of every substantive
 author family. A review is described as cross-family only when that independence
 is established.
+The launcher is an optional convenience, not a required step.
 
 CI cannot establish model-family independence. CI cannot manufacture
 model-family evidence. A missing, same-family, stale, or otherwise unavailable cross-family
 review is recorded honestly as not performed or incomplete; it does not by
 itself close a governance gate. A same-family review remains acceptable as the
 normal current-family final check, but it must not be represented as
-cross-family evidence. Any actual findings still require maintainer review and
+cross-family evidence. None of these cross-family review states blocks delivery
+or release by itself; any actual findings still require maintainer review and
 appropriate correction.
 
 ## Phase 3: GitHub, PyPI, and Gitee administrator/post-push checklist

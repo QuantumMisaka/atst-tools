@@ -196,10 +196,15 @@ def test_governance_release_guidance_is_advisory_and_preserves_external_boundari
     assert "owner-confirmed" in guide
     assert "frozen diff" in guide
     assert "CI cannot manufacture model-family evidence" in guide
+    assert "The launcher is an optional convenience, not a required step." in guide
+    assert (
+        "A missing, same-family, stale, or otherwise unavailable cross-family review "
+        "is recorded honestly as not performed or incomplete; it does not by itself "
+        "close a governance gate."
+    ) in guide
+    assert "None of these cross-family review states blocks delivery or release by itself" in guide
     assert "keeps the governance gate closed" not in guide
     assert "cross-family gate passed" not in guide
-    assert "launcher" in guide
-    assert "optional convenience" in guide
     assert "pypi" in release_guide
     assert "authorized maintainer" in release_guide
     assert "administrator" in release_guide
