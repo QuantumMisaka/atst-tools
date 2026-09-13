@@ -11,6 +11,13 @@ ATST-Tools 的边界是工作流编排、配置校验、calculator 构造、轨�
 重启辅助、ABACUS 常见前后处理和示例文档。ABACUS、DeePMD-kit、ASE、Sella
 仍然负责各自的数值计算和核心算法。
 
+当前开发源码中，Sella、CCQN、Sella IRC 每个方向及最终 NEB 在得到确定的
+未收敛信号时输出 advisory warning；NEB 只由 root rank 输出，信号未知时不推断。
+正常返回和 artifact manifest 的 `status=complete` 表示工作流结束并产出声明工件，
+不能据此判定科学收敛。进入 IRC 或报告过渡态结论前，应结合 warning、最终轨迹与
+日志中的力、配置的 `fmax`、原子约束及计算成本复核；是否继续计算由调用者决定。
+这些提示不改变退出码、工作流返回值或 manifest 状态；AutoNEB 保留既有汇总复核路径。
+
 ### CLI/YAML 与 Python API 的选择
 
 日常交互、站点调度提交和可复现配置优先使用 CLI + YAML；当已有 Python 程序需要

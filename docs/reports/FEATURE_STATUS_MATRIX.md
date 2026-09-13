@@ -5,6 +5,11 @@
 **Status**: Maintained
 **Owner**: ATST-Tools maintainers
 
+Development update (2026-09-13, not released): Sella, CCQN, Sella IRC and final
+NEB emit advisory warnings for deterministic false convergence signals; unknown
+signals remain silent and NEB output is root-only. Completion and manifest
+status retain their existing meaning. See [user guide](../user/USER_GUIDE_CN.md).
+
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
 | **Relax** | ✅ Supported | Geometry Optimization | Uses ASE optimizers. |

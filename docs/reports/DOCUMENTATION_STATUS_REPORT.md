@@ -10,6 +10,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
+- 2026-09-13 开发源码补充 Sella/CCQN/IRC/最终 NEB advisory warning，用户指南与
+  功能矩阵同步说明完成状态和科学收敛的边界；该记录不表示新版本已发布。
+
 - 本轮治理依据是已接受的
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
