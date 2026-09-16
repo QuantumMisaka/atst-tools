@@ -37,7 +37,7 @@
 - Ruling: snapshot checker 对登记的语义补丁先精确核验 AST/内容，再允许剥离 helper；不得只按函数名无条件忽略函数体。内容核验只用于登记补丁身份，行为正确性仍由回归测试与独立审查证明。
 - Ruling: 推送 main 后等待同一 commit 的 Tests 与 abacuslite CI 成功，再推送 tag。远端 tag 不移动：基础设施瞬时失败可原 commit 重跑；需要修改源码则使用下一可用 patch 版本并同步元数据。
 - Ruling: 发布后的证据回填作为单独文档提交；readiness 的 tag==HEAD 仅在候选/tag checkout 核验，不要求后续文档提交仍等于 release tag。
-- 状态：计划修订和隔离工作区准备完成，环境预检通过。matcher、advisory 兼容移植、文档和 snapshot checker 已实现；候选回归在 `conda run -n abacus-env env PYTHONPATH=<candidate>/src python ...` 环境下完成全量 666 passed、19 conditional skipped（685 total），package-mode parser 28 项运行、2 项跳过，真实上游基线 snapshot checker exit 0，文档治理和 metadata 通过；build、Twine、clean-wheel API 首次通过。针对 STRU 末组声明原子数可能被底层 parser 静默截断的修订已冻结，core 新测试 32 passed，最终 core 重建验证与独立终审已通过；发布、PyPI、SIF/SAI 和 Paimon 运行时验收尚未完成。
+- 状态：计划修订和隔离工作区准备完成，环境预检通过。matcher、advisory 兼容移植、文档和 snapshot checker 已实现；候选回归在 `conda run -n abacus-env env PYTHONPATH=<candidate>/src python ...` 环境下完成全量 666 passed、19 conditional skipped（685 total），package-mode parser 28 项运行、2 项跳过，真实上游基线 snapshot checker exit 0，文档治理和 metadata 通过；build、Twine、clean-wheel API 首次通过。针对 STRU 末组声明原子数可能被底层 parser 静默截断的修订已冻结，core 新测试 32 passed，最终 core 重建验证与独立终审已通过。ATST 2.2.5 已从 release commit `4c966915c6f40984fc85806869f4766ecdd6ffc9` 推送并发布；官方无缓存 PyPI clean-install、CLI/API、依赖及 site-packages 身份核验均通过。SIF/SAI/platform runtime 和 Paimon 真实运行时部署仍未执行。
 - 审计分工：matcher 与测试、advisory 兼容、发布文档分别由子代理实现；controller 集成 AST 精确快照检查，独立 reviewer 检查冻结候选。子代理不并发操作 Git index、不自行推送或发版。
 
 ## 执行顺序
@@ -204,9 +204,16 @@ conda run -n <approved-atst-env> python scripts/verify_wheel_api.py --wheel dist
 4. 用干净环境执行 `python -m pip install --no-cache-dir atst-tools==2.2.5`、`pip check`、`python -c "import atst_tools; print(atst_tools.package_version())"` 和 `atst --version`；核对 PyPI JSON/项目页的 2.2.5 wheel 与 sdist。
 5. 回写 release note、`DOCUMENTATION_STATUS_REPORT.md`、`FEATURE_STATUS_MATRIX.md` 的实际 tag/CI/PyPI 证据，并运行最终 docs governance。Gitee 镜像、父仓库 gitlink、SIF 重建和 SAI 重跑另行记录，不把未执行事项写成发布验收。
 
-- [ ] 创建并本地验证 `v2.2.5`，再按顺序推送 main 和 tag。
-- [ ] 监控并记录 GitHub Actions 与 PyPI 发布结果。
-- [ ] 完成 clean-install/CLI/API/PyPI 核验和发布文档结案。
+- [x] 创建并本地验证 `v2.2.5`，再按顺序推送 main 和 tag。
+- [x] 监控并记录 GitHub Actions 与 PyPI 发布结果。
+- [x] 完成 clean-install/CLI/API/PyPI 核验和发布文档结案。
+
+Task 7 当前事实（2026-09-16）：release commit 已推送，远端 `v2.2.5` 已创建；Tests、
+abacuslite 和 Publish workflow 均成功，PyPI 发布成功。官方 `https://pypi.org/simple`
+无缓存 clean-install 在全新虚拟环境中通过；CLI 与 `package_version()` 均报告 2.2.5，
+`pip check`、六个 root API 导入及 runner help 通过。安装位置为该环境的
+site-packages，matcher `core.py` 已与受审 release source 做逐字节核验（SHA256
+`30c11b06623e4850b27a2882f19b14c1bad1d3756780d9c5655d3a2b6d70d7ad`）。
 
 ### Task 8: Paimon 依赖集成与新版本发布
 
@@ -216,10 +223,19 @@ conda run -n <approved-atst-env> python scripts/verify_wheel_api.py --wheel dist
 
 **Dependencies:** 可并行调查与准备 metadata；最终 gitlink、容器验收、构建和发布依赖 Tasks 3–7。先核对 SIF 发布路径与必要授权；不能在未知运行时身份下上传宣称修复生效的包。
 
+当前状态（2026-09-16）：Paimon 本地候选集成与发布前复核已完成：父仓 unit
+`5964 passed, 1 skipped`，provenance `9 span` 无 drift，focused integration
+`1 passed`，source-replay `550 records` 无 unresolved；完整 integration `57 passed,
+1 skipped`（638 秒），local governance、build 和同一 ZIP 检查通过。Paimon 保留
+`fd7c8da` 已有的 Sella、CCQN、Sella IRC 及最终 NEB nonconvergence advisory 行为。
+SIF/SAI/platform runtime 与平台发布尚未执行，等待具体范围和授权确认。
+候选分支 `release/paimon-atst-1252` 已推送：实现提交 `28ff0351b`、交接记录提交
+`2643073e8`；Codeup MR 尚未创建/合入，父仓 main 未改动。
+
 **Verification:** 遵循 `docs/guides/release-and-platform-validation.md`：abacus-env 预检、dependency check、local governance、unit、integration、make build、同一实际 ZIP 包检查；运行时变更按既有 SIF/SAI 验证入口核验实际 ATST 导入身份、API 和相应回归；平台发布使用同一 artifact 并回读版本。Agent/Flow 和科学计算验证分别记录，不以 metadata 可见性代替运行证据。
 
-- [ ] 确认 Paimon 集成文件、运行时交付路径及发布端点。
-- [ ] 更新依赖 pin、版本和双语 changelog，登记开发累积区并核验 advisory 兼容性。
+- [x] 确认 Paimon 集成文件、运行时交付路径及发布端点。
+- [x] 更新依赖 pin、版本和双语 changelog，登记开发累积区并核验 advisory 兼容性。
 - [ ] 完成 SIF/SAI 适用验证、本地门禁和独立终审；无法执行的外部环节明确记录 blocked。
 - [ ] 完成已授权 Git/平台发布，回读制品身份并更新报告、分类入口和计划结案。
 

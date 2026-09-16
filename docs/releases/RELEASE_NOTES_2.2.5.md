@@ -2,9 +2,9 @@
 
 **Version**: 2.2.5
 **Date**: 2026-09-16
-**Status**: Release candidate (not published)
-**Branch**: candidate working tree; no release tag yet
-**Tag**: pending maintainer publication
+**Status**: Published (official no-cache clean-install verified)
+**Branch**: `main`
+**Tag**: `v2.2.5` → `4c966915c6f40984fc85806869f4766ecdd6ffc9`
 
 ## Summary
 
@@ -12,7 +12,7 @@
 > patch（2.2.x）承担小功能加入与新增优化，以及 bug 修复。2.2.5 按 patch
 > 语义承载 abacuslite 周期性 SCF 帧身份校验修复及用户边界说明。
 
-ATST-Tools 2.2.5 is a backward-compatible release candidate for the vendored
+ATST-Tools 2.2.5 is a backward-compatible release for the vendored
 abacuslite SCF frame-selection fix. When `calculation: scf` reads an accumulated
 running log, it normalizes the current STRU and candidate frames to the same ASE
 atom order, Cartesian Å coordinates, and cell, then accepts periodic-equivalent
@@ -47,13 +47,19 @@ proof of scientific convergence.
 - The advisory non-convergence messages do not change workflow completion or
   manifest status and do not assert that a scientific result is converged.
 
-## Candidate Validation Matrix
+## Validation and Publication Matrix
 
-The candidate has completed the corrective rerun and the final local pre-release
+The release commit completed the corrective rerun and final local pre-release
 gate. The frozen STRU declaration-count revision has 32 focused core tests
 passing; final core rebuild verification and independent review have passed.
-No tag, CI run, PyPI artifact, SIF update, or SAI runtime result is claimed by
-this document.
+The official no-cache clean-install from `https://pypi.org/simple` passed in a
+fresh virtual environment. `pip check`, `atst --version`,
+`atst_tools.package_version()`, the six stable root API imports, and
+`python -m atst_tools.api.runner --help` all passed for 2.2.5; the package was
+loaded from that environment's site-packages rather than the source checkout.
+The published core and reviewed release source were byte-for-byte identical
+(SHA256 `30c11b06623e4850b27a2882f19b14c1bad1d3756780d9c5655d3a2b6d70d7ad`).
+SIF/SAI/platform validation remains out of scope for this release evidence.
 
 | Evidence | Candidate status | Record after validation |
 | :--- | :--- | :--- |
@@ -62,14 +68,13 @@ this document.
 | Native relax/md/MD_dump behavior and custom `stru_file` | Passed after corrective rerun | Owning backend tests; STRU declaration-count revision verified |
 | Vendored snapshot checker and package-mode parser checks | Passed after corrective rerun | Real upstream baseline checker exit 0; package-mode parser: 28 runs, 2 skips |
 | Documentation governance, package metadata, build, Twine, and wheel API gates | Passed for local pre-release gate | Full tests: 666 passed, 19 conditional skips (685 total); docs/metadata passed; build/Twine/clean wheel API passed |
-| Exact `v2.2.5` tag, GitHub Tests/abacuslite CI, and PyPI publication | Not performed | Maintainer tag/CI/PyPI evidence |
+| Exact `v2.2.5` tag, GitHub Tests/abacuslite CI, and PyPI publication | Published | Release commit `4c966915c6f40984fc85806869f4766ecdd6ffc9`; [Tests](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058311728), [abacuslite](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058311733), and [Publish](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058399930) succeeded. [PyPI JSON](https://pypi.org/pypi/atst-tools/2.2.5/json) lists wheel SHA256 `d1fffe13a5f8aefbc125ec22f4d56f21db0b0f7364dfe032df0cf8a26246fe2a` (uploaded `2026-09-16T05:16:17.522320Z`) and sdist SHA256 `c028b6767cc35c98685f98e7b28e1b691bc1c310323abaad9ba2f32306f359da` (uploaded `2026-09-16T05:16:19.040843Z`). Official no-cache clean-install, CLI/API, dependency, and site-packages identity checks passed; the published core/source comparison matched SHA256 `30c11b06623e4850b27a2882f19b14c1bad1d3756780d9c5655d3a2b6d70d7ad`. |
 | SIF rebuild, SAI runtime identity, and platform validation | Not performed | Separate Paimon/platform release evidence |
 
 ## Publication Boundary
 
-This file prepares the 2.2.5 release candidate only. It is not a publication
-record: the package has not yet been published to PyPI, no `v2.2.5` tag is
-claimed, and GitHub/PyPI evidence is pending. The current SIF and SAI runtime
-have not been updated by this candidate and must not be represented as running
-the new matcher. Publication, clean-install verification, and Paimon/SIF/SAI
-integration are separate follow-up work.
+This file records the published 2.2.5 release from the exact `v2.2.5` tag.
+The official no-cache clean-install from PyPI and its CLI/API/dependency checks
+are complete. The current SIF and SAI runtime have not been updated and
+must not be represented as running the new matcher. Paimon/SIF/SAI integration
+and platform validation remain separate follow-up work.

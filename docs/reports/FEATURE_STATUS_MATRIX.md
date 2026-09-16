@@ -2,13 +2,15 @@
 
 **Version**: 2.2.5
 **Last Updated**: 2026-09-16
-**Status**: Release candidate (not published)
+**Status**: Published (PyPI clean-install verified)
 **Owner**: ATST-Tools maintainers
 
-The 2.2.5 candidate is not published. The abacuslite SCF frame-identity
-change, its focused/full validation, exact tag, CI, PyPI, and SIF/SAI runtime
-evidence remain pending; this matrix records candidate scope rather than
-publication evidence.
+The 2.2.5 package was published from tag `v2.2.5` at commit
+`4c966915c6f40984fc85806869f4766ecdd6ffc9`. Focused/full validation, the real
+upstream snapshot check, documentation/metadata gates, and GitHub/PyPI
+publication evidence are recorded in the release notes. Official no-cache
+clean-install, CLI/API, and dependency verification passed; SIF/SAI/platform
+runtime evidence has not been performed.
 
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
@@ -22,7 +24,7 @@ publication evidence.
 | **D2S** | ✅ Supported | Double-Ended to Single | `atst run` dispatches endpoint optimization, rough DyNEB, then Dimer, Sella, or CCQN refinement. Experimental `rough_method: dmf` can replace rough DyNEB but is not a supported production default. |
 | **IRC** | ✅ Supported | Intrinsic Reaction Coordinate | Sella backend and descent backend are supported, with controlled boundary diagnostics and artifact manifests. |
 | **MD** | ✅ Supported | Molecular Dynamics | Supports ASE-driven MD with ABACUS/DP calculators and ABACUS-native MD input/run/output orchestration. |
-| **ABACUSLite SCF frame identity** | 🧪 Release candidate | Periodic-aware running-log frame selection | `calculation: scf` accepts integer lattice translations in the current cell, including valid cross-cell transition-state/NEB movement, and selects the latest matching frame. Different structures and malformed, non-finite, singular, shape, count, cell, element, or order data remain fail-closed. Native `relax`/`md`/`MD_dump` retain last-frame semantics; no new configuration knob. Publication and validation evidence are pending. |
+| **ABACUSLite SCF frame identity** | ✅ Supported | Periodic-aware running-log frame selection | Published in 2.2.5. `calculation: scf` accepts integer lattice translations in the current cell, including valid cross-cell transition-state/NEB movement, and selects the latest matching frame. Different structures and malformed, non-finite, singular, shape, count, cell, element, or order data remain fail-closed. Native `relax`/`md`/`MD_dump` retain last-frame semantics; no new configuration knob. |
 | **DMF** | 🧪 Experimental | Direct MaxFlux TS candidate/path optimizer | Standalone `calculation.type: dmf` and D2S `rough_method: dmf` are available for candidate generation. Outputs are TS candidates, not validated TS results. PBC support is limited to explicit `cartesian_unwrapped` experimental mode. Requires `cyipopt`/IPOPT at runtime. |
 | **Artifact Manifests** | ✅ Supported | Workflow output registry | Implemented for NEB, D2S, CCQN, Vibration, IRC, and MD. |
 | **API Process Runner** | ✅ Supported | External-host API handoff | `python -m atst_tools.api.runner` writes root-only `atst-api-result-v1` JSON and preserves caller-owned scheduler/MPI launch. |

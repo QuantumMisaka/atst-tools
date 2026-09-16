@@ -16,13 +16,15 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
 - Primary trigger: pushing a `v*` tag.
 - Manual trigger: `workflow_dispatch` with the `tag` input naming an
-  already-created exact tag such as the current candidate `v2.2.5`; arbitrary
+  already-created exact tag such as the published `v2.2.5`; arbitrary
   branches, commits, and refs are not accepted.
 - Release guard: the workflow requires the tag to match
   `pyproject.toml` `[project].version`, resolves it under `refs/tags/`, and
   checks after checkout that it points to `HEAD`. The current repository state
-  records the unpublished `2.2.5` release candidate; its exact tag and PyPI
-  artifact are still pending. The previously published `2.2.4` tag and PyPI
+  records the published `2.2.5` release at commit
+  `4c966915c6f40984fc85806869f4766ecdd6ffc9`; its exact tag, CI runs, and PyPI
+  artifact are recorded in the release notes. The official no-cache clean-install,
+  CLI/API, and dependency verification passed. The previously published `2.2.4` tag and PyPI
   artifact remain historical publication evidence.
 - Publishing job: uses the GitHub environment named `pypi` and requests
   `id-token: write` only for the PyPI upload job.
@@ -103,9 +105,12 @@ available. Publish with one of these paths:
    the `tag` input set to `v<version>`.
 
 Neither push/tag/release nor a Gitee mirror pull is performed by this
-repository-file workflow. For 2.2.4, GitHub Actions and PyPI artifact
-metadata/rendering were checked; Gitee mirror/rendering was explicitly
-excluded from release acceptance.
+repository-file workflow. For 2.2.5, the exact tag, Tests, abacuslite, Publish,
+and PyPI artifact evidence is recorded in the release notes; official no-cache
+clean-install, CLI/API, and dependency verification passed. SIF/SAI/platform validation is not performed
+by this workflow. The 2.2.4 GitHub Actions and PyPI artifact metadata/rendering
+facts remain historical; Gitee mirror/rendering was explicitly excluded from
+release acceptance.
 
 Verify the published package from a clean environment:
 

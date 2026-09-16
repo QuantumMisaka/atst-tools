@@ -19,7 +19,7 @@ atst run CONFIG.yaml
 `neb`, `autoneb`, `d2s`, `dimer`, `sella`, `relax`, `vibration`, `irc`, and
 `md` can all use `calculator.name: abacus`.
 
-### SCF frame identity (2.2.5 release candidate)
+### SCF frame identity (2.2.5 release)
 
 For `calculation: scf`, the candidate reader automatically compares the
 current STRU with every parsed running-log frame in the same ASE atom order and
@@ -42,8 +42,9 @@ Native `relax`, `md`, and `MD_dump` output keeps its existing last-frame
 semantics; the PBC-aware identity check applies only to SCF result selection.
 When `write_input` uses a custom `stru_file`, the same filename is used for the
 identity check; without a prior `write_input`, the default `STRU` behavior is
-preserved. These are release-candidate semantics; publication and external
-runtime validation remain pending.
+preserved. These semantics are included in the published 2.2.5 package; upgrading
+the package does not automatically update an existing deployed runtime, whose
+external runtime validation has not been performed.
 
 ## Vendored Backend Notes
 
@@ -60,7 +61,7 @@ differences from `temp_repos/abacus-develop/interfaces/ASE_interface/abacuslite`
 - First-occurrence species grouping for generated STRU files.
 - ASE `FixAtoms` and `FixCartesian` constraints written as ABACUS mobility flags.
 - Tolerant legacy ABACUS band-row parsing.
-- SCF coordinate frame selection（2.2.5 candidate）：`read_results` 在
+- SCF coordinate frame selection（2.2.5 release）：`read_results` 在
   `calculation=scf` 下按 PBC-aware 结构身份从 running log 反向选择最新匹配帧并
   fail-closed；原生 relax/md 保持末帧语义。该候选修复不改变投影/收敛语义，也不改
   `read_abacus_out` 公共签名。

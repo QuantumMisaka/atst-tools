@@ -3,9 +3,10 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.2.5 版本为尚未发布的 release candidate（详见
-[release notes](../releases/RELEASE_NOTES_2.2.5.md)）；此前已发布的 2.2.4
-仍是 PyPI 上的稳定版本。当前候选把原 main branch 的脚本集合整理为可安装 Python package，
+当前 2.2.5 版本已发布（详见
+[release notes](../releases/RELEASE_NOTES_2.2.5.md)）；官方无缓存 clean-install
+复核已通过；包升级不会自动更新既有部署环境。此前已发布的 2.2.4 保留为历史版本。
+当前版本把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
 
@@ -41,7 +42,7 @@ pip install atst-tools
 atst --version
 ```
 
-从源代码安装当前 2.2.5 候选：
+从源代码安装当前 2.2.5：
 
 ```bash
 git clone https://github.com/QuantumMisaka/atst-tools.git

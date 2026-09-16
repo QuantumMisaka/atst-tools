@@ -2,7 +2,7 @@
 
 **版本**: 2.2.5
 **日期**: 2026-09-16
-**状态**: release candidate（未发布）
+**状态**: 已发布（PyPI clean-install 已验证）
 **责任人**: ATST-Tools maintainers
 
 本文档是 ATST-Tools 当前文档治理状态的单一入口。它记录活跃文档职责、reports
@@ -14,9 +14,10 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release candidate 入口为 `docs/releases/RELEASE_NOTES_2.2.5.md`；2.2.5
-  尚未发布，exact tag、CI、PyPI artifact、SIF/SAI runtime 和渲染证据均待维护者
-  执行。此前已由 `v2.2.4` 发布的 2.2.4 及更早 release notes 保留为历史版本说明。
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.5.md`；2.2.5 已由
+  `v2.2.5` 发布，exact tag、Tests、abacuslite、Publish 和 PyPI artifact 证据已登记。
+  官方无缓存 clean-install、CLI/API 与依赖检查均已通过，SIF/SAI/platform runtime 尚未执行。此前已由
+  `v2.2.4` 发布的 2.2.4 及更早 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
@@ -60,6 +61,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   返回、退出码或 manifest 状态，也不把完成误报为科学收敛。代码回归、snapshot/package
   checks、exact tag、CI、PyPI 以及 SIF/SAI 验证均尚未完成；不得把本候选描述为已发布或
   已完成运行时验收。
+- 2026-09-16（发布后记录）：2.2.5 已从 release commit
+  `4c966915c6f40984fc85806869f4766ecdd6ffc9` 推送并发布。GitHub [Tests](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058311728)、[abacuslite](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058311733) 和 [Publish](https://github.com/QuantumMisaka/atst-tools/actions/runs/35058399930) 均成功；PyPI 两个 artifact、上传时间和 hash 见 2.2.5 release notes。官方无缓存 clean-install、CLI/API、依赖检查及安装位置核验均通过；SIF/SAI/platform runtime 未执行。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
   AGENTS/SKILL 等治理契约的按需跨家族人工审阅，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。
