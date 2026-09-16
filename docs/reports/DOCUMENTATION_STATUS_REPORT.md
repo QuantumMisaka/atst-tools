@@ -1,8 +1,8 @@
 # 文档治理状态报告
 
-**版本**: 2.2.4
-**日期**: 2026-09-06
-**状态**: 维护
+**版本**: 2.2.5
+**日期**: 2026-09-16
+**状态**: release candidate（未发布）
 **责任人**: ATST-Tools maintainers
 
 本文档是 ATST-Tools 当前文档治理状态的单一入口。它记录活跃文档职责、reports
@@ -14,9 +14,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.4.md`；2.2.4 已由
-  `v2.2.4` 发布，exact tag、CI、PyPI artifact 与渲染证据已登记。2.0.0、2.0.1、2.0.2、2.1.0、2.1.1、
-  2.1.2、2.1.3、2.1.4、2.2.0、2.2.1、2.2.2 和 2.2.3 release notes 保留为历史版本说明。
+- 当前 release candidate 入口为 `docs/releases/RELEASE_NOTES_2.2.5.md`；2.2.5
+  尚未发布，exact tag、CI、PyPI artifact、SIF/SAI runtime 和渲染证据均待维护者
+  执行。此前已由 `v2.2.4` 发布的 2.2.4 及更早 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
@@ -51,6 +51,15 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   限制，仓库 README 已更新，不触发新 patch、retag 或 republish。
   [GitHub release](https://github.com/QuantumMisaka/atst-tools/releases/tag/v2.2.4)
   已创建。
+- 2026-09-16（发布前记录）：2.2.5 release candidate 的 active version metadata、
+  用户边界和导航已切换。候选范围包括 abacuslite 的 PBC-aware SCF 帧身份校验：在
+  统一 ASE 原子序、Cartesian Å 和晶胞后接受整数晶格平移，反向选择最新匹配帧；真实
+  错结构、错胞、错序、数量/shape/finite、奇异晶胞和 malformed frame 继续
+  fail-closed。native relax/md/MD_dump 仍为末帧语义，不新增配置开关。候选同时保留
+  Sella、CCQN、Sella IRC 各方向及最终 NEB 的确定性未收敛 advisory 语义：不改变完成
+  返回、退出码或 manifest 状态，也不把完成误报为科学收敛。代码回归、snapshot/package
+  checks、exact tag、CI、PyPI 以及 SIF/SAI 验证均尚未完成；不得把本候选描述为已发布或
+  已完成运行时验收。
 - 2026-09-04：新增 GitHub 治理与发布门禁开发者入口，区分本地/CI 机械检查、
   AGENTS/SKILL 等治理契约的按需跨家族人工审阅，以及 GitHub/PyPI/Gitee 管理员和
   发布后责任；外部设置、发布动作和跨渠道渲染检查仍待维护者执行。

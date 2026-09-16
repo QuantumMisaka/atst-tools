@@ -22,65 +22,6 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-_UPSTREAM_READ_RESULTS = '''\
-def read_results(directory) -> Dict:
-    read_abacus_out = lambda fn: None
-    global __LEGACYIO__
-    if __LEGACYIO__:
-        from abacuslite.io.legacyio import read_abacus_out
-    else:
-        from abacuslite.io.latestio import read_abacus_out
-
-    outdir = directory / f'OUT.{self.suffix}'
-    # only the last frame
-    atoms: Optional[Atoms] = read_abacus_out(
-        outdir / f'running_{self.calculation}.log',
-        sort_atoms_with=self.atomorder)[-1]
-    assert atoms is not None
-
-    return dict(atoms.calc.properties())
-'''
-
-
-_FRAME_SELECTION_VENDORED = '''\
-def _stru_positions_in_ase_order(directory, stru_file, atomorder):
-    """读取本次 write_input 落盘 STRU 的坐标，统一到与帧相同的 ASE 原子序并换算为 Cartesian Å。"""
-    return []
-
-
-def _frame_coordinate_is_direct(log_path):
-    """从 running log 的实际坐标头推导帧侧坐标系，不依赖 STRU 的 coord_type。"""
-    return True
-
-
-def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol=1e-4):
-    """返回坐标与当前 STRU 一致（绝对 Å 容差）的最后一帧；无匹配 fail-closed。"""
-    return frames[-1]
-
-
-def read_results(directory) -> Dict:
-    read_abacus_out = lambda fn: None
-    global __LEGACYIO__
-    if __LEGACYIO__:
-        from abacuslite.io.legacyio import read_abacus_out
-    else:
-        from abacuslite.io.latestio import read_abacus_out
-
-    outdir = directory / f'OUT.{self.suffix}'
-    log = outdir / f'running_{self.calculation}.log'
-    # 读取全部帧；scf 下按坐标选择当前结构帧，非 scf（relax/md）保持末帧语义（spec R1/R2）
-    frames = read_abacus_out(log, sort_atoms_with=self.atomorder)
-    if not frames:
-        raise RuntimeError(f"no ABACUS running-log frames in {log}")
-    if self.calculation != 'scf':
-        atoms: Optional[Atoms] = frames[-1]  # 原生 relax/md：既有末帧语义（spec R2/P2）
-    else:
-        atomorder = self.atomorder or list(range(len(frames[0])))
-        atoms = _select_scf_frame_for_structure(frames, log, directory, atomorder)
-    assert atoms is not None
-
-    return dict(atoms.calc.properties())
-'''
 
 
 def _revert_efermi_patch(upstream: Path) -> None:
@@ -150,31 +91,3 @@ def test_checker_reports_unregistered_vendored_only_file(tmp_path, capsys):
     output = capsys.readouterr().out
     assert "Unexpected vendored-only files" in output
     assert "abacuslite/io/testfiles/extra_golden/file.txt" in output
-
-
-def test_checker_exits_zero_with_documented_core_frame_selection_patch(tmp_path, capsys):
-    """core.py 帧选择语义补丁（PATCHES.md 登记）归一化后与上游一致 → exit 0。"""
-    mod = _load_checker()
-    upstream = tmp_path / "upstream"
-    vendored = tmp_path / "vendored"
-    _write(upstream / "abacuslite" / "core.py", _UPSTREAM_READ_RESULTS)
-    _write(vendored / "abacuslite" / "core.py", _FRAME_SELECTION_VENDORED)
-
-    assert mod.compare_snapshots(upstream, vendored) == 0
-    assert capsys.readouterr().out == ""
-
-
-def test_checker_reports_unregistered_core_frame_selection_variant(tmp_path, capsys):
-    """帧选择补丁改动（read_results 分支结构变化）未登记 → 归一化不匹配 → exit 1。"""
-    mod = _load_checker()
-    upstream = tmp_path / "upstream"
-    vendored = tmp_path / "vendored"
-    _write(upstream / "abacuslite" / "core.py", _UPSTREAM_READ_RESULTS)
-    variant = _FRAME_SELECTION_VENDORED.replace(
-        "if self.calculation != 'scf':", "if self.calculation in ('relax', 'md'):"
-    )
-    _write(vendored / "abacuslite" / "core.py", variant)
-
-    assert mod.compare_snapshots(upstream, vendored) == 1
-    output = capsys.readouterr().out
-    assert "Implementation drift detected" in output

@@ -12,7 +12,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 from ase.constraints import FixAtoms
 from ase.io import write
 
-from helpers import DummyCalc
+from helpers import DummyCalc, FakeWorld
 
 
 def _atoms(energy=0.0):
@@ -462,6 +462,70 @@ def test_run_neb_two_stage_omits_steps_for_null_stage1_steps(monkeypatch, tmp_pa
     assert manifest["stages"][0]["converged"] is False
     assert manifest["stages"][0]["actual_steps"] == 4
     assert manifest["stages"][0]["steps"] is None
+
+
+@pytest.mark.parametrize(
+    ("converged_signal", "rank", "warning_expected"),
+    (
+        (True, 0, False),
+        (False, 0, True),
+        (None, 0, False),
+        (np.bool_(False), 0, True),
+        (False, 1, False),
+    ),
+)
+def test_run_neb_convergence_signal_controls_warning_and_manifest(
+    monkeypatch, tmp_path, capsys, converged_signal, rank, warning_expected
+):
+    """NEB warns only for known false signals and only on rank zero."""
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            self.images = images
+
+    class FakeOptimizer:
+        def __init__(self, neb, trajectory=None, **kwargs):
+            self.nsteps = 7
+
+        def run(self, fmax=None, steps=None):
+            return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    result = main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "fmax": 0.05,
+            "max_steps": 20,
+        },
+        world=FakeWorld(size=2, rank=rank),
+    )
+
+    output = capsys.readouterr().out
+    assert ("workflow=neb" in output) is warning_expected
+    if warning_expected:
+        for token in (
+            "threshold_fmax=0.05",
+            "max_steps=20",
+            "actual_steps=7",
+            "不代表科学收敛",
+        ):
+            assert token in output
+    assert result is (chain if rank == 0 else None)
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["stages"][-1]["status"] == "complete"
 
 
 def test_run_neb_can_relax_endpoints_before_neb(monkeypatch, tmp_path):
@@ -1798,13 +1862,18 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
     assert calls[2] == ("run", 0.03, 12)
 
 
-def test_abacus_sella_warns_on_premature_unconverged_return(monkeypatch, tmp_path, capsys):
-    """Sella 提前返回未收敛时打印可见诊断（不改变返回语义）。"""
+@pytest.mark.parametrize(
+    ("converged_signal", "warning_expected"),
+    ((True, False), (False, True), (None, False), (np.bool_(False), True)),
+)
+def test_abacus_sella_convergence_signal_controls_warning(
+    monkeypatch, tmp_path, capsys, converged_signal, warning_expected
+):
+    """Sella warns only for known false convergence signals and preserves the return."""
     from atst_tools.mep import sella as sella_module
 
     class FakeSella:
         nsteps = 2
-        fmax = 0.3165
 
         def __init__(self, atoms, trajectory=None, eta=None, order=None):
             pass
@@ -1813,7 +1882,7 @@ def test_abacus_sella_warns_on_premature_unconverged_return(monkeypatch, tmp_pat
             pass
 
         def converged(self):
-            return False
+            return converged_signal
 
     calc = DummyCalc(1.5)
     monkeypatch.setattr(sella_module, "Trajectory", lambda *a, **k: None)
@@ -1831,8 +1900,74 @@ def test_abacus_sella_warns_on_premature_unconverged_return(monkeypatch, tmp_pat
     )
     assert workflow.run(fmax=0.1) is ts
     captured = capsys.readouterr()
-    assert "Sella 优化提前返回但未收敛" in captured.out
-    assert "nsteps=2" in captured.out
+    assert ("workflow=sella" in captured.out) is warning_expected
+    if warning_expected:
+        # 只锁稳定语义 token，不锁整句 prose。
+        for token in (
+            "threshold_fmax=0.1",
+            "nsteps=2",
+            "不代表科学收敛",
+            "轨迹",
+            "约束",
+            "restart/input",
+            "成本",
+        ):
+            assert token in captured.out
+
+
+@pytest.mark.parametrize(
+    ("converged_signal", "warning_expected"),
+    ((True, False), (False, True), (None, False), (np.bool_(False), True)),
+)
+def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
+    monkeypatch, tmp_path, capsys, converged_signal, warning_expected
+):
+    """CCQN warns only for known false signals while keeping its manifest complete."""
+    from atst_tools.mep import ccqn as ccqn_module
+
+    def fake_run(self, **kwargs):
+        # 真实优化器 run() 返回确定性收敛信号，并在实例上累计 nsteps。
+        self.nsteps = 5
+        return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ccqn_module.CCQNOptimizer, "run", fake_run)
+
+    manifest = tmp_path / "atst_artifacts.json"
+    result = ccqn_module.AbacusCCQN(
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]]),
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(manifest),
+            "reactive_bonds": "1-2",
+            "fmax": 0.05,
+            "max_steps": 30,
+        },
+        calculator=DummyCalc(),
+    ).run()
+
+    captured = capsys.readouterr()
+    assert ("workflow=ccqn" in captured.out) is warning_expected
+    if warning_expected:
+        # 只锁稳定语义 token，不锁整句 prose。
+        for token in (
+            "threshold_fmax=0.05",
+            "nsteps=5",
+            "max_steps=30",
+            "不代表科学收敛",
+            "轨迹",
+            "约束",
+            "restart/input",
+            "成本",
+        ):
+            assert token in captured.out
+
+    # advisory warning 不改变返回语义与 artifact manifest 的 workflow 状态。
+    assert result.calc is not None
+    assert json.loads(manifest.read_text(encoding="utf-8"))["stages"] == [
+        {"name": "ccqn", "status": "complete"}
+    ]
 
 
 def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch):
@@ -2165,6 +2300,110 @@ def test_irc_workflow_runs_forward_and_reverse(monkeypatch, tmp_path):
         ("run", 0.03, 7, "reverse"),
         ("normalize",),
     ]
+
+
+@pytest.mark.parametrize(
+    ("converged_signal", "warning_expected"),
+    ((True, False), (False, True), (None, False), (np.bool_(False), True)),
+)
+def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
+    monkeypatch, tmp_path, capsys, converged_signal, warning_expected
+):
+    """IRC warns only for known false direction results and keeps its manifest complete."""
+    from atst_tools.workflows import irc
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            self.nsteps = 0
+
+        def run(self, fmax, steps=None, direction=None):
+            # 真实 Sella IRC.run() 返回确定性收敛信号，并在实例上累计 nsteps。
+            self.nsteps = 4
+            return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(irc.IRCWorkflow, "_normalize_trajectory", lambda self: None)
+    _install_fake_sella(monkeypatch, FakeIRC)
+
+    irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "irc",
+            "init_structure": "ts.traj",
+            "trajectory": "irc.traj",
+            "direction": "forward",
+            "fmax": 0.03,
+            "max_steps": 7,
+            "dx": 0.2,
+            "eta": 0.003,
+        },
+    ).run()
+
+    captured = capsys.readouterr()
+    assert ("workflow=irc" in captured.out) is warning_expected
+    if warning_expected:
+        # 只锁稳定语义 token，不锁整句 prose。
+        for token in (
+            "direction=forward",
+            "threshold_fmax=0.03",
+            "nsteps=4",
+            "不代表科学收敛",
+            "轨迹",
+            "约束",
+            "restart/input",
+            "成本",
+        ):
+            assert token in captured.out
+
+    # advisory warning 不改变 artifact manifest 的 workflow 状态。
+    assert json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))["stages"] == [
+        {"name": "sella_irc", "status": "complete"}
+    ]
+
+
+def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, tmp_path, capsys):
+    """direction=both：两个方向各自独立告警，nsteps 取累计步数差分而非累计值。"""
+    from atst_tools.workflows import irc
+
+    class FakeIRC:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            self.nsteps = 0
+
+        def run(self, fmax, steps=None, direction=None):
+            # 真实 Sella IRC 在 both 模式下复用同一对象：nsteps 跨方向累计、不回零。
+            self.nsteps += 3 if direction == "forward" else 5
+            return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(irc.IRCWorkflow, "_normalize_trajectory", lambda self: None)
+    _install_fake_sella(monkeypatch, FakeIRC)
+
+    irc.IRCWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "irc",
+            "init_structure": "ts.traj",
+            "trajectory": "irc.traj",
+            "direction": "both",
+            "fmax": 0.03,
+            "max_steps": 7,
+            "dx": 0.2,
+            "eta": 0.003,
+        },
+    ).run()
+
+    captured = capsys.readouterr()
+    # 两个方向各告警一次；nsteps 为差分后的本方向步数（forward=3、reverse=5）而非累计值 8。
+    # 只锁字段口径 token，不锁整句 prose。
+    assert captured.out.count("workflow=irc") == 2
+    for token in ("direction=forward", "direction=reverse", "nsteps=3", "nsteps=5"):
+        assert token in captured.out
 
 
 def test_irc_workflow_reports_sella_inner_loop_boundary(monkeypatch, tmp_path):

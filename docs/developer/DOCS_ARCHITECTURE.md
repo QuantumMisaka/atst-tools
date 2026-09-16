@@ -1,7 +1,7 @@
 # 文档系统架构与结构图
 
 **版本**: 2026-09-06
-**日期**: 2026-09-06
+**日期**: 2026-09-16
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -78,4 +78,6 @@ docs/
 - YAML 参数总表：[YAML_INPUT_VARIABLES.md](../user/YAML_INPUT_VARIABLES.md)
 - 功能矩阵：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md)
 - 文档治理账本：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
-- 发布说明：[RELEASE_NOTES_2.2.4.md](../releases/RELEASE_NOTES_2.2.4.md)，记录当前已发布的 2.2.4。
+- 发布说明：[RELEASE_NOTES_2.2.5.md](../releases/RELEASE_NOTES_2.2.5.md)，记录当前
+  2.2.5 release candidate（尚未发布）；此前已发布的
+  [2.2.4 release notes](../releases/RELEASE_NOTES_2.2.4.md) 保留为历史发布记录。

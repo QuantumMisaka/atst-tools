@@ -552,10 +552,12 @@ class AbacusCCQN:
             diagnostics_file=self.calc_config.get("diagnostics_file"),
         )
         max_steps = self.calc_config.get("max_steps")
+        fmax_threshold = self.calc_config.get("fmax", 0.05)
         if max_steps is None:
-            optimizer.run(fmax=self.calc_config.get("fmax", 0.05))
+            converged_signal = optimizer.run(fmax=fmax_threshold)
         else:
-            optimizer.run(fmax=self.calc_config.get("fmax", 0.05), steps=max_steps)
+            converged_signal = optimizer.run(fmax=fmax_threshold, steps=max_steps)
+        self._warn_if_unconverged(optimizer, converged_signal, fmax_threshold, max_steps)
         final_structure = self.calc_config.get("final_structure")
         if final_structure:
             os.makedirs(os.path.dirname(final_structure) or ".", exist_ok=True)
@@ -574,3 +576,22 @@ class AbacusCCQN:
             stages=[{"name": "ccqn", "status": "complete"}],
         )
         return atoms
+
+    @staticmethod
+    def _warn_if_unconverged(optimizer, converged_signal, fmax: float, max_steps: int | None) -> None:
+        """CCQN 结束但确定性收敛信号为 False 时输出中性 advisory warning（不改变返回语义）。
+
+        只信任优化器 run() 返回的确定性收敛信号；信号不可得（非 bool）时保持安静，不臆测
+        未收敛，也不改调 converged()——后者会触发 atoms.get_forces() 而可能引发新计算。
+        warning 只陈述客观事实（配置阈值、实际/上限步数），不预判科学原因；是否可接受由
+        前台 AI 与用户复核。返回码、workflow 状态与 artifact manifest 均不受影响。
+        """
+        if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
+            return
+        print(
+            "Warning: CCQN 结束时确定性收敛信号为 False"
+            f"（workflow=ccqn, threshold_fmax={fmax}, "
+            f"nsteps={getattr(optimizer, 'nsteps', None)}, max_steps={max_steps}）；"
+            "最终 fmax 未满足该阈值或 PRFO 鞍点判据未满足。完成只代表计算任务正常结束，"
+            "不代表科学收敛；请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
+        )

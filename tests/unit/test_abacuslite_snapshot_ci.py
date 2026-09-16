@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check_abacuslite_snapshot.py"
@@ -211,3 +213,52 @@ def test_abacuslite_ci_triggers_on_main_push():
     workflow = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "abacuslite-ase-interface.yml"
     text = workflow.read_text(encoding="utf-8")
     assert "push:" in text and "branches: [main]" in text
+
+
+@pytest.mark.parametrize("helper", [
+    "_stru_positions_in_ase_order",
+    "_frame_coordinate_is_direct",
+    "_select_scf_frame_for_structure",
+])
+def test_snapshot_checker_rejects_unregistered_helper_bodies(tmp_path, capsys, helper):
+    """A registered name must not whitelist arbitrary replacement code."""
+    checker = _load_checker()
+    upstream = tmp_path / "upstream"
+    vendored = tmp_path / "vendored"
+    _write(upstream / "abacuslite/core.py", "VALUE = 1\n")
+    _write(vendored / "abacuslite/core.py",
+           f"VALUE = 1\n\ndef {helper}(*args):\n    return None\n")
+    assert checker.compare_snapshots(upstream, vendored) == 1
+    assert "Implementation drift detected" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(("before", "after"), [
+    ("np.rint(delta_frac)", "np.floor(delta_frac)"),
+    ("atol=atol, rtol=0.0", "atol=atol, rtol=1.0"),
+    ("if symbols != expected['symbols']:", "if False:"),
+    ("cmd_ = [*self._split_command, '--version']", "cmd_ = ['wrong-command']"),
+])
+def test_snapshot_checker_rejects_mutated_registered_core(tmp_path, capsys, before, after):
+    """Registered patch normalization must not erase semantic changes."""
+    checker = _load_checker()
+    source = (ROOT / "src/atst_tools/external/ASE_interface/abacuslite/core.py").read_text()
+    assert before in source, "mutation must touch the intended executable behavior"
+    upstream = tmp_path / "upstream"
+    vendored = tmp_path / "vendored"
+    _write(upstream / "abacuslite/core.py", source)
+    _write(vendored / "abacuslite/core.py", source.replace(before, after, 1))
+    assert checker.compare_snapshots(upstream, vendored) == 1
+    assert "Implementation drift detected in abacuslite/core.py" in capsys.readouterr().out
+
+
+def test_snapshot_checker_normalizes_registered_core_and_keeps_comment_churn(tmp_path):
+    """The reviewed patch is recognized; comments do not change patch identity."""
+    checker = _load_checker()
+    source = (ROOT / "src/atst_tools/external/ASE_interface/abacuslite/core.py").read_text()
+    packaged = checker._normalize_packaging_imports(source)
+    assert checker._normalize_frame_selection(packaged) != packaged
+    upstream = tmp_path / "upstream"
+    vendored = tmp_path / "vendored"
+    _write(upstream / "abacuslite/core.py", source)
+    _write(vendored / "abacuslite/core.py", "# documentation-only comment\n" + source)
+    assert checker.compare_snapshots(upstream, vendored) == 0

@@ -462,6 +462,34 @@ def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
     return synced_images
 
 
+def _warn_if_neb_unconverged(world, converged_signal, *, fmax, max_steps, actual_steps):
+    """Emit a root-rank NEB advisory for an explicit false convergence signal.
+
+    The optimizer's return value is the only convergence signal consumed here.
+    ``None`` or another unavailable value is left quiet so this diagnostic never
+    infers a scientific result.  The warning is advisory and does not alter the
+    caller's return value or the complete artifact manifest written by the
+    workflow.
+    """
+    if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
+        return
+
+    def emit_warning():
+        print(
+            "Warning: NEB 结束时确定性收敛信号为 False"
+            f"（workflow=neb, threshold_fmax={fmax}, max_steps={max_steps}, "
+            f"actual_steps={actual_steps}）；"
+            "完成只代表计算任务正常结束，不代表科学收敛；"
+            "请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
+        )
+
+    run_rank_zero_section(
+        world,
+        emit_warning,
+        context="NEB convergence advisory warning",
+    )
+
+
 def run_neb(config, calc_name, calc_config, world=None):
     """
     Execute NEB calculation workflow.
@@ -684,6 +712,13 @@ def run_neb(config, calc_name, calc_config, world=None):
             )
     final_converged = opt.run(fmax=fmax, steps=max_steps)
     final_actual_steps = getattr(opt, "nsteps", None)
+    _warn_if_neb_unconverged(
+        world,
+        final_converged,
+        fmax=fmax,
+        max_steps=max_steps,
+        actual_steps=final_actual_steps,
+    )
     write_artifact_manifest(
         calc_config.get("artifact_manifest", "atst_artifacts.json"),
         workflow="neb",

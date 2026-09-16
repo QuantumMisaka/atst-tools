@@ -6,6 +6,10 @@
 - 同步状态（2026-08-04 核对）：对上游 develop tip 零上游侧欠账；仅 fork 侧语义补丁（efermi 容错 + core.py 帧选择，见 PATCHES.md）
 - 差异摘要：以 `scripts/check_abacuslite_snapshot.py --upstream <基线树> --vendored ...` 输出为准
 
+- 本仓补丁更新（2026-09-16）：SCF 帧身份校验改为 PBC-aware，并传递实际 STRU 文件名；
+  drift checker 对登记语义补丁先核验 AST 身份再归一化。该修复尚未上游化，不推进上述
+  基线，也不将 2026-08-04 的同步状态外推为当前上游 tip 已核对。
+
 ## 同步流程
 
 阶段拉取（发布 patch / 支持新 ABACUS / 上游新加固）后：更新本文件基线 SHA + 差异摘要；CI `ABACUS_DEVELOP_REF` 从本文件解析（单一事实源）。

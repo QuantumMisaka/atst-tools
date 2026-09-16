@@ -3,7 +3,9 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.2.4 版本已发布（详见 [release notes](../releases/RELEASE_NOTES_2.2.4.md)），把原 main branch 的脚本集合整理为可安装 Python package，
+当前 2.2.5 版本为尚未发布的 release candidate（详见
+[release notes](../releases/RELEASE_NOTES_2.2.5.md)）；此前已发布的 2.2.4
+仍是 PyPI 上的稳定版本。当前候选把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
 
@@ -39,7 +41,7 @@ pip install atst-tools
 atst --version
 ```
 
-从源代码安装 2.2.4：
+从源代码安装当前 2.2.5 候选：
 
 ```bash
 git clone https://github.com/QuantumMisaka/atst-tools.git
@@ -149,6 +151,16 @@ D2S、CCQN 和 IRC 已纳入 2.0.x schema 与示例，不再是待集成状态�
 
 ABACUS calculator 通过 `abacuslite` 集成。ATST-Tools 优先导入环境中安装的
 `abacuslite`，如果不可用，则回退到仓库内 vendored snapshot。
+
+对于 `calculation: scf`，abacuslite 会自动在 running log 中寻找与本次 STRU
+对应的最新帧。它在统一原子序和坐标单位后，接受周期性等价的坐标，因此过渡态或
+NEB 图像跨越晶胞边界仍可识别；不同原子可以有不同的整数晶格平移，非正交晶胞也
+适用。不同结构、晶胞、原子数或顺序，以及 shape/有限值/奇异晶胞/坏帧等问题会
+fail-closed 并给出诊断，不会用较早的合法帧掩盖损坏输出。检查不会隐式 wrap 或修改
+输入、候选帧、力或路径坐标。原生 `relax`、`md` 和 `MD_dump` 仍保持末帧语义；该
+检查只用于 SCF 结果选择，且没有新增 `pbc_mode`、容差或其他配置开关。若使用
+`write_input` 的自定义 `stru_file`，检查会读取同一文件名；未调用 `write_input` 时
+仍使用默认 `STRU`。
 
 典型 ABACUS 配置：
 

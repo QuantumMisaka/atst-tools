@@ -141,34 +141,127 @@ class AbacusProfile(BaseProfile):
         return AbacusProfile.parse_version(read_stdout(cmd_))
 
 
-def _stru_positions_in_ase_order(directory, stru_file, atomorder):
-    """读取本次 write_input 落盘 STRU 的坐标，统一到与帧相同的 ASE 原子序并换算为 Cartesian Å。
+def _validate_atomorder(atomorder, natoms, stru_path):
+    """Validate the species-to-ASE permutation before handing it to a parser."""
+    if atomorder is None:
+        return list(range(natoms))
 
-    STRU 按物种分组序写出（species[i]['atom'][k]['coord']）；self.atomorder 是
-    species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。返回 ASE 序下的 Cartesian Å 坐标；
-    STRU 可为 Direct 或 Cartesian（write_stru 默认 Cartesian），统一换算到 Cartesian Å，
-    与帧侧（按其 running log 实际坐标系换算）同坐标系比较（spec P3 ③）。
-    """
+    try:
+        values = list(atomorder)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"scf atomorder 无法解析（STRU: {stru_path}；期望 {natoms} 个整数索引；"
+            f"fail-closed）"
+        ) from exc
+
+    valid_integer = all(
+        isinstance(value, (int, np.integer)) and not isinstance(value, (bool, np.bool_))
+        for value in values
+    )
+    if (
+        len(values) != natoms
+        or not valid_integer
+        or sorted(values) != list(range(natoms))
+    ):
+        raise RuntimeError(
+            f"scf atomorder 非法（STRU: {stru_path}；收到 {values!r}，"
+            f"期望 {natoms} 个从 0 到 {max(natoms - 1, 0)} 的唯一索引；fail-closed）"
+        )
+    return [int(value) for value in values]
+
+
+def _invert_cell(cell, context):
+    """Return a cell inverse or raise a diagnostic validation error."""
+    try:
+        return np.linalg.solve(cell, np.eye(3, dtype=float))
+    except np.linalg.LinAlgError as exc:
+        raise ValueError(f"singular cell in {context}") from exc
+
+
+def _read_stru_reference(directory, stru_file, atomorder, log_path=None):
+    """Normalize STRU coordinates, cell, symbols, and mapping for SCF matching."""
     from ase.units import Bohr
     from .io.generalio import read_stru
 
-    stru = read_stru(Path(directory) / (stru_file or 'STRU'))
-    lat = stru['lat']
-    # species 分组序坐标 → ASE 序（atomorder 是 revmap，与 read_abacus_out 的
-    # sort_atoms_with 采用同一映射，保证两侧排列一致）
-    species_xyz = np.concatenate(
-        [np.asarray(a['coord'], dtype=float) for sp in stru['species'] for a in sp['atom']]
-    ).reshape(-1, 3)
-    ase_xyz = np.empty_like(species_xyz)
-    for ase_idx, species_idx in enumerate(atomorder):
-        ase_xyz[ase_idx] = species_xyz[species_idx]
-    # STRU LATTICE_CONSTANT 以 Bohr 给出：Å 格矢 = vec * const * Bohr
-    # Direct -> Cartesian Å = 分数坐标 @ (vec*const*Bohr)；Cartesian 仅缩放（spec P3 ③）
-    is_direct = str(stru['coord_type']).lower().startswith('d')
-    if is_direct:
-        cell = np.asarray(lat['vec'], dtype=float) * lat['const'] * Bohr
-        return ase_xyz @ cell
-    return ase_xyz * lat['const'] * Bohr
+    stru_path = Path(directory) / (stru_file or 'STRU')
+    try:
+        stru = read_stru(stru_path)
+        species = stru['species']
+        lat = stru['lat']
+        coord_type = str(stru['coord_type']).lower()
+        raw_symbols = []
+        raw_coords = []
+        for species_entry in species:
+            symbol = species_entry['symbol']
+            atoms = species_entry['atom']
+            declared_natoms = species_entry['natom']
+            if declared_natoms != len(atoms):
+                raise ValueError(
+                    f"STRU species {symbol!r} declared natom={declared_natoms}, "
+                    f"but contains {len(atoms)} atom records"
+                )
+            for atom in atoms:
+                raw_symbols.append(str(symbol))
+                raw_coords.append(atom['coord'])
+
+        natoms = len(raw_symbols)
+        mapping = _validate_atomorder(atomorder, natoms, stru_path)
+        coordinates = np.asarray(raw_coords, dtype=float)
+        if coordinates.shape != (natoms, 3):
+            raise ValueError(
+                f"STRU positions shape {coordinates.shape}, expected ({natoms}, 3)"
+            )
+        if not np.isfinite(coordinates).all():
+            raise ValueError("non-finite STRU positions")
+
+        lattice_vectors = np.asarray(lat['vec'], dtype=float)
+        if lattice_vectors.shape != (3, 3):
+            raise ValueError(
+                f"STRU cell shape {lattice_vectors.shape}, expected (3, 3)"
+            )
+        lattice_constant = float(lat['const'])
+        cell = lattice_vectors * lattice_constant * Bohr
+        if not np.isfinite(cell).all():
+            raise ValueError("non-finite STRU cell")
+        cell_inverse = _invert_cell(cell, f"STRU {stru_path}")
+
+        if coord_type.startswith('d'):
+            positions_species = coordinates @ cell
+        elif coord_type.startswith('c'):
+            positions_species = coordinates * lattice_constant * Bohr
+        else:
+            raise ValueError(f"unsupported STRU coordinate type {stru['coord_type']!r}")
+        if not np.isfinite(positions_species).all():
+            raise ValueError("non-finite normalized STRU positions")
+    except RuntimeError:
+        raise
+    except (
+        AssertionError,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+        IndexError,
+        np.linalg.LinAlgError,
+    ) as exc:
+        suffix = f"；log: {log_path}" if log_path is not None else ""
+        raise RuntimeError(
+            f"scf STRU 身份信息无效（STRU: {stru_path}{suffix}；{exc}；fail-closed）"
+        ) from exc
+
+    return {
+        'path': stru_path,
+        'positions': np.asarray(positions_species, dtype=float)[mapping].copy(),
+        'cell': np.asarray(cell, dtype=float).copy(),
+        'cell_inverse': np.asarray(cell_inverse, dtype=float).copy(),
+        'symbols': [raw_symbols[index] for index in mapping],
+        'atomorder': mapping,
+    }
+
+
+def _stru_positions_in_ase_order(directory, stru_file, atomorder):
+    """Return normalized STRU positions for compatibility with existing callers."""
+    return _read_stru_reference(directory, stru_file, atomorder)['positions']
 
 
 def _frame_coordinate_is_direct(log_path):
@@ -189,8 +282,136 @@ def _frame_coordinate_is_direct(log_path):
     return str(traj[0]['coordinate']).lower().startswith('d')
 
 
-def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol=1e-4):
-    """返回坐标与当前 STRU 一致（绝对 Å 容差）的最后一帧；无匹配 fail-closed。
+def _validate_raw_scf_trajectory(log_path, expected):
+    """Check raw trajectory cardinality before parser atom reordering."""
+    global __LEGACYIO__
+    if __LEGACYIO__:
+        from .io.legacyio import read_traj_from_running_log
+    else:
+        from .io.latestio import read_traj_from_running_log
+
+    try:
+        trajectory = read_traj_from_running_log(log_path)
+        if not trajectory:
+            raise ValueError("no raw trajectory frames")
+        expected_shape = expected['positions'].shape
+        expected_natoms = len(expected['symbols'])
+        for frame_index, frame in enumerate(trajectory):
+            coords = np.asarray(frame['coords'], dtype=float)
+            if coords.shape != expected_shape:
+                mismatch = (
+                    f"atom count {coords.shape[0]}, expected {expected_shape[0]}; "
+                    if coords.ndim >= 1 and coords.shape[0] != expected_shape[0]
+                    else ""
+                )
+                raise ValueError(
+                    f"frame {frame_index} {mismatch}positions shape {coords.shape}, "
+                    f"expected {expected_shape}"
+                )
+            if not np.isfinite(coords).all():
+                raise ValueError(f"frame {frame_index} positions are non-finite")
+            elements = np.asarray(frame['elem'])
+            if elements.ndim != 1 or len(elements) != expected_natoms:
+                raise ValueError(
+                    f"frame {frame_index} atom count {len(elements)}, "
+                    f"expected {expected_natoms}"
+                )
+            cell = np.asarray(frame['cell'], dtype=float)
+            if cell.shape != (3, 3):
+                raise ValueError(
+                    f"frame {frame_index} cell shape {cell.shape}, expected (3, 3)"
+                )
+            if not np.isfinite(cell).all():
+                raise ValueError(f"frame {frame_index} cell is non-finite")
+            _invert_cell(cell, f"frame {frame_index}")
+    except RuntimeError:
+        raise
+    except (AssertionError, KeyError, OSError, TypeError, ValueError, IndexError) as exc:
+        raise RuntimeError(
+            f"scf running log 原始帧校验失败：{log_path}（{exc}；fail-closed）"
+        ) from exc
+    return trajectory
+
+
+def _normalize_scf_frame(frame, frame_index, expected, frame_is_direct, atol):
+    """Normalize one parser frame and return match diagnostics.
+
+    A finite, well-shaped frame with a different position or cell is a valid
+    candidate mismatch. Malformed data is represented as ``ValueError`` so the
+    caller can validate every frame before selecting any one of them.
+    """
+    context = f"frame {frame_index}"
+    try:
+        symbols = list(frame.get_chemical_symbols())
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError(f"{context} symbols are unavailable") from exc
+    if len(symbols) != len(expected['symbols']):
+        raise ValueError(
+            f"{context} atom count {len(symbols)}, expected {len(expected['symbols'])}"
+        )
+    if symbols != expected['symbols']:
+        raise ValueError(
+            f"{context} symbols {symbols!r} do not match STRU symbols "
+            f"{expected['symbols']!r}"
+        )
+
+    try:
+        positions = np.asarray(frame.positions, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{context} positions cannot be converted to float") from exc
+    if positions.shape != expected['positions'].shape:
+        raise ValueError(
+            f"{context} positions shape {positions.shape}, expected "
+            f"{expected['positions'].shape}"
+        )
+    if not np.isfinite(positions).all():
+        raise ValueError(f"{context} positions are non-finite")
+
+    try:
+        cell = np.asarray(frame.cell, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{context} cell cannot be converted to float") from exc
+    if cell.shape != (3, 3):
+        raise ValueError(f"{context} cell shape {cell.shape}, expected (3, 3)")
+    if not np.isfinite(cell).all():
+        raise ValueError(f"{context} cell is non-finite")
+    cell_inverse = _invert_cell(cell, context)
+
+    frame_cart = positions @ cell if frame_is_direct else positions.copy()
+    if not np.isfinite(frame_cart).all():
+        raise ValueError(f"{context} normalized Cartesian positions are non-finite")
+    cell_delta = cell - expected['cell']
+    cell_diff = float(np.max(np.abs(cell_delta)))
+    same_cell = bool(np.allclose(cell, expected['cell'], atol=atol, rtol=0.0))
+    if not same_cell:
+        return {
+            'frame': frame,
+            'frame_index': frame_index,
+            'frame_cart': frame_cart,
+            'cell_diff': cell_diff,
+            'periodic_residual': None,
+            'matches': False,
+        }
+
+    delta_frac = (frame_cart - expected['positions']) @ cell_inverse
+    periodic_cart = (delta_frac - np.rint(delta_frac)) @ cell
+    if not np.isfinite(periodic_cart).all():
+        raise ValueError(f"{context} periodic residual is non-finite")
+    periodic_residual = float(np.max(np.abs(periodic_cart)))
+    return {
+        'frame': frame,
+        'frame_index': frame_index,
+        'frame_cart': frame_cart,
+        'cell_diff': cell_diff,
+        'periodic_residual': periodic_residual,
+        'matches': periodic_residual <= atol,
+    }
+
+
+def _select_scf_frame_for_structure(
+    frames, log_path, directory, atomorder, atol=1e-4, stru_file='STRU', _reference=None
+):
+    """Return the latest periodic-equivalent frame; malformed SCF data fails closed.
 
     Parameters
     ----------
@@ -202,6 +423,8 @@ def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol
         工作目录（含本次 write_input 落盘的 STRU）。
     atomorder : list of int
         species 序位置 -> ASE 序原子的 revmap（spec P3 ①）。
+    stru_file : str or Path
+        The STRU filename recorded by ``write_input``; defaults to ``STRU``.
     atol : float
         绝对 Å 容差（spec P3 ③，按坐标打印精度取 ~1e-4 Å 量级）。
 
@@ -210,20 +433,66 @@ def _select_scf_frame_for_structure(frames, log_path, directory, atomorder, atol
     RuntimeError
         无与当前 STRU 坐标匹配的帧（异常含 log 路径、帧数与坐标差异摘要）。
     """
-    expected = _stru_positions_in_ase_order(directory, 'STRU', atomorder)
-    frame_is_direct = _frame_coordinate_is_direct(log_path)
-    for frame in reversed(frames):
-        # 按日志实际坐标系换算：Direct 帧为分数坐标 @ cell，Cartesian 帧已是 Å（fix round 1 F1）
-        frame_pos = frame.positions @ np.asarray(frame.cell) if frame_is_direct else frame.positions
-        if np.allclose(frame_pos, expected, atol=atol):
-            return frame
-    last_pos = frames[-1].positions
-    last_cart = last_pos @ np.asarray(frames[-1].cell) if frame_is_direct else last_pos
-    diff = float(np.abs(last_cart - expected).max())
+    try:
+        nframes = len(frames)
+    except TypeError as exc:
+        raise RuntimeError(
+            f"scf running log 帧集合无效：{log_path}（无法读取帧数；fail-closed）"
+        ) from exc
+    if nframes == 0:
+        raise RuntimeError(
+            f"scf running log 无帧：{log_path}（共 0 帧；atol={atol}；fail-closed）"
+        )
+    if not np.isfinite(atol) or atol < 0:
+        raise RuntimeError(f"scf 帧匹配 atol 无效：{atol!r}（fail-closed）")
+
+    expected = _reference or _read_stru_reference(
+        directory, stru_file, atomorder, log_path=log_path
+    )
+    try:
+        frame_is_direct = _frame_coordinate_is_direct(log_path)
+    except Exception as exc:
+        raise RuntimeError(
+            f"scf running log 坐标头无法解析：{log_path}（{exc}；fail-closed）"
+        ) from exc
+
+    normalized = []
+    invalid = []
+    for frame_index, frame in enumerate(frames):
+        try:
+            normalized.append(
+                _normalize_scf_frame(
+                    frame, frame_index, expected, frame_is_direct, atol
+                )
+            )
+        except (AttributeError, TypeError, ValueError, IndexError) as exc:
+            invalid.append(f"frame {frame_index}: {exc}")
+
+    if invalid:
+        details = "; ".join(invalid)
+        raise RuntimeError(
+            f"scf running log 含损坏帧：{log_path}（共 {nframes} 帧；{details}；"
+            f"atol={atol}；fail-closed）"
+        )
+
+    for info in reversed(normalized):
+        if info['matches']:
+            return info['frame']
+
+    last = normalized[-1]
+    raw_diff = float(
+        np.max(np.abs(last['frame_cart'] - expected['positions']))
+    )
+    periodic = (
+        f"{last['periodic_residual']:.6g} Å"
+        if last['periodic_residual'] is not None
+        else "n/a (cell mismatch)"
+    )
     raise RuntimeError(
-        f"scf running log 无与当前结构匹配的帧：{log_path}（共 {len(frames)} 帧；"
-        f"STRU 与末帧 Cartesian Å 坐标最大差异 {diff:.6g} > atol={atol}）——"
-        f"force 读取不一致，fail-closed"
+        f"scf running log 无与当前结构匹配的帧：{log_path}（共 {nframes} 帧；"
+        f"末帧 raw Cartesian Å 最大差异 {raw_diff:.6g}；"
+        f"periodic residual={periodic}；cell 最大差异={last['cell_diff']:.6g} Å；"
+        f"atol={atol}；fail-closed）"
     )
 
 
@@ -248,6 +517,9 @@ class AbacusTemplate(CalculatorTemplate):
         # fix: inconsistent atoms order may induce bugs, here a list
         # is kept to swap the order of atoms
         self.atomorder  = None
+        # Keep the STRU filename used by write_input for the matching pass in
+        # read_results.  A template used without write_input retains STRU.
+        self.stru_file = 'STRU'
 
     '''because it may be not one-to-one mapping between the property
     desired to calculate and the keywords used in the calculation,
@@ -351,19 +623,20 @@ class AbacusTemplate(CalculatorTemplate):
 
         # copy the `parameters` because later we will modify it
         parameters = parameters.copy()
+        self.stru_file = parameters.get('stru_file', 'STRU') or 'STRU'
 
         # STRU
-        _ = file_safe_backup(directory / parameters.get('stru_file', 'STRU'))
+        _ = file_safe_backup(directory / self.stru_file)
         # group atoms by first-occurrence species order. Keep the reverse map so
         # that we will recover the order in function read_results()
         ind = species_group_indices(atoms.get_chemical_symbols())
         self.atomorder = sorted(range(len(atoms)), key=lambda i: ind[i]) # revmap
         # then we write
         _ = write_stru(atoms[ind], 
-                       outdir=directory, 
+                       outdir=directory,
                        pp_file=parameters.get('pseudopotentials'),
                        orb_file=parameters.get('basissets'),
-                       fname=parameters.get('stru_file', 'STRU'))
+                       fname=self.stru_file)
 
         # KPT, if needed
         if 'kpts' in parameters:
@@ -445,26 +718,52 @@ class AbacusTemplate(CalculatorTemplate):
 
     def read_results(self, directory) -> Dict:
         '''the function that returns the desired properties in dict'''
-        read_abacus_out = lambda fn: None
         global __LEGACYIO__
         if __LEGACYIO__:
             from .io.legacyio import read_abacus_out
         else:
             from .io.latestio import read_abacus_out
 
+        directory = Path(directory)
         outdir = directory / f'OUT.{self.suffix}'
         log = outdir / f'running_{self.calculation}.log'
+        stru_file = getattr(self, 'stru_file', 'STRU') or 'STRU'
+        reference = None
+        parser_atomorder = self.atomorder
+        if self.calculation == 'scf':
+            # Read and validate STRU/mapping before passing sort_atoms_with to
+            # the parser; otherwise a malformed mapping leaks a bare IndexError.
+            reference = _read_stru_reference(
+                directory, stru_file, self.atomorder, log_path=log
+            )
+            # Validate raw parser cardinality before sort_atoms_with can slice
+            # away an extra/missing atom and make a corrupt frame look valid.
+            _validate_raw_scf_trajectory(log, reference)
+            parser_atomorder = None if self.atomorder is None else reference['atomorder']
+
         # 读取全部帧；scf 下按坐标选择当前结构帧，非 scf（relax/md）保持末帧语义（spec R1/R2）
-        frames = read_abacus_out(log, sort_atoms_with=self.atomorder)
+        try:
+            frames = read_abacus_out(log, sort_atoms_with=parser_atomorder)
+        except (IndexError, AssertionError, KeyError, TypeError, ValueError) as exc:
+            if self.calculation != 'scf':
+                raise
+            raise RuntimeError(
+                f"scf running log parser failed：{log}（atomorder/帧结构解析错误："
+                f"{exc}；fail-closed）"
+            ) from exc
         if not frames:
             raise RuntimeError(f"no ABACUS running-log frames in {log}")
         if self.calculation != 'scf':
             atoms: Optional[Atoms] = frames[-1]  # 原生 relax/md：既有末帧语义（spec R2/P2）
         else:
-            # atomorder 默认 None（未走 write_input 时）；与 read_abacus_out 的
-            # sort_atoms_with=None 语义一致，按 identity 处理（fix round 1 F2）
-            atomorder = self.atomorder or list(range(len(frames[0])))
-            atoms = _select_scf_frame_for_structure(frames, log, directory, atomorder)
+            atoms = _select_scf_frame_for_structure(
+                frames,
+                log,
+                directory,
+                reference['atomorder'],
+                stru_file=stru_file,
+                _reference=reference,
+            )
         assert atoms is not None
 
         return dict(atoms.calc.properties())

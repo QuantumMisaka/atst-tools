@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import hashlib
 import io
 import re
 import tokenize
@@ -270,46 +271,113 @@ def _normalize_point_kpoint_parser(relative_path: Path, source: str) -> str:
     return "".join(lines)
 
 
-_FRAME_SELECTION_BLOCK = re.compile(
-    r"(?P<indent>[ \t]*)outdir = directory / f'OUT\.\{self\.suffix\}'\n"
-    r"(?P=indent)log = outdir / f'running_\{self\.calculation\}\.log'\n"
-    r"(?P=indent)#[^\n]*\n"
-    r"(?P=indent)frames = read_abacus_out\(log, sort_atoms_with=self\.atomorder\)\n"
-    r"(?P=indent)if not frames:\n"
-    r"(?P=indent)    raise RuntimeError\(f\"no ABACUS running-log frames in \{log\}\"\)\n"
-    r"(?P=indent)if self\.calculation != 'scf':\n"
-    r"(?P=indent)    atoms: Optional\[Atoms\] = frames\[-1\][^\n]*\n"
-    r"(?P=indent)else:\n"
-    r"(?:(?P=indent)    #[^\n]*\n)*"
-    r"(?P=indent)    atomorder = self\.atomorder or list\(range\(len\(frames\[0\]\)\)\)\n"
-    r"(?P=indent)    atoms = _select_scf_frame_for_structure\(frames, log, directory, atomorder\)\n"
-    r"(?P=indent)assert atoms is not None"
-)
+_UPSTREAM_READ_RESULTS = """\
+    def read_results(self, directory) -> Dict:
+        '''the function that returns the desired properties in dict'''
+        read_abacus_out = lambda fn: None
+        global __LEGACYIO__
+        if __LEGACYIO__:
+            from abacuslite.io.legacyio import read_abacus_out
+        else:
+            from abacuslite.io.latestio import read_abacus_out
+
+        outdir = directory / f'OUT.{self.suffix}'
+        # only the last frame
+        atoms: Optional[Atoms] = read_abacus_out(
+            outdir / f'running_{self.calculation}.log',
+            sort_atoms_with=self.atomorder)[-1]
+        assert atoms is not None
+
+        return dict(atoms.calc.properties())
+"""
 
 
-def _upstream_read_results_tail(indent: str) -> str:
-    return (
-        f"{indent}outdir = directory / f'OUT.{{self.suffix}}'\n"
-        f"{indent}# only the last frame\n"
-        f"{indent}atoms: Optional[Atoms] = read_abacus_out(\n"
-        f"{indent}    outdir / f'running_{{self.calculation}}.log',\n"
-        f"{indent}    sort_atoms_with=self.atomorder)[-1]\n"
-        f"{indent}assert atoms is not None"
-    )
+# Registered patch identity only: correctness is established by frame-selection
+# regressions and review. Re-register these digests when that patch evolves.
+# ast.dump ignores comments/formatting; empty type_params are omitted for 3.10+
+# compatibility. The final accepted implementation supplies the values below.
+_FRAME_PATCH_AST_SHA256: dict[str, str] = {
+    "_validate_atomorder": "eaff75e9f54c8f16fca51eadf5d110bd6fe21318bffb595d69a2b67017b20573",
+    "_invert_cell": "514b186e97e508163db84bb604dab9ff3d8e92e2217a910a22e08750c1601f2e",
+    "_read_stru_reference": "c63a9c33818a56edfb826805c0a29983ab2467babbb918b913e219ab663e425f",
+    "_stru_positions_in_ase_order": "dc18707cd4c4aa599799ac7d1d47137debe50f96f3ad57fa9c4dcf7a794004c5",
+    "_frame_coordinate_is_direct": "3214c02c24bc8e900bb0a3a15a63cb998bb682807d55a3cbdaa8b56b55b5545b",
+    "_validate_raw_scf_trajectory": "d132b9ed702a50eb496cfce910d6e624d69d2f56c7a3c8df88a6d8d6ed823cb3",
+    "_normalize_scf_frame": "c905355fac152fde59e29a526acb03fe83750f92c9928dae8894cf209d482153",
+    "_select_scf_frame_for_structure": "323658e049187dc24457c23b9427f66f9d4dcb330fd10c3e19d569afd131864f",
+    "AbacusTemplate.__init__": "41ac3effaf36d311c1044495dcd81912f2f32b3b3bd246e8db4fbcf9a5e749e1",
+    "AbacusTemplate.write_input": "e753df35247641fa68ed8886d317ef6af26a5c405de382bdbe0122f30fcdb838",
+    "AbacusTemplate.read_results": "78a1c15eeb494156defa53f8d6224a6042bc68524ca1db18f2a6719ba518c82f",
+}
+
+
+def _frame_patch_fingerprints(source: str) -> dict[str, str]:
+    """Return AST identities for the explicitly registered patch boundaries."""
+    tree = ast.parse(source)
+    named_nodes = [(node.name, node) for node in tree.body
+                   if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    templates = [node for node in tree.body
+                 if isinstance(node, ast.ClassDef) and node.name == "AbacusTemplate"]
+    if len(templates) > 1:
+        return {}
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == "AbacusTemplate":
+            named_nodes.extend((f"AbacusTemplate.{child.name}", child) for child in node.body
+                               if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    nodes = dict(named_nodes)
+    for name in _FRAME_PATCH_AST_SHA256:
+        if sum(key == name for key, _ in named_nodes) != 1:
+            return {}
+    result = {}
+    for name in _FRAME_PATCH_AST_SHA256:
+        if name not in nodes:
+            continue
+        node = nodes[name]
+        # Docstrings are documentation, not the registered executable patch.
+        for child in ast.walk(node):
+            body = getattr(child, "body", None)
+            if (isinstance(body, list) and body and isinstance(body[0], ast.Expr)
+                    and isinstance(body[0].value, ast.Constant)
+                    and isinstance(body[0].value.value, str)):
+                child.body = body[1:]
+        canonical = ast.dump(node, include_attributes=False).replace(", type_params=[]", "")
+        result[name] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return result
 
 
 def _normalize_frame_selection(source: str) -> str:
-    """core.py 帧选择语义补丁（spec PATCHES.md 登记）：移除模块级辅助函数，
-    并把 read_results 的 scf/non-scf 分支还原为上游 [-1] 单行形式。
-    未匹配（补丁已演化）则原样返回，保持未登记 drift 报警。"""
+    """Normalize only the registered SCF patch, retaining all unregistered drift."""
+    try:
+        registered = _frame_patch_fingerprints(source)
+    except SyntaxError:
+        return source
+    if not _FRAME_PATCH_AST_SHA256 or registered != _FRAME_PATCH_AST_SHA256:
+        return source
+    tree = ast.parse(source)
+    lines = source.splitlines(keepends=True)
+    template = next(node for node in tree.body
+                    if isinstance(node, ast.ClassDef) and node.name == "AbacusTemplate")
+    for node in reversed(template.body):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        start, end = node.lineno - 1, node.end_lineno
+        block = "".join(lines[start:end])
+        if node.name == "read_results":
+            lines[start:end] = [_UPSTREAM_READ_RESULTS]
+        elif node.name == "__init__":
+            lines[start:end] = [block.replace("        self.stru_file = 'STRU'\n", "")]
+        elif node.name == "write_input":
+            block = block.replace(
+                "        self.stru_file = parameters.get('stru_file', 'STRU') or 'STRU'\n", ""
+            ).replace("directory / self.stru_file", "directory / parameters.get('stru_file', 'STRU')")
+            block = block.replace("fname=self.stru_file", "fname=parameters.get('stru_file', 'STRU')")
+            lines[start:end] = [block]
+    source = "".join(lines)
     source = _remove_module_level_functions(
         source,
-        {"_stru_positions_in_ase_order", "_frame_coordinate_is_direct", "_select_scf_frame_for_structure"},
+        {name for name in _FRAME_PATCH_AST_SHA256 if "." not in name},
     )
-    return _FRAME_SELECTION_BLOCK.sub(
-        lambda match: _upstream_read_results_tail(match.group("indent")),
-        source,
-    )
+    return source
 
 
 def _normalize_documented_atst_adaptations(relative_path: Path, source: str) -> str:

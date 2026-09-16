@@ -18,6 +18,23 @@ from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
 
 
+def _irc_step_count(irc_object: Any) -> int | None:
+    """Read the IRC optimizer's cumulative step count, or None when unavailable.
+
+    ASE ``Dynamics.irun`` never resets ``nsteps`` (it sets ``max_steps = nsteps +
+    steps``), so one reused IRC object accumulates steps across directions and the
+    caller must difference two readings to report per-direction steps.
+    """
+    getter = getattr(irc_object, "get_number_of_steps", None)
+    if callable(getter):
+        try:
+            return int(getter())
+        except Exception:
+            return None
+    value = getattr(irc_object, "nsteps", None)
+    return value if isinstance(value, int) else None
+
+
 class IRCBoundaryError(RuntimeError):
     """Known Sella IRC boundary that ATST-Tools reports as a controlled error."""
 
@@ -150,8 +167,9 @@ class IRCWorkflow:
             keep_going=self.calc_config["keep_going"],
         )
         for direction in self._directions():
+            steps_before = _irc_step_count(irc)
             try:
-                irc.run(
+                converged_signal = irc.run(
                     self.calc_config["fmax"],
                     steps=self.calc_config["max_steps"],
                     direction=direction,
@@ -166,6 +184,9 @@ class IRCWorkflow:
                 if self._is_sella_runtime_boundary(exc):
                     raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
                 raise
+            self._warn_if_unconverged(
+                irc, direction, converged_signal, self.calc_config["fmax"], steps_before
+            )
         self._normalize_trajectory()
         artifacts = [{"role": "irc_trajectory", "path": self.traj_file}]
         if self.direction == "both" and self.normalized_traj_file:
@@ -175,6 +196,28 @@ class IRCWorkflow:
             workflow="irc",
             artifacts=artifacts,
             stages=[{"name": "sella_irc", "status": "complete"}],
+        )
+
+    @staticmethod
+    def _warn_if_unconverged(irc_object, direction: str, converged_signal, fmax: float,
+                             steps_before: int | None) -> None:
+        """IRC 方向结束但确定性收敛信号为 False 时输出中性 advisory warning（不改变返回语义）。
+
+        只信任 Sella ``IRC.run()`` 返回的确定性收敛信号（其判据为力达阈值且 Hessian 最小
+        本征值为正，即到达端点盆地）；信号不可得（非 bool）时保持安静，不臆测未收敛，也不
+        额外调用 ``converged()``。warning 只陈述客观事实（方向、配置阈值、本方向实际步数），
+        不预判科学原因。返回码、workflow 状态与 artifact manifest 均不受影响。
+        """
+        if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
+            return
+        steps_after = _irc_step_count(irc_object)
+        nsteps = steps_after if steps_before is None or steps_after is None else steps_after - steps_before
+        print(
+            f"Warning: IRC {direction} 方向结束时确定性收敛信号为 False"
+            f"（workflow=irc, direction={direction}, threshold_fmax={fmax}, nsteps={nsteps}）；"
+            "未确认到达端点盆地（IRC 判据为力达阈值且 Hessian 最小本征值为正）。"
+            "完成只代表计算任务正常结束，不代表科学收敛；"
+            "请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
         )
 
     def _load_mode_vector(self, atoms) -> np.ndarray:

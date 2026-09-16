@@ -1,8 +1,8 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.2.4
-**Last Updated**: 2026-09-06
-**Status**: Maintained
+**Version**: 2.2.5
+**Last Updated**: 2026-09-16
+**Status**: Release candidate (not published)
 
 This document is the hand-written semantic reference for `config.yaml` files
 used by `atst run`. It explains workflow behavior, common configuration
@@ -533,6 +533,14 @@ The `calculator` section configures the underlying compute engine (DFT or ML Pot
 > For GPU LCAO calculations, choose a site-compatible GPU solver according to
 > the documentation for the installed ABACUS version.
 > ATST-Tools imports an independently installed `abacuslite` package first and falls back to the vendored `src/atst_tools/external/ASE_interface/abacuslite` snapshot if that import is unavailable.
+
+For `calculation: scf`, abacuslite automatically identifies the latest running
+log frame corresponding to the current STRU, accepting periodic-equivalent
+coordinates (including valid cross-cell movement) in the existing cell. It
+still rejects different structures, cells, atom counts/orders, malformed or
+non-finite data, and singular cells. Native `relax`, `md`, and `MD_dump` keep
+their existing last-frame behavior. This is automatic and adds no YAML
+configuration field or user-selectable tolerance.
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |

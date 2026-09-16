@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.2.4-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.2.5-blue)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -26,14 +26,14 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.2.4 status (published) |
+| Area | Current 2.2.5 status (release candidate; not published) |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Release | `2.2.4`, published from tag `v2.2.4` and documented in [release notes](docs/releases/RELEASE_NOTES_2.2.4.md). |
+| Release | `2.2.5` release candidate; publication, tag, automated validation, and PyPI evidence are pending in the [release notes](docs/releases/RELEASE_NOTES_2.2.5.md). |
 
 ## What You Can Run
 
