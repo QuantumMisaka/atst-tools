@@ -5,6 +5,7 @@ import os
 from ase.io import write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.convergence import (
     StageRecord,
@@ -77,7 +78,9 @@ class RelaxWorkflow:
         The optimizer's own ``run()`` return value is the authoritative
         convergence signal: a known ``False`` prints one shared English
         advisory without changing the written artifacts, the printed summary
-        or the implicit ``None`` return value.
+        or the implicit ``None`` return value.  After the final structure is
+        written, the same record is persisted as this workflow's artifact
+        manifest; an explicit ``artifact_manifest: None`` disables that write.
         """
         print(f"=== Starting Relaxation with {self.calc_name} ===")
         
@@ -117,22 +120,33 @@ class RelaxWorkflow:
         
         # 4. Run
         converged_signal = opt.run(fmax=self.fmax, steps=self.max_steps)
-        emit_unconverged_advisory(
-            StageRecord(
-                name="relax",
-                role="final",
-                criterion="ase_optimizer",
-                converged=converged_signal,
-                fmax=as_finite_float(self.fmax),
-                steps=as_step_count(self.max_steps),
-                actual_steps=as_step_count(getattr(opt, "nsteps", None)),
-            ),
-            workflow="relax",
+        record = StageRecord(
+            name="relax",
+            role="final",
+            criterion="ase_optimizer",
+            converged=converged_signal,
+            fmax=as_finite_float(self.fmax),
+            steps=as_step_count(self.max_steps),
+            actual_steps=as_step_count(getattr(opt, "nsteps", None)),
         )
+        emit_unconverged_advisory(record, workflow="relax")
         
         # 5. Save Final Structure
         write("final_relaxed.traj", atoms)
         # Also write standard format like xyz or poscar/stru
         # write("final_relaxed.stru", atoms, format='abacus') # Need ase-abacus support for this format string or use ext
-        
+
+        manifest_path = self.calc_config.get("artifact_manifest", "atst_artifacts.json")
+        if manifest_path is not None:
+            write_artifact_manifest(
+                manifest_path,
+                workflow="relax",
+                artifacts=[
+                    {"role": "trajectory", "path": self.traj_file},
+                    {"role": "log", "path": self.logfile},
+                    {"role": "final_structure", "path": "final_relaxed.traj"},
+                ],
+                stages=[record.to_manifest()],
+            )
+
         print(f"=== Relaxation Finished. Final energy: {atoms.get_potential_energy():.4f} eV ===")

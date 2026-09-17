@@ -12,6 +12,7 @@ from ase.io import Trajectory
 from sella import Sella
 
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.convergence import (
     StageRecord,
     as_finite_float,
@@ -88,14 +89,19 @@ class AbacusSella:
         )
     
     def run(self, fmax=None):
-        """
-        Run Sella calculation workflow.
+        """Run Sella and persist its durable convergence record.
 
         Args:
             fmax (float, optional): Force convergence criterion.
 
         Returns:
-            Atoms: The optimized transition state structure.
+            Atoms: The optimized transition state structure.  The optimizer's
+            ``run()`` return value is the authoritative convergence signal: a
+            known ``False`` prints one shared English advisory and is recorded
+            in the manifest without changing the returned structure.  The
+            record is also exposed as ``last_stage_record`` for nesting
+            workflows, and an explicit ``artifact_manifest: None`` disables the
+            manifest write so only the owning workflow (D2S) writes one.
         """
         if fmax is None:
             fmax = self.fmax
@@ -134,4 +140,14 @@ class AbacusSella:
         # Expose the same record to callers (e.g. nested D2S refinement) so the
         # owning workflow can persist the facts without re-deriving them.
         self.last_stage_record = record
+        # An explicit ``None`` disables the manifest, which lets a nesting
+        # workflow (D2S) stay the only writer of the top-level manifest.
+        manifest_path = self.calc_config.get("artifact_manifest", "atst_artifacts.json")
+        if manifest_path is not None:
+            write_artifact_manifest(
+                manifest_path,
+                workflow="sella",
+                artifacts=[{"role": "trajectory", "path": self.traj_file}],
+                stages=[record.to_manifest()],
+            )
         return ts_atoms

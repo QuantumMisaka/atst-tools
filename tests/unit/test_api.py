@@ -773,6 +773,85 @@ def test_run_workflow_preserves_a_fresh_runner_written_manifest(monkeypatch, tmp
     assert result.metadata["manifest_source"] == "runner"
 
 
+@pytest.mark.parametrize(
+    ("workflow", "roles"),
+    (("relax", ["trajectory", "log", "final_structure"]), ("sella", ["trajectory"])),
+)
+def test_run_workflow_preserves_a_workflow_written_manifest(
+    monkeypatch, tmp_path, workflow, roles
+):
+    """A run whose workflow writes the manifest keeps that record, not a synthetic one."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.mep import sella as sella_module
+    from atst_tools.workflows import relax as relax_module
+
+    class FakeDynamics:
+        nsteps = 4
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return True
+
+    class FakeOptimizer(FakeDynamics):
+        def __init__(self, atoms, trajectory=None, logfile=None):
+            pass
+
+    def dispatch(config, options):
+        """Run the real workflow for this calculation type, as the API dispatch does."""
+        from atst_tools.scripts import main as legacy_run
+
+        monkeypatch.setattr(legacy_run, "read_structure", lambda filename: make_atoms("H"))
+        if workflow == "relax":
+            return legacy_run.RelaxWorkflow(config, "abacus", config["calculation"]).run()
+        return legacy_run.run_sella(config, "abacus", config["calculation"])
+
+    monkeypatch.chdir(tmp_path)
+    Path("init.traj").write_text("", encoding="utf-8")
+    monkeypatch.setattr(services, "_dispatch_normalized", dispatch)
+    monkeypatch.setattr(relax_module, "read_structure", lambda filename: make_atoms("H"))
+    monkeypatch.setattr(relax_module, "QuasiNewton", FakeOptimizer)
+    monkeypatch.setattr(
+        relax_module.CalculatorFactory,
+        "get_calculator",
+        lambda *args, **kwargs: make_atoms("H", energy=0.0).calc,
+    )
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sella_module, "Sella", FakeDynamics)
+    monkeypatch.setattr(
+        sella_module.CalculatorFactory,
+        "get_calculator",
+        lambda *args, **kwargs: make_atoms("H", energy=0.0).calc,
+    )
+
+    result = run_workflow(
+        {
+            "calculation": {"type": workflow, "init_structure": "init.traj"},
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        },
+        RunOptions(world=FakeWorld()),
+    )
+
+    manifest = json.loads((tmp_path / result.artifact_manifest).read_text(encoding="utf-8"))
+    assert result.status == "complete"
+    assert manifest["workflow"] == workflow
+    # The workflow wrote its own record, so the API must not synthesize one.
+    assert manifest["metadata"] == {}
+    assert "manifest_source" not in result.metadata
+    assert [artifact["role"] for artifact in result.artifacts] == roles
+    stages = manifest["stages"]
+    assert [stage["name"] for stage in stages] == [workflow]
+    assert stages[0]["status"] == "complete"
+    assert stages[0]["converged"] is True
+    if workflow == "relax":
+        # The real workflow ran: it wrote its own final structure on disk.
+        assert (tmp_path / "final_relaxed.traj").exists()
+    else:
+        assert result.final_atoms is not None
+
+
 def test_run_workflow_refreshes_synthesized_manifest_on_repeated_run(monkeypatch, tmp_path):
     """A second same-workflow run must not reuse the first API manifest."""
     from atst_tools.api import RunOptions, run_workflow

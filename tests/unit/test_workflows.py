@@ -21,6 +21,24 @@ def _atoms(energy=0.0):
     return atoms
 
 
+def _patch_endpoint_optimization(monkeypatch, d2s_module):
+    """Replace D2S endpoint optimization with a bounded stub.
+
+    The stub keeps the historical ``(init_atoms, final_atoms)`` contract and
+    publishes one explicit skipped :class:`StageRecord` through the instance
+    attribute the workflow reads, so shared tests do not need a real optimizer.
+    """
+    from atst_tools.utils.convergence import StageRecord
+
+    def stub(self, init_atoms, final_atoms):
+        self._endpoint_records = [
+            StageRecord(name="endpoint_optimization", status="skipped")
+        ]
+        return init_atoms, final_atoms
+
+    monkeypatch.setattr(d2s_module.D2SWorkflow, "optimize_endpoints", stub)
+
+
 def _install_fake_sella(monkeypatch, fake_irc, failure_cls=None):
     if failure_cls is None:
         failure_cls = type("IRCInnerLoopConvergenceFailure", (RuntimeError,), {})
@@ -42,15 +60,7 @@ def test_d2s_workflow_uses_unified_constructor(monkeypatch, tmp_path):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
         "run_rough_neb",
@@ -90,15 +100,7 @@ def test_d2s_rough_method_dmf_feeds_single_ended_stage(monkeypatch, tmp_path):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -130,6 +132,10 @@ def test_d2s_rough_method_dmf_feeds_single_ended_stage(monkeypatch, tmp_path):
         "dmf_path",
         "single_ended_trajectory",
     }
+    rough_dmf = next(stage for stage in manifest["stages"] if stage["name"] == "rough_dmf")
+    assert rough_dmf["status"] == "complete"
+    # The experimental DMF rough stage records completion with unknown convergence.
+    assert rough_dmf["converged"] is None
 
 
 def test_d2s_rough_method_dmf_uses_tmax_candidate_as_ts_guess(monkeypatch, tmp_path):
@@ -151,15 +157,7 @@ def test_d2s_rough_method_dmf_uses_tmax_candidate_as_ts_guess(monkeypatch, tmp_p
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -201,15 +199,7 @@ def test_d2s_rough_method_dmf_uses_tmax_index_when_path_energies_are_missing(mon
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -255,15 +245,7 @@ def test_d2s_rough_method_dmf_uses_summary_t_eval_for_candidate_index(monkeypatc
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -305,15 +287,7 @@ def test_d2s_rough_method_dmf_falls_back_to_uniform_index_for_legacy_summary(mon
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(
-        d2s.D2SWorkflow,
-        "optimize_endpoints",
-        lambda self, a, b: (
-            a,
-            b,
-            [{"name": "endpoint_optimization", "status": "skipped"}],
-        ),
-    )
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -2042,6 +2016,7 @@ def test_run_sella_preserves_dp_calculator_selection(monkeypatch, tmp_path):
 
 
 def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
+    """Sella receives its order/eta/fmax/steps and writes its durable record."""
     from atst_tools.mep import sella as sella_module
 
     calls = []
@@ -2058,6 +2033,8 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
             calls.append(("run", fmax, steps))
 
     calc = DummyCalc(1.5)
+    manifest = tmp_path / "atst_artifacts.json"
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sella_module, "Trajectory", FakeTrajectory)
     monkeypatch.setattr(sella_module, "Sella", FakeSella)
     monkeypatch.setattr(sella_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: calc)
@@ -2067,7 +2044,7 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
         ts,
         {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
         "abacus",
-        {"directory": "sella_run", "max_steps": 12},
+        {"directory": "sella_run", "max_steps": 12, "artifact_manifest": str(manifest)},
         traj_file=str(tmp_path / "sella.traj"),
         sella_eta=0.01,
         fmax=0.05,
@@ -2079,6 +2056,102 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
     assert calls[0] == ("trajectory", str(tmp_path / "sella.traj"), "w", ["H"])
     assert calls[1] == ("sella", calc, "FakeTrajectory", 0.01, 2)
     assert calls[2] == ("run", 0.03, 12)
+    assert json.loads(manifest.read_text(encoding="utf-8"))["artifacts"] == [
+        {"role": "trajectory", "path": str(tmp_path / "sella.traj")}
+    ]
+
+
+@pytest.mark.parametrize("converged_signal", (True, False, None))
+def test_abacus_sella_writes_durable_convergence_record(
+    monkeypatch, tmp_path, converged_signal
+):
+    """A standalone Sella run persists its own record at the default manifest path."""
+    from atst_tools.mep import sella as sella_module
+
+    class FakeSella:
+        nsteps = 3
+
+        def __init__(self, atoms, trajectory=None, eta=None, order=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *a, **k: None)
+    monkeypatch.setattr(sella_module, "Sella", FakeSella)
+    monkeypatch.setattr(
+        sella_module.CalculatorFactory, "get_calculator", lambda *a, **k: DummyCalc(1.5)
+    )
+
+    workflow = sella_module.AbacusSella(
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "sella_run", "max_steps": 30},
+        traj_file="sella.traj",
+        fmax=0.1,
+    )
+    assert workflow.run() is workflow.init_Atoms
+
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "sella"
+    assert manifest["artifacts"] == [{"role": "trajectory", "path": "sella.traj"}]
+    assert manifest["stages"] == [
+        {
+            "name": "sella",
+            "status": "complete",
+            "converged": converged_signal,
+            "role": "final",
+            "criterion": "sella_projected_force+constraint",
+            "fmax": 0.1,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 30,
+            "actual_steps": 3,
+        }
+    ]
+
+
+def test_abacus_sella_explicit_none_disables_manifest(monkeypatch, tmp_path):
+    """An explicit ``artifact_manifest: None`` writes no manifest at all."""
+    from atst_tools.mep import sella as sella_module
+
+    class FakeSella:
+        nsteps = 1
+
+        def __init__(self, atoms, trajectory=None, eta=None, order=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return False
+
+    writes = []
+
+    def record(path, **kwargs):
+        writes.append(str(path))
+        return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sella_module, "write_artifact_manifest", record)
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *a, **k: None)
+    monkeypatch.setattr(sella_module, "Sella", FakeSella)
+    monkeypatch.setattr(
+        sella_module.CalculatorFactory, "get_calculator", lambda *a, **k: DummyCalc(1.5)
+    )
+
+    workflow = sella_module.AbacusSella(
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"directory": "sella_run", "artifact_manifest": None},
+        traj_file="sella.traj",
+        fmax=0.1,
+    )
+
+    assert workflow.run() is workflow.init_Atoms
+    assert writes == []
+    assert not Path("atst_artifacts.json").exists()
+    assert workflow.last_stage_record.to_manifest()["converged"] is False
 
 
 @pytest.mark.parametrize(
@@ -2101,6 +2174,8 @@ def test_abacus_sella_convergence_signal_controls_warning(
             return converged_signal
 
     calc = DummyCalc(1.5)
+    manifest = tmp_path / "atst_artifacts.json"
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sella_module, "Trajectory", lambda *a, **k: None)
     monkeypatch.setattr(sella_module, "Sella", FakeSella)
     monkeypatch.setattr(sella_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: calc)
@@ -2110,7 +2185,7 @@ def test_abacus_sella_convergence_signal_controls_warning(
         ts,
         {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
         "abacus",
-        {"directory": "sella_run", "max_steps": 30},
+        {"directory": "sella_run", "max_steps": 30, "artifact_manifest": str(manifest)},
         traj_file=str(tmp_path / "sella.traj"),
         fmax=0.1,
     )
@@ -2139,6 +2214,10 @@ def test_abacus_sella_convergence_signal_controls_warning(
         "steps": 30,
         "actual_steps": 2,
     }
+    # The manifest carries the same single record; the advisory changes nothing.
+    assert json.loads(manifest.read_text(encoding="utf-8"))["stages"] == [
+        workflow.last_stage_record.to_manifest()
+    ]
 
 
 @pytest.mark.parametrize(
@@ -2283,11 +2362,12 @@ def test_abacus_ccqn_tolerates_unvalidated_float_max_steps(monkeypatch, tmp_path
     assert stages[0]["converged"] is False
 
 
-def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch):
+def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch, tmp_path):
     from atst_tools.mep import sella as sella_module
 
     seen = {}
 
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sella_module, "Trajectory", lambda *args, **kwargs: object())
     monkeypatch.setattr(
         sella_module,
@@ -2390,7 +2470,8 @@ def test_d2s_endpoint_optimization_skips_valid_inputs(monkeypatch, tmp_path):
         "dp",
         {"type": "d2s", "method": "dimer", "endpoint_optimization": {"enabled": True}},
     )
-    init_atoms, final_atoms, records = workflow.optimize_endpoints(_atoms(1.0), _atoms(2.0))
+    init_atoms, final_atoms = workflow.optimize_endpoints(_atoms(1.0), _atoms(2.0))
+    records = workflow._endpoint_records
 
     assert init_atoms.get_potential_energy() == 1.0
     assert final_atoms.get_potential_energy() == 2.0
@@ -2442,7 +2523,8 @@ def test_d2s_endpoint_optimization_runs_for_missing_results(monkeypatch, tmp_pat
     init_atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     final_atoms = Atoms("H", positions=[[1.0, 0.0, 0.0]])
 
-    init_atoms, final_atoms, records = workflow.optimize_endpoints(init_atoms, final_atoms)
+    init_atoms, final_atoms = workflow.optimize_endpoints(init_atoms, final_atoms)
+    records = workflow._endpoint_records
 
     assert init_atoms.get_potential_energy() == 3.0
     assert final_atoms.get_potential_energy() == 3.0
@@ -2509,10 +2591,11 @@ def test_d2s_endpoint_optimization_records_converged_and_steps_per_endpoint(monk
         },
     )
 
-    _, _, records = workflow.optimize_endpoints(
+    _, _ = workflow.optimize_endpoints(
         Atoms("H", positions=[[0.0, 0.0, 0.0]]),
         Atoms("H", positions=[[1.0, 0.0, 0.0]]),
     )
+    records = workflow._endpoint_records
 
     assert [record.to_manifest() for record in records] == [
         {
@@ -2569,18 +2652,26 @@ def test_d2s_run_manifests_disabled_endpoint_stage_as_skipped(monkeypatch, tmp_p
 
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     assert manifest["workflow"] == "d2s"
-    assert manifest["stages"][0] == {"name": "endpoint_optimization", "status": "skipped"}
+    assert manifest["stages"][0] == {
+        "name": "endpoint_optimization",
+        "status": "skipped",
+        "converged": None,
+    }
     assert [stage["name"] for stage in manifest["stages"]] == [
         "endpoint_optimization",
         "rough_neb",
         "dimer",
         "vibration",
     ]
-    assert manifest["stages"][-1] == {"name": "vibration", "status": "skipped"}
+    assert manifest["stages"][-1] == {
+        "name": "vibration",
+        "status": "skipped",
+        "converged": None,
+    }
 
 
 def test_d2s_rough_neb_records_fire_return_and_step_count(monkeypatch, tmp_path):
-    """The rough DyNEB stage keeps the previously discarded FIRE result."""
+    """The public manifest keeps the previously discarded FIRE result."""
     from atst_tools.workflows import d2s
 
     chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
@@ -2599,11 +2690,16 @@ def test_d2s_rough_neb_records_fire_return_and_step_count(monkeypatch, tmp_path)
             return False
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
     monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
     monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
     monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: object())
     monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+    monkeypatch.setattr(
+        d2s.D2SWorkflow, "run_single_ended", lambda self, images, idx, guess: "single.traj"
+    )
 
     workflow = d2s.D2SWorkflow(
         {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
@@ -2616,9 +2712,11 @@ def test_d2s_rough_neb_records_fire_return_and_step_count(monkeypatch, tmp_path)
             "neb": {"n_images": 2, "fmax": 0.7, "max_steps": 11},
         },
     )
-    workflow.run_rough_neb(chain[0], chain[-1])
+    workflow.run()
 
-    assert workflow._rough_stage_record.to_manifest() == {
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    stages = {stage["name"]: stage for stage in manifest["stages"]}
+    assert stages["rough_neb"] == {
         "name": "rough_neb",
         "status": "complete",
         "converged": False,
@@ -2629,18 +2727,30 @@ def test_d2s_rough_neb_records_fire_return_and_step_count(monkeypatch, tmp_path)
         "steps": 11,
         "actual_steps": 12,
     }
+    # The stubbed refinement exposes no optimizer fact, so its stage invents none.
+    assert stages["dimer"] == {
+        "name": "dimer",
+        "status": "complete",
+        "converged": None,
+        "role": "final",
+    }
 
 
 def test_d2s_rough_neb_restart_skip_records_skipped_stage(monkeypatch, tmp_path):
-    """A restart that reuses neb_rough.traj claims no convergence signal."""
+    """The public manifest keeps a restart-skipped rough stage signal-free."""
     from atst_tools.workflows import d2s
 
     monkeypatch.chdir(tmp_path)
     Path("neb_rough.traj").write_text("", encoding="utf-8")
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    _patch_endpoint_optimization(monkeypatch, d2s)
     monkeypatch.setattr(
         d2s,
         "get_last_neb_band",
         lambda path, count: [_atoms(0.0), _atoms(1.0)],
+    )
+    monkeypatch.setattr(
+        d2s.D2SWorkflow, "run_single_ended", lambda self, images, idx, guess: "single.traj"
     )
 
     workflow = d2s.D2SWorkflow(
@@ -2654,10 +2764,11 @@ def test_d2s_rough_neb_restart_skip_records_skipped_stage(monkeypatch, tmp_path)
             "restart": True,
         },
     )
-    chain = workflow.run_rough_neb(_atoms(0.0), _atoms(0.0))
+    workflow.run()
 
-    assert len(chain) == 2
-    assert workflow._rough_stage_record.to_manifest() == {
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    stages = {stage["name"]: stage for stage in manifest["stages"]}
+    assert stages["rough_neb"] == {
         "name": "rough_neb",
         "status": "skipped",
         "converged": None,
@@ -2831,6 +2942,89 @@ def test_d2s_ccqn_refinement_writes_only_the_top_level_manifest(monkeypatch, tmp
         "fmax_unit": "eV/Angstrom",
         "steps": 200,
         "actual_steps": 5,
+    }
+
+
+def test_d2s_sella_refinement_writes_only_the_top_level_manifest(
+    monkeypatch, tmp_path, capsys
+):
+    """D2S stays the single manifest writer when Sella runs as a nested refinement."""
+    from atst_tools.mep.sella import AbacusSella as RealAbacusSella
+    from atst_tools.mep import sella as sella_module
+    from atst_tools.workflows import d2s
+
+    sella_writes = []
+    sella_configs = []
+
+    def record_sella(path, **kwargs):
+        sella_writes.append((path, kwargs))
+        return None
+
+    class FakeSella:
+        nsteps = 6
+
+        def __init__(self, atoms, trajectory=None, eta=None, order=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return False
+
+    class CapturingSella(RealAbacusSella):
+        """Real Sella runner that records its nested configuration."""
+
+        def __init__(self, init_Atoms, config, calc_name, calc_config, **kwargs):
+            sella_configs.append(calc_config)
+            super().__init__(init_Atoms, config, calc_name, calc_config, **kwargs)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_rough_neb",
+        lambda self, a, b: [_atoms(0.0), _atoms(1.0), _atoms(0.2)],
+    )
+    monkeypatch.setattr(d2s, "AbacusSella", CapturingSella)
+    monkeypatch.setattr(sella_module, "write_artifact_manifest", record_sella)
+    monkeypatch.setattr(sella_module, "Trajectory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sella_module, "Sella", FakeSella)
+    monkeypatch.setattr(
+        sella_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0)
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "d2s",
+            "method": "sella",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "endpoint_optimization": {"enabled": False},
+            "endpoint_singlepoint": "never",
+            "sella": {"fmax": 0.07, "max_steps": 20},
+        },
+    )
+    workflow.run()
+
+    # The refinement must not write its own manifest; D2S owns the only file.
+    assert sella_writes == []
+    assert sella_configs[0]["artifact_manifest"] is None
+    # Only the constituent warns; D2S must not repeat the refinement advisory.
+    assert capsys.readouterr().out.count("workflow=sella") == 1
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "d2s"
+    assert {"role": "single_ended_trajectory", "path": "sella.traj"} in manifest["artifacts"]
+    stages = {stage["name"]: stage for stage in manifest["stages"]}
+    assert stages["sella"] == {
+        "name": "sella",
+        "status": "complete",
+        "converged": False,
+        "role": "final",
+        "criterion": "sella_projected_force+constraint",
+        "fmax": 0.07,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 20,
+        "actual_steps": 6,
     }
 
 
@@ -3016,6 +3210,109 @@ def test_relax_workflow_tolerates_unvalidated_float_max_steps(monkeypatch, tmp_p
     assert "workflow=relax" in captured.out
     assert "max_steps=3" in captured.out
     assert ("write", "final_relaxed.traj") in events
+
+
+@pytest.mark.parametrize("converged_signal", (True, False, None))
+def test_relax_workflow_writes_durable_convergence_record(
+    monkeypatch, tmp_path, converged_signal
+):
+    """A standalone relax run persists three artifacts and one stage record."""
+    from atst_tools.workflows import relax
+
+    class FakeOptimizer:
+        nsteps = 4
+
+        def __init__(self, atoms, trajectory=None, logfile=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(relax.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(relax, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(
+        relax.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc
+    )
+    monkeypatch.setattr(relax, "QuasiNewton", FakeOptimizer)
+
+    workflow = relax.RelaxWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "relax",
+            "init_structure": "init.traj",
+            "optimizer": "QuasiNewton",
+            "fmax": 0.1,
+            "max_steps": 3,
+        },
+    )
+
+    assert workflow.run() is None
+    assert Path("final_relaxed.traj").exists()
+
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "relax"
+    assert manifest["artifacts"] == [
+        {"role": "trajectory", "path": "relax.traj"},
+        {"role": "log", "path": "relax.log"},
+        {"role": "final_structure", "path": "final_relaxed.traj"},
+    ]
+    assert manifest["stages"] == [
+        {
+            "name": "relax",
+            "status": "complete",
+            "converged": converged_signal,
+            "role": "final",
+            "criterion": "ase_optimizer",
+            "fmax": 0.1,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 3,
+            "actual_steps": 4,
+        }
+    ]
+
+
+def test_relax_workflow_explicit_none_disables_manifest(monkeypatch, tmp_path):
+    """An explicit ``artifact_manifest: None`` writes no relax manifest."""
+    from atst_tools.workflows import relax
+
+    writes = []
+
+    class FakeOptimizer:
+        nsteps = 1
+
+        def __init__(self, atoms, trajectory=None, logfile=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            return True
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(relax.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(relax, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(
+        relax.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc
+    )
+    monkeypatch.setattr(relax, "QuasiNewton", FakeOptimizer)
+    monkeypatch.setattr(
+        relax, "write_artifact_manifest", lambda path, **kwargs: writes.append(str(path))
+    )
+
+    workflow = relax.RelaxWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "relax",
+            "init_structure": "init.traj",
+            "optimizer": "QuasiNewton",
+            "artifact_manifest": None,
+        },
+    )
+
+    assert workflow.run() is None
+    assert writes == []
+    assert not Path("atst_artifacts.json").exists()
 
 
 def test_vibration_workflow_writes_results(monkeypatch, tmp_path):

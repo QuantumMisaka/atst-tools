@@ -82,6 +82,7 @@ class D2SWorkflow:
         self._rough_stage_record = {"name": "rough_neb", "status": "complete"}
         self._rough_ts_guess = None
         self._rough_candidate_index = None
+        self._endpoint_records: list[StageRecord] = []
         self._single_ended_stage_record: StageRecord | None = None
 
         if self.method not in {"dimer", "sella", "ccqn"}:
@@ -164,22 +165,21 @@ class D2SWorkflow:
         )
 
     def optimize_endpoints(self, init_atoms, final_atoms):
-        """Optimize or validate both NEB endpoints and report their stages.
+        """Optimize or validate both NEB endpoints.
 
         An endpoint skipped by restart or by ``skip_if_has_results`` gets a
         record with ``status="skipped"`` and no optimizer-owned facts, because
         no optimizer ran for it.  Endpoints receive no convergence advisory of
-        their own.
+        their own.  The per-endpoint :class:`StageRecord` objects are exposed as
+        ``self._endpoint_records`` in ``initial``/``final`` order so the public
+        return value stays the historical ``(init_atoms, final_atoms)`` pair.
 
         Args:
             init_atoms: Initial-state endpoint.
             final_atoms: Final-state endpoint.
 
         Returns:
-            A ``(init_atoms, final_atoms, records)`` tuple, where ``records``
-            holds one :class:`StageRecord` per endpoint in ``initial``/``final``
-            order, or the legacy disabled-stage dict when endpoint optimization
-            is switched off.
+            A ``(init_atoms, final_atoms)`` tuple of the endpoint structures.
         """
         endpoint_config = self._endpoint_optimization_config()
         fmax = endpoint_config["fmax"]
@@ -195,7 +195,10 @@ class D2SWorkflow:
                 directories=("IS_SP", "FS_SP"),
                 context="D2S",
             )
-            return endpoints[0], endpoints[-1], [{"name": "endpoint_optimization", "status": "skipped"}]
+            self._endpoint_records = [
+                StageRecord(name="endpoint_optimization", status="skipped")
+            ]
+            return endpoints[0], endpoints[-1]
 
         print("=== Step 1: Optimizing Endpoints ===")
         skip_if_has_results = endpoint_config["skip_if_has_results"]
@@ -239,7 +242,8 @@ class D2SWorkflow:
                 )
             )
 
-        return init_atoms, final_atoms, records
+        self._endpoint_records = records
+        return init_atoms, final_atoms
 
     def run_rough_neb(self, init_atoms, final_atoms):
         """Run the rough DyNEB stage and record the FIRE optimizer's facts.
@@ -387,6 +391,9 @@ class D2SWorkflow:
             "status": "complete",
             "experimental": True,
             "tmax": tmax,
+            # DMF exposes no optimizer termination signal, so convergence stays
+            # explicitly unknown instead of being inferred from completion.
+            "converged": None,
         }
         return chain
 
@@ -499,6 +506,9 @@ class D2SWorkflow:
             return ccqn_traj
 
         sella_config = self._single_config_with_directory("SELLA")
+        # D2S owns the top-level manifest, so the nested Sella refinement must
+        # not write one of its own.
+        sella_config["artifact_manifest"] = None
         sella_traj = sella_config["trajectory"]
         if self.restart and os.path.exists(sella_traj):
             print(f"=== Sella trajectory exists ({sella_traj}); skipping single-ended step ===")
@@ -600,15 +610,18 @@ class D2SWorkflow:
 
         The manifest records one stage per performed step: endpoint
         optimization, rough path, single-ended refinement and the optional
-        vibration analysis.  Artifacts, prints, return value and exit semantics
-        are unchanged.
+        vibration analysis.  Every stage is an explicit :class:`StageRecord`,
+        so a disabled or stubbed step is reported as ``skipped`` or as an
+        unknown convergence signal instead of an invented fact.  Artifacts,
+        prints, return value and exit semantics are unchanged.
         """
         init_file = self.calc_config["init_file"]
         final_file = self.calc_config["final_file"]
 
         init_atoms = read_structure(init_file)
         final_atoms = read_structure(final_file)
-        init_atoms, final_atoms, endpoint_records = self.optimize_endpoints(init_atoms, final_atoms)
+        init_atoms, final_atoms = self.optimize_endpoints(init_atoms, final_atoms)
+        endpoint_records = self._endpoint_records
 
         if self.rough_method == "dmf":
             neb_chain = self.run_rough_dmf(init_atoms, final_atoms)
@@ -640,7 +653,15 @@ class D2SWorkflow:
         if single_ended_record is None:
             # The refinement was handled by a caller-provided stub, so no
             # optimizer-owned fact is available for it.
-            single_ended_record = {"name": self.method, "status": "complete"}
+            single_ended_record = StageRecord(
+                name=self.method,
+                role="final",
+                status="complete",
+            )
+        vibration_record = StageRecord(
+            name="vibration",
+            status="complete" if vibration_config.get("enabled") else "skipped",
+        )
         write_artifact_manifest(
             self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
             workflow="d2s",
@@ -649,7 +670,7 @@ class D2SWorkflow:
                 *(_stage_payload(record) for record in endpoint_records),
                 _stage_payload(self._rough_stage_record),
                 _stage_payload(single_ended_record),
-                {"name": "vibration", "status": "complete" if vibration_config.get("enabled") else "skipped"},
+                _stage_payload(vibration_record),
             ],
         )
         print("=== D2S Workflow Finished ===")
