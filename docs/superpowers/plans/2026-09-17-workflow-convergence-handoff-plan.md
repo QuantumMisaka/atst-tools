@@ -255,9 +255,11 @@ Deferred review findings (triage; status):
 
 A4 remainder:
 
-- A4-2 (in flight): synthesized stage carries `converged: null`; PYTHON_API_REFERENCE documents the stage contract; language-gate holes closed; NEB parallel stage test.
-- A4-3: generate canonical serialized manifest fixtures (true/false/null, skipped, IRC directions, AutoNEB subset, D2S constituents, legacy missing records, api-synthesized) plus the field reference, and run producer-consumer fixture agreement with the Paimon P3 consumer (joint step; depends on the Paimon-side worktree/P3 readiness).
+- A4-2 (`997c072`): API-synthesized completion stages now serialize through `StageRecord` (`converged: null`); `docs/user/PYTHON_API_REFERENCE.md` gained the "Workflow stage records" contract section; the language gate covers `logger.log` and `add_argument(help=...)`; the NEB rank-topology manifest test pins parallel `[ordinary_neb_warmup, ci_neb]` vs serial endpoint-prefixed stages; seven Chinese comments were translated; the helper docstring now states the runtime `forward`/`reverse` IRC directions.
+- A4-3 (`c3df747`): ten canonical fixtures under `docs/reports/data/convergence_fixtures_20260917/` (tri-state, skipped, NEB stages/endpoints, IRC directions, AutoNEB windows, D2S constituents, synthesized, legacy) generated through the real serialization helpers, plus a README contract and `tests/unit/test_convergence_fixtures.py`; full suite 824 passed, 19 skipped.
+- Remaining A4 step: run producer-consumer fixture agreement with the Paimon P3 consumer — joint step, depends on their stages projection being implemented; the fixtures and field reference are ready for handoff.
 - Pre-existing observation recorded: `D2SSellaConfig.directory`/`D2SCCQNConfig.directory` default to `None`, so `_single_config_with_directory`'s `setdefault` never applies the intended subdirectory — unrelated to this plan, candidate for a later hardening pass.
+- Residual notes: six older Chinese comments (from `4c96691`) remain in `tests/unit/test_workflows.py` (dev-facing, pre-existing); the language gate deliberately scans runtime call shapes only (`add_parser(help=...)`, parser description/epilog and `choices` labels remain outside it).
 
 Additional observations retained without action in this batch:
 

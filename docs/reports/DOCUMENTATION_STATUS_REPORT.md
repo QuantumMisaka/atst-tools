@@ -10,7 +10,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
-- 2026-09-17：执行 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)（`feature/workflow-convergence`，基于 `origin/main` `cf86790`）：共享 convergence helper（三态记录 + 英文 advisory + root-only 发射）落地；Sella/CCQN/Relax/IRC/NEB/AutoNEB/D2S 的优化器返回值与阶段事实已持久化，复合工作流（D2S/AutoNEB）由顶层 workflow 唯一拥有 manifest；运行期诊断全英文并有 AST 机械门禁（`tests/unit/test_program_output_language.py`）。剩余：A4 稳定 API/summary 交接与 Sella/Relax durable record 归属、A5 文档收尾（FEATURE_STATUS_MATRIX 在发布准备时更新）、A6 下一 patch 发布，以及真实 MPI/ABACUS 运行时验收。Paimon 消费适配由其仓库独立计划负责，本记录不表示发布或运行时验收完成。
+- 2026-09-17：执行 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)（`feature/workflow-convergence`，基于 `origin/main` `cf86790`）：共享 convergence helper（三态记录 + 英文 advisory + root-only 发射）落地；Sella/CCQN/Relax/IRC/NEB/AutoNEB/D2S 的优化器返回值与阶段事实已持久化，Sella/Relax 也自写默认路径 manifest，复合工作流（D2S/AutoNEB）由顶层 workflow 唯一拥有 manifest；API synthesized 阶段显式 `converged: null` 并在 `PYTHON_API_REFERENCE` 记录阶段契约；运行期诊断全英文并有 AST 机械门禁；A4 交接 fixtures（`docs/reports/data/convergence_fixtures_20260917/`）已生成并有契约测试。剩余：A4-3 的 Paimon 联合消费验收（依赖其 P3 实现）、A5 文档收尾（`FEATURE_STATUS_MATRIX` 在发布准备时更新）、A6 下一 patch 发布，以及真实 MPI/ABACUS 运行时验收。Paimon 消费适配由其仓库独立计划负责，本记录不表示发布或运行时验收完成。
 - 2026-09-17：计划归档收口：7 个已在发布/文档/测试中吸收结论的旧计划与 2 个 `docs/developer/plans/` 遗留文件移入 `docs/archive/pending_delete/plans/`；活跃计划目录只保留仍待执行的计划，并要求在账本登记（`check_docs_governance.py` 机械校验）。
 
 - 本轮治理依据是已接受的
@@ -144,7 +144,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 生命周期 | 当前职责 |
 | :--- | :--- | :--- |
-| `docs/superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md` | plan | 执行中：共享 convergence helper 与各 workflow 阶段事实（含 IRC 方向、AutoNEB 窗口、D2S constituent）已落地，运行期诊断英文机械门禁生效；剩余 A4 API/summary 交接、Sella/Relax durable record 与 A5/A6 收尾；不引入 Paimon/调度依赖。 |
+| `docs/superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md` | plan | 执行中：A2/A3/A4 代码与文档已落地（含 Sella/Relax durable record、synthesized unknown 语义、API 阶段契约与交接 fixtures）；剩余 Paimon 联合消费验收、A5/A6 收尾；不引入 Paimon/调度依赖。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
