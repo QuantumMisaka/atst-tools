@@ -12,6 +12,7 @@ import pytest
 from atst_tools.utils.convergence import (
     EXECUTION_STATUSES,
     StageRecord,
+    as_finite_float,
     as_step_count,
     emit_unconverged_advisory,
 )
@@ -160,6 +161,25 @@ def test_as_step_count_degrades_unusable_values(value, expected):
     assert as_step_count(value) == expected
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        (None, None),
+        (0.05, 0.05),
+        (0, 0.0),
+        (np.float64(0.1), 0.1),
+        (True, None),
+        (float("nan"), None),
+        (float("inf"), None),
+        ("0.05", None),
+        (object(), None),
+    ),
+)
+def test_as_finite_float_degrades_unusable_values(value, expected):
+    """Caller-supplied numeric facts degrade to None instead of raising."""
+    assert as_finite_float(value) == expected
+
+
 def test_to_manifest_includes_present_optionals_and_round_trips():
     """Every populated optional key is emitted and survives json.dumps."""
     record = StageRecord(
@@ -238,7 +258,11 @@ def test_to_manifest_omits_none_valued_optionals():
 
 
 def test_advisory_message_tokens_for_unconverged_stage(capsys):
-    """An explicit False prints exactly one stable-token advisory."""
+    """An explicit False prints exactly one advisory with the canonical rendering.
+
+    This is the single deliberate full-rendering test; the other advisory tests
+    lock only stable semantic tokens so wording can evolve without breaking them.
+    """
     record = StageRecord(
         name="ci_neb",
         converged=False,
@@ -273,11 +297,15 @@ def test_advisory_appends_direction_and_iteration_tokens(capsys):
     assert emit_unconverged_advisory(record, workflow="irc") is True
 
     captured = capsys.readouterr()
-    assert captured.out == (
-        "Warning: IRC finished without satisfying its optimizer convergence criteria\n"
-        "(workflow=irc, stage=irc_backward, threshold_fmax=0.02 eV/Angstrom, "
-        "direction=backward, iteration=3).\n" + ADVISORY_TAIL
-    )
+    for token in (
+        "workflow=irc",
+        "stage=irc_backward",
+        "threshold_fmax=0.02 eV/Angstrom",
+        "direction=backward",
+        "iteration=3",
+    ):
+        assert token in captured.out
+    assert captured.out.endswith(ADVISORY_TAIL)
 
 
 def test_advisory_omits_absent_optional_tokens(capsys):
@@ -287,11 +315,9 @@ def test_advisory_omits_absent_optional_tokens(capsys):
     assert emit_unconverged_advisory(record, workflow="autoneb") is True
 
     captured = capsys.readouterr()
-    assert captured.out == (
-        "Warning: AUTONEB finished without satisfying its optimizer convergence "
-        "criteria\n"
-        "(workflow=autoneb, stage=endpoint_relax).\n" + ADVISORY_TAIL
-    )
+    assert "workflow=autoneb" in captured.out
+    assert "stage=endpoint_relax" in captured.out
+    assert captured.out.endswith(ADVISORY_TAIL)
     assert "None" not in captured.out
 
 
@@ -347,11 +373,15 @@ def test_advisory_is_root_only_on_a_multi_rank_world(capsys):
     follower_emitted = emit_unconverged_advisory(record, workflow="neb", world=follower)
     follower_output = capsys.readouterr()
 
-    assert root_output.out == (
-        "Warning: NEB finished without satisfying its optimizer convergence criteria\n"
-        "(workflow=neb, stage=ci_neb, threshold_fmax=0.05 eV/Angstrom, "
-        "nsteps=42, max_steps=100).\n" + ADVISORY_TAIL
-    )
+    for token in (
+        "workflow=neb",
+        "stage=ci_neb",
+        "threshold_fmax=0.05 eV/Angstrom",
+        "nsteps=42",
+        "max_steps=100",
+    ):
+        assert token in root_output.out
+    assert root_output.out.endswith(ADVISORY_TAIL)
     assert follower_output.out == ""
     assert follower_output.err == ""
     # The return value is rank-independent so callers never branch on rank state.

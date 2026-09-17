@@ -8,6 +8,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.convergence import (
     StageRecord,
+    as_finite_float,
     as_step_count,
     emit_unconverged_advisory,
 )
@@ -122,8 +123,8 @@ class RelaxWorkflow:
                 role="final",
                 criterion="ase_optimizer",
                 converged=converged_signal,
-                fmax=self.fmax,
-                steps=self.max_steps,
+                fmax=as_finite_float(self.fmax),
+                steps=as_step_count(self.max_steps),
                 actual_steps=as_step_count(getattr(opt, "nsteps", None)),
             ),
             workflow="relax",

@@ -23,6 +23,7 @@ from atst_tools.utils.mpi import run_rank_zero_section
 __all__ = [
     "EXECUTION_STATUSES",
     "StageRecord",
+    "as_finite_float",
     "as_step_count",
     "emit_unconverged_advisory",
 ]
@@ -196,6 +197,30 @@ def as_step_count(value: Any) -> int | None:
         number = float(value)
         if math.isfinite(number) and number.is_integer() and number >= 0:
             return int(number)
+    return None
+
+
+def as_finite_float(value: Any) -> float | None:
+    """Return a finite float for a caller-owned value, else ``None``.
+
+    Diagnostics must never corrupt a completed workflow, so numeric facts that
+    arrive through unvalidated entry points (direct workflow construction,
+    embedded API dataclasses) degrade to ``None`` when they are unusable.
+    Explicit :class:`StageRecord` fields keep their strict validation.
+
+    Args:
+        value: Candidate numeric value, for example a configured ``fmax``.
+
+    Returns:
+        ``None`` when the value is unusable (bool, non-real, ``nan`` or
+        ``inf``), otherwise the value as a plain ``float``.
+    """
+    if isinstance(value, (bool, np.bool_)) or value is None:
+        return None
+    if isinstance(value, Real):
+        number = float(value)
+        if math.isfinite(number):
+            return number
     return None
 
 

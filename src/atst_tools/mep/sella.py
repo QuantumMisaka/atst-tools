@@ -14,6 +14,7 @@ from sella import Sella
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.convergence import (
     StageRecord,
+    as_finite_float,
     as_step_count,
     emit_unconverged_advisory,
 )
@@ -125,8 +126,8 @@ class AbacusSella:
             role="final",
             criterion="sella_projected_force+constraint",
             converged=converged_signal,
-            fmax=fmax,
-            steps=self.max_steps,
+            fmax=as_finite_float(fmax),
+            steps=as_step_count(self.max_steps),
             actual_steps=as_step_count(getattr(dyn, "nsteps", None)),
         )
         emit_unconverged_advisory(record, workflow="sella")

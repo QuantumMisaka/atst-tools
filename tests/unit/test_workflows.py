@@ -1973,6 +1973,37 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
     ]
 
 
+def test_abacus_ccqn_tolerates_unvalidated_float_max_steps(monkeypatch, tmp_path):
+    """An embedded-API float step budget still completes and persists the record."""
+    from atst_tools.mep import ccqn as ccqn_module
+
+    def fake_run(self, **kwargs):
+        self.nsteps = 5
+        return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ccqn_module.CCQNOptimizer, "run", fake_run)
+
+    manifest = tmp_path / "atst_artifacts.json"
+    result = ccqn_module.AbacusCCQN(
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]]),
+        {},
+        "abacus",
+        {
+            "artifact_manifest": str(manifest),
+            "reactive_bonds": "1-2",
+            "fmax": 0.05,
+            "max_steps": 30.0,
+        },
+        calculator=DummyCalc(),
+    ).run()
+
+    assert result.calc is not None
+    stages = json.loads(manifest.read_text(encoding="utf-8"))["stages"]
+    assert stages[0]["steps"] == 30
+    assert stages[0]["converged"] is False
+
+
 def test_abacus_sella_uses_legacy_root_abacus_directory(monkeypatch):
     from atst_tools.mep import sella as sella_module
 
@@ -2235,6 +2266,50 @@ def test_relax_workflow_convergence_signal_controls_warning(
         ):
             assert token in captured.out
     assert ("run", 0.1, 3) in events
+    assert ("write", "final_relaxed.traj") in events
+
+
+def test_relax_workflow_tolerates_unvalidated_float_max_steps(monkeypatch, tmp_path, capsys):
+    """A completed optimization keeps its artifacts when diagnostics degrade."""
+    from atst_tools.workflows import relax
+
+    events = []
+
+    class FakeOptimizer:
+        nsteps = 2
+
+        def __init__(self, atoms, trajectory=None, logfile=None):
+            pass
+
+        def run(self, fmax=None, steps=None):
+            events.append(("run", fmax, steps))
+            return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(relax.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(relax, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(relax, "write", lambda filename, atoms: events.append(("write", filename)))
+    monkeypatch.setattr(
+        relax.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc
+    )
+    monkeypatch.setattr(relax, "QuasiNewton", FakeOptimizer)
+
+    workflow = relax.RelaxWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "relax",
+            "init_structure": "init.traj",
+            "optimizer": "QuasiNewton",
+            "fmax": 0.1,
+            "max_steps": 3.0,
+        },
+    )
+
+    assert workflow.run() is None
+    captured = capsys.readouterr()
+    assert "workflow=relax" in captured.out
+    assert "max_steps=3" in captured.out
     assert ("write", "final_relaxed.traj") in events
 
 

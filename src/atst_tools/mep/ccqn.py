@@ -24,6 +24,7 @@ from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.convergence import (
     StageRecord,
+    as_finite_float,
     as_step_count,
     emit_unconverged_advisory,
 )
@@ -576,8 +577,8 @@ class AbacusCCQN:
             role="final",
             criterion="ccqn_prfo",
             converged=converged_signal,
-            fmax=fmax_threshold,
-            steps=max_steps,
+            fmax=as_finite_float(fmax_threshold),
+            steps=as_step_count(max_steps),
             actual_steps=as_step_count(getattr(optimizer, "nsteps", None)),
         )
         emit_unconverged_advisory(stage_record, workflow="ccqn")
