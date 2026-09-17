@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
 **版本**: 2.2.5
-**日期**: 2026-09-16
+**日期**: 2026-09-17
 **状态**: 已发布（PyPI clean-install 已验证）
 **责任人**: ATST-Tools maintainers
 
@@ -9,6 +9,9 @@
 L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
+
+- 2026-09-17：登记并修订 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)，状态为待执行。范围为各优化工作流收敛事实的 manifest/API/summary 交接；收敛阶段记录与 advisory 由共享 helper 单点实现，运行期诊断统一英文（含既有 4 处中文 advisory 与 `reverse_config` 消息的 bounded sweep 及语言检查），复用已有 NEB 阶段字段与 `atst-artifacts-v1` 兼容契约，不改变优化算法或执行完成语义。基线已按实际状态修订：2.2.5 已发布，执行从 `origin/main`（`cf86790`）建分支，预期进入下一 patch 序列。Paimon 消费适配由其仓库独立计划负责，本记录不表示实现、发布或运行时验收完成。
+- 2026-09-17：计划归档收口：7 个已在发布/文档/测试中吸收结论的旧计划与 2 个 `docs/developer/plans/` 遗留文件移入 `docs/archive/pending_delete/plans/`；活跃计划目录只保留仍待执行的计划，并要求在账本登记（`check_docs_governance.py` 机械校验）。
 
 - 本轮治理依据是已接受的
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
@@ -141,17 +144,17 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 生命周期 | 当前职责 |
 | :--- | :--- | :--- |
+| `docs/superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md` | plan | 待执行：Sella/CCQN/Relax、NEB/AutoNEB、IRC 与组合阶段的收敛事实持久化（共享 convergence helper 单点拥有记录/英文 advisory/root-only 发射）、顶层 workflow 唯一 manifest 所有权、synthesized manifest=执行完成但收敛 unknown、运行期诊断统一英文及稳定 API/summary 兼容；不引入 Paimon/调度依赖。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |
 | `docs/superpowers/specs/2026-09-04-user-distribution-and-mpi-installation-design.html` | spec | 本地实施完成，2.2.4 已发布；GitHub/PyPI 外部验收已登记，Gitee 渲染按授权范围排除：GitHub 规范源 / 维护者手动拉取的 Gitee 同内容只读镜像 / PyPI 分发、跨渠道用户入口、串行与 image-parallel MPI 安装分层，以及 SAI 维护证据边界设计。 |
-| `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | plan | 执行完成并已发布 2.2.4；记录 GitHub/PyPI 验收、clean-install 证据、CI drift 注册修复和 Gitee 排除范围。 |
 | `docs/superpowers/specs/2026-09-04-github-governance-and-release-gates-design.html` | spec | 本地实施完成，待 GitHub 设置与发布后外部验收：GitHub 治理、按需跨家族审阅证据、发布前机械门禁和 GitHub/PyPI/Gitee 发布后责任边界。 |
-| `docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md` | plan | 本地实施完成，待 GitHub 设置与发布后外部验收：发布就绪检查、CI/PyPI preflight、治理文档和最终外部验收边界。 |
 
 ### L4: 历史或已被取代材料
 
-L4 材料不保留在活跃 `docs/reports/` 或 `docs/developer/plans/` 中。本轮移动到
+L4 材料不保留在活跃 `docs/reports/`、`docs/developer/plans/` 或
+`docs/superpowers/plans/` 中。本轮移动到
 `docs/archive/pending_delete/` 的文件见第 6 节。
 
 ## 5. 归档目录规则
@@ -165,6 +168,15 @@ L4 材料不保留在活跃 `docs/reports/` 或 `docs/developer/plans/` 中。�
 
 | 原路径 | 新路径 | 判据 |
 | :--- | :--- | :--- |
+| `docs/superpowers/plans/2026-07-02-abacuslite-backend-upstream-issue-fixes.md` | `docs/archive/pending_delete/plans/2026-07-02-abacuslite-backend-upstream-issue-fixes.md` | 计划自记 implementation 完成；vendored 补丁身份与上游同步纪律由 `PATCHES.md`、`ABACUSLITE_SNAPSHOT.md` 和 2026-08-04 跨仓计划承载。 |
+| `docs/superpowers/plans/2026-07-05-atst-cli-banner.md` | `docs/archive/pending_delete/plans/2026-07-05-atst-cli-banner.md` | `atst banner` 已发布并有 CLI 测试与用户文档覆盖。 |
+| `docs/superpowers/plans/2026-07-05-ci-test-development.md` | `docs/archive/pending_delete/plans/2026-07-05-ci-test-development.md` | snapshot-drift checker、abacuslite 工作流和通用 PR 测试工作流已上线；结论由 HANDOVER 与 CI 契约承载。 |
+| `docs/superpowers/plans/2026-07-22-abacus-agent-atst-api-adoption.md` | `docs/archive/pending_delete/plans/2026-07-22-abacus-agent-atst-api-adoption.md` | runner 消费已落地：toolbox 通过 `python -m atst_tools.api.runner` 与 JSON handoff 接入。 |
+| `docs/superpowers/plans/2026-09-04-user-distribution-and-mpi-installation.md` | `docs/archive/pending_delete/plans/2026-09-04-user-distribution-and-mpi-installation.md` | 执行完成并已发布 2.2.4；结论已吸收到 README、用户指南和 release notes。 |
+| `docs/superpowers/plans/2026-09-04-github-governance-and-release-gates.md` | `docs/archive/pending_delete/plans/2026-09-04-github-governance-and-release-gates.md` | 仓库侧治理门禁已实施并被 2.2.4/2.2.5 发布实际使用；剩余管理员设置不在仓库可验证范围。 |
+| `docs/superpowers/plans/2026-09-16-abacuslite-periodic-frame-validation-225-release.md` | `docs/archive/pending_delete/plans/2026-09-16-abacuslite-periodic-frame-validation-225-release.md` | 已随 2.2.5 发布完成；证据保存在 release notes 与账本发布记录。 |
+| `docs/developer/plans/DMF-integrate-and-test-plan.md` | `docs/archive/pending_delete/plans/DMF-integrate-and-test-plan.md` | DMF 已作为 experimental workflow 与 D2S rough method 落地，当前边界由 FEATURE_STATUS_MATRIX 和 DMF 报告承载。 |
+| `docs/developer/plans/Direct-MaxFlux-方法调研.md` | `docs/archive/pending_delete/plans/Direct-MaxFlux-方法调研.md` | 临时问答笔记，已由 DMF research report 和维护文档取代。 |
 | `docs/developer/plans/native-ase-backend.md` | `docs/archive/pending_delete/plans/native-ase-backend.md` | 计划主体已落地，后续边界由 native ASE backend review、用户配置文档和测试覆盖。 |
 | `docs/reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md` | `docs/archive/pending_delete/reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md` | 仍以旧 refactor 阶段作为当前基线，已落后于 CCQN、并行 NEB、artifact manifest 等当前进展。 |
 | `docs/reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md` | `docs/archive/pending_delete/reports/USER_EXPERIENCE_REINFORCEMENT_2026-05-15.md` | 阶段性 UX 任务已由用户文档、CLI reference 和 artifact manifest 实现吸收。 |
@@ -188,8 +200,10 @@ L4 材料不保留在活跃 `docs/reports/` 或 `docs/developer/plans/` 中。�
 ## 7. 后续维护要求
 
 - 每次新增 workflow、calculator backend 或 YAML 变量时，同步更新用户文档、开发者治理文档、示例和测试。
-- 每次新增、归档或移动 report 时，同步更新本账本；只有核心入口才加入 `docs/index.md`。
+- 每次新增、归档或移动 report 或 spec/plan 时，同步更新本账本；活跃计划必须登记在
+  “Spec / Plan / Review 登记”表内；只有核心入口才加入 `docs/index.md`。
 - 阶段性审查文档完成任务后，先把结论吸收到长期文档或 release notes，再移出活跃集合。
 - `pending_delete/` 中的文件在最终删除前，不得从活跃入口链接。
 - 文档治理变更后运行 `python scripts/check_docs_governance.py`，确认活跃 reports
-  账本、metadata、active links、pending-delete inventory 和 HTML report 基础解析一致。
+  账本、spec/plan 登记、metadata、active links、pending-delete inventory 和 HTML
+  report 基础解析一致。

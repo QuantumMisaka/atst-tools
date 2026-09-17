@@ -40,6 +40,31 @@ Before deleting any file from this directory:
 
 ## Current Contents
 
+- `plans/2026-07-02-abacuslite-backend-upstream-issue-fixes.md`: implemented
+  vendored abacuslite fixes; upstream synchronization is tracked by
+  `PATCHES.md`, the snapshot baseline, and the cross-repo plan.
+- `plans/2026-07-05-atst-cli-banner.md`: `atst banner` shipped with CLI tests
+  and user documentation.
+- `plans/2026-07-05-ci-test-development.md`: snapshot-drift checker and
+  PR/abacuslite workflows shipped; conclusions live in the handover checklist
+  and CI contracts.
+- `plans/2026-07-22-abacus-agent-atst-api-adoption.md`: runner adoption
+  shipped; the toolbox consumes `python -m atst_tools.api.runner` and its JSON
+  handoff.
+- `plans/2026-09-04-user-distribution-and-mpi-installation.md`: completed and
+  released in 2.2.4; conclusions absorbed into README, user guide, and release
+  notes.
+- `plans/2026-09-04-github-governance-and-release-gates.md`: repository-side
+  release gates implemented and exercised by the 2.2.4/2.2.5 publications;
+  remaining GitHub administrator settings are outside repository verification.
+- `plans/2026-09-16-abacuslite-periodic-frame-validation-225-release.md`:
+  completed and released in 2.2.5; evidence recorded in the release notes and
+  the documentation ledger.
+- `plans/DMF-integrate-and-test-plan.md`: DMF shipped as an experimental
+  workflow and D2S rough method; current boundaries are in the feature status
+  matrix and DMF reports.
+- `plans/Direct-MaxFlux-方法调研.md`: temporary Q&A note superseded by the DMF
+  research report and maintained documentation.
 - `plans/native-ase-backend.md`: implementation plan now covered by the native
   ASE backend selector, schema/docs/tests, and maintained backend review.
 - `reports/PROJECT_REFACTOR_REVIEW_2026-05-15.md`: old refactor-stage baseline

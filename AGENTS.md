@@ -10,12 +10,13 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - 代码库尽可能集成和封装，CLI设计尽可能兼顾易用和可扩展，仓库核心代码架构需要具备足够可扩展性。
 - Unit Test覆盖度足够且粒度合适，Example中需要覆盖项目各方面功能并作为用户快速上手入口。
 - 核心代码库各个函数需要具有精练且完整的，Google Style的docstring。
+- 程序性输出（stdout/stderr、warning、logging、异常消息、CLI help/错误）统一英文；文档保持现有语言，新增或修改的注释与 docstring 使用英文。
 - 项目一段开发任务结束后，需要基于项目文档治理机制，在docs/的合适位置完成更新。
 
 ### 仓库设计
 - 优化 user interface，使用 CLI + YAML inputs 进行工作流交互，并在examples/目录下留下示例交互模式。
-- 对于 abacus 的 ase interfaces，ATST-Tools 将从 ase-abacus 迁移到 abacuslite，此时 ATST-Tools 的基本定位是 abacuslite CLI wrapper，通过 abacuslite 完成abacus相关设置，并配合 ASE 开展计算任务。在这一设计下，ATST-Tools将尽可能不重写 ASE 的已有实现，尽可能做到 ASE-native。
-- temp_repos 不同步到 git 仓库，其中放置开发时可参考代码仓库
+- 对于 ABACUS 的 ASE interface，ATST-Tools 以 abacuslite 为 ASE calculator backend（迁移已完成）：优先导入环境中独立安装的 abacuslite，不可用时回退到 vendored 快照。ATST-Tools 的基本定位是 abacuslite CLI wrapper，通过 abacuslite 完成 ABACUS 相关设置，并配合 ASE 开展计算任务；尽可能不重写 ASE 的已有实现，做到 ASE-native。
+- temp_repos 不同步到 git 仓库，其中放置开发时可参考代码仓库（不保证存在于任意 checkout；依赖它的快照 drift-check 需先准备对应上游树）。
 
 ### 版本号语义
 
@@ -34,16 +35,17 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - 开展调用ABACUS和DeePMD-kit的测试需要将任务通过slurm脚本交到4V100节点上，使用GPU节点计算。对于ABACUS，你需要在INPUT中设置ks_solver cusolver (在默认的basis lcao下)。
 
 ### 基本边界
-- abacuslite 是项目的 ABACUS-ASE backend，vendored 快照在
+- abacuslite 是项目的 ABACUS-ASE backend，运行时默认走 vendored 快照
+  （若环境安装了独立 abacuslite 包则优先导入，external 为预留通道，尚无稳定发布）。vendored 快照在
   `src/atst_tools/external/ASE_interface`（对照上游
-  `temp_repos/abacus-develop/interfaces/ASE_interface`）。abacuslite 尚无稳定
-  发布通道（不在 PyPI），运行时一律走 vendored 快照，external 分支保留为预留
-  通道。维护模式为**本仓为主 + 定期上游同步**：修复先在 vendored 落地并登记
+  `temp_repos/abacus-develop/interfaces/ASE_interface`）。维护模式为
+  **本仓为主 + 定期上游同步**：修复先在 vendored 落地并登记
   `src/atst_tools/external/ASE_interface/PATCHES.md`，再向上游同步；基线 SHA
   记录于 `src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md`（CI
   `ABACUS_DEVELOP_REF` 的单一事实源），上游更新按该基线定期拉取。长期目标：
   abacuslite 可独立安装后改为直接依赖，退位 vendored。
-- ase-abacus 为项目main分支采用的legacy ABACUS-ASE backend，它位于temp_repos/ase-abacus，该仓库仅与main分支一同作为参考功能基线，不能参与项目开发。
+- ase-abacus 是 legacy ABACUS-ASE backend 参考基线，位于 temp_repos/ase-abacus
+  （若本地存在）；main 分支运行时不再使用，仅作功能对照，不能参与项目开发。
 - temp_repo下存放有本项目的可参考代码库，该目录下内容不进入git仓库。
 - 可拓展基于ase的分子动力学计算功能，并为其他的基于ase的模拟功能提供可扩展设计。
 
@@ -70,6 +72,9 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - `docs/developer/YAML_INPUT_GOVERNANCE.md`：YAML schema、生成参数文档和测试治理。
 - `docs/reports/DOCUMENTATION_STATUS_REPORT.md`：活跃文档和 reports 的治理账本。
 - `docs/reports/FEATURE_STATUS_MATRIX.md`：当前功能支持状态。
+- `docs/superpowers/specs/`、`docs/superpowers/plans/`：设计 spec 与待执行计划；
+  新增计划须在 `DOCUMENTATION_STATUS_REPORT.md` 登记，完成后吸收结论并移入
+  `docs/archive/pending_delete/` 复核。
 
 #### 变更后检查
 - 文档-only 变更至少运行：
@@ -77,5 +82,7 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
   git diff --check -- README.md docs examples/README.md AGENTS.md
   rg -n "^<<<<<<<|^=======|^>>>>>>>" README.md docs examples/README.md AGENTS.md
   ```
+- 运行 `conda run -n atst-dev python scripts/check_docs_governance.py`（账本、链接、
+  metadata、pending-delete 与计划登记检查）。
 - 修改 YAML schema 时，重新生成 `docs/user/YAML_INPUT_VARIABLES.md`，并运行 `tests/unit/test_config.py`。
 - 新增或移动 report 时，同步更新 `docs/reports/DOCUMENTATION_STATUS_REPORT.md`；被取代材料先进入 `docs/archive/pending_delete/` 复核，不直接删除。

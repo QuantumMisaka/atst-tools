@@ -1,7 +1,7 @@
 # 文档系统架构与结构图
 
-**版本**: 2026-09-06
-**日期**: 2026-09-16
+**版本**: 2026-09-17
+**日期**: 2026-09-17
 **状态**: 维护
 **责任人**: ATST-Tools maintainers
 
@@ -20,10 +20,12 @@ docs/
 ├── index.md                            # 三类读者的文档入口
 ├── user/                               # 用户指南、CLI/YAML 参考、backend 使用边界
 ├── developer/                          # 开发规范、文档治理、YAML 治理、发布和交接
-│   └── plans/                          # 仍计划执行的开发计划
 ├── reports/                            # 当前仍有证据价值的状态、验证、审查报告
 ├── releases/                           # 版本级发布说明
 ├── skills/                             # 可复用操作说明和 agent/developer quick reference
+├── superpowers/                        # 设计 spec 与开发计划
+│   ├── specs/                          # brainstorming 设计、审查结论和决策记录
+│   └── plans/                          # 仍计划执行的开发计划（须在治理账本登记）
 └── archive/                            # 历史归档；pending_delete/ 为待删除复核区
 ```
 
@@ -32,7 +34,8 @@ docs/
 | `docs/index.md` | 文档总入口和三条阅读路径 | 完整历史报告清单、临时计划 |
 | `docs/user/` | 用户手册、CLI/YAML 参考、ABACUS/DP 使用说明 | 阶段性开发计划、失败复盘 |
 | `docs/developer/` | 开发规范、治理规则、维护 checklist | 阶段验证报告 |
-| `docs/developer/plans/` | 仍要执行的计划 | 已完成计划、历史设想 |
+| `docs/superpowers/specs/` | 设计 spec、审查结论与决策记录 | 已执行完毕且不再影响当前设计的材料 |
+| `docs/superpowers/plans/` | 仍要执行的计划；新增计划须同步登记治理账本 | 已完成计划、历史设想 |
 | `docs/reports/` | 当前状态页、验证证据、仍有效的工程审查 | 已被最终报告取代的中间记录 |
 | `docs/releases/` | release notes | 日常开发报告 |
 | `docs/skills/` | 可复用操作手册 | 项目状态报告 |
@@ -50,7 +53,8 @@ docs/
 | `status` | 当前状态入口 | `docs/reports/` |
 | `validation` | 运行、单测、环境或科学验证证据 | `docs/reports/` |
 | `review` | 边界分析、迁移审查、方案权衡 | `docs/reports/` |
-| `plan` | 尚待执行的计划 | `docs/developer/plans/` |
+| `spec` | 设计来源、需求决策与审查结论 | `docs/superpowers/specs/` |
+| `plan` | 尚待执行的计划（须在治理账本登记） | `docs/superpowers/plans/` |
 | `release` | 版本级发布记录 | `docs/releases/` |
 | `archive` | 不再指导当前工作的历史材料 | `docs/archive/` |
 

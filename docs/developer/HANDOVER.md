@@ -28,6 +28,8 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 添加或更新 `examples/<case>/config*.yaml` 和 `examples/README.md`。
 - 更新 `docs/reports/FEATURE_STATUS_MATRIX.md`。
 - 添加或更新 workflow 测试、example 测试和必要验证报告。
+- 运行期消息（print/warning/logging/异常）统一英文；改动收敛或诊断文案时同步更新
+  锁定语义 token 的测试。
 
 ## 3. 新增或修改 YAML 字段
 
@@ -122,6 +124,9 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 只有当 report 是核心入口或当前重点证据时，才从 `docs/index.md` 链接。
 - 被取代的 report 先吸收结论，再移到 `docs/archive/` 或
   `docs/archive/pending_delete/`。
+- 新增 spec/plan 放入 `docs/superpowers/specs/` 或 `docs/superpowers/plans/`，
+  并在 `DOCUMENTATION_STATUS_REPORT.md` 登记；计划完成后先吸收结论，再移入
+  `docs/archive/pending_delete/plans/` 复核。
 
 ## 9. 准备 release
 
