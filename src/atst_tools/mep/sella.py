@@ -100,7 +100,8 @@ class AbacusSella:
             known ``False`` prints one shared English advisory and is recorded
             in the manifest without changing the returned structure.  The
             record is also exposed as ``last_stage_record`` for nesting
-            workflows, and an explicit ``artifact_manifest: None`` disables the
+            workflows, and an explicit programmatic ``artifact_manifest=None``
+            (internal contract used by nested D2S; not a YAML field) disables the
             manifest write so only the owning workflow (D2S) writes one.
         """
         if fmax is None:

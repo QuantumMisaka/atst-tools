@@ -1,0 +1,41 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "irc",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "sella_irc",
+      "status": "complete",
+      "converged": true,
+      "role": "final",
+      "criterion": "sella_irc_endpoint",
+      "direction": "forward",
+      "fmax": 0.03,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 50,
+      "actual_steps": 23
+    },
+    {
+      "name": "sella_irc",
+      "status": "complete",
+      "converged": false,
+      "role": "final",
+      "criterion": "sella_irc_endpoint",
+      "direction": "reverse",
+      "fmax": 0.03,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 50,
+      "actual_steps": 31
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "irc_trajectory",
+      "path": "irc.traj"
+    },
+    {
+      "role": "normalized_irc_trajectory",
+      "path": "irc_normalized.traj"
+    }
+  ]
+}

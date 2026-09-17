@@ -21,16 +21,34 @@ FIXTURES = (
     / "convergence_fixtures_20260917"
 )
 
+EXPECTED_FIXTURES = (
+    "api_synthesized.json",
+    "autoneb_windows.json",
+    "ccqn_null.json",
+    "d2s_constituents.json",
+    "irc_both_directions.json",
+    "legacy_no_stages.json",
+    "neb_endpoint_serial.json",
+    "neb_two_stage.json",
+    "relax_true.json",
+    "sella_false.json",
+)
+
 
 def _manifest(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
+def test_expected_fixture_set_is_present():
+    """The committed fixture set is pinned explicitly (nothing silently missing)."""
+    names = sorted(path.name for path in FIXTURES.glob("*.json"))
+
+    assert names == list(EXPECTED_FIXTURES)
+
+
 def test_every_fixture_is_a_readable_manifest():
     """All fixtures keep the atst-artifacts-v1 envelope."""
-    names = sorted(path.name for path in FIXTURES.glob("*.json"))
-    assert names, "fixture set must not be empty"
-    for name in names:
+    for name in EXPECTED_FIXTURES:
         manifest = _manifest(name)
         assert manifest["schema_version"] == "atst-artifacts-v1", name
         assert isinstance(manifest["workflow"], str) and manifest["workflow"], name
@@ -41,11 +59,11 @@ def test_every_fixture_is_a_readable_manifest():
 
 def test_stage_records_carry_name_status_and_tri_state_convergence():
     """Every recorded stage exposes name/status/converged; converged is tri-state."""
-    for path in sorted(FIXTURES.glob("*.json")):
-        for stage in _manifest(path.name)["stages"]:
-            assert set(stage) >= {"name", "status", "converged"}, path.name
-            assert stage["converged"] in (True, False, None), path.name
-            assert stage["status"] in {"complete", "skipped", "failed"}, path.name
+    for name in EXPECTED_FIXTURES:
+        for stage in _manifest(name)["stages"]:
+            assert set(stage) >= {"name", "status", "converged"}, name
+            assert stage["converged"] in (True, False, None), name
+            assert stage["status"] in {"complete", "skipped", "failed"}, name
 
 
 def test_irc_fixture_keeps_one_record_per_direction():
@@ -76,7 +94,9 @@ def test_synthesized_manifest_is_explicitly_unknown():
     """API synthesis means execution complete with convergence unknown."""
     manifest = _manifest("api_synthesized.json")
 
+    assert manifest["workflow"] == "sella"
     assert manifest["metadata"]["manifest_source"] == "api_synthesized"
+    assert manifest["stages"][0]["name"] == "sella"
     assert manifest["stages"][0]["converged"] is None
     assert manifest["stages"][0]["status"] == "complete"
 
@@ -89,7 +109,7 @@ def test_d2s_fixture_keeps_constituent_identity():
     assert by_name["endpoint_initial_relax"]["status"] == "skipped"
     assert by_name["rough_neb"]["converged"] is False
     assert by_name["sella"]["converged"] is True
-    assert by_name["vibration"]["status"] == "skipped"
+    assert by_name["vibration"]["status"] == "complete"
 
 
 def test_legacy_fixture_stays_unknown_instead_of_reconstructed_success():

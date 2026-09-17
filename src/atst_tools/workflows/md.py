@@ -23,6 +23,7 @@ from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 from atst_tools.calculators.factory import CalculatorFactory, _build_abacus_command
 from atst_tools.utils.abacus_io import _as_mp_kpts, _input_parameters, _merged_abacus_parameters
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.convergence import StageRecord
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.md_post import run_md_workflow_postprocess
@@ -215,7 +216,12 @@ class AseMDRunner:
                 {"role": "final_structure", "path": self.calc_config["final_structure"]},
                 *postprocess["artifacts"],
             ],
-            stages=[{"name": "ase_md", "status": "complete", "steps": self.calc_config["steps"]}],
+            stages=[
+                {
+                    **StageRecord(name="ase_md").to_manifest(),
+                    "steps": self.calc_config["steps"],
+                }
+            ],
             metadata=summary,
         )
 
@@ -397,8 +403,7 @@ class AbacusNativeMDRunner:
             ],
             stages=[
                 {
-                    "name": "abacus_native_md",
-                    "status": status,
+                    **StageRecord(name="abacus_native_md", status=status).to_manifest(),
                     "returncode": summary.get("returncode"),
                 }
             ],

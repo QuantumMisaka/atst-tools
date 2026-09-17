@@ -7,8 +7,9 @@ by the real serialization helpers (`StageRecord.to_manifest()` +
 
 Provenance: generated on 2026-09-17 from branch `feature/workflow-convergence`
 (see the branch commit history) with the shared
-`src/atst_tools/utils/convergence.py` helper. Regenerate with the same helper
-if the stage contract changes; do not hand-edit.
+`src/atst_tools/utils/convergence.py` helper. Regenerate with
+`conda run -n atst-dev python scripts/generate_convergence_fixtures.py`
+after any stage-contract change; do not hand-edit.
 
 | File | Covers |
 | :--- | :--- |

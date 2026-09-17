@@ -1,0 +1,82 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "autoneb",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "autoneb_iter",
+      "status": "complete",
+      "converged": true,
+      "role": "subset",
+      "criterion": "neb_fmax",
+      "iteration": 1,
+      "subset": [
+        1,
+        2,
+        3
+      ],
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 100,
+      "actual_steps": 100
+    },
+    {
+      "name": "autoneb_iter",
+      "status": "complete",
+      "converged": false,
+      "role": "subset",
+      "criterion": "neb_fmax",
+      "iteration": 2,
+      "subset": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 200
+    },
+    {
+      "name": "autoneb",
+      "status": "complete",
+      "converged": false,
+      "role": "final",
+      "criterion": "neb_fmax",
+      "iteration": 2,
+      "subset": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 200
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "image_trajectory",
+      "path": "run_autoneb000.traj"
+    },
+    {
+      "role": "image_trajectory",
+      "path": "run_autoneb001.traj"
+    },
+    {
+      "role": "image_trajectory",
+      "path": "run_autoneb002.traj"
+    },
+    {
+      "role": "image_trajectory",
+      "path": "run_autoneb003.traj"
+    },
+    {
+      "role": "image_trajectory",
+      "path": "run_autoneb004.traj"
+    }
+  ]
+}

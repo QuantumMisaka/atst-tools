@@ -1,0 +1,12 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "neb",
+  "metadata": {},
+  "stages": [],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "neb.traj"
+    }
+  ]
+}

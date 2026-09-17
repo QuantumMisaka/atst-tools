@@ -1,0 +1,24 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "sella",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "sella",
+      "status": "complete",
+      "converged": false,
+      "role": "final",
+      "criterion": "sella_projected_force+constraint",
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 100,
+      "actual_steps": 100
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "sella.traj"
+    }
+  ]
+}

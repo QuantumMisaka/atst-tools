@@ -1,0 +1,20 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "sella",
+  "metadata": {
+    "manifest_source": "api_synthesized"
+  },
+  "stages": [
+    {
+      "name": "sella",
+      "status": "complete",
+      "converged": null
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "sella.traj"
+    }
+  ]
+}

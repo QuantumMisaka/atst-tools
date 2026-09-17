@@ -1,0 +1,32 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "relax",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "relax",
+      "status": "complete",
+      "converged": true,
+      "role": "final",
+      "criterion": "ase_optimizer",
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 37
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "relax.traj"
+    },
+    {
+      "role": "log",
+      "path": "relax.log"
+    },
+    {
+      "role": "final_structure",
+      "path": "final_relaxed.traj"
+    }
+  ]
+}

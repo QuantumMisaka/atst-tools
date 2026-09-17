@@ -12,6 +12,7 @@ from atst_tools.utils.restart_helpers import clean_cache_files
 from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 from atst_tools.utils.ts_validation import build_ts_validation_summary
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.convergence import StageRecord
 
 class VibrationWorkflow:
     """
@@ -151,5 +152,5 @@ class VibrationWorkflow:
                 {"role": "vibration_results", "path": self.results_file},
                 {"role": "ts_validation", "path": self.validation_file},
             ],
-            stages=[{"name": "vibration", "status": "complete"}],
+            stages=[StageRecord(name="vibration").to_manifest()],
         )

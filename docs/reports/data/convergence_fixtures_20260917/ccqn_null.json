@@ -1,0 +1,28 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "ccqn",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "ccqn",
+      "status": "complete",
+      "converged": null,
+      "role": "final",
+      "criterion": "ccqn_prfo",
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 200
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "ccqn.traj"
+    },
+    {
+      "role": "ts_structure",
+      "path": "ccqn_final.extxyz"
+    }
+  ]
+}

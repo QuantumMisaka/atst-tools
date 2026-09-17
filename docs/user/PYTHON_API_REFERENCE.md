@@ -291,9 +291,10 @@ Workflow-level semantics of the records:
   executed iteration's scope and never claims whole-band convergence.
 - IRC writes one record per executed direction (`forward`, `reverse`, or both),
   each with its own convergence signal and per-direction step count.
-- Dimer refinement records `converged: null` in the standalone Dimer workflow
-  and in the D2S single-ended step, because Dimer exposes no optimizer
-  termination signal.
+- A standalone Dimer run writes no workflow manifest (Dimer exposes no
+  optimizer termination signal); an API run of it receives the synthesized
+  `converged: null` stage described below. Inside D2S, the Dimer single-ended
+  step records `converged: null` as a constituent stage.
 
 When an API run completes without a runner-written manifest, ATST synthesizes a
 completion manifest whose single stage is the workflow name with

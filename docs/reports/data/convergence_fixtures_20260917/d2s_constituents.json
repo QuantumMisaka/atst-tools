@@ -1,0 +1,70 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "d2s",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "endpoint_initial_relax",
+      "status": "skipped",
+      "converged": null,
+      "role": "endpoint",
+      "criterion": "ase_optimizer"
+    },
+    {
+      "name": "endpoint_final_relax",
+      "status": "complete",
+      "converged": true,
+      "role": "endpoint",
+      "criterion": "ase_optimizer",
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 100,
+      "actual_steps": 20
+    },
+    {
+      "name": "rough_neb",
+      "status": "complete",
+      "converged": false,
+      "role": "rough",
+      "criterion": "neb_fmax",
+      "fmax": 0.1,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 200
+    },
+    {
+      "name": "sella",
+      "status": "complete",
+      "converged": true,
+      "role": "final",
+      "criterion": "sella_projected_force+constraint",
+      "fmax": 0.05,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 200,
+      "actual_steps": 71
+    },
+    {
+      "name": "vibration",
+      "status": "complete",
+      "converged": null
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "rough_neb_trajectory",
+      "path": "neb_rough.traj"
+    },
+    {
+      "role": "single_ended_trajectory",
+      "path": "d2s_sella.traj"
+    },
+    {
+      "role": "vibration_results",
+      "path": "d2s_vibration.json"
+    },
+    {
+      "role": "ts_validation",
+      "path": "d2s_ts_validation.json"
+    }
+  ]
+}

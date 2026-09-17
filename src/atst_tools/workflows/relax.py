@@ -80,7 +80,8 @@ class RelaxWorkflow:
         advisory without changing the written artifacts, the printed summary
         or the implicit ``None`` return value.  After the final structure is
         written, the same record is persisted as this workflow's artifact
-        manifest; an explicit ``artifact_manifest: None`` disables that write.
+        manifest; an explicit programmatic ``artifact_manifest=None``
+        (internal contract; not a YAML field) disables that write.
         """
         print(f"=== Starting Relaxation with {self.calc_name} ===")
         
