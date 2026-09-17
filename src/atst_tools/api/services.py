@@ -28,6 +28,7 @@ from atst_tools.utils.artifacts import (
     write_artifact_manifest,
 )
 from atst_tools.utils.config import ConfigLoader
+from atst_tools.utils.convergence import StageRecord
 from atst_tools.utils.mpi import get_ase_world
 
 
@@ -506,7 +507,13 @@ def _ensure_completed_manifest(
     previous_signature: tuple[int, int, int, int] | None = None,
     plots: Sequence[str] = (),
 ) -> None:
-    """Guarantee that a completed API outcome has an accurate durable manifest."""
+    """Guarantee that a completed API outcome has an accurate durable manifest.
+
+    The synthesized completion manifest is built through the shared
+    :class:`StageRecord` contract, so its stage carries ``name``, ``status`` and
+    an explicit ``converged: null``: the run finished, but the API never owned
+    the optimizer signal and must not claim convergence.
+    """
     calculation = config["calculation"]
     workflow = calculation["type"]
     manifest_path = Path(calculation.get("artifact_manifest", "atst_artifacts.json"))
@@ -526,7 +533,7 @@ def _ensure_completed_manifest(
                     manifest_path,
                     workflow=workflow,
                     artifacts=_synthesized_artifacts(config, value),
-                    stages=[{"name": workflow, "status": "complete"}],
+                    stages=[StageRecord(name=workflow).to_manifest()],
                     metadata={"manifest_source": "api_synthesized"},
                     plots=plots,
                 )

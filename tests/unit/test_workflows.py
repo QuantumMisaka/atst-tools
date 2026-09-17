@@ -487,7 +487,7 @@ def test_run_neb_two_stage_omits_steps_for_null_stage1_steps(monkeypatch, tmp_pa
     assert warmup_stage["status"] == "complete"
     assert warmup_stage["converged"] is False
     assert warmup_stage["actual_steps"] == 4
-    # 未配置的上限不再写成 null，而是省略该可选键。
+    # An unconfigured step limit is omitted instead of being written as null.
     assert "steps" not in warmup_stage
 
 
@@ -543,7 +543,7 @@ def test_run_neb_convergence_signal_controls_warning_and_manifest(
     output = capsys.readouterr().out
     assert ("workflow=neb" in output) is warning_expected
     if warning_expected:
-        # 只锁稳定语义 token，不锁整句 prose。
+        # Assert stable semantic tokens only, never the full prose sentence.
         for token in (
             "stage=ci_neb",
             "threshold_fmax=0.05",
@@ -656,7 +656,8 @@ def test_run_neb_serial_endpoint_relaxation_records_stage_facts(monkeypatch, tmp
         "ordinary_neb_warmup",
         "ci_neb",
     ]
-    # 跳过的端点没有跑过优化器，不写收敛信号/阈值/步数。
+    # A skipped endpoint never ran the optimizer, so it records no convergence
+    # signal, threshold, or step count.
     assert manifest["stages"][0] == {
         "name": "endpoint_initial_relax",
         "status": "skipped",
@@ -675,7 +676,8 @@ def test_run_neb_serial_endpoint_relaxation_records_stage_facts(monkeypatch, tmp
         "steps": 7,
         "actual_steps": 6,
     }
-    # 端点不单独告警；只有 band 阶段的收敛信号决定 advisory。
+    # Endpoints never warn on their own; only the band stage signal drives the
+    # advisory.
     assert "workflow=neb" not in capsys.readouterr().out
 
 
@@ -988,7 +990,8 @@ def test_irc_descent_backend_records_stage_facts_and_advisory(monkeypatch, tmp_p
     ):
         assert token in captured.out
 
-    # descent 只沿模式方向做 FIRE 下降，不声明到达 Sella IRC 端点盆地。
+    # The descent only takes FIRE steps along the mode direction; it never
+    # claims to reach the Sella IRC endpoint basin.
     manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
     assert manifest["stages"] == [
         {
@@ -3495,7 +3498,8 @@ def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
         ):
             assert token in captured.out
 
-    # advisory warning 不改变 artifact manifest 的逐方向 stage 记录。
+    # The advisory warning does not change the per-direction stage records in
+    # the artifact manifest.
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     expected_converged = None if converged_signal is None else bool(converged_signal)
     assert manifest["stages"] == [
@@ -3561,7 +3565,8 @@ def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, t
     ):
         assert token in captured.out
 
-    # 逐方向 stage 记录各自携带方向、收敛信号与差分后的本方向步数。
+    # Each per-direction stage record carries its direction, convergence
+    # signal, and that direction's differenced step count.
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     assert [
         (

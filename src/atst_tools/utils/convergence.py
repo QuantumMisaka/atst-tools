@@ -295,7 +295,8 @@ class StageRecord:
         role: Stage role, for example ``"warmup"``, ``"final"``,
             ``"refinement"`` or ``"endpoint"``.
         criterion: Optimizer-owned criterion identity.
-        direction: IRC direction (``"forward"`` or ``"backward"``).
+        direction: IRC direction (runtime values are ``"forward"`` or
+            ``"reverse"``; the manifest carries the executed direction verbatim).
         iteration: AutoNEB iteration/subset identity.
         subset: Band-image indices optimized by that AutoNEB iteration; the
             explicit scope of the record, since one iteration only covers a

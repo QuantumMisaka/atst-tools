@@ -254,6 +254,58 @@ completed Relax run recovers its `final_relaxed.traj` result when the legacy
 runner returns no value, while summary mappings such as the experimental DMF
 result remain represented by output artifacts rather than `final_atoms`.
 
+### Workflow stage records
+
+The artifact manifest remains the durable authority for convergence facts. The
+result document exposes `artifact_manifest` (an absolute path) together with
+`artifacts` and `metadata`, and it deliberately does not copy `converged`
+values: a consumer that needs a convergence answer reads the manifest's
+`stages` list, or a summary built from the same file. The
+`atst-api-result-v1` handoff document stays a bounded execution envelope.
+
+Every entry of `stages` is one workflow stage and follows the same key
+contract:
+
+- `name`, `status` and `converged` are always present.
+- `role`, `criterion`, `direction`, `iteration`, `subset`, `fmax`,
+  `fmax_unit`, `steps`, `actual_steps`, `measured` and `measured_unit` are
+  written only when the stage actually carries that fact. An absent optional
+  key means "not applicable or not observed", never a zero or an invented
+  default; `fmax_unit` is omitted whenever no threshold was recorded.
+- `converged` is strictly `true`, `false` or `null`. `null` means unknown: the
+  stage did not run, or its optimizer never reported a termination signal. The
+  value is never truthiness-converted, so a consumer compares with `is True`
+  and `is False` instead of testing the field directly.
+- `status` describes execution only (`complete`, `skipped` or `failed`).
+  `status: "complete"` means the stage ran to its end; it never means the stage
+  converged, which only `converged` answers.
+
+Workflow-level semantics of the records:
+
+- One workflow owns exactly one top-level manifest. D2S aggregates its
+  endpoint, rough-path, single-ended refinement and vibration stages into its
+  own D2S manifest, and AutoNEB aggregates its per-iteration records; nested
+  constituent workflows do not write a second top-level manifest.
+- AutoNEB optimizes one window of the band per iteration, so each iteration
+  record carries its image `subset`. The final `autoneb` record reuses the last
+  executed iteration's scope and never claims whole-band convergence.
+- IRC writes one record per executed direction (`forward`, `reverse`, or both),
+  each with its own convergence signal and per-direction step count.
+- Dimer refinement records `converged: null` in the standalone Dimer workflow
+  and in the D2S single-ended step, because Dimer exposes no optimizer
+  termination signal.
+
+When an API run completes without a runner-written manifest, ATST synthesizes a
+completion manifest whose single stage is the workflow name with
+`status: "complete"` and `converged: null`: execution is complete, while the
+convergence signal stayed outside the API's knowledge. Such a stage is an
+execution record, not a convergence claim.
+
+Single-stage workflows (`relax`, `sella`, `ccqn`) are serial-only. ATST does not
+thread a communicator into them, and a multi-rank launch is not a supported
+topology for those three calculations: the per-stage advisory may then repeat
+once per rank, so launch them as a single process.
+
 ## Paths, MPI, and backends
 
 Relative paths retain the calling process's current working directory

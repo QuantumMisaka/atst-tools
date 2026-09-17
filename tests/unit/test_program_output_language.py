@@ -2,8 +2,10 @@
 
 The scan below is a mechanical AST check over ``src/atst_tools``: a string
 literal is flagged only when it is reachable from the arguments of a
-runtime-visible output call. Docstrings, comments and other developer-facing
-strings (module constants, comparison tables, ...) are intentionally allowed.
+runtime-visible output call (``print``, ``warn``, logging methods) or from the
+``help=`` keyword of an ``argparse`` ``add_argument`` call, which argparse
+prints to the terminal. Docstrings, comments and other developer-facing strings
+(module constants, comparison tables, ...) are intentionally allowed.
 """
 
 from __future__ import annotations
@@ -24,10 +26,16 @@ VENDORED_DIRNAME = "external"
 # other scripts are not part of this contract.
 _CJK_PATTERN = re.compile(r"[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
-# ``logging``/logger level methods whose message argument is runtime output.
+# ``logging``/logger level methods and the generic ``log`` dispatcher, whose
+# message argument is runtime output.
 _LOGGING_METHODS = frozenset(
-    {"debug", "info", "warning", "error", "critical", "exception"}
+    {"debug", "info", "warning", "error", "critical", "exception", "log"}
 )
+
+# ``argparse`` help strings are printed by the CLI at runtime, so the ``help=``
+# keyword of an ``add_argument`` call is part of the runtime output contract.
+_CLI_ARGUMENT_METHOD = "add_argument"
+_CLI_HELP_KEYWORD = "help"
 
 _SNIPPET_LIMIT = 80
 
@@ -59,6 +67,18 @@ def _output_arguments(node: ast.Call | ast.Raise) -> list[ast.expr]:
     return []
 
 
+def _help_arguments(node: ast.Call) -> list[ast.expr]:
+    """Return the ``help=`` expressions of an ``argparse`` ``add_argument`` call."""
+    func = node.func
+    if not isinstance(func, ast.Attribute) or func.attr != _CLI_ARGUMENT_METHOD:
+        return []
+    return [
+        keyword.value
+        for keyword in node.keywords
+        if keyword.arg == _CLI_HELP_KEYWORD
+    ]
+
+
 def _string_constants(node: ast.expr) -> Iterator[ast.Constant]:
     """Yield string constants inside an expression, including f-string parts."""
     for sub in ast.walk(node):
@@ -84,8 +104,14 @@ def find_cjk_output_literals(path: str | Path) -> list[str]:
     tree = ast.parse(module_path.read_text(encoding="utf-8"))
     offenders: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _is_output_call(node.func):
-            targets = _output_arguments(node)
+        if isinstance(node, ast.Call):
+            # ``add_argument`` is not an output sink itself, so only its
+            # runtime-visible ``help=`` string is scanned.
+            targets = (
+                _output_arguments(node)
+                if _is_output_call(node.func)
+                else _help_arguments(node)
+            )
         elif isinstance(node, ast.Raise):
             targets = _output_arguments(node)
         else:
@@ -169,6 +195,59 @@ def test_scan_ignores_docstrings_and_comments(tmp_path):
     )
 
     assert find_cjk_output_literals(module) == []
+
+
+def test_scan_detects_cjk_logging_log_call(tmp_path):
+    """The generic ``logger.log(level, message)`` dispatcher is runtime output."""
+    module = tmp_path / "cjk_logging_log.py"
+    module.write_text(
+        "\n".join(
+            [
+                "import logging",
+                "",
+                "LOGGER = logging.getLogger(__name__)",
+                "",
+                "def run(workflow):",
+                '    LOGGER.log(logging.INFO, "尚未支持的 workflow")',
+                '    LOGGER.log(logging.WARNING, f"缺少 INPUT: {workflow}")',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = find_cjk_output_literals(module)
+
+    assert len(offenders) == 2, offenders
+    assert any(item.startswith(f"{module}:6:") for item in offenders)
+    assert any(item.startswith(f"{module}:7:") for item in offenders)
+
+
+def test_scan_detects_cjk_argparse_help_but_not_positional_names(tmp_path):
+    """argparse ``help=`` strings are terminal output; flag names are not prose."""
+    module = tmp_path / "cjk_argparse_help.py"
+    module.write_text(
+        "\n".join(
+            [
+                "import argparse",
+                "",
+                "def build_parser():",
+                '    parser = argparse.ArgumentParser(description="ATST CLI")',
+                '    parser.add_argument("--kpt 中文", help="K 点采样设置")',
+                '    parser.add_argument("--fmax", help="Force threshold")',
+                '    parser.add_argument("--restart", action="store_true")',
+                "    return parser",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = find_cjk_output_literals(module)
+
+    assert len(offenders) == 1, offenders
+    assert offenders[0].startswith(f"{module}:5:")
+    assert "K 点采样设置" in offenders[0]
 
 
 def test_scan_reports_clean_module_as_clean(tmp_path):

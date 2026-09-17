@@ -633,7 +633,12 @@ def test_cli_adapter_preserves_raw_mpi_bootstrap_failure(monkeypatch):
 
 
 def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_path):
-    """Completed API calls never advertise a manifest the runner did not write."""
+    """Completed API calls never advertise a manifest the runner did not write.
+
+    The synthesized stage goes through the shared stage contract: execution is
+    complete while convergence stays explicitly unknown (``converged: null``),
+    because the API never owned the optimizer signal.
+    """
     from atst_tools.api import RunOptions, run_workflow
     from atst_tools.api import services
 
@@ -656,6 +661,9 @@ def test_run_workflow_synthesizes_missing_completed_manifest(monkeypatch, tmp_pa
         {"role": "trajectory", "path": "relax.traj"},
         {"role": "log", "path": "relax.log"},
         {"role": "final_structure", "path": "final_relaxed.traj"},
+    ]
+    assert manifest["stages"] == [
+        {"name": "relax", "status": "complete", "converged": None}
     ]
 
 
