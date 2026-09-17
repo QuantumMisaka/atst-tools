@@ -236,14 +236,28 @@ A3/A5 packages executed (2026-09-17, second batch):
 - Independent task review of `4d797a8..cd54b5d`: 0 Critical / 0 Important / 7 Minor. Requirement areas facts-truthfulness, single manifest owner, no duplicated advisory, root-only writes, no extra calculator calls, schema compatibility and the language gate were all found clean.
 - Review repairs in `4f88141`: (a) the advisory helper now enters the rank-zero section on every rank even when silent, so rank-divergent signals cannot desynchronize collectives; (b) a completed AutoNEB band that needed no iteration records one explicit `status="skipped"` final stage instead of a stage-less manifest. Full suite after repair: 801 passed, 19 skipped.
 
-Deferred review findings (triage; next packages):
+A4 rulings (2026-09-17, maintainer-confirmed direction):
 
-1. Add a rank-parametrized NEB test asserting the parallel stage list is exactly `[ordinary_neb_warmup, ci_neb]` while the serial list prefixes the endpoint records (finding 2, verification gap).
-2. D2S mixes three "did not run" encodings (`endpoint_optimization`/`vibration` dicts without `converged`; a `status="complete"` fallback without facts for stubbed constituents) — normalize them to explicit skipped/unknown StageRecords (finding 4).
-3. `D2SWorkflow.optimize_endpoints()` changed from a 2-tuple to a 3-tuple return; either expose records via an attribute or state the signature change in release notes (finding 5).
-4. Language gate holes (`logger.log`, argparse help/`parser.error` text) and seven Chinese comments added in `tests/unit/test_workflows.py` should be closed/translated (finding 6).
-5. D2S rough-stage facts should be asserted through the public manifest instead of the private `_rough_stage_record` (finding 7).
-6. Thread `world` into the single-stage (relax/sella/ccqn) advisory call sites where the API provides one, or document the serial-only assumption (first-batch review finding 2).
+- Sella/Relax write their own default-path `atst_artifacts.json` records (no new YAML field; AutoNEB set the precedent). The cost is one new side-effect file per standalone CLI/API run in the process CWD; the API preserves these runner-written manifests instead of synthesizing.
+- `D2SWorkflow.optimize_endpoints()` keeps its original 2-tuple return; endpoint records travel through `self._endpoint_records`, avoiding a public signature change.
+- Single-stage workflows (relax/sella/ccqn) remain serial-only: no `world` threading is added, and PYTHON_API_REFERENCE documents that multi-rank launches of these workflows are not a supported topology (advisories may repeat per rank if a user does it anyway).
+
+A4-1 package (`588f2b2`): Sella/Relax persist their records (stage facts + artifacts) at the default path; D2S nesting disables both nested writers and remains the single owner; `optimize_endpoints` restored to the 2-tuple; disabled endpoint/vibration and stub fallbacks normalized to explicit `name/status/converged` shapes; DMF rough record gains `converged: null`. Verified: focused 195 passed; `tests/unit` 812 passed, 2 skipped.
+
+Deferred review findings (triage; status):
+
+1. NEB parallel stage-list assertion — A4-2 package in flight.
+2. D2S mixed "did not run" encodings — resolved in A4-1.
+3. `optimize_endpoints` signature — resolved in A4-1 (2-tuple + attribute).
+4. Language gate holes + seven Chinese comments — A4-2 package in flight.
+5. D2S rough-stage public-manifest assertion — resolved in A4-1.
+6. Single-stage `world` threading — resolved by ruling (serial-only assumption, documented in A4-2 docs).
+
+A4 remainder:
+
+- A4-2 (in flight): synthesized stage carries `converged: null`; PYTHON_API_REFERENCE documents the stage contract; language-gate holes closed; NEB parallel stage test.
+- A4-3: generate canonical serialized manifest fixtures (true/false/null, skipped, IRC directions, AutoNEB subset, D2S constituents, legacy missing records, api-synthesized) plus the field reference, and run producer-consumer fixture agreement with the Paimon P3 consumer (joint step; depends on the Paimon-side worktree/P3 readiness).
+- Pre-existing observation recorded: `D2SSellaConfig.directory`/`D2SCCQNConfig.directory` default to `None`, so `_single_config_with_directory`'s `setdefault` never applies the intended subdirectory — unrelated to this plan, candidate for a later hardening pass.
 
 Additional observations retained without action in this batch:
 
