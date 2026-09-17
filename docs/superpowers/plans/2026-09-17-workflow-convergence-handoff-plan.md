@@ -7,7 +7,7 @@
 **Verification:** Focused behavior-first regressions, workflow/API/summary tests, a package-level program-output language check, standalone documentation checks, clean-wheel API/runner checks and applicable MPI tests under the repository development/release pipeline.
 
 **Date:** 2026-09-17
-**Status:** in progress (A0 complete; helper + Sella/CCQN/Relax migration landed and reviewed; see §6)
+**Status:** in progress (A0/A2/A3 landed and reviewed; A4 API handoff + Sella/Relax durable record, A5 closeout, A6 release remain; see §6)
 **Owner:** ATST maintainers/developer; Paimon developer owns consumer mapping and joint acceptance.
 
 ## 1. Scope and ownership
@@ -218,14 +218,39 @@ SDD packages executed (subagent-driven, controller-integrated):
 - `4932e0a` + `ef1c777` migration package: Sella consumes `dyn.run()`'s return (post-run `dyn.converged()` removed), CCQN persists the stage record into `atst_artifacts.json` and uses the shared advisory, Relax captures `opt.run()` and emits the shared advisory; English tokens replace the Chinese ones in the migrated tests.
 - Independent task review (`ea12740..4932e0a`, read-only child): no Critical findings; requirement areas 1/2/3/5/7/8 clean with runtime probes (sella 2.5.0 `run()` return equals post-run `converged()`; full suite 743 passed).
 - Review finding 1 (Important, accepted): strict `StageRecord` validation could abort a completed workflow through direct construction or the embedded `CCQNOptions` path (for example a float `max_steps` the optimizer accepts). Repaired in `ef1c777` with `as_step_count()` / `as_finite_float()` degrading adapters at the three call sites and float-step regressions for relax and CCQN; `StageRecord` itself stays strict. Full suite after repair: 754 passed, 19 skipped.
-- Review finding 2 (Minor, deferred to A3): the three single-stage call sites do not pass a `world`, so a multi-rank launch of relax/sella/ccqn would print the advisory once per rank. A3 must thread the communicator where one exists (`RunOptions.world` for embedded API runs) or record the serial-only advisory assumption explicitly.
+- Review finding 2 (Minor, deferred to the A4 API pass, see below): the three single-stage call sites do not pass a `world`, so a multi-rank launch of relax/sella/ccqn would print the advisory once per rank. Thread the communicator where one exists (`RunOptions.world` for embedded API runs) or record the serial-only advisory assumption explicitly.
 - Review finding 3 (Minor, fixed): helper tests pinned full advisory prose; they now assert stable tokens, with one deliberate canonical-rendering test.
 
 Remaining work (next packages):
 
-- A2 remainder + A3: migrate IRC/NEB Chinese advisories to the helper; capture AutoNEB iteration/subset facts, D2S constituent/endpoint facts and the NEB endpoint path; keep the single top-level manifest owner rule.
-- A1/A4: durable-record ownership for Sella/Relax/AutoNEB (manifest write vs api-synthesized record), API/summary projection and consumer fixtures; refresh `examples/12_ccqn_H2-Au/outputs/atst_artifacts_auto_modes*.json`; note `scripts/verify_wheel_api.py` monkeypatches `AbacusCCQN.run`, so it cannot catch stage-record regressions.
-- A5: complete the English sweep (`scripts/main.py` NEB advisory, `utils/reverse_config.py` messages), add the program-output language check, update API/workflow docs and ledgers.
+- A1/A4: durable-record ownership for Sella/Relax (manifest write vs api-synthesized record), API/summary projection and consumer fixtures; refresh curated example outputs (`examples/12_ccqn_H2-Au`, `examples/10_irc_H2`, `examples/02_neb_H2-Au`) with the new stage shape; note `scripts/verify_wheel_api.py` monkeypatches `AbacusCCQN.run`, so it cannot catch stage-record regressions.
+- A5: update API/workflow docs and ledgers for the new optional stage fields (`role`, `criterion`, `direction`, `iteration`, `subset`) and the English runtime rule.
+
+A3/A5 packages executed (2026-09-17, second batch):
+
+- `99d8d47` IRC/NEB migration: per-direction IRC records (Sella criterion + descent `ase_fire`, step deltas preserved), NEB warmup/final records with the shared advisory and unchanged rank-zero semantics, serial endpoint-relax records before the warmup stage.
+- `a25140b` AutoNEB: both engines capture every `qn.run()` outcome with its real image-subset window; the runner writes the single top-level manifest (rank-zero under MPI) with per-iteration records plus one final-scope record; no whole-band claim; `StageRecord.subset` added.
+- `afef4ac` D2S: endpoint/rough/refinement signals captured (dimer stays unknown), skipped stages stay truthful, and the nested CCQN can no longer overwrite the top-level manifest (`artifact_manifest=None` disables its write).
+- `2512589` language closeout: the last CJK runtime messages (`atst prepare` errors) are English and `tests/unit/test_program_output_language.py` mechanically gates print/warning/logging/raise content across `src/atst_tools` (vendored `external/` excluded).
+- `cd54b5d` ledger/HANDOVER registration of the gate and progress.
+- Independent task review of `4d797a8..cd54b5d`: 0 Critical / 0 Important / 7 Minor. Requirement areas facts-truthfulness, single manifest owner, no duplicated advisory, root-only writes, no extra calculator calls, schema compatibility and the language gate were all found clean.
+- Review repairs in `4f88141`: (a) the advisory helper now enters the rank-zero section on every rank even when silent, so rank-divergent signals cannot desynchronize collectives; (b) a completed AutoNEB band that needed no iteration records one explicit `status="skipped"` final stage instead of a stage-less manifest. Full suite after repair: 801 passed, 19 skipped.
+
+Deferred review findings (triage; next packages):
+
+1. Add a rank-parametrized NEB test asserting the parallel stage list is exactly `[ordinary_neb_warmup, ci_neb]` while the serial list prefixes the endpoint records (finding 2, verification gap).
+2. D2S mixes three "did not run" encodings (`endpoint_optimization`/`vibration` dicts without `converged`; a `status="complete"` fallback without facts for stubbed constituents) — normalize them to explicit skipped/unknown StageRecords (finding 4).
+3. `D2SWorkflow.optimize_endpoints()` changed from a 2-tuple to a 3-tuple return; either expose records via an attribute or state the signature change in release notes (finding 5).
+4. Language gate holes (`logger.log`, argparse help/`parser.error` text) and seven Chinese comments added in `tests/unit/test_workflows.py` should be closed/translated (finding 6).
+5. D2S rough-stage facts should be asserted through the public manifest instead of the private `_rough_stage_record` (finding 7).
+6. Thread `world` into the single-stage (relax/sella/ccqn) advisory call sites where the API provides one, or document the serial-only assumption (first-batch review finding 2).
+
+Additional observations retained without action in this batch:
+
+- The NEB manifest is written by every rank (pre-existing behavior); folding it into a root-only section is a hardening pass candidate.
+- AutoNEB records capture `climb`/`many_steps` but do not persist them; criterion provenance could distinguish the climbing-image window from build-up windows.
+- Vendored `external/ASE_interface/abacuslite` still contains 24 CJK runtime literals; it is outside the language contract and stays under the vendored patch/upstream-sync discipline.
+- Real MPI/ABACUS/DP runtime acceptance remains with the maintainer/SAI step; all rank evidence in this batch is fake-world based.
 
 ## 7. Plan delivery record
 
