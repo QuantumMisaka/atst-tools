@@ -160,3 +160,9 @@ python scripts/check_docs_governance.py
 conda run -n atst-dev python -m atst_tools.utils.config_docs --output docs/user/YAML_INPUT_VARIABLES.md
 conda run -n atst-dev pytest tests/unit/test_config.py -q
 ```
+
+改动运行期消息（print/warning/logging/异常/CLI 文案）时：
+
+```bash
+conda run -n atst-dev pytest tests/unit/test_program_output_language.py -q
+```

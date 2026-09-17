@@ -10,7 +10,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
-- 2026-09-17：登记并修订 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)，状态为待执行。范围为各优化工作流收敛事实的 manifest/API/summary 交接；收敛阶段记录与 advisory 由共享 helper 单点实现，运行期诊断统一英文（含既有 4 处中文 advisory 与 `reverse_config` 消息的 bounded sweep 及语言检查），复用已有 NEB 阶段字段与 `atst-artifacts-v1` 兼容契约，不改变优化算法或执行完成语义。基线已按实际状态修订：2.2.5 已发布，执行从 `origin/main`（`cf86790`）建分支，预期进入下一 patch 序列。Paimon 消费适配由其仓库独立计划负责，本记录不表示实现、发布或运行时验收完成。
+- 2026-09-17：执行 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)（`feature/workflow-convergence`，基于 `origin/main` `cf86790`）：共享 convergence helper（三态记录 + 英文 advisory + root-only 发射）落地；Sella/CCQN/Relax/IRC/NEB/AutoNEB/D2S 的优化器返回值与阶段事实已持久化，复合工作流（D2S/AutoNEB）由顶层 workflow 唯一拥有 manifest；运行期诊断全英文并有 AST 机械门禁（`tests/unit/test_program_output_language.py`）。剩余：A4 稳定 API/summary 交接与 Sella/Relax durable record 归属、A5 文档收尾（FEATURE_STATUS_MATRIX 在发布准备时更新）、A6 下一 patch 发布，以及真实 MPI/ABACUS 运行时验收。Paimon 消费适配由其仓库独立计划负责，本记录不表示发布或运行时验收完成。
 - 2026-09-17：计划归档收口：7 个已在发布/文档/测试中吸收结论的旧计划与 2 个 `docs/developer/plans/` 遗留文件移入 `docs/archive/pending_delete/plans/`；活跃计划目录只保留仍待执行的计划，并要求在账本登记（`check_docs_governance.py` 机械校验）。
 
 - 本轮治理依据是已接受的
@@ -144,7 +144,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 生命周期 | 当前职责 |
 | :--- | :--- | :--- |
-| `docs/superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md` | plan | 待执行：Sella/CCQN/Relax、NEB/AutoNEB、IRC 与组合阶段的收敛事实持久化（共享 convergence helper 单点拥有记录/英文 advisory/root-only 发射）、顶层 workflow 唯一 manifest 所有权、synthesized manifest=执行完成但收敛 unknown、运行期诊断统一英文及稳定 API/summary 兼容；不引入 Paimon/调度依赖。 |
+| `docs/superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md` | plan | 执行中：共享 convergence helper 与各 workflow 阶段事实（含 IRC 方向、AutoNEB 窗口、D2S constituent）已落地，运行期诊断英文机械门禁生效；剩余 A4 API/summary 交接、Sella/Relax durable record 与 A5/A6 收尾；不引入 Paimon/调度依赖。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design.html` | spec | abacuslite 力读取一致性与跨仓维护设计（R1-R8 / D1-D8 / P1-P8），含 CI 基线单一事实源 `ABACUSLITE_SNAPSHOT.md`（R4/P6）与文档账本登记要求（R7/P8）。 |
 | `docs/superpowers/specs/2026-08-04-abacuslite-cross-repo-and-force-read-design-review.md` | review | spec 两轮审查结论与 P1-P8 缺口补强记录；全部结论已落入 spec。 |
 | `docs/superpowers/plans/2026-08-04-abacuslite-force-read-and-cross-repo-plan.md` | plan | abacuslite 力读取一致性与跨仓维护分阶段实施计划（Task 1-9），含 Task 5 CI 基线单一事实源改造。 |

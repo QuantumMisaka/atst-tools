@@ -187,7 +187,7 @@ def build_config_from_abacus_dir(
         if key.lower() not in _DROP_INPUT_KEYS
         and key.lower() not in _PROMOTE_INPUT_KEYS
     }
-    # 技术地板：calculation -> scf，cal_force -> 1
+    # Technical floors: calculation -> scf, cal_force -> 1
     parameters["calculation"] = "scf"
     parameters["cal_force"] = 1
 
