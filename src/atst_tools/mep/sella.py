@@ -131,4 +131,7 @@ class AbacusSella:
             actual_steps=as_step_count(getattr(dyn, "nsteps", None)),
         )
         emit_unconverged_advisory(record, workflow="sella")
+        # Expose the same record to callers (e.g. nested D2S refinement) so the
+        # owning workflow can persist the facts without re-deriving them.
+        self.last_stage_record = record
         return ts_atoms

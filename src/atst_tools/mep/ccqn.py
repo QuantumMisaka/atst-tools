@@ -513,7 +513,10 @@ class AbacusCCQN:
         The optimizer's ``run()`` return value is treated as the authoritative
         convergence signal: a known ``False`` prints one shared English
         advisory, and the same record is written as the manifest stage.  The
-        return value and the artifact list are unaffected by the advisory.
+        return value and the artifact list are unaffected by the advisory.  The
+        record is also exposed as ``last_stage_record`` for nesting workflows,
+        and an explicit ``artifact_manifest: None`` disables the manifest write
+        so only the owning workflow writes one.
 
         Returns:
             The optimized ASE ``Atoms`` object.
@@ -582,6 +585,9 @@ class AbacusCCQN:
             actual_steps=as_step_count(getattr(optimizer, "nsteps", None)),
         )
         emit_unconverged_advisory(stage_record, workflow="ccqn")
+        # Expose the same record to callers (e.g. nested D2S refinement) so the
+        # owning workflow can persist the facts without re-deriving them.
+        self.last_stage_record = stage_record
         final_structure = self.calc_config.get("final_structure")
         if final_structure:
             os.makedirs(os.path.dirname(final_structure) or ".", exist_ok=True)
@@ -593,10 +599,14 @@ class AbacusCCQN:
             artifacts.append({"role": "ccqn_mode_manifest", "path": self.calc_config["mode_manifest"]})
         if self.calc_config.get("diagnostics_file"):
             artifacts.append({"role": "ccqn_diagnostics", "path": self.calc_config["diagnostics_file"]})
-        write_artifact_manifest(
-            self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
-            workflow="ccqn",
-            artifacts=artifacts,
-            stages=[stage_record.to_manifest()],
-        )
+        # An explicit ``None`` disables the manifest, which lets a nesting
+        # workflow (D2S) stay the only writer of the top-level manifest.
+        manifest_path = self.calc_config.get("artifact_manifest", "atst_artifacts.json")
+        if manifest_path is not None:
+            write_artifact_manifest(
+                manifest_path,
+                workflow="ccqn",
+                artifacts=artifacts,
+                stages=[stage_record.to_manifest()],
+            )
         return atoms

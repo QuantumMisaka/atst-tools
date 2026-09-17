@@ -42,7 +42,15 @@ def test_d2s_workflow_uses_unified_constructor(monkeypatch, tmp_path):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(
         d2s.D2SWorkflow,
         "run_rough_neb",
@@ -82,7 +90,15 @@ def test_d2s_rough_method_dmf_feeds_single_ended_stage(monkeypatch, tmp_path):
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -135,7 +151,15 @@ def test_d2s_rough_method_dmf_uses_tmax_candidate_as_ts_guess(monkeypatch, tmp_p
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -177,7 +201,15 @@ def test_d2s_rough_method_dmf_uses_tmax_index_when_path_energies_are_missing(mon
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -223,7 +255,15 @@ def test_d2s_rough_method_dmf_uses_summary_t_eval_for_candidate_index(monkeypatc
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -265,7 +305,15 @@ def test_d2s_rough_method_dmf_falls_back_to_uniform_index_for_legacy_summary(mon
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms())
-    monkeypatch.setattr(d2s.D2SWorkflow, "optimize_endpoints", lambda self, a, b: (a, b))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "optimize_endpoints",
+        lambda self, a, b: (
+            a,
+            b,
+            [{"name": "endpoint_optimization", "status": "skipped"}],
+        ),
+    )
     monkeypatch.setattr(d2s, "DMFWorkflow", FakeDMFWorkflow)
     monkeypatch.setattr(
         d2s.D2SWorkflow,
@@ -2079,6 +2127,18 @@ def test_abacus_sella_convergence_signal_controls_warning(
             "does not imply",
         ):
             assert token in captured.out
+    # Nesting workflows (D2S) reuse the same record instead of re-deriving it.
+    assert workflow.last_stage_record.to_manifest() == {
+        "name": "sella",
+        "status": "complete",
+        "converged": None if converged_signal is None else bool(converged_signal),
+        "role": "final",
+        "criterion": "sella_projected_force+constraint",
+        "fmax": 0.1,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 30,
+        "actual_steps": 2,
+    }
 
 
 @pytest.mark.parametrize(
@@ -2100,7 +2160,7 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
     monkeypatch.setattr(ccqn_module.CCQNOptimizer, "run", fake_run)
 
     manifest = tmp_path / "atst_artifacts.json"
-    result = ccqn_module.AbacusCCQN(
+    runner = ccqn_module.AbacusCCQN(
         Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]]),
         {},
         "abacus",
@@ -2111,7 +2171,8 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
             "max_steps": 30,
         },
         calculator=DummyCalc(),
-    ).run()
+    )
+    result = runner.run()
 
     captured = capsys.readouterr()
     assert ("workflow=ccqn" in captured.out) is warning_expected
@@ -2142,7 +2203,54 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
             "actual_steps": 5,
         }
     ]
+    assert runner.last_stage_record.to_manifest() == json.loads(
+        manifest.read_text(encoding="utf-8")
+    )["stages"][0]
 
+
+def test_abacus_ccqn_manifest_owner_rule(monkeypatch, tmp_path):
+    """Standalone CCQN keeps its default manifest; an explicit None disables it."""
+    from atst_tools.mep import ccqn as ccqn_module
+
+    def atoms():
+        return Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]])
+
+    def fake_run(self, **kwargs):
+        self.nsteps = 1
+        return False
+
+    writes = []
+
+    def record(path, **kwargs):
+        writes.append(str(path))
+        return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ccqn_module, "write_artifact_manifest", record)
+    monkeypatch.setattr(ccqn_module.CCQNOptimizer, "run", fake_run)
+
+    ccqn_module.AbacusCCQN(
+        atoms(),
+        {},
+        "abacus",
+        {"reactive_bonds": "1-2"},
+        calculator=DummyCalc(),
+    ).run()
+    assert writes == ["atst_artifacts.json"]
+
+    writes.clear()
+    runner = ccqn_module.AbacusCCQN(
+        atoms(),
+        {},
+        "abacus",
+        {"artifact_manifest": None, "reactive_bonds": "1-2"},
+        calculator=DummyCalc(),
+    )
+    result = runner.run()
+
+    assert writes == []
+    assert runner.last_stage_record.to_manifest()["converged"] is False
+    assert result.calc is not None
 
 def test_abacus_ccqn_tolerates_unvalidated_float_max_steps(monkeypatch, tmp_path):
     """An embedded-API float step budget still completes and persists the record."""
@@ -2262,6 +2370,7 @@ def test_d2s_vibration_auto_indices_writes_results(monkeypatch, tmp_path):
 
 
 def test_d2s_endpoint_optimization_skips_valid_inputs(monkeypatch, tmp_path):
+    """Endpoints skipped for existing results claim no optimizer-owned facts."""
     from atst_tools.workflows import d2s
 
     calls = []
@@ -2281,11 +2390,27 @@ def test_d2s_endpoint_optimization_skips_valid_inputs(monkeypatch, tmp_path):
         "dp",
         {"type": "d2s", "method": "dimer", "endpoint_optimization": {"enabled": True}},
     )
-    init_atoms, final_atoms = workflow.optimize_endpoints(_atoms(1.0), _atoms(2.0))
+    init_atoms, final_atoms, records = workflow.optimize_endpoints(_atoms(1.0), _atoms(2.0))
 
     assert init_atoms.get_potential_energy() == 1.0
     assert final_atoms.get_potential_energy() == 2.0
     assert calls == []
+    assert [record.to_manifest() for record in records] == [
+        {
+            "name": "endpoint_initial_relax",
+            "status": "skipped",
+            "converged": None,
+            "role": "endpoint",
+            "criterion": "ase_optimizer",
+        },
+        {
+            "name": "endpoint_final_relax",
+            "status": "skipped",
+            "converged": None,
+            "role": "endpoint",
+            "criterion": "ase_optimizer",
+        },
+    ]
 
 
 def test_d2s_endpoint_optimization_runs_for_missing_results(monkeypatch, tmp_path):
@@ -2317,11 +2442,15 @@ def test_d2s_endpoint_optimization_runs_for_missing_results(monkeypatch, tmp_pat
     init_atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
     final_atoms = Atoms("H", positions=[[1.0, 0.0, 0.0]])
 
-    init_atoms, final_atoms = workflow.optimize_endpoints(init_atoms, final_atoms)
+    init_atoms, final_atoms, records = workflow.optimize_endpoints(init_atoms, final_atoms)
 
     assert init_atoms.get_potential_energy() == 3.0
     assert final_atoms.get_potential_energy() == 3.0
     assert calls == [("init", "opt_is.log"), ("run", 0.2, 4), ("init", "opt_fs.log"), ("run", 0.2, 4)]
+    assert [record.name for record in records] == ["endpoint_initial_relax", "endpoint_final_relax"]
+    assert [record.status for record in records] == ["complete", "complete"]
+    # The stub optimizer returns None, so the signal stays unknown.
+    assert [record.converged for record in records] == [None, None]
 
 
 def test_d2s_endpoint_optimization_disabled_never_rejects_missing_results(tmp_path):
@@ -2343,6 +2472,411 @@ def test_d2s_endpoint_optimization_disabled_never_rejects_missing_results(tmp_pa
             Atoms("H", positions=[[0.0, 0.0, 0.0]]),
             Atoms("H", positions=[[1.0, 0.0, 0.0]]),
         )
+
+
+def test_d2s_endpoint_optimization_records_converged_and_steps_per_endpoint(monkeypatch, tmp_path):
+    """Each optimized endpoint reports its own optimizer signal and step count."""
+    from atst_tools.workflows import d2s
+
+    class FakeOptimizer:
+        def __init__(self, atoms, logfile=None):
+            self.atoms = atoms
+
+        def run(self, fmax=None, steps=None):
+            # The initial endpoint stops short, the final endpoint converges.
+            if self.atoms.positions[0, 0] < 0.5:
+                self.nsteps = 7
+                return False
+            self.nsteps = 3
+            return True
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "QuasiNewton", FakeOptimizer)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "endpoint_optimization": {
+                "enabled": True,
+                "skip_if_has_results": False,
+                "fmax": 0.03,
+                "max_steps": 9,
+            },
+        },
+    )
+
+    _, _, records = workflow.optimize_endpoints(
+        Atoms("H", positions=[[0.0, 0.0, 0.0]]),
+        Atoms("H", positions=[[1.0, 0.0, 0.0]]),
+    )
+
+    assert [record.to_manifest() for record in records] == [
+        {
+            "name": "endpoint_initial_relax",
+            "status": "complete",
+            "converged": False,
+            "role": "endpoint",
+            "criterion": "ase_optimizer",
+            "fmax": 0.03,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 9,
+            "actual_steps": 7,
+        },
+        {
+            "name": "endpoint_final_relax",
+            "status": "complete",
+            "converged": True,
+            "role": "endpoint",
+            "criterion": "ase_optimizer",
+            "fmax": 0.03,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 9,
+            "actual_steps": 3,
+        },
+    ]
+
+
+def test_d2s_run_manifests_disabled_endpoint_stage_as_skipped(monkeypatch, tmp_path):
+    """Disabled endpoint optimization is recorded as skipped, not complete."""
+    from atst_tools.workflows import d2s
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_rough_neb",
+        lambda self, a, b: [_atoms(0.0), _atoms(1.0), _atoms(0.2)],
+    )
+    monkeypatch.setattr(d2s.D2SWorkflow, "run_single_ended", lambda self, chain, idx, guess: "single.traj")
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "endpoint_optimization": {"enabled": False},
+            "endpoint_singlepoint": "never",
+        },
+    )
+    workflow.run()
+
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["workflow"] == "d2s"
+    assert manifest["stages"][0] == {"name": "endpoint_optimization", "status": "skipped"}
+    assert [stage["name"] for stage in manifest["stages"]] == [
+        "endpoint_optimization",
+        "rough_neb",
+        "dimer",
+        "vibration",
+    ]
+    assert manifest["stages"][-1] == {"name": "vibration", "status": "skipped"}
+
+
+def test_d2s_rough_neb_records_fire_return_and_step_count(monkeypatch, tmp_path):
+    """The rough DyNEB stage keeps the previously discarded FIRE result."""
+    from atst_tools.workflows import d2s
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.2), _atoms(0.0)]
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            return chain
+
+    class FakeOptimizer:
+        nsteps = 12
+
+        def __init__(self, neb, trajectory=None, **kwargs):
+            return None
+
+        def run(self, fmax=None, steps=None):
+            return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(d2s.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(d2s, "DyNEB", lambda images, **kwargs: object())
+    monkeypatch.setattr(d2s, "FIRE", FakeOptimizer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "neb": {"n_images": 2, "fmax": 0.7, "max_steps": 11},
+        },
+    )
+    workflow.run_rough_neb(chain[0], chain[-1])
+
+    assert workflow._rough_stage_record.to_manifest() == {
+        "name": "rough_neb",
+        "status": "complete",
+        "converged": False,
+        "role": "rough",
+        "criterion": "neb_fmax",
+        "fmax": 0.7,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 11,
+        "actual_steps": 12,
+    }
+
+
+def test_d2s_rough_neb_restart_skip_records_skipped_stage(monkeypatch, tmp_path):
+    """A restart that reuses neb_rough.traj claims no convergence signal."""
+    from atst_tools.workflows import d2s
+
+    monkeypatch.chdir(tmp_path)
+    Path("neb_rough.traj").write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        d2s,
+        "get_last_neb_band",
+        lambda path, count: [_atoms(0.0), _atoms(1.0)],
+    )
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "restart": True,
+        },
+    )
+    chain = workflow.run_rough_neb(_atoms(0.0), _atoms(0.0))
+
+    assert len(chain) == 2
+    assert workflow._rough_stage_record.to_manifest() == {
+        "name": "rough_neb",
+        "status": "skipped",
+        "converged": None,
+        "role": "rough",
+        "criterion": "neb_fmax",
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "trajectory", "expected"),
+    (
+        (
+            "dimer",
+            "dimer.traj",
+            {
+                "name": "dimer",
+                "status": "skipped",
+                "converged": None,
+                "role": "final",
+                "criterion": "dimer",
+            },
+        ),
+        (
+            "sella",
+            "sella.traj",
+            {"name": "sella", "status": "skipped", "converged": None, "role": "final"},
+        ),
+        (
+            "ccqn",
+            "ccqn.traj",
+            {"name": "ccqn", "status": "skipped", "converged": None, "role": "final"},
+        ),
+    ),
+)
+def test_d2s_single_ended_restart_skip_records_skipped_stage(
+    monkeypatch, tmp_path, method, trajectory, expected
+):
+    """Restart skips stay skipped for every refinement method."""
+    from atst_tools.workflows import d2s
+
+    def fail_construction(*args, **kwargs):
+        raise AssertionError("restart must not construct the refinement optimizer")
+
+    monkeypatch.chdir(tmp_path)
+    Path(trajectory).write_text("", encoding="utf-8")
+    monkeypatch.setattr(d2s, "AbacusDimer", fail_construction)
+    monkeypatch.setattr(d2s, "AbacusSella", fail_construction)
+    monkeypatch.setattr(d2s, "AbacusCCQN", fail_construction)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "d2s",
+            "method": method,
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "restart": True,
+        },
+    )
+    chain = [_atoms(0.0), _atoms(1.0), _atoms(0.2)]
+
+    result = workflow.run_single_ended(chain, 1, chain[1].copy())
+
+    assert result == trajectory
+    assert workflow._single_ended_stage_record.to_manifest() == expected
+
+
+def test_d2s_ccqn_refinement_reuses_constituent_record(monkeypatch, tmp_path):
+    """The refinement's own record is reused and its nested manifest is disabled."""
+    from atst_tools.utils.convergence import StageRecord
+    from atst_tools.workflows import d2s
+
+    captured = {}
+    record = StageRecord(
+        name="ccqn",
+        role="final",
+        criterion="ccqn_prfo",
+        converged=False,
+        fmax=0.05,
+        steps=200,
+        actual_steps=4,
+    )
+
+    class FakeCCQN:
+        def __init__(self, init_Atoms, config, calc_name, calc_config, **kwargs):
+            captured["config"] = calc_config
+            captured["traj_file"] = kwargs.get("traj_file")
+            self.last_stage_record = record
+
+        def run(self):
+            return None
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "AbacusCCQN", FakeCCQN)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {"type": "d2s", "method": "ccqn", "init_file": "i.traj", "final_file": "f.traj"},
+    )
+    chain = [_atoms(0.0), _atoms(1.0), _atoms(0.2)]
+
+    result = workflow.run_single_ended(chain, 1, chain[1].copy())
+
+    assert result == "ccqn.traj"
+    assert captured["traj_file"] == "ccqn.traj"
+    assert captured["config"]["artifact_manifest"] is None
+    assert workflow._single_ended_stage_record is record
+
+
+def test_d2s_ccqn_refinement_writes_only_the_top_level_manifest(monkeypatch, tmp_path, capsys):
+    """D2S stays the single manifest writer when CCQN runs as a nested refinement."""
+    from atst_tools.mep import ccqn as ccqn_module
+    from atst_tools.workflows import d2s
+
+    d2s_writes = []
+    ccqn_writes = []
+
+    def record_d2s(path, **kwargs):
+        d2s_writes.append((path, kwargs))
+        return None
+
+    def record_ccqn(path, **kwargs):
+        ccqn_writes.append((path, kwargs))
+        return None
+
+    class FakeOptimizer:
+        nsteps = 5
+
+        def __init__(self, atoms, **kwargs):
+            self.atoms = atoms
+
+        def run(self, fmax=None, steps=None):
+            return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(d2s.D2SWorkflow, "run_rough_neb", lambda self, a, b: [_atoms(0.0), _atoms(1.0)])
+    monkeypatch.setattr(d2s, "write_artifact_manifest", record_d2s)
+    monkeypatch.setattr(ccqn_module, "write_artifact_manifest", record_ccqn)
+    monkeypatch.setattr(ccqn_module, "CCQNOptimizer", FakeOptimizer)
+    monkeypatch.setattr(ccqn_module.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "d2s",
+            "method": "ccqn",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "endpoint_optimization": {"enabled": False},
+            "endpoint_singlepoint": "never",
+        },
+    )
+    workflow.run()
+
+    assert [kwargs["workflow"] for _, kwargs in d2s_writes] == ["d2s"]
+    assert ccqn_writes == []
+    # Only the constituent warns; D2S must not repeat the refinement advisory.
+    assert capsys.readouterr().out.count("workflow=ccqn") == 1
+    stages = {stage["name"]: stage for stage in d2s_writes[0][1]["stages"]}
+    assert stages["ccqn"] == {
+        "name": "ccqn",
+        "status": "complete",
+        "converged": False,
+        "role": "final",
+        "criterion": "ccqn_prfo",
+        "fmax": 0.05,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 200,
+        "actual_steps": 5,
+    }
+
+
+def test_d2s_dimer_refinement_manifests_unknown_convergence(monkeypatch, tmp_path):
+    """The dimer refinement invents no convergence signal in the manifest."""
+    from atst_tools.workflows import d2s
+
+    class FakeDimer:
+        def __init__(self, atoms, config, calc_name, calc_config, **kwargs):
+            self.traj_file = kwargs.get("traj_file")
+
+        def run(self, fmax=None, max_steps=None):
+            write(self.traj_file, _atoms(1.0))
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s, "read_structure", lambda filename: _atoms(1.0))
+    monkeypatch.setattr(
+        d2s.D2SWorkflow,
+        "run_rough_neb",
+        lambda self, a, b: [_atoms(0.0), _atoms(1.0), _atoms(0.2)],
+    )
+    monkeypatch.setattr(d2s, "AbacusDimer", FakeDimer)
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "d2s",
+            "method": "dimer",
+            "init_file": "i.traj",
+            "final_file": "f.traj",
+            "endpoint_optimization": {"enabled": False},
+            "endpoint_singlepoint": "never",
+        },
+    )
+    workflow.run()
+
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    dimer_stage = next(stage for stage in manifest["stages"] if stage["name"] == "dimer")
+    assert dimer_stage == {
+        "name": "dimer",
+        "status": "complete",
+        "converged": None,
+        "role": "final",
+        "criterion": "dimer",
+    }
 
 
 def test_relax_workflow_runs_with_mocked_io_and_optimizer(monkeypatch, tmp_path):

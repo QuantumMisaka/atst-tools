@@ -20,6 +20,11 @@ from atst_tools.mep.sella import AbacusSella
 from atst_tools.mep.ccqn import AbacusCCQN
 from atst_tools.utils.analysis import get_displacement_analysis
 from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_finite_float,
+    as_step_count,
+)
 from atst_tools.utils.idpp import Fast_IDPPSolver
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
@@ -38,6 +43,19 @@ from atst_tools.utils.thermochemistry import compute_vibration_thermochemistry
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.ts_validation import build_ts_validation_summary
 from atst_tools.workflows.dmf import DMFWorkflow
+
+
+def _stage_payload(record: Any) -> dict[str, Any]:
+    """Return a manifest-ready stage dict for a stage record or a legacy dict.
+
+    Args:
+        record: A :class:`StageRecord` or an already manifest-shaped mapping,
+            for example the experimental DMF rough record.
+
+    Returns:
+        The stage as a JSON-safe dict.
+    """
+    return record.to_manifest() if isinstance(record, StageRecord) else record
 
 
 class D2SWorkflow:
@@ -64,6 +82,7 @@ class D2SWorkflow:
         self._rough_stage_record = {"name": "rough_neb", "status": "complete"}
         self._rough_ts_guess = None
         self._rough_candidate_index = None
+        self._single_ended_stage_record: StageRecord | None = None
 
         if self.method not in {"dimer", "sella", "ccqn"}:
             raise ValueError("D2S method must be 'dimer', 'sella', or 'ccqn'")
@@ -86,15 +105,82 @@ class D2SWorkflow:
     def _endpoint_optimization_config(self) -> Dict[str, Any]:
         return dict(self.calc_config["endpoint_optimization"])
 
-    def _optimize_one_endpoint(self, atoms, calc_dir: str, traj_file: str, logfile: str, fmax: float, max_steps: int):
+    def _optimize_one_endpoint(
+        self,
+        atoms,
+        calc_dir: str,
+        traj_file: str,
+        logfile: str,
+        fmax: float,
+        max_steps: int,
+        label: str,
+    ) -> StageRecord:
+        """Relax one NEB endpoint and report its optimizer-owned facts.
+
+        Args:
+            atoms: Endpoint structure relaxed in place.
+            calc_dir: Calculator working directory below the workflow base directory.
+            traj_file: Trajectory file written for the relaxed endpoint.
+            logfile: Optimizer log file.
+            fmax: Configured force threshold.
+            max_steps: Configured step budget.
+            label: Endpoint identity used in the stage name, ``initial`` or ``final``.
+
+        Returns:
+            The :class:`StageRecord` for this endpoint, carrying the
+            ``opt.run()`` return value and the observed step count.
+        """
         atoms.calc = self._get_calc(calc_dir)
         opt = QuasiNewton(atoms, logfile=logfile)
-        opt.run(fmax=fmax, steps=max_steps)
+        converged_signal = opt.run(fmax=fmax, steps=max_steps)
         freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
         write(traj_file, atoms)
-        return atoms
+        return StageRecord(
+            name=f"endpoint_{label}_relax",
+            role="endpoint",
+            criterion="ase_optimizer",
+            converged=converged_signal,
+            fmax=as_finite_float(fmax),
+            steps=as_step_count(max_steps),
+            actual_steps=as_step_count(getattr(opt, "nsteps", None)),
+        )
+
+    @staticmethod
+    def _skipped_endpoint_record(label: str) -> StageRecord:
+        """Return the record for an endpoint whose optimization was skipped.
+
+        Args:
+            label: Endpoint identity used in the stage name, ``initial`` or ``final``.
+
+        Returns:
+            A record with ``status="skipped"`` and no optimizer-owned facts,
+            because no optimizer ran for that endpoint in this invocation.
+        """
+        return StageRecord(
+            name=f"endpoint_{label}_relax",
+            role="endpoint",
+            criterion="ase_optimizer",
+            status="skipped",
+        )
 
     def optimize_endpoints(self, init_atoms, final_atoms):
+        """Optimize or validate both NEB endpoints and report their stages.
+
+        An endpoint skipped by restart or by ``skip_if_has_results`` gets a
+        record with ``status="skipped"`` and no optimizer-owned facts, because
+        no optimizer ran for it.  Endpoints receive no convergence advisory of
+        their own.
+
+        Args:
+            init_atoms: Initial-state endpoint.
+            final_atoms: Final-state endpoint.
+
+        Returns:
+            A ``(init_atoms, final_atoms, records)`` tuple, where ``records``
+            holds one :class:`StageRecord` per endpoint in ``initial``/``final``
+            order, or the legacy disabled-stage dict when endpoint optimization
+            is switched off.
+        """
         endpoint_config = self._endpoint_optimization_config()
         fmax = endpoint_config["fmax"]
         max_steps = endpoint_config["max_steps"]
@@ -109,48 +195,79 @@ class D2SWorkflow:
                 directories=("IS_SP", "FS_SP"),
                 context="D2S",
             )
-            return endpoints[0], endpoints[-1]
+            return endpoints[0], endpoints[-1], [{"name": "endpoint_optimization", "status": "skipped"}]
 
         print("=== Step 1: Optimizing Endpoints ===")
         skip_if_has_results = endpoint_config["skip_if_has_results"]
+        records: list[StageRecord] = []
 
         if self.restart and os.path.exists("IS_opt.traj"):
             init_atoms = get_last_frame("IS_opt.traj")
+            records.append(self._skipped_endpoint_record("initial"))
         elif skip_if_has_results and has_endpoint_results(init_atoms):
             print("=== Initial endpoint already has energy/force results; skipping endpoint optimization ===")
+            records.append(self._skipped_endpoint_record("initial"))
         else:
-            init_atoms = self._optimize_one_endpoint(
-                init_atoms,
-                "IS_OPT",
-                "IS_opt.traj",
-                "opt_is.log",
-                fmax,
-                max_steps,
+            records.append(
+                self._optimize_one_endpoint(
+                    init_atoms,
+                    "IS_OPT",
+                    "IS_opt.traj",
+                    "opt_is.log",
+                    fmax,
+                    max_steps,
+                    "initial",
+                )
             )
 
         if self.restart and os.path.exists("FS_opt.traj"):
             final_atoms = get_last_frame("FS_opt.traj")
+            records.append(self._skipped_endpoint_record("final"))
         elif skip_if_has_results and has_endpoint_results(final_atoms):
             print("=== Final endpoint already has energy/force results; skipping endpoint optimization ===")
+            records.append(self._skipped_endpoint_record("final"))
         else:
-            final_atoms = self._optimize_one_endpoint(
-                final_atoms,
-                "FS_OPT",
-                "FS_opt.traj",
-                "opt_fs.log",
-                fmax,
-                max_steps,
+            records.append(
+                self._optimize_one_endpoint(
+                    final_atoms,
+                    "FS_OPT",
+                    "FS_opt.traj",
+                    "opt_fs.log",
+                    fmax,
+                    max_steps,
+                    "final",
+                )
             )
 
-        return init_atoms, final_atoms
+        return init_atoms, final_atoms, records
 
     def run_rough_neb(self, init_atoms, final_atoms):
+        """Run the rough DyNEB stage and record the FIRE optimizer's facts.
+
+        The ``FIRE.run()`` return value is kept as the stage's convergence
+        signal.  A restart that reuses ``neb_rough.traj`` reports
+        ``status="skipped"`` with an unknown convergence signal, because no
+        optimizer ran in this invocation.
+
+        Args:
+            init_atoms: Optimized initial-state endpoint.
+            final_atoms: Optimized final-state endpoint.
+
+        Returns:
+            The rough NEB band images.
+        """
         print("=== Step 2: Running Rough NEB ===")
         self._rough_stage_artifacts = [{"role": "rough_neb_trajectory", "path": "neb_rough.traj"}]
-        self._rough_stage_record = {"name": "rough_neb", "status": "complete"}
         self._rough_ts_guess = None
         self._rough_candidate_index = None
         if self.restart and os.path.exists("neb_rough.traj"):
+            self._rough_stage_record = StageRecord(
+                name="rough_neb",
+                role="rough",
+                criterion="neb_fmax",
+                status="skipped",
+                converged=None,
+            )
             return get_last_neb_band("neb_rough.traj", self.neb_config["n_images"] + 2)
 
         n_images = self.neb_config["n_images"]
@@ -211,7 +328,16 @@ class D2SWorkflow:
             allow_shared_calculator=allow_shared,
         )
         opt = FIRE(neb, trajectory="neb_rough.traj", **self.neb_config.get("optimizer_kwargs", {}))
-        opt.run(fmax=fmax, steps=max_steps)
+        converged_signal = opt.run(fmax=fmax, steps=max_steps)
+        self._rough_stage_record = StageRecord(
+            name="rough_neb",
+            role="rough",
+            criterion="neb_fmax",
+            converged=converged_signal,
+            fmax=as_finite_float(fmax),
+            steps=as_step_count(max_steps),
+            actual_steps=as_step_count(getattr(opt, "nsteps", None)),
+        )
         return images
 
     def _dmf_candidate_index(self, summary: dict[str, Any], chain_length: int) -> int | None:
@@ -265,11 +391,33 @@ class D2SWorkflow:
         return chain
 
     def _single_config_with_directory(self, dirname: str) -> Dict[str, Any]:
+        """Return the refinement configuration with an explicit directory.
+
+        Args:
+            dirname: Refinement subdirectory used as the fallback directory.
+
+        Returns:
+            A deep copy of the configured refinement block.
+        """
         config = deepcopy(self.single_config)
         config.setdefault("directory", os.path.join(self.base_directory, dirname))
         return config
 
     def run_single_ended(self, neb_chain, max_idx: int, ts_guess):
+        """Run the single-ended refinement and record its convergence facts.
+
+        The refinement's own stage record is reused when the constituent
+        exposes one, so no advisory is emitted a second time from D2S.  Restart
+        skips report ``status="skipped"`` with an unknown convergence signal.
+
+        Args:
+            neb_chain: Rough NEB band images.
+            max_idx: Index of the highest-energy rough image.
+            ts_guess: Transition-state guess handed to the refinement.
+
+        Returns:
+            Path of the refinement trajectory.
+        """
         print(f"=== Step 4: Running Single-Ended Search ({self.method.upper()}) ===")
 
         if self.method == "dimer":
@@ -282,6 +430,13 @@ class D2SWorkflow:
             dimer_traj = dimer_config["trajectory"]
             if self.restart and os.path.exists(dimer_traj):
                 print(f"=== Dimer trajectory exists ({dimer_traj}); skipping single-ended step ===")
+                self._single_ended_stage_record = StageRecord(
+                    name="dimer",
+                    role="final",
+                    criterion="dimer",
+                    status="skipped",
+                    converged=None,
+                )
                 return dimer_traj
             dimer = AbacusDimer(
                 ts_guess,
@@ -298,13 +453,30 @@ class D2SWorkflow:
                 fmax=dimer_config["fmax"],
                 max_steps=dimer_config.get("max_steps"),
             )
+            # Dimer exposes no optimizer termination signal, so convergence
+            # stays unknown instead of being invented.
+            self._single_ended_stage_record = StageRecord(
+                name="dimer",
+                role="final",
+                criterion="dimer",
+                converged=None,
+            )
             return dimer_traj
 
         if self.method == "ccqn":
             ccqn_config = self._single_config_with_directory("CCQN")
+            # D2S owns the top-level manifest, so the nested CCQN refinement
+            # must not write one of its own.
+            ccqn_config["artifact_manifest"] = None
             ccqn_traj = ccqn_config["trajectory"]
             if self.restart and os.path.exists(ccqn_traj):
                 print(f"=== CCQN trajectory exists ({ccqn_traj}); skipping single-ended step ===")
+                self._single_ended_stage_record = StageRecord(
+                    name="ccqn",
+                    role="final",
+                    status="skipped",
+                    converged=None,
+                )
                 return ccqn_traj
             product_atoms = None
             if ccqn_config.get("e_vector_method", "interp") == "interp":
@@ -323,12 +495,19 @@ class D2SWorkflow:
                 product_atoms=product_atoms,
             )
             ccqn.run()
+            self._single_ended_stage_record = getattr(ccqn, "last_stage_record", None)
             return ccqn_traj
 
         sella_config = self._single_config_with_directory("SELLA")
         sella_traj = sella_config["trajectory"]
         if self.restart and os.path.exists(sella_traj):
             print(f"=== Sella trajectory exists ({sella_traj}); skipping single-ended step ===")
+            self._single_ended_stage_record = StageRecord(
+                name="sella",
+                role="final",
+                status="skipped",
+                converged=None,
+            )
             return sella_traj
         sella = AbacusSella(
             ts_guess,
@@ -340,6 +519,7 @@ class D2SWorkflow:
             fmax=sella_config["fmax"],
         )
         sella.run()
+        self._single_ended_stage_record = getattr(sella, "last_stage_record", None)
         return sella_traj
 
     def _vibration_indices(self, neb_chain, vib_config):
@@ -416,12 +596,19 @@ class D2SWorkflow:
         print(f"Wrote {output}")
 
     def run(self):
+        """Run the full D2S workflow and persist its truthful stage facts.
+
+        The manifest records one stage per performed step: endpoint
+        optimization, rough path, single-ended refinement and the optional
+        vibration analysis.  Artifacts, prints, return value and exit semantics
+        are unchanged.
+        """
         init_file = self.calc_config["init_file"]
         final_file = self.calc_config["final_file"]
 
         init_atoms = read_structure(init_file)
         final_atoms = read_structure(final_file)
-        init_atoms, final_atoms = self.optimize_endpoints(init_atoms, final_atoms)
+        init_atoms, final_atoms, endpoint_records = self.optimize_endpoints(init_atoms, final_atoms)
 
         if self.rough_method == "dmf":
             neb_chain = self.run_rough_dmf(init_atoms, final_atoms)
@@ -449,14 +636,19 @@ class D2SWorkflow:
         if vibration_config.get("enabled"):
             artifacts.append({"role": "vibration_results", "path": vibration_config["results_file"]})
             artifacts.append({"role": "ts_validation", "path": vibration_config.get("validation_file", "d2s_ts_validation.json")})
+        single_ended_record = self._single_ended_stage_record
+        if single_ended_record is None:
+            # The refinement was handled by a caller-provided stub, so no
+            # optimizer-owned fact is available for it.
+            single_ended_record = {"name": self.method, "status": "complete"}
         write_artifact_manifest(
             self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
             workflow="d2s",
             artifacts=artifacts,
             stages=[
-                {"name": "endpoint_optimization", "status": "complete"},
-                self._rough_stage_record,
-                {"name": self.method, "status": "complete"},
+                *(_stage_payload(record) for record in endpoint_records),
+                _stage_payload(self._rough_stage_record),
+                _stage_payload(single_ended_record),
                 {"name": "vibration", "status": "complete" if vibration_config.get("enabled") else "skipped"},
             ],
         )
