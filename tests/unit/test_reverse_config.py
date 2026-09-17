@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from atst_tools.api import validate_config
+from atst_tools.utils import abacus_io
 from atst_tools.utils.reverse_config import (
     build_config_from_abacus_dir,
     coerce_input_value,
@@ -25,6 +26,30 @@ _GATE_POSITIVE_LOG = (
     / "src/atst_tools/external/ASE_interface/abacuslite/io/testfiles"
     / "multiframe_scf_trial_last/running_scf.log"
 )
+
+_MINIMAL_STRU = """ATOMIC_SPECIES
+H 1.008 H.upf
+
+NUMERICAL_ORBITAL
+H.orb
+
+LATTICE_CONSTANT
+1.0
+
+LATTICE_VECTORS
+10 0 0
+0 10 0
+0 0 10
+
+ATOMIC_POSITIONS
+Direct
+H
+0.0
+1
+0.5 0.5 0.5
+"""
+
+_STRU_WITHOUT_ORBITALS = _MINIMAL_STRU.replace("NUMERICAL_ORBITAL\nH.orb\n\n", "")
 
 
 def _write_minimal_run(tmp_path: Path, *, cal_stress: str = "1", kpt_mode: str = "Gamma") -> Path:
@@ -58,30 +83,7 @@ def _write_minimal_run(tmp_path: Path, *, cal_stress: str = "1", kpt_mode: str =
     (run / "KPT").write_text(
         "K_POINTS\n0\n%s\n1 1 1 0 0 0\n" % kpt_mode, encoding="utf-8"
     )
-    (run / "STRU").write_text(
-        """ATOMIC_SPECIES
-H 1.008 H.upf
-
-NUMERICAL_ORBITAL
-H.orb
-
-LATTICE_CONSTANT
-1.0
-
-LATTICE_VECTORS
-10 0 0
-0 10 0
-0 0 10
-
-ATOMIC_POSITIONS
-Direct
-H
-0.0
-1
-0.5 0.5 0.5
-""",
-        encoding="utf-8",
-    )
+    (run / "STRU").write_text(_MINIMAL_STRU, encoding="utf-8")
     (run / "OUT.abacus").mkdir()
     (run / "OUT.abacus" / "running_scf.log").write_text(
         _GATE_POSITIVE_LOG.read_text(encoding="utf-8"), encoding="utf-8"
@@ -121,14 +123,14 @@ def test_build_config_rejects_line_mode(tmp_path):
     (run / "KPT").write_text(
         "K_POINTS\n2\nLine\n0.0 0.0 0.0 10 G\n0.0 0.0 1.0 10 Z\n", encoding="utf-8"
     )
-    with pytest.raises(ValueError, match="Line"):
+    with pytest.raises(ValueError, match="Line-mode KPT is not supported"):
         build_config_from_abacus_dir(run, gate_dirs=[])
 
 
 def test_build_config_gate_rejects_without_forces(tmp_path):
     run = _write_minimal_run(tmp_path)
     (run / "OUT.abacus" / "running_scf.log").unlink()
-    with pytest.raises(ValueError, match="energy|forces"):
+    with pytest.raises(ValueError, match=r"lacks parseable energy\+forces output"):
         build_config_from_abacus_dir(run, gate_dirs=[run])
 
 
@@ -189,6 +191,66 @@ def test_coerce_input_value():
     assert coerce_input_value("false") is False
     assert coerce_input_value("lcao") == "lcao"
     assert coerce_input_value("") == ""
+
+
+def test_error_messages_are_english_for_missing_run_dir_artifacts(tmp_path):
+    """Runtime messages are English (program-output contract, SPEC R6)."""
+    empty = tmp_path / "empty_run"
+    empty.mkdir()
+    with pytest.raises(ValueError, match="is missing INPUT"):
+        build_config_from_abacus_dir(empty, gate_dirs=[])
+
+    no_stru = tmp_path / "no_stru"
+    no_stru.mkdir()
+    (no_stru / "INPUT").write_text(
+        "INPUT_PARAMETERS\ncalculation scf\nbasis_type lcao\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="is missing STRU"):
+        build_config_from_abacus_dir(no_stru, gate_dirs=[])
+
+    missing = tmp_path / "missing_run"
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        build_config_from_abacus_dir(missing, gate_dirs=[])
+
+
+def test_error_messages_are_english_for_invalid_inputs(tmp_path, monkeypatch):
+    """K-point, orbital, workflow and gate failures keep English wording."""
+    run = _write_minimal_run(tmp_path)
+
+    # basis_type lcao without NUMERICAL_ORBITAL in STRU = missing orbital files.
+    (run / "STRU").write_text(_STRU_WITHOUT_ORBITALS, encoding="utf-8")
+    with pytest.raises(ValueError, match="STRU is missing LCAO orbital filenames: H"):
+        build_config_from_abacus_dir(run, gate_dirs=[])
+
+    (run / "STRU").write_text(_MINIMAL_STRU, encoding="utf-8")
+
+    # No gamma_only, no kspacing, no KPT file = no valid K-point source.
+    kpt = (run / "KPT").read_text(encoding="utf-8")
+    (run / "KPT").unlink()
+    with pytest.raises(ValueError, match="No valid K-point source"):
+        build_config_from_abacus_dir(run, gate_dirs=[])
+
+    # Unparsable kspacing cannot derive a grid from the STRU cell.
+    input_text = (run / "INPUT").read_text(encoding="utf-8")
+    (run / "INPUT").write_text(input_text + "kspacing abc\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Cannot derive a K-point grid from kspacing"):
+        build_config_from_abacus_dir(run, gate_dirs=[])
+
+    (run / "INPUT").write_text(input_text, encoding="utf-8")
+    (run / "KPT").write_text(kpt, encoding="utf-8")
+
+    # Unsupported KPT mode reported by the parser (no such mode is a valid file).
+    monkeypatch.setattr(
+        abacus_io._import_generalio(), "read_kpt", lambda path: {"mode": "weird"}
+    )
+    with pytest.raises(ValueError, match="Unsupported KPT mode: weird"):
+        build_config_from_abacus_dir(run, gate_dirs=[])
+    monkeypatch.undo()
+
+    with pytest.raises(
+        ValueError, match=r"Unsupported workflow: dimer \(P0 supports neb\)"
+    ):
+        build_config_from_abacus_dir(run, workflow="dimer", gate_dirs=[])
 
 
 def test_reverse_kpts_matches_toolbox_runtime_spec(tmp_path):

@@ -40,7 +40,7 @@ def _read_input(run_dir: Path) -> dict[str, str]:
 
     input_path = run_dir / "INPUT"
     if not input_path.is_file():
-        raise ValueError(f"ABACUS run directory 缺少 INPUT: {run_dir}")
+        raise ValueError(f"ABACUS run directory is missing INPUT: {run_dir}")
     generalio = _import_generalio()
     return {k: str(v) for k, v in generalio.read_input(str(input_path)).items()}
 
@@ -50,7 +50,7 @@ def _read_stru_species(run_dir: Path) -> tuple[dict[str, str], dict[str, str]]:
 
     stru_path = run_dir / "STRU"
     if not stru_path.is_file():
-        raise ValueError(f"ABACUS run directory 缺少 STRU: {run_dir}")
+        raise ValueError(f"ABACUS run directory is missing STRU: {run_dir}")
     generalio = _import_generalio()
     stru = generalio.read_stru(str(stru_path))
     pseudopotentials: dict[str, str] = {}
@@ -98,20 +98,23 @@ def _resolve_kpts(run_dir: Path, parameters: dict[str, Any]) -> Any:
         grid = _derive_kgrid_from_kspacing(run_dir, str(kspacing))
         if grid is None:
             raise ValueError(
-                f"无法由 kspacing 派生 K 点网格（STRU cell 解析失败）: {run_dir}"
+                f"Cannot derive a K-point grid from kspacing "
+                f"(STRU cell parsing failed): {run_dir}"
             )
         return grid
     kpt_path = run_dir / "KPT"
     if not kpt_path.is_file():
         raise ValueError(
-            "无有效 K 点来源：需要 gamma_only=1、正 kspacing 或有效 KPT"
+            "No valid K-point source: gamma_only=1, a positive kspacing, "
+            "or a valid KPT is required"
         )
     generalio = _import_generalio()
     parsed = generalio.read_kpt(str(kpt_path))
     mode = str(parsed.get("mode", "")).lower()
     if mode == "line":
         raise ValueError(
-            "Line 模式 KPT 不适用于过渡态力计算；请改用 Gamma/MP 网格或 point 显式 K 点"
+            "Line-mode KPT is not supported for transition-state force "
+            "evaluation; use a Gamma/MP grid or explicit point K points"
         )
     if mode == "mp-sampling":
         # Mirrors the ABACUS toolbox `_runtime_kpts` shape (parse_abacus_kpt):
@@ -125,7 +128,7 @@ def _resolve_kpts(run_dir: Path, parameters: dict[str, Any]) -> Any:
         }
     if mode == "point":
         return parsed
-    raise ValueError(f"不支持的 KPT 模式: {mode}")
+    raise ValueError(f"Unsupported KPT mode: {mode}")
 
 
 def endpoint_has_energy_forces(run_dir: str | Path) -> bool:
@@ -175,7 +178,7 @@ def build_config_from_abacus_dir(
     """Reverse-generate a runnable ATST transition config from an ABACUS run dir."""
     run_dir = Path(abacus_run_dir).expanduser().resolve()
     if not run_dir.is_dir():
-        raise FileNotFoundError(f"ABACUS run directory 不存在: {run_dir}")
+        raise FileNotFoundError(f"ABACUS run directory does not exist: {run_dir}")
 
     raw = _read_input(run_dir)
     parameters = {
@@ -204,7 +207,9 @@ def build_config_from_abacus_dir(
     if basis_type != "pw":
         missing = [s for s in pseudopotentials if s not in basissets]
         if missing:
-            raise ValueError(f"STRU 缺少 LCAO 轨道文件名: {', '.join(missing)}")
+            raise ValueError(
+                f"STRU is missing LCAO orbital filenames: {', '.join(missing)}"
+            )
 
     kpts = _resolve_kpts(run_dir, raw)
 
@@ -240,13 +245,14 @@ def build_config_from_abacus_dir(
             "optimizer": "FIRE",
         }
     else:
-        raise ValueError(f"尚未支持的 workflow: {workflow}（P0 为 neb）")
+        raise ValueError(f"Unsupported workflow: {workflow} (P0 supports neb)")
 
     if gate_dirs is not None:
         for directory in gate_dirs:
             if not endpoint_has_energy_forces(directory):
                 raise ValueError(
-                    f"端点目录缺少可解析的 energy+forces 输出: {directory}"
+                    f"Endpoint directory lacks parseable energy+forces "
+                    f"output: {directory}"
                 )
 
     return {"calculator": {"name": "abacus", "abacus": abacus}, "calculation": calc}
