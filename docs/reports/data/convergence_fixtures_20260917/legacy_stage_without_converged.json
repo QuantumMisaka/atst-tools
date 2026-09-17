@@ -1,0 +1,17 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "vibration",
+  "metadata": {},
+  "stages": [
+    {
+      "name": "vibration",
+      "status": "complete"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "vibration_results",
+      "path": "vibration_results.json"
+    }
+  ]
+}

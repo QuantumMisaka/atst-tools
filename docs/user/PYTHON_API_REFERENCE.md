@@ -267,6 +267,10 @@ Every entry of `stages` is one workflow stage and follows the same key
 contract:
 
 - `name`, `status` and `converged` are always present.
+- Manifests written before 2.2.6 do not follow this contract: their stage
+  records may omit `converged` (or carry no `stages` at all). A missing value
+  means unknown, never "false" and never success; consumers must handle that
+  legacy shape instead of assuming the key exists.
 - `role`, `criterion`, `direction`, `iteration`, `subset`, `fmax`,
   `fmax_unit`, `steps`, `actual_steps`, `measured` and `measured_unit` are
   written only when the stage actually carries that fact. An absent optional

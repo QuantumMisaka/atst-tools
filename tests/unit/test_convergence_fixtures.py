@@ -28,6 +28,7 @@ EXPECTED_FIXTURES = (
     "d2s_constituents.json",
     "irc_both_directions.json",
     "legacy_no_stages.json",
+    "legacy_stage_without_converged.json",
     "neb_endpoint_serial.json",
     "neb_two_stage.json",
     "relax_true.json",
@@ -60,6 +61,8 @@ def test_every_fixture_is_a_readable_manifest():
 def test_stage_records_carry_name_status_and_tri_state_convergence():
     """Every recorded stage exposes name/status/converged; converged is tri-state."""
     for name in EXPECTED_FIXTURES:
+        if name.startswith("legacy"):
+            continue
         for stage in _manifest(name)["stages"]:
             assert set(stage) >= {"name", "status", "converged"}, name
             assert stage["converged"] in (True, False, None), name
@@ -117,3 +120,10 @@ def test_legacy_fixture_stays_unknown_instead_of_reconstructed_success():
     manifest = _manifest("legacy_no_stages.json")
 
     assert manifest["stages"] == []
+
+
+def test_legacy_stage_without_converged_keeps_reader_unknown_rule():
+    """Pre-2.2.6 stages may omit ``converged``; readers treat that as unknown."""
+    manifest = _manifest("legacy_stage_without_converged.json")
+
+    assert manifest["stages"] == [{"name": "vibration", "status": "complete"}]

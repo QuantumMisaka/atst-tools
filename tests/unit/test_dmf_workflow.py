@@ -90,6 +90,10 @@ def test_dmf_workflow_writes_summary_manifest_and_trajectories(tmp_path, monkeyp
 
     manifest = json.loads(Path(config["calculation"]["artifact_manifest"]).read_text(encoding="utf-8"))
     assert manifest["workflow"] == "dmf"
+    stages = {stage["name"]: stage for stage in manifest["stages"]}
+    assert stages["initial_path"]["converged"] is None
+    assert stages["direct_maxflux"]["converged"] is None
+    assert stages["initial_path"]["method"] == config["calculation"]["initial_path"]
     assert {item["role"] for item in manifest["artifacts"]} >= {
         "evaluation_path",
         "tmax_candidate",

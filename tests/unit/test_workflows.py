@@ -3354,6 +3354,10 @@ def test_vibration_workflow_writes_results(monkeypatch, tmp_path):
     workflow.run()
 
     assert (tmp_path / "vibration_results.json").exists()
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["stages"] == [
+        {"name": "vibration", "status": "complete", "converged": None}
+    ]
 
 
 def test_vibration_restart_removes_invalid_cache(monkeypatch, tmp_path):

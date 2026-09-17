@@ -14,6 +14,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from atst_tools.utils.artifacts import write_artifact_manifest
@@ -287,6 +288,18 @@ def generate(output: Path) -> list[str]:
         "}\n"
     )
     (output / "legacy_no_stages.json").write_text(legacy, encoding="utf-8")
+    legacy_stage = {
+        "schema_version": "atst-artifacts-v1",
+        "workflow": "vibration",
+        "metadata": {},
+        "stages": [{"name": "vibration", "status": "complete"}],
+        "artifacts": [
+            {"role": "vibration_results", "path": "vibration_results.json"}
+        ],
+    }
+    (output / "legacy_stage_without_converged.json").write_text(
+        json.dumps(legacy_stage, indent=2) + "\n", encoding="utf-8"
+    )
     return sorted(path.name for path in output.glob("*.json"))
 
 

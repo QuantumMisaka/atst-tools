@@ -23,6 +23,7 @@ after any stage-contract change; do not hand-edit.
 | `d2s_constituents.json` | endpoint / rough / refinement / vibration stages in one D2S manifest |
 | `api_synthesized.json` | API-synthesized completion: execution complete, convergence unknown |
 | `legacy_no_stages.json` | pre-2.2.6 manifest without stage records (readers must treat as unknown) |
+| `legacy_stage_without_converged.json` | pre-2.2.6 stage that omits `converged` (readers must treat as unknown) |
 
 ## Consumer rules
 
@@ -42,3 +43,5 @@ after any stage-contract change; do not hand-edit.
   means execution completed with convergence unknown.
 - Presentation may translate facts into another language, but must not alter
   values, invent `false`, or treat missing legacy records as success.
+- Legacy manifests (pre-2.2.6) may omit `converged` or carry no stage records at
+  all; a missing value is unknown, never "false" or "converged".

@@ -169,6 +169,7 @@ def test_abacus_native_md_prepares_inputs_runs_process_and_collects(monkeypatch,
     assert progress["frames"] == 2
     assert progress["returncode"] == 0
     assert manifest["stages"][0]["status"] == "complete"
+    assert manifest["stages"][0]["converged"] is None
     assert {artifact["role"] for artifact in manifest["artifacts"]} >= {
         "progress",
         "abacus_stdout",
@@ -225,3 +226,4 @@ def test_abacus_native_md_records_failed_process(monkeypatch, tmp_path):
     manifest = json.loads((tmp_path / "native_fail" / "atst_artifacts.json").read_text(encoding="utf-8"))
     assert summary["returncode"] == 9
     assert manifest["stages"][0]["status"] == "failed"
+    assert manifest["stages"][0]["converged"] is None

@@ -14,6 +14,7 @@ from ase.io import write
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.convergence import StageRecord
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.io import read_structure
 
@@ -213,8 +214,14 @@ class DMFWorkflow:
                 {"role": "summary", "path": str(summary_file)},
             ],
             stages=[
-                {"name": "initial_path", "status": "complete", "method": self.calc_config["initial_path"]},
-                {"name": "direct_maxflux", "status": "complete", "tol": self.calc_config["tol"]},
+                {
+                    **StageRecord(name="initial_path").to_manifest(),
+                    "method": self.calc_config["initial_path"],
+                },
+                {
+                    **StageRecord(name="direct_maxflux").to_manifest(),
+                    "tol": self.calc_config["tol"],
+                },
             ],
             metadata={
                 "experimental": True,
