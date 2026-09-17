@@ -7,7 +7,7 @@
 **Verification:** Focused behavior-first regressions, workflow/API/summary tests, a package-level program-output language check, standalone documentation checks, clean-wheel API/runner checks and applicable MPI tests under the repository development/release pipeline.
 
 **Date:** 2026-09-17
-**Status:** in progress (A0 complete; docs/pipeline groundwork landed on `feature/workflow-convergence`)
+**Status:** in progress (A0 complete; helper + Sella/CCQN/Relax migration landed and reviewed; see §6)
 **Owner:** ATST maintainers/developer; Paimon developer owns consumer mapping and joint acceptance.
 
 ## 1. Scope and ownership
@@ -211,6 +211,21 @@ Prerequisites landed before implementation (commits `beb58a7`, `740089e`):
 - `docs/developer/DOCS_ARCHITECTURE.md`, `DOCUMENTATION_STANDARDS.md`, `HANDOVER.md`: plan/spec location moved to `docs/superpowers/`, active-plan registration requirement, language rule.
 - Completed plans and legacy `docs/developer/plans/` files archived into `docs/archive/pending_delete/plans/` with ledger and pending-delete registration.
 - `scripts/check_docs_governance.py`: new active-plan registration check with fixture tests; manual publish workflow default tag refreshed.
+
+SDD packages executed (subagent-driven, controller-integrated):
+
+- `7fb89be` helper package: `utils/convergence.py` (`StageRecord`, `emit_unconverged_advisory`) plus `tests/unit/test_convergence.py`; child worker implemented the briefed interface, controller review coupled `fmax_unit` serialization to a present threshold and later added the degrading adapters.
+- `4932e0a` + `ef1c777` migration package: Sella consumes `dyn.run()`'s return (post-run `dyn.converged()` removed), CCQN persists the stage record into `atst_artifacts.json` and uses the shared advisory, Relax captures `opt.run()` and emits the shared advisory; English tokens replace the Chinese ones in the migrated tests.
+- Independent task review (`ea12740..4932e0a`, read-only child): no Critical findings; requirement areas 1/2/3/5/7/8 clean with runtime probes (sella 2.5.0 `run()` return equals post-run `converged()`; full suite 743 passed).
+- Review finding 1 (Important, accepted): strict `StageRecord` validation could abort a completed workflow through direct construction or the embedded `CCQNOptions` path (for example a float `max_steps` the optimizer accepts). Repaired in `ef1c777` with `as_step_count()` / `as_finite_float()` degrading adapters at the three call sites and float-step regressions for relax and CCQN; `StageRecord` itself stays strict. Full suite after repair: 754 passed, 19 skipped.
+- Review finding 2 (Minor, deferred to A3): the three single-stage call sites do not pass a `world`, so a multi-rank launch of relax/sella/ccqn would print the advisory once per rank. A3 must thread the communicator where one exists (`RunOptions.world` for embedded API runs) or record the serial-only advisory assumption explicitly.
+- Review finding 3 (Minor, fixed): helper tests pinned full advisory prose; they now assert stable tokens, with one deliberate canonical-rendering test.
+
+Remaining work (next packages):
+
+- A2 remainder + A3: migrate IRC/NEB Chinese advisories to the helper; capture AutoNEB iteration/subset facts, D2S constituent/endpoint facts and the NEB endpoint path; keep the single top-level manifest owner rule.
+- A1/A4: durable-record ownership for Sella/Relax/AutoNEB (manifest write vs api-synthesized record), API/summary projection and consumer fixtures; refresh `examples/12_ccqn_H2-Au/outputs/atst_artifacts_auto_modes*.json`; note `scripts/verify_wheel_api.py` monkeypatches `AbacusCCQN.run`, so it cannot catch stage-record regressions.
+- A5: complete the English sweep (`scripts/main.py` NEB advisory, `utils/reverse_config.py` messages), add the program-output language check, update API/workflow docs and ledgers.
 
 ## 7. Plan delivery record
 
