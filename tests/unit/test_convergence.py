@@ -12,6 +12,7 @@ import pytest
 from atst_tools.utils.convergence import (
     EXECUTION_STATUSES,
     StageRecord,
+    as_step_count,
     emit_unconverged_advisory,
 )
 from helpers import FakeReducingWorld, FakeWorld
@@ -134,6 +135,29 @@ def test_to_manifest_minimal_keys_and_json_null():
     with_threshold = StageRecord(name="ci_neb", fmax=0.05).to_manifest()
     assert list(with_threshold) == ["name", "status", "converged", "fmax", "fmax_unit"]
     assert with_threshold["fmax_unit"] == "eV/Angstrom"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        (None, None),
+        (0, 0),
+        (7, 7),
+        (np.int64(5), 5),
+        (3.0, 3),
+        (np.float64(4.0), 4),
+        (True, None),
+        (-1, None),
+        (1.5, None),
+        (float("nan"), None),
+        (float("inf"), None),
+        ("5", None),
+        (object(), None),
+    ),
+)
+def test_as_step_count_degrades_unusable_values(value, expected):
+    """Foreign optimizer step counts degrade to None instead of raising."""
+    assert as_step_count(value) == expected
 
 
 def test_to_manifest_includes_present_optionals_and_round_trips():

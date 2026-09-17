@@ -20,7 +20,12 @@ import numpy as np
 
 from atst_tools.utils.mpi import run_rank_zero_section
 
-__all__ = ["EXECUTION_STATUSES", "StageRecord", "emit_unconverged_advisory"]
+__all__ = [
+    "EXECUTION_STATUSES",
+    "StageRecord",
+    "as_step_count",
+    "emit_unconverged_advisory",
+]
 
 
 #: Allowed execution statuses for one workflow stage.
@@ -164,6 +169,34 @@ def _normalized_measured(value: Any) -> dict[str, float] | None:
             raise TypeError(f"StageRecord.measured keys must be strings, got {key!r}.")
         measured[key] = _finite_float(f"StageRecord.measured[{key!r}]", item)
     return measured
+
+
+def as_step_count(value: Any) -> int | None:
+    """Return a non-negative step count for an optimizer-owned value, else ``None``.
+
+    Optimizer objects from third-party packages may expose ``nsteps`` as a
+    plain integer, a NumPy integer, or an integral float.  Diagnostics must
+    never corrupt a completed workflow, so any unusable value degrades to
+    ``None`` (unknown) instead of raising.  Explicit :class:`StageRecord`
+    fields keep their strict validation.
+
+    Args:
+        value: Candidate step count, typically ``getattr(optimizer, "nsteps", None)``.
+
+    Returns:
+        ``None`` when the value is unusable or negative, otherwise the count as
+        a plain ``int``.
+    """
+    if isinstance(value, (bool, np.bool_)) or value is None:
+        return None
+    if isinstance(value, Integral):
+        count = int(value)
+        return count if count >= 0 else None
+    if isinstance(value, Real):
+        number = float(value)
+        if math.isfinite(number) and number.is_integer() and number >= 0:
+            return int(number)
+    return None
 
 
 @dataclass(frozen=True)

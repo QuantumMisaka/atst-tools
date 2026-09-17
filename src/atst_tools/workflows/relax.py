@@ -6,6 +6,11 @@ from ase.io import write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
 
@@ -66,8 +71,12 @@ class RelaxWorkflow:
             return FIRE
 
     def run(self):
-        """
-        Execute the relaxation workflow.
+        """Execute the relaxation workflow.
+
+        The optimizer's own ``run()`` return value is the authoritative
+        convergence signal: a known ``False`` prints one shared English
+        advisory without changing the written artifacts, the printed summary
+        or the implicit ``None`` return value.
         """
         print(f"=== Starting Relaxation with {self.calc_name} ===")
         
@@ -106,7 +115,19 @@ class RelaxWorkflow:
         opt = Optimizer(atoms, trajectory=self.traj_file, logfile=self.logfile)
         
         # 4. Run
-        opt.run(fmax=self.fmax, steps=self.max_steps)
+        converged_signal = opt.run(fmax=self.fmax, steps=self.max_steps)
+        emit_unconverged_advisory(
+            StageRecord(
+                name="relax",
+                role="final",
+                criterion="ase_optimizer",
+                converged=converged_signal,
+                fmax=self.fmax,
+                steps=self.max_steps,
+                actual_steps=as_step_count(getattr(opt, "nsteps", None)),
+            ),
+            workflow="relax",
+        )
         
         # 5. Save Final Structure
         write("final_relaxed.traj", atoms)

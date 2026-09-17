@@ -1869,7 +1869,7 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
 def test_abacus_sella_convergence_signal_controls_warning(
     monkeypatch, tmp_path, capsys, converged_signal, warning_expected
 ):
-    """Sella warns only for known false convergence signals and preserves the return."""
+    """Sella's run() return value drives the shared advisory and the return is preserved."""
     from atst_tools.mep import sella as sella_module
 
     class FakeSella:
@@ -1879,9 +1879,6 @@ def test_abacus_sella_convergence_signal_controls_warning(
             pass
 
         def run(self, fmax=None, steps=None):
-            pass
-
-        def converged(self):
             return converged_signal
 
     calc = DummyCalc(1.5)
@@ -1902,15 +1899,13 @@ def test_abacus_sella_convergence_signal_controls_warning(
     captured = capsys.readouterr()
     assert ("workflow=sella" in captured.out) is warning_expected
     if warning_expected:
-        # 只锁稳定语义 token，不锁整句 prose。
+        # Only lock the stable English tokens, never the full prose.
         for token in (
+            "workflow=sella",
+            "stage=sella",
             "threshold_fmax=0.1",
             "nsteps=2",
-            "不代表科学收敛",
-            "轨迹",
-            "约束",
-            "restart/input",
-            "成本",
+            "does not imply",
         ):
             assert token in captured.out
 
@@ -1926,7 +1921,7 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
     from atst_tools.mep import ccqn as ccqn_module
 
     def fake_run(self, **kwargs):
-        # 真实优化器 run() 返回确定性收敛信号，并在实例上累计 nsteps。
+        # The real optimizer's run() returns the convergence signal and tracks nsteps.
         self.nsteps = 5
         return converged_signal
 
@@ -1950,23 +1945,31 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
     captured = capsys.readouterr()
     assert ("workflow=ccqn" in captured.out) is warning_expected
     if warning_expected:
-        # 只锁稳定语义 token，不锁整句 prose。
+        # Only lock the stable English tokens, never the full prose.
         for token in (
+            "workflow=ccqn",
+            "stage=ccqn",
             "threshold_fmax=0.05",
             "nsteps=5",
             "max_steps=30",
-            "不代表科学收敛",
-            "轨迹",
-            "约束",
-            "restart/input",
-            "成本",
+            "does not imply",
         ):
             assert token in captured.out
 
-    # advisory warning 不改变返回语义与 artifact manifest 的 workflow 状态。
+    # The advisory changes neither the return value nor the manifest workflow status.
     assert result.calc is not None
     assert json.loads(manifest.read_text(encoding="utf-8"))["stages"] == [
-        {"name": "ccqn", "status": "complete"}
+        {
+            "name": "ccqn",
+            "status": "complete",
+            "converged": None if converged_signal is None else bool(converged_signal),
+            "role": "final",
+            "criterion": "ccqn_prfo",
+            "fmax": 0.05,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 30,
+            "actual_steps": 5,
+        }
     ]
 
 
@@ -2172,6 +2175,65 @@ def test_relax_workflow_runs_with_mocked_io_and_optimizer(monkeypatch, tmp_path)
     )
     workflow.run()
 
+    assert ("run", 0.1, 3) in events
+    assert ("write", "final_relaxed.traj") in events
+
+
+@pytest.mark.parametrize(
+    ("converged_signal", "warning_expected"),
+    ((True, False), (False, True), (None, False), (np.bool_(False), True)),
+)
+def test_relax_workflow_convergence_signal_controls_warning(
+    monkeypatch, tmp_path, capsys, converged_signal, warning_expected
+):
+    """Relax's optimizer return value drives the shared advisory and keeps its outputs."""
+    from atst_tools.workflows import relax
+
+    events = []
+
+    class FakeOptimizer:
+        nsteps = 4
+
+        def __init__(self, atoms, trajectory=None, logfile=None):
+            events.append(("optimizer", trajectory, logfile))
+
+        def run(self, fmax=None, steps=None):
+            events.append(("run", fmax, steps))
+            return converged_signal
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(relax.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(relax, "read_structure", lambda filename: _atoms())
+    monkeypatch.setattr(relax, "write", lambda filename, atoms: events.append(("write", filename)))
+    monkeypatch.setattr(relax.CalculatorFactory, "get_calculator", lambda *args, **kwargs: _atoms().calc)
+    monkeypatch.setattr(relax, "QuasiNewton", FakeOptimizer)
+
+    workflow = relax.RelaxWorkflow(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "relax",
+            "init_structure": "init.traj",
+            "optimizer": "QuasiNewton",
+            "fmax": 0.1,
+            "max_steps": 3,
+        },
+    )
+
+    assert workflow.run() is None
+    captured = capsys.readouterr()
+    assert ("workflow=relax" in captured.out) is warning_expected
+    if warning_expected:
+        # Only lock the stable English tokens, never the full prose.
+        for token in (
+            "workflow=relax",
+            "stage=relax",
+            "threshold_fmax=0.1",
+            "nsteps=4",
+            "max_steps=3",
+            "does not imply",
+        ):
+            assert token in captured.out
     assert ("run", 0.1, 3) in events
     assert ("write", "final_relaxed.traj") in events
 

@@ -8,11 +8,15 @@
 #     J. Chem. Theory Comput. 18 (8), 4914-4930 (2022).
 #     https://doi.org/10.1021/acs.jctc.2c00395
 
-import numpy as np
 from ase.io import Trajectory
 from sella import Sella
 
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 
 class AbacusSella:
     """
@@ -88,13 +92,13 @@ class AbacusSella:
 
         Args:
             fmax (float, optional): Force convergence criterion.
-            
+
         Returns:
             Atoms: The optimized transition state structure.
         """
         if fmax is None:
             fmax = self.fmax
-            
+
         ts_atoms = self.init_Atoms
         ts_atoms.calc = self.set_calculator()
         
@@ -113,32 +117,17 @@ class AbacusSella:
         )
         
         if self.max_steps is None:
-            dyn.run(fmax=fmax)
+            converged_signal = dyn.run(fmax=fmax)
         else:
-            dyn.run(fmax=fmax, steps=self.max_steps)
-        self._warn_if_premature_return(dyn, fmax)
+            converged_signal = dyn.run(fmax=fmax, steps=self.max_steps)
+        record = StageRecord(
+            name="sella",
+            role="final",
+            criterion="sella_projected_force+constraint",
+            converged=converged_signal,
+            fmax=fmax,
+            steps=self.max_steps,
+            actual_steps=as_step_count(getattr(dyn, "nsteps", None)),
+        )
+        emit_unconverged_advisory(record, workflow="sella")
         return ts_atoms
-
-    @staticmethod
-    def _warn_if_premature_return(dyn, fmax: float) -> None:
-        """Sella 结束但未达到配置收敛阈值时输出中性 advisory warning（不改变返回语义）。
-
-        覆盖优化器提前返回与步数用尽两种客观情形：dyn.converged() 为 False 时只陈述
-        客观事实（配置阈值、实际步数），不预判科学原因。是否可接受由前台 AI 与用户
-        结合轨迹、原子约束、restart/input 选择与计算成本复核。返回码、workflow 状态
-        与 artifact manifest 不受影响。
-        """
-        try:
-            converged = dyn.converged()
-        except Exception:
-            return
-        if not isinstance(converged, (bool, np.bool_)) or bool(converged):
-            return
-        if not converged:
-            nsteps = getattr(dyn, "nsteps", None)
-            print(
-                "Warning: Sella 结束时未达到配置的收敛阈值"
-                f"（workflow=sella, threshold_fmax={fmax}, nsteps={nsteps}）；"
-                "最终 fmax 未满足该阈值或鞍点判据未满足。完成只代表计算任务正常结束，"
-                "不代表科学收敛；请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
-            )

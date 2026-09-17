@@ -22,6 +22,11 @@ from scipy.optimize import brentq, minimize
 
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 from atst_tools.utils.idpp import align_atom_indices
 from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
 
@@ -502,7 +507,16 @@ class AbacusCCQN:
         return CalculatorFactory.get_calculator(self.calc_name, self.config, directory=directory)
 
     def run(self):
-        """Run CCQN and return the optimized atoms."""
+        """Run CCQN and return the optimized atoms.
+
+        The optimizer's ``run()`` return value is treated as the authoritative
+        convergence signal: a known ``False`` prints one shared English
+        advisory, and the same record is written as the manifest stage.  The
+        return value and the artifact list are unaffected by the advisory.
+
+        Returns:
+            The optimized ASE ``Atoms`` object.
+        """
         atoms = self.init_Atoms.copy() if self.calculator is not None else self.init_Atoms
         atoms.calc = self.set_calculator()
         product_atoms = self.product_atoms
@@ -557,7 +571,16 @@ class AbacusCCQN:
             converged_signal = optimizer.run(fmax=fmax_threshold)
         else:
             converged_signal = optimizer.run(fmax=fmax_threshold, steps=max_steps)
-        self._warn_if_unconverged(optimizer, converged_signal, fmax_threshold, max_steps)
+        stage_record = StageRecord(
+            name="ccqn",
+            role="final",
+            criterion="ccqn_prfo",
+            converged=converged_signal,
+            fmax=fmax_threshold,
+            steps=max_steps,
+            actual_steps=as_step_count(getattr(optimizer, "nsteps", None)),
+        )
+        emit_unconverged_advisory(stage_record, workflow="ccqn")
         final_structure = self.calc_config.get("final_structure")
         if final_structure:
             os.makedirs(os.path.dirname(final_structure) or ".", exist_ok=True)
@@ -573,25 +596,6 @@ class AbacusCCQN:
             self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
             workflow="ccqn",
             artifacts=artifacts,
-            stages=[{"name": "ccqn", "status": "complete"}],
+            stages=[stage_record.to_manifest()],
         )
         return atoms
-
-    @staticmethod
-    def _warn_if_unconverged(optimizer, converged_signal, fmax: float, max_steps: int | None) -> None:
-        """CCQN 结束但确定性收敛信号为 False 时输出中性 advisory warning（不改变返回语义）。
-
-        只信任优化器 run() 返回的确定性收敛信号；信号不可得（非 bool）时保持安静，不臆测
-        未收敛，也不改调 converged()——后者会触发 atoms.get_forces() 而可能引发新计算。
-        warning 只陈述客观事实（配置阈值、实际/上限步数），不预判科学原因；是否可接受由
-        前台 AI 与用户复核。返回码、workflow 状态与 artifact manifest 均不受影响。
-        """
-        if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
-            return
-        print(
-            "Warning: CCQN 结束时确定性收敛信号为 False"
-            f"（workflow=ccqn, threshold_fmax={fmax}, "
-            f"nsteps={getattr(optimizer, 'nsteps', None)}, max_steps={max_steps}）；"
-            "最终 fmax 未满足该阈值或 PRFO 鞍点判据未满足。完成只代表计算任务正常结束，"
-            "不代表科学收敛；请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
-        )
