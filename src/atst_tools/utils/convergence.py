@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from numbers import Integral, Real
 from typing import Any, Mapping
@@ -38,6 +39,7 @@ _OPTIONAL_MANIFEST_KEYS = (
     "criterion",
     "direction",
     "iteration",
+    "subset",
     "fmax",
     "fmax_unit",
     "steps",
@@ -47,6 +49,9 @@ _OPTIONAL_MANIFEST_KEYS = (
 )
 
 _OPTIONAL_TEXT_FIELDS = ("role", "criterion", "direction", "fmax_unit", "measured_unit")
+
+#: Sequence-like values that must never be read as an image-index subset.
+_TEXTUAL_SEQUENCES = (str, bytes, bytearray)
 
 
 def _normalized_converged(value: Any) -> bool | None:
@@ -172,6 +177,55 @@ def _normalized_measured(value: Any) -> dict[str, float] | None:
     return measured
 
 
+def _normalized_subset(field_name: str, value: Any) -> list[int] | None:
+    """Return ``None`` or a validated copy of an image-index subset.
+
+    An image subset identifies which band images one optimizer invocation was
+    responsible for.  It is stored as a new ``list`` of plain ``int`` values so
+    the frozen record never shares or mutates the caller's sequence and stays
+    JSON encodable.  Textual sequences are rejected explicitly: a string is a
+    sequence of characters, and silently reading one as image indices would
+    attach a meaningless scope to a stage record.  ``bool`` is rejected as an
+    index for the same reason it is rejected as a count.
+
+    Args:
+        field_name: Human-readable field label used in error messages.
+        value: Candidate sequence of image indices, or ``None`` when unset.
+
+    Returns:
+        ``None`` for an unset field, otherwise a non-empty ``list`` of
+        non-negative plain ``int`` values.
+
+    Raises:
+        TypeError: The value is not a sequence, is a textual sequence, or an
+            entry is not an integer.
+        ValueError: The sequence is empty or carries a negative index.
+    """
+    if value is None:
+        return None
+    if isinstance(value, _TEXTUAL_SEQUENCES) or not isinstance(value, Sequence):
+        raise TypeError(
+            f"{field_name} must be a non-empty sequence of non-negative "
+            f"integers or None, got {value!r}."
+        )
+    subset: list[int] = []
+    for index in value:
+        if isinstance(index, (bool, np.bool_)) or not isinstance(index, Integral):
+            raise TypeError(
+                f"{field_name} entries must be non-negative integers, "
+                f"got {index!r}."
+            )
+        number = int(index)
+        if number < 0:
+            raise ValueError(
+                f"{field_name} entries must be non-negative, got {number}."
+            )
+        subset.append(number)
+    if not subset:
+        raise ValueError(f"{field_name} must not be empty when provided.")
+    return subset
+
+
 def as_step_count(value: Any) -> int | None:
     """Return a non-negative step count for an optimizer-owned value, else ``None``.
 
@@ -243,6 +297,9 @@ class StageRecord:
         criterion: Optimizer-owned criterion identity.
         direction: IRC direction (``"forward"`` or ``"backward"``).
         iteration: AutoNEB iteration/subset identity.
+        subset: Band-image indices optimized by that AutoNEB iteration; the
+            explicit scope of the record, since one iteration only covers a
+            window of the band.
         fmax: Configured force threshold value.
         fmax_unit: Unit of ``fmax``.
         steps: Configured step budget for this stage.
@@ -263,6 +320,7 @@ class StageRecord:
     criterion: str | None = None
     direction: str | None = None
     iteration: int | None = None
+    subset: tuple[int, ...] | list[int] | None = None
     fmax: float | None = None
     fmax_unit: str | None = "eV/Angstrom"
     steps: int | None = None
@@ -296,6 +354,9 @@ class StageRecord:
         object.__setattr__(self, "converged", _normalized_converged(self.converged))
         object.__setattr__(
             self, "iteration", _optional_count("StageRecord.iteration", self.iteration)
+        )
+        object.__setattr__(
+            self, "subset", _normalized_subset("StageRecord.subset", self.subset)
         )
         object.__setattr__(
             self, "fmax", _optional_finite_float("StageRecord.fmax", self.fmax)

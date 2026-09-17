@@ -257,6 +257,82 @@ def test_to_manifest_omits_none_valued_optionals():
     assert json.loads(json.dumps(manifest)) == manifest
 
 
+def test_subset_is_normalized_to_plain_ints():
+    """Image subsets normalize to a non-empty plain-int list and default to None."""
+    assert StageRecord(name="autoneb_iter").subset is None
+    assert StageRecord(name="autoneb_iter", subset=None).subset is None
+    assert StageRecord(name="autoneb_iter", subset=[1]).subset == [1]
+    assert StageRecord(name="autoneb_iter", subset=(0, 2)).subset == [0, 2]
+    assert StageRecord(name="autoneb_iter", subset=range(2)).subset == [0, 1]
+
+    record = StageRecord(name="autoneb_iter", subset=(np.int64(0), 2, np.int32(4)))
+
+    assert record.subset == [0, 2, 4]
+    assert all(type(index) is int for index in record.subset)
+
+
+def test_subset_is_copied_and_serialized_after_iteration():
+    """The stored list is detached from the caller and emitted after ``iteration``."""
+    source = [1, 2]
+    record = StageRecord(
+        name="autoneb_iter",
+        role="subset",
+        criterion="neb_fmax",
+        iteration=2,
+        subset=source,
+        converged=False,
+        fmax=0.05,
+        steps=100,
+    )
+
+    source.append(3)
+
+    assert record.subset == [1, 2]
+    manifest = record.to_manifest()
+    assert list(manifest) == [
+        "name",
+        "status",
+        "converged",
+        "role",
+        "criterion",
+        "iteration",
+        "subset",
+        "fmax",
+        "fmax_unit",
+        "steps",
+    ]
+    assert manifest["subset"] == [1, 2]
+    assert json.loads(json.dumps(manifest)) == manifest
+    assert "subset" not in StageRecord(name="ci_neb", iteration=1).to_manifest()
+
+
+@pytest.mark.parametrize("value", ["12", "1", b"\x01\x02", bytearray(b"\x01"), 3, {1, 2}, {"a": 1}])
+def test_subset_requires_a_real_sequence(value):
+    """Textual and non-sequence values are never read as image indices."""
+    with pytest.raises(TypeError, match="subset"):
+        StageRecord(name="autoneb_iter", subset=value)
+
+
+@pytest.mark.parametrize("value", [True, np.bool_(False), 1.5, np.float64(2.0), "1", object()])
+def test_subset_entries_must_be_integers(value):
+    """``bool``, floats and non-numeric entries are rejected as indices."""
+    with pytest.raises(TypeError, match="subset"):
+        StageRecord(name="autoneb_iter", subset=[0, value])
+
+
+def test_subset_entries_must_be_non_negative():
+    """A negative image index is a contract violation."""
+    with pytest.raises(ValueError, match="non-negative"):
+        StageRecord(name="autoneb_iter", subset=[0, -1])
+
+
+@pytest.mark.parametrize("value", [[], ()])
+def test_empty_subset_is_rejected(value):
+    """An explicit empty subset would describe no scope at all."""
+    with pytest.raises(ValueError, match="empty"):
+        StageRecord(name="autoneb_iter", subset=value)
+
+
 def test_advisory_message_tokens_for_unconverged_stage(capsys):
     """An explicit False prints exactly one advisory with the canonical rendering.
 

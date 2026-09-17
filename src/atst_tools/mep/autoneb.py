@@ -23,7 +23,14 @@ from ase.optimize import FIRE, BFGS
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
+from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_finite_float,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 from atst_tools.utils.neb_endpoints import endpoint_policy, ensure_neb_endpoint_results
 from atst_tools.utils.neb_endpoints import freeze_current_results, freeze_results, get_endpoint_results
 from atst_tools.utils.mpi import (
@@ -207,6 +214,13 @@ class AbacusAutoNEB(AutoNEB):
         The control flow mirrors ASE 3.28.0, with `AbacusNEB` substituted for
         ASE `NEB` and image indices annotated before calculators are attached.
 
+        Every executed iteration appends one optimizer-fact record to
+        ``self.iteration_records``: the iteration identity, the image subset
+        this optimizer invocation owned, the band size, the raw ``qn.run``
+        signal and the configured/observed step facts. The records exist so the
+        owning runner can persist the real per-iteration scope instead of
+        presenting one subset as whole-band convergence.
+
         Args:
             exitstack: Context manager stack.
             n_cur (int): Current number of images.
@@ -346,7 +360,19 @@ class AbacusAutoNEB(AutoNEB):
             fmax = self.fmax[0]
         else:
             fmax = self.fmax
-        qn.run(fmax=fmax, steps=steps)
+        converged_signal = qn.run(fmax=fmax, steps=steps)
+        self.iteration_records = getattr(self, "iteration_records", [])
+        self.iteration_records.append({
+            "iteration": self.iteration,
+            "subset": [int(index) for index in to_run],
+            "band_size": len(self.all_images),
+            "converged": converged_signal,
+            "fmax": fmax,
+            "steps": steps,
+            "actual_steps": getattr(qn, "nsteps", None),
+            "climb": bool(climb),
+            "many_steps": bool(many_steps),
+        })
 
         neb.distribute = types.MethodType(_store_E_and_F_in_spc_reduced, neb)
         neb.distribute()
@@ -546,7 +572,20 @@ class SynchronizedAutoNEB(AutoNEB):
     """Native ASE AutoNEB with synchronized rank-local pre-run construction."""
 
     def _execute_one_neb(self, exitstack, n_cur, to_run, climb=False, many_steps=False):
-        """Execute one native ASE NEB without diverging before collectives."""
+        """Execute one native ASE NEB without diverging before collectives.
+
+        Every executed iteration appends one optimizer-fact record to
+        ``self.iteration_records``: the iteration identity, the image subset
+        this optimizer invocation owned, the band size, the raw ``qn.run``
+        signal and the configured/observed step facts.
+
+        Args:
+            exitstack: Context manager stack.
+            n_cur (int): Current number of images.
+            to_run (list): Indices of images to run.
+            climb (bool): Whether to use climbing image NEB.
+            many_steps (bool): Whether to use the ``many_steps`` budget slot.
+        """
         closelater = exitstack.enter_context
         self.iteration += 1
         if self.parallel:
@@ -673,9 +712,22 @@ class SynchronizedAutoNEB(AutoNEB):
             if isinstance(self.fmax, (list, tuple))
             else self.fmax
         )
-        qn.run(fmax=fmax, steps=steps)
+        converged_signal = qn.run(fmax=fmax, steps=steps)
+        self.iteration_records = getattr(self, "iteration_records", [])
+        self.iteration_records.append({
+            "iteration": self.iteration,
+            "subset": [int(index) for index in to_run],
+            "band_size": len(self.all_images),
+            "converged": converged_signal,
+            "fmax": fmax,
+            "steps": steps,
+            "actual_steps": getattr(qn, "nsteps", None),
+            "climb": bool(climb),
+            "many_steps": bool(many_steps),
+        })
         neb.distribute = types.MethodType(_store_E_and_F_in_spc_with_stress, neb)
         neb.distribute()
+
 
 class AutoNEBRunner:
     """
@@ -924,9 +976,67 @@ class AutoNEBRunner:
                     image.calc = self._get_calculator(f"{base_dir}/final_image_{index:03d}")
             freeze_current_results(image)
 
-    def run(self):
+    def _convergence_stage_records(self, records):
+        """Build the durable AutoNEB stage records from captured iteration facts.
+
+        Every executed AutoNEB iteration only optimized a window of the band, so
+        each iteration record keeps its ``subset`` identity; the distinct final
+        scope record reuses the last executed iteration's facts and never claims
+        whole-band convergence.  Facts owned by this package (iteration identity
+        and image subset) go through the strict :class:`StageRecord` validation;
+        facts that cross the configuration or optimizer boundary degrade through
+        the approved ``as_finite_float``/``as_step_count`` adapters so a
+        completed workflow is never aborted by a diagnostic field.
+
+        Args:
+            records: Raw per-iteration fact dicts appended by the AutoNEB engine.
+
+        Returns:
+            A tuple ``(iteration_records, final_record)``.  ``final_record`` is
+            ``None`` when no iteration executed and no truthful final scope can
+            be recorded.
         """
-        Run the AutoNEB workflow.
+        iteration_records = [
+            StageRecord(
+                name="autoneb_iter",
+                role="subset",
+                criterion="neb_fmax",
+                iteration=record.get("iteration"),
+                subset=record.get("subset"),
+                converged=record.get("converged"),
+                fmax=as_finite_float(record.get("fmax")),
+                steps=as_step_count(record.get("steps")),
+                actual_steps=as_step_count(record.get("actual_steps")),
+            )
+            for record in records
+        ]
+        if not iteration_records:
+            return iteration_records, None
+        last = iteration_records[-1]
+        final_record = StageRecord(
+            name="autoneb",
+            role="final",
+            criterion="neb_fmax",
+            iteration=last.iteration,
+            subset=last.subset,
+            converged=last.converged,
+            fmax=last.fmax,
+            steps=last.steps,
+            actual_steps=last.actual_steps,
+        )
+        return iteration_records, final_record
+
+    def run(self):
+        """Run the AutoNEB workflow and own its durable outputs.
+
+        Besides the existing per-image trajectories, the runner persists the
+        engine's per-iteration optimizer facts as stage records in the single
+        top-level artifact manifest, and emits the shared English advisory when
+        the last executed iteration explicitly reported non-convergence.  Every
+        rank builds the same stage facts; only rank 0 writes the manifest.
+
+        Returns:
+            The final image list on rank 0, ``None`` on every other rank.
         """
         print("=== Starting AutoNEB Calculation ===")
         if self.parallel and self.world.rank == 0:
@@ -1024,5 +1134,44 @@ class AutoNEBRunner:
             )
         elif self.world.rank == 0:
             freeze_and_write_final_images()
+
+        # The final scope is the last executed iteration only: one AutoNEB
+        # iteration never optimizes the whole band, so the durable record keeps
+        # the real image subset instead of claiming whole-band convergence.
+        iteration_records, final_record = self._convergence_stage_records(
+            list(getattr(autoneb, "iteration_records", None) or [])
+        )
+        if final_record is not None:
+            emit_unconverged_advisory(
+                final_record,
+                workflow="autoneb",
+                world=self.world,
+            )
+        stages = [record.to_manifest() for record in iteration_records]
+        if final_record is not None:
+            stages.append(final_record.to_manifest())
+
+        def write_manifest():
+            write_artifact_manifest(
+                self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
+                workflow="autoneb",
+                artifacts=[
+                    {
+                        "role": "image_trajectory",
+                        "path": f"{self.prefix}{index:03d}.traj",
+                    }
+                    for index, _ in enumerate(final_images or ())
+                ],
+                stages=stages,
+            )
+
+        if self.parallel:
+            run_rank_zero_section(
+                self.world,
+                write_manifest,
+                context="AutoNEB artifact manifest writing",
+            )
+        elif self.world.rank == 0:
+            write_manifest()
         print("=== AutoNEB Calculation Finished ===")
         return final_images if self.world.rank == 0 else None
