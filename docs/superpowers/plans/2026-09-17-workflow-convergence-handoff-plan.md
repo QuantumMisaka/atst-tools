@@ -7,7 +7,7 @@
 **Verification:** Focused behavior-first regressions, workflow/API/summary tests, a package-level program-output language check, standalone documentation checks, clean-wheel API/runner checks and applicable MPI tests under the repository development/release pipeline.
 
 **Date:** 2026-09-17
-**Status:** planned (revised 2026-09-17 against `origin/main` `cf86790`)
+**Status:** in progress (A0 complete; docs/pipeline groundwork landed on `feature/workflow-convergence`)
 **Owner:** ATST maintainers/developer; Paimon developer owns consumer mapping and joint acceptance.
 
 ## 1. Scope and ownership
@@ -105,10 +105,10 @@ Execution completion does not imply optimizer convergence.
 
 **Dependencies:** none. **Delivery:** standalone repository worktree, environment/source identity and scoped validation commands.
 
-- [ ] Read `AGENTS.md`, `docs/developer/HANDOVER.md`, `GOVERNANCE_AND_RELEASE_GATES.md` and relevant API/workflow references at the actual base.
-- [ ] Use the repository's `atst-dev` maintenance environment for implementation checks; record interpreter, imported source, ASE/Sella/ATST versions and MPI availability. Do not treat Paimon's abacus-env as automatically equivalent.
-- [ ] Record the actual base commit and worktree state. Current facts: 2.2.5 is published from `4c96691`; `origin/main` is `cf86790`; the local checkout/inspection base is one commit behind and this plan plus its ledger registration are uncommitted. Move the work to a development branch/worktree based on `origin/main` and carry both files; do not rebase onto the release commit.
-- [ ] Separate offline tests, clean-install checks and authorized real ABACUS/DP/MPI calculations. No new package installation or real job is implied by this plan.
+- [x] Read `AGENTS.md`, `docs/developer/HANDOVER.md`, `GOVERNANCE_AND_RELEASE_GATES.md` and relevant API/workflow references at the actual base.
+- [x] Use the repository's `atst-dev` maintenance environment for implementation checks; record interpreter, imported source, ASE/Sella/ATST versions and MPI availability. Do not treat Paimon's abacus-env as automatically equivalent.
+- [x] Record the actual base commit and worktree state. Current facts: 2.2.5 is published from `4c96691`; `origin/main` is `cf86790`; the local checkout/inspection base is one commit behind and this plan plus its ledger registration are uncommitted. Move the work to a development branch/worktree based on `origin/main` and carry both files; do not rebase onto the release commit.
+- [x] Separate offline tests, clean-install checks and authorized real ABACUS/DP/MPI calculations. No new package installation or real job is implied by this plan.
 
 ### A1: Define compatible stage records, helper interface and fixtures
 
@@ -196,7 +196,23 @@ true/false/unknown and multi-stage fixtures, verification evidence and limitatio
 MPI/real backend/package publication were actually exercised. Implementation completion and
 Paimon SIF/platform acceptance are independently recorded.
 
-## 6. Plan delivery record
+## 6. Execution record (2026-09-17)
+
+Baseline and workspace:
+
+- Base: `origin/main` `cf86790` (2.2.5 published). Execution branch: `feature/workflow-convergence` in the primary `deps/atst-tools` checkout.
+- Ruling: an app-tools worktree (`.worktrees/atst-workflow-convergence`) was created and then abandoned, because `apply_patch` and child-agent workspaces bind to the primary working directory; isolation is provided by the feature branch on the clean published base. Cost if wrong: no second checkout for parallel branches; recoverable by re-creating a worktree at any commit.
+- Environment ruling: `conda run -n atst-dev` resolves `atst_tools` to `/home/james/work/deepmodeling/atst-tools/src` through editable 2.2.3 metadata. Every verification run must use `env PYTHONPATH="$PWD/src" conda run -n atst-dev python ...` and confirm `atst_tools.__file__`. Available: ase 3.28.0, sella 2.5.0, mpi4py 4.1.2.
+- Base verification: `env PYTHONPATH="$PWD/src" conda run -n atst-dev python -m pytest tests -q` passes with the repository's expected opt-in skips (MPI launcher, ABACUS run-dir, toolbox utils).
+
+Prerequisites landed before implementation (commits `beb58a7`, `740089e`):
+
+- `AGENTS.md`: corrected abacuslite/ase-abacus statements, added the English runtime-output rule, added `docs/superpowers/{specs,plans}` registration obligations, and added the documentation-governance check command.
+- `docs/developer/DOCS_ARCHITECTURE.md`, `DOCUMENTATION_STANDARDS.md`, `HANDOVER.md`: plan/spec location moved to `docs/superpowers/`, active-plan registration requirement, language rule.
+- Completed plans and legacy `docs/developer/plans/` files archived into `docs/archive/pending_delete/plans/` with ledger and pending-delete registration.
+- `scripts/check_docs_governance.py`: new active-plan registration check with fixture tests; manual publish workflow default tag refreshed.
+
+## 7. Plan delivery record
 
 This file records planned work only. Documentation validation for this delivery is recorded separately from future workflow implementation evidence.
 
