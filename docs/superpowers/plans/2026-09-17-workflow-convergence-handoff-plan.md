@@ -7,7 +7,7 @@
 **Verification:** Focused behavior-first regressions, workflow/API/summary tests, a package-level program-output language check, standalone documentation checks, clean-wheel API/runner checks and applicable MPI tests under the repository development/release pipeline.
 
 **Date:** 2026-09-17
-**Status:** in progress (A0/A2/A3 landed and reviewed; A4 API handoff + Sella/Relax durable record, A5 closeout, A6 release remain; see §6)
+**Status:** released as 2.2.6 (A0–A6 complete; Paimon joint consumer agreement and real runtime acceptance remain with their owners; see §6)
 **Owner:** ATST maintainers/developer; Paimon developer owns consumer mapping and joint acceptance.
 
 ## 1. Scope and ownership
@@ -273,6 +273,16 @@ A5 closeout (2026-09-17):
 - Curated example outputs (`examples/02`, `examples/10`, `examples/12`, ...) still carry pre-2.2.6 stage shapes. They are historical run evidence and are NOT hand-edited; refreshing them requires an authorized real ABACUS/SAI run and stays with the maintainer. The wheel example gate covers the serializer contract instead.
 - Ruling: `FEATURE_STATUS_MATRIX.md` stays at the published 2.2.5 state until release preparation; it is updated together with release notes/ledgers when the next patch version is chosen (A6).
 - Verification after closeout: `pytest tests` 826 passed, 19 skipped; `check_docs_governance.py` passed; `git diff --check` clean.
+
+A6 release (2026-09-17):
+
+- Release candidate commit `a633f06b9375e3f34dbd87f90f40ec6271b29cd4` ("release: prepare 2.2.6 candidate"), fast-forward-merged into `main` and pushed; annotated tag `v2.2.6` points to that commit and is pushed (`refs/tags/v2.2.6`, tag object `0ac2abe`).
+- Pre-push gates: `check_release_readiness.py --tag v2.2.6` passed; `python -m build` + `twine check --strict` passed; `verify_wheel_api.py` passed.
+- CI: Tests `35206052859` and abacuslite `35206052923` succeeded on the release commit; Publish workflow `35206151239` (release preflight + PyPI upload) succeeded.
+- PyPI: `atst_tools-2.2.6-py3-none-any.whl` (2026-09-17T09:44:27Z, sha256 `e4998a9b…a4d3`) and `atst_tools-2.2.6.tar.gz` (2026-09-17T09:44:28Z, sha256 `e30ccba8…f099`).
+- Post-publication verification: isolated venv `pip install --no-cache-dir atst-tools==2.2.6`; `atst --version` → `atst 2.2.6`; `package_version()` → `2.2.6`; imports resolved from the venv `site-packages`; six stable root imports loaded.
+- Post-release documentation record `a17c750` ("docs: record verified 2.2.6 publication") pushed to `main`.
+- Not performed / remaining: Gitee mirror (manual, excluded), GitHub Release object (the published 2.2.5 precedent has none either), SIF/SAI and real ABACUS/MPI runtime acceptance, Paimon producer-consumer fixture agreement.
 
 Additional observations retained without action in this batch:
 
