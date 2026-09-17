@@ -50,6 +50,12 @@ from atst_tools.utils.neb_endpoints import (
 from atst_tools.utils.restart_helpers import get_last_frame, get_last_neb_band
 from atst_tools.utils.idpp import generate
 from atst_tools.utils.artifacts import write_artifact_manifest
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_finite_float,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 from atst_tools.utils.mpi import (
     get_ase_world,
     rank_owns_local_image,
@@ -402,12 +408,46 @@ def _normalized_calculation(config, calc_config):
 
 
 def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, optimizer_class):
+    """Relax the two NEB endpoints before the band relaxation starts.
+
+    Endpoint facts are reported as :class:`StageRecord` objects so the caller can
+    persist them in the artifact manifest.  A skipped endpoint (its results
+    already exist and ``skip_if_has_results`` is enabled) produces a record with
+    ``status="skipped"`` and no optimizer-owned facts, because no optimizer ran
+    for it; an attempted endpoint carries the ``opt.run()`` return value and the
+    observed step count.  Endpoints receive no convergence advisory of their own.
+
+    Args:
+        init_chain: NEB band images; ``init_chain[0]`` and ``init_chain[-1]`` are
+            the relaxed endpoints.
+        config: Full configuration dictionary.
+        calc_name: Name of the calculator backend.
+        calc_config: Calculation-specific configuration, read for the
+            ``endpoint_optimization`` section.
+        base_dir: Base output directory for the endpoint working directories.
+        optimizer_class: ASE optimizer class used for the endpoint relaxations.
+
+    Returns:
+        One :class:`StageRecord` per endpoint, in ``initial``/``final`` order, or
+        an empty list when endpoint optimization is disabled.
+    """
     endpoint_config = calc_config.get("endpoint_optimization") or {}
     if not endpoint_config.get("enabled"):
-        return
+        return []
     skip_existing = endpoint_config.get("skip_if_has_results", True)
+    endpoint_fmax = endpoint_config.get("fmax", 0.05)
+    endpoint_steps = endpoint_config.get("max_steps", 100)
+    stages: list[StageRecord] = []
     for label, atoms in (("initial", init_chain[0]), ("final", init_chain[-1])):
         if skip_existing and has_endpoint_results(atoms):
+            stages.append(
+                StageRecord(
+                    name=f"endpoint_{label}_relax",
+                    role="endpoint",
+                    criterion="ase_optimizer",
+                    status="skipped",
+                )
+            )
             continue
         atoms.calc = _get_workflow_calculator(
             calc_name,
@@ -415,8 +455,20 @@ def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, o
             directory=f"{base_dir}/endpoint_{label}_relax",
         )
         opt = optimizer_class(atoms, trajectory=f"endpoint_{label}_relax.traj")
-        opt.run(fmax=endpoint_config.get("fmax", 0.05), steps=endpoint_config.get("max_steps", 100))
+        stage_converged = opt.run(fmax=endpoint_fmax, steps=endpoint_steps)
         freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
+        stages.append(
+            StageRecord(
+                name=f"endpoint_{label}_relax",
+                role="endpoint",
+                criterion="ase_optimizer",
+                converged=stage_converged,
+                fmax=as_finite_float(endpoint_fmax),
+                steps=as_step_count(endpoint_steps),
+                actual_steps=as_step_count(getattr(opt, "nsteps", None)),
+            )
+        )
+    return stages
 
 
 def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
@@ -460,34 +512,6 @@ def _sync_parallel_endpoint_results(images, world, prepare_endpoints):
     if hasattr(world, "barrier"):
         world.barrier()
     return synced_images
-
-
-def _warn_if_neb_unconverged(world, converged_signal, *, fmax, max_steps, actual_steps):
-    """Emit a root-rank NEB advisory for an explicit false convergence signal.
-
-    The optimizer's return value is the only convergence signal consumed here.
-    ``None`` or another unavailable value is left quiet so this diagnostic never
-    infers a scientific result.  The warning is advisory and does not alter the
-    caller's return value or the complete artifact manifest written by the
-    workflow.
-    """
-    if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
-        return
-
-    def emit_warning():
-        print(
-            "Warning: NEB 结束时确定性收敛信号为 False"
-            f"（workflow=neb, threshold_fmax={fmax}, max_steps={max_steps}, "
-            f"actual_steps={actual_steps}）；"
-            "完成只代表计算任务正常结束，不代表科学收敛；"
-            "请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
-        )
-
-    run_rank_zero_section(
-        world,
-        emit_warning,
-        context="NEB convergence advisory warning",
-    )
 
 
 def run_neb(config, calc_name, calc_config, world=None):
@@ -595,8 +619,20 @@ def run_neb(config, calc_name, calc_config, world=None):
     optimizer = get_optimizer(opt_name)
 
     def prepare_endpoints(images):
-        _relax_neb_endpoints(images, config, calc_name, calc_config, base_dir, optimizer)
-        return ensure_neb_endpoint_results(
+        """Prepare both NEB endpoints and return their endpoint stage records.
+
+        Args:
+            images: NEB band whose endpoints are relaxed and repaired in place.
+
+        Returns:
+            One :class:`StageRecord` per endpoint relaxation performed or skipped
+            by this call, or an empty list when endpoint optimization is
+            disabled.
+        """
+        endpoint_records = _relax_neb_endpoints(
+            images, config, calc_name, calc_config, base_dir, optimizer
+        )
+        ensure_neb_endpoint_results(
             images,
             lambda directory: _get_workflow_calculator(
                 calc_name,
@@ -607,11 +643,13 @@ def run_neb(config, calc_name, calc_config, world=None):
             directories=("endpoint_initial", "endpoint_final"),
             context="NEB",
         )
+        return endpoint_records
 
+    endpoint_stages: list[StageRecord] = []
     if effective_parallel:
         init_chain = _sync_parallel_endpoint_results(init_chain, world, prepare_endpoints)
     else:
-        prepare_endpoints(init_chain)
+        endpoint_stages = prepare_endpoints(init_chain)
     allow_shared = should_share_calculator(calc_name, config, parallel=effective_parallel)
 
     neb_class = NEB if calc_config.get("neb_backend", "atst") == "ase" else AbacusNEB
@@ -712,35 +750,36 @@ def run_neb(config, calc_name, calc_config, world=None):
             )
     final_converged = opt.run(fmax=fmax, steps=max_steps)
     final_actual_steps = getattr(opt, "nsteps", None)
-    _warn_if_neb_unconverged(
-        world,
-        final_converged,
-        fmax=fmax,
-        max_steps=max_steps,
-        actual_steps=final_actual_steps,
+    final_record = StageRecord(
+        name="ci_neb" if climb else "neb",
+        role="final",
+        criterion="neb_fmax",
+        converged=final_converged,
+        fmax=as_finite_float(fmax),
+        steps=as_step_count(max_steps),
+        actual_steps=as_step_count(final_actual_steps),
     )
+    emit_unconverged_advisory(final_record, workflow="neb", world=world)
+    warmup_record = StageRecord(
+        name="ordinary_neb_warmup",
+        role="warmup",
+        status="complete" if two_stage else "skipped",
+        fmax=as_finite_float(calc_config.get("stage1_fmax", 0.20)),
+        steps=as_step_count(calc_config.get("stage1_steps", 20)),
+        converged=stage1_converged,
+        actual_steps=as_step_count(stage1_actual_steps),
+    )
+    # Image-parallel runs must keep every rank's stage list identical, so the
+    # endpoint records (built on rank 0 only) are persisted in the serial path
+    # only; the endpoint facts travel to the other ranks via the synchronized
+    # chain instead.
+    stages: list[StageRecord] = list(endpoint_stages) if not effective_parallel else []
+    stages.extend((warmup_record, final_record))
     write_artifact_manifest(
         calc_config.get("artifact_manifest", "atst_artifacts.json"),
         workflow="neb",
         artifacts=[{"role": "trajectory", "path": traj_file}],
-        stages=[
-            {
-                "name": "ordinary_neb_warmup",
-                "status": "complete" if two_stage else "skipped",
-                "fmax": calc_config.get("stage1_fmax", 0.20),
-                "steps": calc_config.get("stage1_steps", 20),
-                "converged": stage1_converged,
-                "actual_steps": stage1_actual_steps,
-            },
-            {
-                "name": "ci_neb" if climb else "neb",
-                "status": "complete",
-                "fmax": fmax,
-                "steps": max_steps,
-                "converged": final_converged,
-                "actual_steps": final_actual_steps,
-            },
-        ],
+        stages=[record.to_manifest() for record in stages],
     )
     LOGGER.info("NEB calculation finished")
     return init_chain if world.rank == 0 else None

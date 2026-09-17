@@ -14,6 +14,12 @@ from ase.optimize import FIRE
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.convergence import (
+    StageRecord,
+    as_finite_float,
+    as_step_count,
+    emit_unconverged_advisory,
+)
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.restart_helpers import get_last_frame
 
@@ -33,6 +39,27 @@ def _irc_step_count(irc_object: Any) -> int | None:
             return None
     value = getattr(irc_object, "nsteps", None)
     return value if isinstance(value, int) else None
+
+
+def _direction_step_count(steps_before: int | None, steps_after: int | None) -> int | None:
+    """Return the per-direction step delta from two cumulative readings.
+
+    The IRC object is reused across directions, so only the difference between
+    the readings taken before and after one direction is a per-direction fact.
+    When either reading is unavailable the after-reading is reported as-is and
+    the caller degrades it further; two unavailable readings mean unknown.
+
+    Args:
+        steps_before: Cumulative step count read before the direction ran.
+        steps_after: Cumulative step count read after the direction ran.
+
+    Returns:
+        The per-direction delta, ``steps_after`` when no delta is computable, or
+        ``None`` when both readings are unavailable.
+    """
+    if steps_before is None or steps_after is None:
+        return steps_after
+    return steps_after - steps_before
 
 
 class IRCBoundaryError(RuntimeError):
@@ -144,7 +171,23 @@ class IRCWorkflow:
         return False
 
     def run(self):
-        """Execute the configured IRC calculation."""
+        """Execute the configured IRC calculation.
+
+        Dispatches to the descent backend when ``backend: descent`` is
+        configured, otherwise integrates the IRC with Sella.  Each executed
+        direction contributes one final :class:`StageRecord` to the artifact
+        manifest and emits at most one English convergence advisory; the
+        advisory never changes the return value, the workflow status, or the
+        artifact list.
+
+        Returns:
+            ``None`` for the Sella backend, otherwise the relaxed branch
+            frames returned by :meth:`_run_descent`.
+
+        Raises:
+            ImportError: ``sella`` is not installed for the Sella backend.
+            IRCBoundaryError: Sella stopped at a known unsupported boundary.
+        """
         if self.backend == "descent":
             return self._run_descent()
         try:
@@ -166,6 +209,7 @@ class IRCWorkflow:
             irctol=self.calc_config["irctol"],
             keep_going=self.calc_config["keep_going"],
         )
+        stages: list[StageRecord] = []
         for direction in self._directions():
             steps_before = _irc_step_count(irc)
             try:
@@ -184,9 +228,21 @@ class IRCWorkflow:
                 if self._is_sella_runtime_boundary(exc):
                     raise IRCBoundaryError(self._boundary_message(direction, exc)) from exc
                 raise
-            self._warn_if_unconverged(
-                irc, direction, converged_signal, self.calc_config["fmax"], steps_before
+            steps_after = _irc_step_count(irc)
+            record = StageRecord(
+                name="sella_irc",
+                role="final",
+                criterion="sella_irc_endpoint",
+                direction=direction,
+                converged=converged_signal,
+                fmax=as_finite_float(self.calc_config["fmax"]),
+                steps=as_step_count(self.calc_config["max_steps"]),
+                actual_steps=as_step_count(
+                    _direction_step_count(steps_before, steps_after)
+                ),
             )
+            emit_unconverged_advisory(record, workflow="irc")
+            stages.append(record)
         self._normalize_trajectory()
         artifacts = [{"role": "irc_trajectory", "path": self.traj_file}]
         if self.direction == "both" and self.normalized_traj_file:
@@ -195,29 +251,7 @@ class IRCWorkflow:
             self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
             workflow="irc",
             artifacts=artifacts,
-            stages=[{"name": "sella_irc", "status": "complete"}],
-        )
-
-    @staticmethod
-    def _warn_if_unconverged(irc_object, direction: str, converged_signal, fmax: float,
-                             steps_before: int | None) -> None:
-        """IRC 方向结束但确定性收敛信号为 False 时输出中性 advisory warning（不改变返回语义）。
-
-        只信任 Sella ``IRC.run()`` 返回的确定性收敛信号（其判据为力达阈值且 Hessian 最小
-        本征值为正，即到达端点盆地）；信号不可得（非 bool）时保持安静，不臆测未收敛，也不
-        额外调用 ``converged()``。warning 只陈述客观事实（方向、配置阈值、本方向实际步数），
-        不预判科学原因。返回码、workflow 状态与 artifact manifest 均不受影响。
-        """
-        if not isinstance(converged_signal, (bool, np.bool_)) or bool(converged_signal):
-            return
-        steps_after = _irc_step_count(irc_object)
-        nsteps = steps_after if steps_before is None or steps_after is None else steps_after - steps_before
-        print(
-            f"Warning: IRC {direction} 方向结束时确定性收敛信号为 False"
-            f"（workflow=irc, direction={direction}, threshold_fmax={fmax}, nsteps={nsteps}）；"
-            "未确认到达端点盆地（IRC 判据为力达阈值且 Hessian 最小本征值为正）。"
-            "完成只代表计算任务正常结束，不代表科学收敛；"
-            "请结合轨迹、原子约束、restart/input 选择与计算成本复核。"
+            stages=[record.to_manifest() for record in stages],
         )
 
     def _load_mode_vector(self, atoms) -> np.ndarray:
@@ -231,9 +265,22 @@ class IRCWorkflow:
         return mode / norm
 
     def _run_descent(self):
+        """Run the FIRE descent backend from the displaced TS along a mode.
+
+        Each configured direction displaces a copy of the initial structure
+        along the mass-weighted mode vector, relaxes it with FIRE, and records
+        one final :class:`StageRecord`.  The descent follows the mode direction
+        only; it does not confirm a Sella IRC endpoint basin, so its stage
+        criterion is the ASE optimizer itself and the advisory never implies an
+        IRC endpoint was reached.
+
+        Returns:
+            The relaxed branch structures, one per executed direction.
+        """
         atoms = read_structure(self.init_structure)
         mode = self._load_mode_vector(atoms)
         frames = []
+        stages: list[StageRecord] = []
         for direction in self._directions():
             sign = 1.0 if direction == "forward" else -1.0
             branch = atoms.copy()
@@ -241,7 +288,21 @@ class IRCWorkflow:
             branch = self._set_calculator(branch)
             branch_traj = f"{Path(self.traj_file).stem}_{direction}.traj"
             opt = FIRE(branch, trajectory=branch_traj)
-            opt.run(fmax=self.calc_config["fmax"], steps=self.calc_config["max_steps"])
+            converged_signal = opt.run(
+                fmax=self.calc_config["fmax"], steps=self.calc_config["max_steps"]
+            )
+            record = StageRecord(
+                name="descent_irc",
+                role="final",
+                criterion="ase_fire",
+                direction=direction,
+                converged=converged_signal,
+                fmax=as_finite_float(self.calc_config["fmax"]),
+                steps=as_step_count(self.calc_config["max_steps"]),
+                actual_steps=as_step_count(getattr(opt, "nsteps", None)),
+            )
+            emit_unconverged_advisory(record, workflow="irc")
+            stages.append(record)
             frames.append(branch.copy())
         write(self.traj_file, frames, format="traj")
         if self.direction == "both" and self.normalized_traj_file:
@@ -253,6 +314,6 @@ class IRCWorkflow:
             self.calc_config.get("artifact_manifest", "atst_artifacts.json"),
             workflow="irc",
             artifacts=artifacts,
-            stages=[{"name": "descent_irc", "status": "complete"}],
+            stages=[record.to_manifest() for record in stages],
         )
         return frames

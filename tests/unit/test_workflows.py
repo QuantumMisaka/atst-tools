@@ -459,9 +459,14 @@ def test_run_neb_two_stage_omits_steps_for_null_stage1_steps(monkeypatch, tmp_pa
         ("run", False, 0.2, (), {}),
         ("run", True, 0.05, (), {"steps": 20}),
     ]
-    assert manifest["stages"][0]["converged"] is False
-    assert manifest["stages"][0]["actual_steps"] == 4
-    assert manifest["stages"][0]["steps"] is None
+    warmup_stage = manifest["stages"][0]
+    assert warmup_stage["name"] == "ordinary_neb_warmup"
+    assert warmup_stage["role"] == "warmup"
+    assert warmup_stage["status"] == "complete"
+    assert warmup_stage["converged"] is False
+    assert warmup_stage["actual_steps"] == 4
+    # 未配置的上限不再写成 null，而是省略该可选键。
+    assert "steps" not in warmup_stage
 
 
 @pytest.mark.parametrize(
@@ -516,16 +521,29 @@ def test_run_neb_convergence_signal_controls_warning_and_manifest(
     output = capsys.readouterr().out
     assert ("workflow=neb" in output) is warning_expected
     if warning_expected:
+        # 只锁稳定语义 token，不锁整句 prose。
         for token in (
+            "stage=ci_neb",
             "threshold_fmax=0.05",
+            "nsteps=7",
             "max_steps=20",
-            "actual_steps=7",
-            "不代表科学收敛",
+            "does not imply",
         ):
             assert token in output
     assert result is (chain if rank == 0 else None)
     manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
-    assert manifest["stages"][-1]["status"] == "complete"
+    expected_converged = None if converged_signal is None else bool(converged_signal)
+    assert manifest["stages"][-1] == {
+        "name": "ci_neb",
+        "status": "complete",
+        "converged": expected_converged,
+        "role": "final",
+        "criterion": "neb_fmax",
+        "fmax": 0.05,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 20,
+        "actual_steps": 7,
+    }
 
 
 def test_run_neb_can_relax_endpoints_before_neb(monkeypatch, tmp_path):
@@ -564,6 +582,79 @@ def test_run_neb_can_relax_endpoints_before_neb(monkeypatch, tmp_path):
     )
 
     assert calls[:2] == [("run", "Atoms", 0.03, 7), ("run", "Atoms", 0.03, 7)]
+
+
+def test_run_neb_serial_endpoint_relaxation_records_stage_facts(monkeypatch, tmp_path, capsys):
+    """Serial endpoint relaxation persists truthful endpoint stages before the final stage."""
+    from atst_tools.scripts import main
+
+    chain = [_atoms(0.0), _atoms(0.1), _atoms(0.0)]
+
+    class FakeNEB:
+        def __init__(self, images, **kwargs):
+            return None
+
+    class FakeOptimizer:
+        """Endpoint runs get their own step count; the band run converges."""
+
+        def __init__(self, subject, trajectory=None, **kwargs):
+            self.subject = subject
+            self.nsteps = 6 if isinstance(subject, Atoms) else 11
+
+        def run(self, fmax=None, steps=None):
+            # Endpoint relaxation reports an explicit False, the band run True.
+            return not isinstance(self.subject, Atoms)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "read", lambda *args, **kwargs: chain)
+    # Only the initial endpoint already carries results, so only it is skipped.
+    monkeypatch.setattr(main, "has_endpoint_results", lambda atoms: atoms is chain[0])
+    monkeypatch.setattr(main, "ensure_neb_endpoint_results", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc(1.0))
+    monkeypatch.setattr(main, "AbacusNEB", FakeNEB)
+    monkeypatch.setattr(main, "get_optimizer", lambda name: FakeOptimizer)
+
+    main.run_neb(
+        {"calculator": {"name": "abacus", "abacus": {"parameters": {}}}},
+        "abacus",
+        {
+            "type": "neb",
+            "init_chain": "chain.traj",
+            "parallel": False,
+            "fmax": 0.05,
+            "max_steps": 20,
+            "endpoint_optimization": {"enabled": True, "fmax": 0.03, "max_steps": 7},
+        },
+    )
+
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert [stage["name"] for stage in manifest["stages"]] == [
+        "endpoint_initial_relax",
+        "endpoint_final_relax",
+        "ordinary_neb_warmup",
+        "ci_neb",
+    ]
+    # 跳过的端点没有跑过优化器，不写收敛信号/阈值/步数。
+    assert manifest["stages"][0] == {
+        "name": "endpoint_initial_relax",
+        "status": "skipped",
+        "converged": None,
+        "role": "endpoint",
+        "criterion": "ase_optimizer",
+    }
+    assert manifest["stages"][1] == {
+        "name": "endpoint_final_relax",
+        "status": "complete",
+        "converged": False,
+        "role": "endpoint",
+        "criterion": "ase_optimizer",
+        "fmax": 0.03,
+        "fmax_unit": "eV/Angstrom",
+        "steps": 7,
+        "actual_steps": 6,
+    }
+    # 端点不单独告警；只有 band 阶段的收敛信号决定 advisory。
+    assert "workflow=neb" not in capsys.readouterr().out
 
 
 def test_run_neb_forwards_optimizer_kwargs(monkeypatch, tmp_path):
@@ -823,6 +914,86 @@ def test_irc_descent_backend_displaces_along_mode_and_optimizes(monkeypatch, tmp
     np.testing.assert_allclose(calls[0][1], [[0.2, 0.0, 0.0]])
     assert calls[1] == ("run", 0.04, 9)
     np.testing.assert_allclose(calls[2][1], [[-0.2, 0.0, 0.0]])
+
+
+def test_irc_descent_backend_records_stage_facts_and_advisory(monkeypatch, tmp_path, capsys):
+    """Descent IRC records one final FIRE stage per direction and warns on an explicit False."""
+    from atst_tools.workflows import irc
+
+    ts = _atoms(1.0)
+    mode = np.array([[1.0, 0.0, 0.0]])
+
+    class FakeOptimizer:
+        def __init__(self, atoms, trajectory=None, **kwargs):
+            self.nsteps = 5
+
+        def run(self, fmax=None, steps=None):
+            return False
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(irc, "read_structure", lambda filename: ts.copy())
+    monkeypatch.setattr(irc.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DummyCalc())
+    monkeypatch.setattr(irc, "FIRE", FakeOptimizer)
+    np.save(tmp_path / "mode.npy", mode)
+
+    irc.IRCWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "irc",
+            "backend": "descent",
+            "init_structure": "ts.traj",
+            "mode_vector": "mode.npy",
+            "trajectory": "irc.traj",
+            "normalized_trajectory": "norm.traj",
+            "direction": "both",
+            "descent_delta": 0.2,
+            "fmax": 0.04,
+            "max_steps": 9,
+        },
+    ).run()
+
+    captured = capsys.readouterr()
+    assert captured.out.count("workflow=irc") == 2
+    for token in (
+        "stage=descent_irc",
+        "direction=forward",
+        "direction=reverse",
+        "threshold_fmax=0.04",
+        "nsteps=5",
+        "max_steps=9",
+        "does not imply",
+    ):
+        assert token in captured.out
+
+    # descent 只沿模式方向做 FIRE 下降，不声明到达 Sella IRC 端点盆地。
+    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["stages"] == [
+        {
+            "name": "descent_irc",
+            "status": "complete",
+            "converged": False,
+            "role": "final",
+            "criterion": "ase_fire",
+            "direction": "forward",
+            "fmax": 0.04,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 9,
+            "actual_steps": 5,
+        },
+        {
+            "name": "descent_irc",
+            "status": "complete",
+            "converged": False,
+            "role": "final",
+            "criterion": "ase_fire",
+            "direction": "reverse",
+            "fmax": 0.04,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 9,
+            "actual_steps": 5,
+        },
+    ]
 
 
 def test_autoneb_runner_uses_unique_serial_abacus_directories(monkeypatch):
@@ -2484,20 +2655,31 @@ def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
     if warning_expected:
         # 只锁稳定语义 token，不锁整句 prose。
         for token in (
+            "stage=sella_irc",
             "direction=forward",
             "threshold_fmax=0.03",
             "nsteps=4",
-            "不代表科学收敛",
-            "轨迹",
-            "约束",
-            "restart/input",
-            "成本",
+            "max_steps=7",
+            "does not imply",
         ):
             assert token in captured.out
 
-    # advisory warning 不改变 artifact manifest 的 workflow 状态。
-    assert json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))["stages"] == [
-        {"name": "sella_irc", "status": "complete"}
+    # advisory warning 不改变 artifact manifest 的逐方向 stage 记录。
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    expected_converged = None if converged_signal is None else bool(converged_signal)
+    assert manifest["stages"] == [
+        {
+            "name": "sella_irc",
+            "status": "complete",
+            "converged": expected_converged,
+            "role": "final",
+            "criterion": "sella_irc_endpoint",
+            "direction": "forward",
+            "fmax": 0.03,
+            "fmax_unit": "eV/Angstrom",
+            "steps": 7,
+            "actual_steps": 4,
+        }
     ]
 
 
@@ -2539,8 +2721,31 @@ def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, t
     # 两个方向各告警一次；nsteps 为差分后的本方向步数（forward=3、reverse=5）而非累计值 8。
     # 只锁字段口径 token，不锁整句 prose。
     assert captured.out.count("workflow=irc") == 2
-    for token in ("direction=forward", "direction=reverse", "nsteps=3", "nsteps=5"):
+    for token in (
+        "stage=sella_irc",
+        "direction=forward",
+        "direction=reverse",
+        "nsteps=3",
+        "nsteps=5",
+    ):
         assert token in captured.out
+
+    # 逐方向 stage 记录各自携带方向、收敛信号与差分后的本方向步数。
+    manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
+    assert [
+        (
+            stage["name"],
+            stage["status"],
+            stage["role"],
+            stage["direction"],
+            stage["converged"],
+            stage["actual_steps"],
+        )
+        for stage in manifest["stages"]
+    ] == [
+        ("sella_irc", "complete", "final", "forward", False, 3),
+        ("sella_irc", "complete", "final", "reverse", False, 5),
+    ]
 
 
 def test_irc_workflow_reports_sella_inner_loop_boundary(monkeypatch, tmp_path):
