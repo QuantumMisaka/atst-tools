@@ -262,8 +262,17 @@ A4 remainder:
 - Re-review of `2bd8e8f` closed findings 1, 3, 4, 5 and found the Important finding 2 only partially closed: standalone DMF stages still omitted `converged`. Repaired in `85af048`: DMF stages now serialize through `StageRecord` (`converged: null`, `method`/`tol` preserved); producers are pinned by tests (md complete/failed, vibration, dmf); a `legacy_stage_without_converged.json` fixture plus README/API-reference caveats record that pre-2.2.6 manifests may omit `converged` and that a missing value is unknown, never false. Full suite 825 passed, 19 skipped.
 - Remaining A4 step: run producer-consumer fixture agreement with the Paimon P3 consumer — joint step, depends on their stages projection being implemented; the fixtures and field reference are ready for handoff.
 - Pre-existing observation recorded: `D2SSellaConfig.directory`/`D2SCCQNConfig.directory` default to `None`, so `_single_config_with_directory`'s `setdefault` never applies the intended subdirectory — unrelated to this plan, candidate for a later hardening pass.
-- Residual notes: six older Chinese comments (from `4c96691`) remain in `tests/unit/test_workflows.py` (dev-facing, pre-existing); the language gate deliberately scans runtime call shapes only (`add_parser(help=...)`, parser description/epilog and `choices` labels remain outside it).
+- Residual notes: six older Chinese comments (from `4c96691`) remain in `tests/unit/test_workflows.py` (dev-facing, pre-existing); the language gate scans runtime call shapes only (`choices` labels and non-call constants remain outside it).
 - Deferred (recorded): the default `atst_artifacts.json` literal is still duplicated across `api/services.py`, `relax.py`, `sella.py` (and the other writers); hoisting it into one shared constant is a small follow-up refactor. `md.py` now fails fast if a status outside `complete/skipped/failed` is ever produced (currently impossible).
+
+A5 closeout (2026-09-17):
+
+- Clean-wheel gate now also proves the stage contract: `scripts/verify_wheel_api.py`'s H2/Au fixture writes its stub record through `StageRecord`, and the gate fails unless the installed wheel persisted `{name, status, converged: null}`. Run result: `wheel clean-install public API gates passed` (this covers the reviewer's "the wheel check cannot see stage records" blind spot for the CCQN path).
+- MPI smoke: not executed on this host — `mpiexec` is unavailable; the gate reports the skip, and it is not counted as passing evidence.
+- Language gate extended to `add_parser(help=...)` and `ArgumentParser(description=/epilog=)` with meta-tests; the runtime surface now covers print/warn/logging (incl. `log`)/raise/argparse text.
+- Curated example outputs (`examples/02`, `examples/10`, `examples/12`, ...) still carry pre-2.2.6 stage shapes. They are historical run evidence and are NOT hand-edited; refreshing them requires an authorized real ABACUS/SAI run and stays with the maintainer. The wheel example gate covers the serializer contract instead.
+- Ruling: `FEATURE_STATUS_MATRIX.md` stays at the published 2.2.5 state until release preparation; it is updated together with release notes/ledgers when the next patch version is chosen (A6).
+- Verification after closeout: `pytest tests` 826 passed, 19 skipped; `check_docs_governance.py` passed; `git diff --check` clean.
 
 Additional observations retained without action in this batch:
 

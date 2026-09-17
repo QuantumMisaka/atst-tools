@@ -3,9 +3,11 @@
 The scan below is a mechanical AST check over ``src/atst_tools``: a string
 literal is flagged only when it is reachable from the arguments of a
 runtime-visible output call (``print``, ``warn``, logging methods) or from the
-``help=`` keyword of an ``argparse`` ``add_argument`` call, which argparse
-prints to the terminal. Docstrings, comments and other developer-facing strings
-(module constants, comparison tables, ...) are intentionally allowed.
+user-facing text keywords of ``argparse`` construction (``add_argument`` and
+``add_parser`` ``help=``, plus parser ``description=``/``epilog=``), which
+argparse prints to the terminal. Docstrings, comments and other
+developer-facing strings (module constants, comparison tables, ...) are
+intentionally allowed.
 """
 
 from __future__ import annotations
@@ -32,10 +34,11 @@ _LOGGING_METHODS = frozenset(
     {"debug", "info", "warning", "error", "critical", "exception", "log"}
 )
 
-# ``argparse`` help strings are printed by the CLI at runtime, so the ``help=``
-# keyword of an ``add_argument`` call is part of the runtime output contract.
-_CLI_ARGUMENT_METHOD = "add_argument"
-_CLI_HELP_KEYWORD = "help"
+# ``argparse`` help/description/epilog strings are printed by the CLI at
+# runtime, so the matching keywords of parser-construction calls are part of
+# the runtime output contract.
+_CLI_TEXT_KEYWORDS = frozenset({"help", "description", "epilog"})
+_CLI_METHODS = frozenset({"add_argument", "add_parser", "ArgumentParser"})
 
 _SNIPPET_LIMIT = 80
 
@@ -68,14 +71,17 @@ def _output_arguments(node: ast.Call | ast.Raise) -> list[ast.expr]:
 
 
 def _help_arguments(node: ast.Call) -> list[ast.expr]:
-    """Return the ``help=`` expressions of an ``argparse`` ``add_argument`` call."""
+    """Return the user-facing text expressions of an ``argparse`` call."""
     func = node.func
-    if not isinstance(func, ast.Attribute) or func.attr != _CLI_ARGUMENT_METHOD:
+    name = func.attr if isinstance(func, ast.Attribute) else (
+        func.id if isinstance(func, ast.Name) else ""
+    )
+    if name not in _CLI_METHODS:
         return []
     return [
         keyword.value
         for keyword in node.keywords
-        if keyword.arg == _CLI_HELP_KEYWORD
+        if keyword.arg in _CLI_TEXT_KEYWORDS
     ]
 
 
@@ -221,6 +227,35 @@ def test_scan_detects_cjk_logging_log_call(tmp_path):
     assert len(offenders) == 2, offenders
     assert any(item.startswith(f"{module}:6:") for item in offenders)
     assert any(item.startswith(f"{module}:7:") for item in offenders)
+
+
+def test_scan_detects_parser_help_description_and_epilog(tmp_path):
+    """Parser-level text (subparser help, description, epilog) is terminal output."""
+    module = tmp_path / "cjk_parser_text.py"
+    module.write_text(
+        "\n".join(
+            [
+                "import argparse",
+                "",
+                'parser = argparse.ArgumentParser(description="中文描述")',
+                'sub = parser.add_subparsers()',
+                'sub.add_parser("prepare", help="反向生成配置")',
+                "",
+                'parser2 = argparse.ArgumentParser(epilog="中文结语")',
+                'parser.add_argument("--mode", help="选择模式")',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    offenders = find_cjk_output_literals(module)
+
+    assert len(offenders) == 4, offenders
+    assert any(item.startswith(f"{module}:3:") for item in offenders)
+    assert any(item.startswith(f"{module}:5:") for item in offenders)
+    assert any(item.startswith(f"{module}:7:") for item in offenders)
+    assert any(item.startswith(f"{module}:8:") for item in offenders)
 
 
 def test_scan_detects_cjk_argparse_help_but_not_positional_names(tmp_path):

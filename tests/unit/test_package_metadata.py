@@ -123,6 +123,8 @@ def test_wheel_ccqn_example_fixture_installs_only_a_backend_run_patch(
     patch = (fixture / "sitecustomize.py").read_text(encoding="utf-8")
     assert "from atst_tools.mep.ccqn import AbacusCCQN" in patch
     assert "from atst_tools.utils.artifacts import write_artifact_manifest" in patch
+    assert "from atst_tools.utils.convergence import StageRecord" in patch
+    assert "StageRecord(name='ccqn'" in patch
     assert "AbacusCCQN.run = _return_copied_atoms" in patch
     assert "return self.init_Atoms.copy()" in patch
     assert "atst_tools.api" not in patch
@@ -145,6 +147,13 @@ def test_wheel_ccqn_example_runs_with_its_isolated_startup_fixture(
         gate,
         "_run",
         lambda command, **kwargs: observed.update(command=command, **kwargs),
+    )
+    outputs = fixture / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "atst_artifacts_api_auto_modes.json").write_text(
+        '{"workflow": "ccqn", "stages": [{"name": "ccqn", "status": "complete", '
+        '"converged": null}]}\n',
+        encoding="utf-8",
     )
 
     gate._run_h2_au_api_example(tmp_path / "python", tmp_path / "workspace")

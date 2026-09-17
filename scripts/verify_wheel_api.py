@@ -127,6 +127,7 @@ def _copy_h2_au_api_fixture(temporary_root: Path) -> Path:
         "\n"
         "from atst_tools.mep.ccqn import AbacusCCQN\n"
         "from atst_tools.utils.artifacts import write_artifact_manifest\n"
+        "from atst_tools.utils.convergence import StageRecord\n"
         "\n"
         "\n"
         "def _return_copied_atoms(self):\n"
@@ -134,7 +135,9 @@ def _copy_h2_au_api_fixture(temporary_root: Path) -> Path:
         "        self.calc_config.get('artifact_manifest', 'atst_artifacts.json'),\n"
         "        workflow='ccqn',\n"
         "        artifacts=[],\n"
-        "        stages=[{'name': 'ccqn', 'status': 'complete'}],\n"
+        "        stages=[StageRecord(name='ccqn', role='final',\n"
+        "                            criterion='ccqn_prfo',\n"
+        "                            converged=None).to_manifest()],\n"
         "    )\n"
         "    return self.init_Atoms.copy()\n"
         "\n"
@@ -153,6 +156,19 @@ def _run_h2_au_api_example(python: Path, temporary_root: Path) -> None:
         cwd=fixture,
         environment_overrides={"PYTHONPATH": str(fixture)},
     )
+    manifest = json.loads(
+        (fixture / "outputs" / "atst_artifacts_api_auto_modes.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    stages = manifest.get("stages")
+    if not isinstance(stages, list) or not stages:
+        raise RuntimeError("installed-wheel CCQN example wrote no stage record")
+    stage = stages[0]
+    if set(stage) < {"name", "status", "converged"} or stage["converged"] is not None:
+        raise RuntimeError(
+            "installed-wheel CCQN example did not persist a tri-state unknown stage"
+        )
 
 
 def _run_installed_cli_dry_run(executable: Path, temporary_root: Path) -> None:
