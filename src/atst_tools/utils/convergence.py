@@ -460,27 +460,29 @@ def emit_unconverged_advisory(
     Returns:
         ``True`` when the record carries ``converged is False``, otherwise
         ``False``.  The value is identical on every rank so callers never branch
-        on rank-local state; only the printed message is root-only.
+        on rank-local state; only the printed message is root-only.  On a
+        multi-rank world every rank enters the same rank-zero section, so a
+        rank-divergent record can never desynchronize the collective sequence.
 
     Raises:
         ValueError: ``workflow`` is not a non-empty string.
     """
     if not isinstance(workflow, str) or not workflow.strip():
         raise ValueError(f"workflow must be a non-empty string, got {workflow!r}.")
-    if record.converged is not False:
-        return False
+    emit = record.converged is False
     output = sys.stdout if stream is None else stream
     message = _advisory_message(record, workflow)
 
-    def emit() -> None:
-        print(message, file=output)
+    def emit_section() -> None:
+        if emit:
+            print(message, file=output)
 
     if world is not None and int(world.size) > 1:
         run_rank_zero_section(
             world,
-            emit,
+            emit_section,
             context="convergence advisory warning",
         )
-    else:
-        emit()
-    return True
+    elif emit:
+        print(message, file=output)
+    return emit

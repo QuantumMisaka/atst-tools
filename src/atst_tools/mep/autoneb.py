@@ -1141,6 +1141,11 @@ class AutoNEBRunner:
         iteration_records, final_record = self._convergence_stage_records(
             list(getattr(autoneb, "iteration_records", None) or [])
         )
+        if final_record is None and final_images is not None:
+            # No optimizer iteration ran (the band was already complete), but the
+            # workflow still finished: keep one explicit execution record so a
+            # consumer never sees a stage-less manifest.
+            final_record = StageRecord(name="autoneb", role="final", status="skipped")
         if final_record is not None:
             emit_unconverged_advisory(
                 final_record,

@@ -464,16 +464,21 @@ def test_advisory_is_root_only_on_a_multi_rank_world(capsys):
     assert root_emitted is follower_emitted is True
 
 
-def test_advisory_is_silent_on_every_rank_when_converged(capsys):
-    """No rank prints, and no reduction is required, when converged is True."""
+def test_advisory_is_silent_but_collective_is_uniform_when_converged(capsys):
+    """No rank prints on True, yet every rank enters the same rank-zero section."""
     record = StageRecord(name="ci_neb", converged=True, fmax=0.05, steps=100)
     root = FakeReducingWorld(size=2, rank=0)
+    follower = FakeReducingWorld(size=2, rank=1)
 
     assert emit_unconverged_advisory(record, workflow="neb", world=root) is False
+    assert emit_unconverged_advisory(record, workflow="neb", world=follower) is False
 
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert root.sums == 0
+    # Silent records still traverse the section: rank-divergent branch state can
+    # never desynchronize the collective sequence.
+    assert root.sums == 1
+    assert follower.sums == 1
 
 
 @pytest.mark.parametrize("workflow", ["", "   ", None, 3])

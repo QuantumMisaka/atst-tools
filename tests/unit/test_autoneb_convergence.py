@@ -354,27 +354,37 @@ def test_runner_advisory_stays_silent_unless_the_final_iteration_failed(
         assert '"converged": null' in raw_manifest
 
 
-def test_runner_omits_the_final_stage_when_no_iteration_executed(
+def test_runner_records_skipped_final_scope_when_no_iteration_executed(
     monkeypatch, tmp_path, capsys
 ):
-    """A run without iteration facts keeps a written but truthful manifest."""
+    """A completed band that needed no iteration keeps a truthful skipped scope."""
 
     class SilentAutoNEB:
         def __init__(self, **kwargs):
-            return None
+            self.all_images = [
+                make_atoms(energy=float(index)) for index in range(BAND_SIZE)
+            ]
 
         def run(self):
             return None
 
     monkeypatch.setattr(autoneb, "AbacusAutoNEB", SilentAutoNEB)
+    monkeypatch.setattr(
+        autoneb.AutoNEBRunner, "_freeze_final_image_results", lambda self, images: None
+    )
+    monkeypatch.setattr(autoneb, "write", lambda *args, **kwargs: None)
     runner = _make_runner(monkeypatch, tmp_path)
 
     runner.run()
 
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     assert manifest["workflow"] == "autoneb"
-    assert manifest["stages"] == []
-    assert manifest["artifacts"] == []
+    assert manifest["stages"] == [
+        {"name": "autoneb", "status": "skipped", "converged": None, "role": "final"}
+    ]
+    assert [artifact["role"] for artifact in manifest["artifacts"]] == [
+        "image_trajectory"
+    ] * BAND_SIZE
     assert ADVISORY_TAIL not in capsys.readouterr().out
 
 
