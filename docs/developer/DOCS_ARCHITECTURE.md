@@ -83,6 +83,6 @@ docs/
 - 功能矩阵：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md)
 - 文档治理账本：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
 - 发布说明：[RELEASE_NOTES_2.2.6.md](../releases/RELEASE_NOTES_2.2.6.md)，记录当前
-  2.2.6 release candidate 的范围与本地门禁证据；发布、tag、CI 与 PyPI 证据待维护者完成。
+  已发布的 2.2.6 及其 tag/CI/PyPI 与 clean-install 证据。
   此前已发布的 [2.2.5 release notes](../releases/RELEASE_NOTES_2.2.5.md) 与
   [2.2.4 release notes](../releases/RELEASE_NOTES_2.2.4.md) 保留为历史发布记录。

@@ -2,7 +2,7 @@
 
 **版本**: 2.2.6
 **日期**: 2026-09-17
-**状态**: release candidate（未发布）
+**状态**: 已发布（PyPI clean-install 已验证）
 **责任人**: ATST-Tools maintainers
 
 本文档是 ATST-Tools 当前文档治理状态的单一入口。它记录活跃文档职责、reports
@@ -10,6 +10,14 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
+- 2026-09-17（发布后记录）：2.2.6 已从 release commit
+  `a633f06b9375e3f34dbd87f90f40ec6271b29cd4` 推送并发布。GitHub
+  [Tests](https://github.com/QuantumMisaka/atst-tools/actions/runs/35206052859)、
+  [abacuslite](https://github.com/QuantumMisaka/atst-tools/actions/runs/35206052923)
+  和 [Publish](https://github.com/QuantumMisaka/atst-tools/actions/runs/35206151239)
+  均成功；PyPI 两个 artifact、上传时间和 hash 见 2.2.6 release notes。官方无缓存
+  clean-install、CLI/API、依赖与安装位置核验均通过；SIF/SAI/platform runtime 与真实
+  ABACUS/MPI 验收未执行。
 - 2026-09-17（发布前记录）：2.2.6 release candidate 的版本元数据、用户边界与导航已切换。
   候选范围：优化器收敛事实持久化（严格三态 `converged` + stage 身份字段，Sella/Relax/AutoNEB
   自写 owner manifest，API synthesized 显式 `converged: null`）、运行期诊断统一英文及机械门禁、

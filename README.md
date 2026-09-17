@@ -26,14 +26,14 @@ instead of one-off Python scripts.
 
 ## At A Glance
 
-| Area | Current 2.2.6 status (release candidate; not published) |
+| Area | Current 2.2.6 status (published; PyPI clean-install verified) |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Release | `2.2.6` release candidate; publication, tag, automated validation, and PyPI evidence are pending in the [release notes](docs/releases/RELEASE_NOTES_2.2.6.md). |
+| Release | `2.2.6`, published from tag `v2.2.6` at commit `a633f06b9375e3f34dbd87f90f40ec6271b29cd4`; official PyPI clean-install, CLI/API, and dependency checks passed as recorded in the [release notes](docs/releases/RELEASE_NOTES_2.2.6.md). |
 
 ## What You Can Run
 

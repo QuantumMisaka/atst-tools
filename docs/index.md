@@ -66,8 +66,9 @@ evidence, documentation health, release scope, or cleanup priorities.
 2. [Documentation governance report](reports/DOCUMENTATION_STATUS_REPORT.md) for
    the active documentation ledger, report levels, archive state, and
    pending-delete status.
-3. [2.2.6 release notes](releases/RELEASE_NOTES_2.2.6.md) for the current
-   release-candidate scope; publication, tag, CI, and PyPI evidence are pending.
+3. [2.2.6 release notes](releases/RELEASE_NOTES_2.2.6.md) for the published
+   version-level delivery scope and recorded tag, CI, and PyPI evidence;
+   official no-cache clean-install, CLI/API, and dependency verification passed.
    The previously published [2.2.5 release notes](releases/RELEASE_NOTES_2.2.5.md)
    and [2.2.4 release notes](releases/RELEASE_NOTES_2.2.4.md) remain available
    for historical publication evidence.

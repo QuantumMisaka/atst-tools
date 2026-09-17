@@ -2,7 +2,7 @@
 
 **Version**: 2.2.6
 **Last Updated**: 2026-09-17
-**Status**: Release candidate (not published)
+**Status**: Published (official PyPI clean-install verified)
 
 This document is the hand-written semantic reference for `config.yaml` files
 used by `atst run`. It explains workflow behavior, common configuration

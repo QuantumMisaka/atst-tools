@@ -2,16 +2,16 @@
 
 **Version**: 2.2.6
 **Last Updated**: 2026-09-17
-**Status**: Release candidate (not published)
+**Status**: Published (PyPI clean-install verified)
 **Owner**: ATST-Tools maintainers
 
-The 2.2.6 candidate records optimizer convergence facts across workflows,
-writes owner manifests for Sella/Relax/AutoNEB, and unifies runtime diagnostics
-to English. Full local validation, the documentation gate and the clean-wheel
-API gate passed; tag, CI, PyPI and SIF/SAI/platform runtime evidence remain
-pending. The 2.2.5 package was published from tag `v2.2.5` at commit
-`4c966915c6f40984fc85806869f4766ecdd6ffc9`; its publication evidence stays in
-the 2.2.5 release notes.
+The 2.2.6 package was published from tag `v2.2.6` at commit
+`a633f06b9375e3f34dbd87f90f40ec6271b29cd4`. It records optimizer convergence
+facts across workflows, writes owner manifests for Sella/Relax/AutoNEB, and
+unifies runtime diagnostics to English. GitHub Tests, abacuslite, PyPI
+publication and the official no-cache clean-install verification passed;
+SIF/SAI/platform runtime evidence has not been performed. The 2.2.5 release
+evidence stays in the 2.2.5 release notes.
 
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
