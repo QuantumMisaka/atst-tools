@@ -19,6 +19,8 @@ CONFLICT_MARKER = re.compile(r"^(<<<<<<<|=======|>>>>>>>)", re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 REPORT_LINK = re.compile(r"`(docs/reports/[^`]+?)`")
 PENDING_LINK = re.compile(r"`(docs/archive/pending_delete/[^`]+?)`")
+PLAN_LINK = re.compile(r"`(docs/(?:superpowers|developer)/plans/[^`]+?)`")
+PLAN_ROOTS = (Path("docs/superpowers/plans"), Path("docs/developer/plans"))
 METADATA_ALIASES = {
     "version": ("**Version**", "**Version:**", "**版本**", "**版本:**"),
     "date": ("**Date**", "**Date:**", "**日期**", "**日期:**", "**Last Updated**", "Date:", "日期："),
@@ -113,6 +115,38 @@ def check_report_ledger(root: Path) -> list[str]:
     return issues
 
 
+def plan_files(root: Path) -> set[Path]:
+    """Return active spec/plan Markdown files that must be registered."""
+    files: set[Path] = set()
+    for entry in PLAN_ROOTS:
+        directory = root / entry
+        if not directory.is_dir():
+            continue
+        for path in directory.rglob("*"):
+            if path.is_file() and path.suffix in {".md", ".html"}:
+                files.add(path)
+    return files
+
+
+def check_plan_ledger(root: Path) -> list[str]:
+    """Check that active plans are registered in the documentation status ledger."""
+    ledger = root / "docs" / "reports" / "DOCUMENTATION_STATUS_REPORT.md"
+    ledger_text = ledger.read_text(encoding="utf-8")
+    active_ledger_text = ledger_text.split("### L4:", 1)[0]
+    mentioned = {root / link for link in PLAN_LINK.findall(active_ledger_text)}
+    expected = plan_files(root)
+
+    issues: list[str] = []
+    for path in sorted(expected - mentioned):
+        issues.append(f"active plan is missing from documentation ledger: {path.relative_to(root)}")
+    for path in sorted(mentioned - expected):
+        if not path.exists():
+            issues.append(
+                f"documentation ledger references missing active plan: {path.relative_to(root)}"
+            )
+    return issues
+
+
 def check_report_metadata(root: Path) -> list[str]:
     """Check active Markdown reports for required governance metadata."""
     issues: list[str] = []
@@ -167,6 +201,7 @@ def check_repository(root: Path) -> list[str]:
     issues.extend(check_conflict_markers(root))
     issues.extend(check_markdown_links(root))
     issues.extend(check_report_ledger(root))
+    issues.extend(check_plan_ledger(root))
     issues.extend(check_report_metadata(root))
     issues.extend(check_pending_delete_inventory(root))
     issues.extend(check_html_reports(root))

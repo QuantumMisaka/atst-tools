@@ -301,3 +301,73 @@ def test_maintenance_guidance_labels_sai_as_validation_only_and_has_no_legacy_br
     assert "用户运行前提" not in agents
     assert "main is the v1.5.x legacy line" not in cli_skill
     assert "- Package version: `2.2.3`." in release_notes
+
+
+def _plan_ledger_fixture(
+    tmp_path: Path,
+    *,
+    plan_paths: tuple[str, ...] = ("docs/superpowers/plans/2026-01-01-demo.md",),
+    ledger_rows: str = "",
+    ledger_tail: str = "",
+) -> Path:
+    """Create a minimal docs tree for active-plan registration checks."""
+    for relative in plan_paths:
+        plan = tmp_path / relative
+        plan.parent.mkdir(parents=True, exist_ok=True)
+        plan.write_text("# plan\n", encoding="utf-8")
+    ledger = tmp_path / "docs" / "reports" / "DOCUMENTATION_STATUS_REPORT.md"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(
+        "# 文档治理状态报告\n\n## 1. 核心结论\n\n## 4. Spec / Plan / Review 登记\n\n"
+        "| 文档 | 生命周期 | 当前职责 |\n| :--- | :--- | :--- |\n"
+        f"{ledger_rows}"
+        "\n### L4: 历史或已被取代材料\n\n"
+        f"{ledger_tail}",
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_docs_governance_requires_active_plan_registration(tmp_path):
+    """An unregistered plan under an active plan root is a governance error."""
+    module = _load_governance_script()
+    root = _plan_ledger_fixture(tmp_path)
+
+    issues = module.check_plan_ledger(root)
+
+    assert any("active plan is missing from documentation ledger" in issue for issue in issues)
+    assert any("2026-01-01-demo.md" in issue for issue in issues)
+
+
+def test_docs_governance_accepts_registered_plans_from_both_roots(tmp_path):
+    """Registered plans in both supported plan roots satisfy the ledger contract."""
+    module = _load_governance_script()
+    root = _plan_ledger_fixture(
+        tmp_path,
+        plan_paths=(
+            "docs/superpowers/plans/2026-01-01-demo.md",
+            "docs/developer/plans/legacy-demo.md",
+        ),
+        ledger_rows=(
+            "| `docs/superpowers/plans/2026-01-01-demo.md` | plan | demo |\n"
+            "| `docs/developer/plans/legacy-demo.md` | plan | legacy demo |\n"
+        ),
+    )
+
+    assert module.check_plan_ledger(root) == []
+
+
+def test_docs_governance_rejects_l4_only_mentions_and_missing_plan_references(tmp_path):
+    """L4/history mentions do not register a plan, and stale references are errors."""
+    module = _load_governance_script()
+    root = _plan_ledger_fixture(
+        tmp_path,
+        plan_paths=("docs/superpowers/plans/2026-01-01-demo.md",),
+        ledger_rows="| `docs/superpowers/plans/2026-01-02-missing.md` | plan | gone |\n",
+        ledger_tail="`docs/superpowers/plans/2026-01-01-demo.md` moved to archive\n",
+    )
+
+    issues = module.check_plan_ledger(root)
+
+    assert any("references missing active plan" in issue for issue in issues)
+    assert any("active plan is missing from documentation ledger" in issue for issue in issues)
