@@ -19,8 +19,9 @@ or a calculator runtime. For command syntax, see the maintained
 [CLI reference](CLI_REFERENCE.md). For project installation, examples, and
 source, see the [repository README](../../README.md) and the
 [ATST-Tools repository](https://github.com/QuantumMisaka/atst-tools).
-This reference tracks the current 2.2.5 release. The published package's
-official PyPI no-cache clean-install, CLI/API, and dependency checks passed.
+This reference tracks the current 2.2.6 release candidate. Publication evidence
+is pending; the previously published 2.2.5 package passed its official PyPI
+no-cache clean-install, CLI/API, and dependency checks.
 Additions since 2.2.0
 (progress events, plotting helpers, and the profiles/plots result extensions)
 are marked "(2.2.1)".

@@ -1,16 +1,17 @@
 # ATST-Tools Feature Status Matrix
 
-**Version**: 2.2.5
-**Last Updated**: 2026-09-16
-**Status**: Published (PyPI clean-install verified)
+**Version**: 2.2.6
+**Last Updated**: 2026-09-17
+**Status**: Release candidate (not published)
 **Owner**: ATST-Tools maintainers
 
-The 2.2.5 package was published from tag `v2.2.5` at commit
-`4c966915c6f40984fc85806869f4766ecdd6ffc9`. Focused/full validation, the real
-upstream snapshot check, documentation/metadata gates, and GitHub/PyPI
-publication evidence are recorded in the release notes. Official no-cache
-clean-install, CLI/API, and dependency verification passed; SIF/SAI/platform
-runtime evidence has not been performed.
+The 2.2.6 candidate records optimizer convergence facts across workflows,
+writes owner manifests for Sella/Relax/AutoNEB, and unifies runtime diagnostics
+to English. Full local validation, the documentation gate and the clean-wheel
+API gate passed; tag, CI, PyPI and SIF/SAI/platform runtime evidence remain
+pending. The 2.2.5 package was published from tag `v2.2.5` at commit
+`4c966915c6f40984fc85806869f4766ecdd6ffc9`; its publication evidence stays in
+the 2.2.5 release notes.
 
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
@@ -26,7 +27,9 @@ runtime evidence has not been performed.
 | **MD** | ✅ Supported | Molecular Dynamics | Supports ASE-driven MD with ABACUS/DP calculators and ABACUS-native MD input/run/output orchestration. |
 | **ABACUSLite SCF frame identity** | ✅ Supported | Periodic-aware running-log frame selection | Published in 2.2.5. `calculation: scf` accepts integer lattice translations in the current cell, including valid cross-cell transition-state/NEB movement, and selects the latest matching frame. Different structures and malformed, non-finite, singular, shape, count, cell, element, or order data remain fail-closed. Native `relax`/`md`/`MD_dump` retain last-frame semantics; no new configuration knob. |
 | **DMF** | 🧪 Experimental | Direct MaxFlux TS candidate/path optimizer | Standalone `calculation.type: dmf` and D2S `rough_method: dmf` are available for candidate generation. Outputs are TS candidates, not validated TS results. PBC support is limited to explicit `cartesian_unwrapped` experimental mode. Requires `cyipopt`/IPOPT at runtime. |
-| **Artifact Manifests** | ✅ Supported | Workflow output registry | Implemented for NEB, D2S, CCQN, Vibration, IRC, and MD. |
+| **Artifact Manifests** | ✅ Supported | Workflow output registry | Implemented for NEB, D2S, CCQN, Vibration, IRC, MD, AutoNEB, Sella, Relax, and experimental DMF. |
+| **Convergence Stage Records** | ✅ Supported | Optimizer-owned convergence facts in manifest stages | Every optimize workflow records a strict tri-state `converged` (`true`/`false`/`null`) plus stage identity (`role`, `criterion`, IRC `direction`, AutoNEB `subset`, thresholds, stage-local steps). `null` is unknown and never inferred from trajectories or raw force maxima; advisories are diagnostic only and never change completion or exit codes. Documented in `docs/user/PYTHON_API_REFERENCE.md`; contract fixtures in `docs/reports/data/convergence_fixtures_20260917/`. New in 2.2.6; additive stage fields. |
+| **English Runtime Diagnostics** | ✅ Supported | Program-visible output language | `print`/warning/logging output, exception messages and CLI help are English across the package, enforced by `tests/unit/test_program_output_language.py`; documentation keeps its existing language and the vendored abacuslite snapshot is excluded. New in 2.2.6; the printed diagnostics language is the only user-visible change. |
 | **API Process Runner** | ✅ Supported | External-host API handoff | `python -m atst_tools.api.runner` writes root-only `atst-api-result-v1` JSON and preserves caller-owned scheduler/MPI launch. |
 | **NDJSON Progress Events** | ✅ Supported | Structured progress observability | `RunOptions(progress=True)` / runner `--progress` emit one JSON line per event (`workflow_start`, then one `image_step` per NEB/AutoNEB band image) and forward the same mapping to `progress_callback`. |
 | **Plotting Helpers** | ✅ Supported | Energy visualization | Stable `neb_energy_profile`, `sella_energy_curve`, `ccqn_energy_curve` API helpers plus the `python -m atst_tools.utils.plot` CLI adapter; matplotlib is an optional `[plot]` extra. |

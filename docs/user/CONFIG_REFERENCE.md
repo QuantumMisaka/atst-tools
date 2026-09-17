@@ -1,8 +1,8 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.2.5
-**Last Updated**: 2026-09-16
-**Status**: Published (official PyPI clean-install verified)
+**Version**: 2.2.6
+**Last Updated**: 2026-09-17
+**Status**: Release candidate (not published)
 
 This document is the hand-written semantic reference for `config.yaml` files
 used by `atst run`. It explains workflow behavior, common configuration

@@ -1,8 +1,8 @@
 # 文档治理状态报告
 
-**版本**: 2.2.5
+**版本**: 2.2.6
 **日期**: 2026-09-17
-**状态**: 已发布（PyPI clean-install 已验证）
+**状态**: release candidate（未发布）
 **责任人**: ATST-Tools maintainers
 
 本文档是 ATST-Tools 当前文档治理状态的单一入口。它记录活跃文档职责、reports
@@ -10,6 +10,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
+- 2026-09-17（发布前记录）：2.2.6 release candidate 的版本元数据、用户边界与导航已切换。
+  候选范围：优化器收敛事实持久化（严格三态 `converged` + stage 身份字段，Sella/Relax/AutoNEB
+  自写 owner manifest，API synthesized 显式 `converged: null`）、运行期诊断统一英文及机械门禁、
+  稳定 API 阶段契约与交接 fixtures。本地全量测试、文档治理与 clean-wheel API 门禁已通过；
+  tag、CI、PyPI、SIF/SAI 与真实 ABACUS/MPI 运行时验收尚未执行；不得把本候选描述为已发布。
 - 2026-09-17：执行 [workflow convergence handoff plan](../superpowers/plans/2026-09-17-workflow-convergence-handoff-plan.md)（`feature/workflow-convergence`，基于 `origin/main` `cf86790`）：共享 convergence helper（三态记录 + 英文 advisory + root-only 发射）落地；Sella/CCQN/Relax/IRC/NEB/AutoNEB/D2S 的优化器返回值与阶段事实已持久化，Sella/Relax 也自写默认路径 manifest，复合工作流（D2S/AutoNEB）由顶层 workflow 唯一拥有 manifest；API synthesized 阶段显式 `converged: null` 并在 `PYTHON_API_REFERENCE` 记录阶段契约；运行期诊断全英文并有 AST 机械门禁；A4 交接 fixtures（`docs/reports/data/convergence_fixtures_20260917/`）已生成并有契约测试；clean-wheel 门禁验证了安装包中的三态阶段写出。剩余：Paimon 联合消费验收（由其开发者推进）、示例 curated 产物刷新（需要授权的真实 ABACUS/SAI 运行）、A6 下一 patch 发布（`FEATURE_STATUS_MATRIX` 与 release notes 在发布准备时更新），以及真实 MPI/ABACUS 运行时验收。本记录不表示发布或运行时验收完成。
 - 2026-09-17：计划归档收口：7 个已在发布/文档/测试中吸收结论的旧计划与 2 个 `docs/developer/plans/` 遗留文件移入 `docs/archive/pending_delete/plans/`；活跃计划目录只保留仍待执行的计划，并要求在账本登记（`check_docs_governance.py` 机械校验）。
 
@@ -17,10 +22,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
   `docs/superpowers/specs/2026-05-28-documentation-governance-design.md`。
 - 活跃入口收敛到 `README.md`、`docs/index.md`、用户文档、开发者文档、当前状态
   reports 和 release notes。
-- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.5.md`；2.2.5 已由
-  `v2.2.5` 发布，exact tag、Tests、abacuslite、Publish 和 PyPI artifact 证据已登记。
-  官方无缓存 clean-install、CLI/API 与依赖检查均已通过，SIF/SAI/platform runtime 尚未执行。此前已由
-  `v2.2.4` 发布的 2.2.4 及更早 release notes 保留为历史版本说明。
+- 当前 release 入口为 `docs/releases/RELEASE_NOTES_2.2.6.md`（release candidate，未发布）；
+  tag、CI、PyPI 与 SIF/SAI runtime 证据待维护者执行。此前已由 `v2.2.5` / `v2.2.4`
+  发布的 release notes 保留为历史版本说明。
 - `docs/reports/FEATURE_STATUS_MATRIX.md` 是当前功能支持矩阵，覆盖 NEB/AutoNEB、
   Dimer、Sella、CCQN、D2S+CCQN、Relax、Vibration/TS validation、IRC、MD、
   experimental DMF、artifact manifest、MPI image-level parallelism，并明确 GA 未支持。
