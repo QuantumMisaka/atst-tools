@@ -87,6 +87,7 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.ccqn.fmax | calculation.type=ccqn | `float` | `0.05` | Force convergence threshold in eV/Ang. |
 | calculation.ccqn.max_steps | calculation.type=ccqn | `int \| NoneType` | `200` | Maximum optimizer steps. |
 | calculation.ccqn.e_vector_method | calculation.type=ccqn | `'ic' \| 'interp'` | `'ic'` | CCQN cone-axis construction method. |
+| calculation.ccqn.interp_direction | calculation.type=ccqn | `'product' \| 'midpoint'` | `'product'` | Interp cone-axis target: the product structure or the IDPP path midpoint (paper eq. 18). |
 | calculation.ccqn.reactive_bonds | calculation.type=ccqn | `str \| list[list[int]] \| NoneType` | `null` | 1-based reactive bonds for IC mode. |
 | calculation.ccqn.product_file | calculation.type=ccqn | `str \| NoneType` | `null` | Product-like structure for interpolation mode. |
 | calculation.ccqn.align_product_indices | calculation.type=ccqn | `bool` | `False` | Align product atom indices to the initial structure. |

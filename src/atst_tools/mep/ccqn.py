@@ -28,8 +28,14 @@ from atst_tools.utils.convergence import (
     as_step_count,
     emit_unconverged_advisory,
 )
-from atst_tools.utils.idpp import align_atom_indices
+from atst_tools.utils.idpp import align_atom_indices, interpolate_path
 from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
+
+# Interpolation-based cone axis (paper eq. 18): the path towards the product is
+# resolved with seven inner images, so the nine-frame path makes
+# ``path[len(path) // 2]`` the centre inner image.
+CCQN_INTERP_PATH_IMAGES = 7
+CCQN_INTERP_PATH_TOL = 0.05
 
 
 def parse_reactive_bonds(value: Any, natoms: int | None = None) -> list[tuple[int, int]]:
@@ -139,23 +145,63 @@ def ccqn_ic_e_vector(atoms, forces, reactive_bonds, ic_mode: str = "democratic")
     return e_vec / norm if norm > 1e-8 else e_vec
 
 
-def ccqn_interp_e_vector(atoms, product_atoms) -> np.ndarray:
-    """Return the normalized interpolation-based CCQN cone axis.
+def _ccqn_interp_midpoint_e_vector(atoms, product_atoms) -> np.ndarray:
+    """Return the normalized cone axis from the interpolation path midpoint.
+
+    Implements eq. 18 of the CCQN paper: ``e = (x_mid - x) / |x_mid - x|``,
+    where ``x_mid`` is the centre frame of an IDPP path generated between the
+    current and product configurations.
 
     Args:
         atoms: Current ASE atoms.
         product_atoms: Product-like reference geometry with matching atom count.
 
     Returns:
+        Flattened normalized MIC displacement from current to the path
+        midpoint. Returns zeros if the midpoint coincides with the current
+        geometry.
+    """
+    path = interpolate_path(
+        atoms,
+        product_atoms,
+        CCQN_INTERP_PATH_IMAGES,
+        method="IDPP",
+        tol=CCQN_INTERP_PATH_TOL,
+        quiet=True,
+    )
+    midpoint = path[len(path) // 2]
+    raw = midpoint.get_positions() - atoms.get_positions()
+    mic, _ = find_mic(raw, atoms.get_cell(), atoms.get_pbc())
+    e_vec = mic.flatten()
+    norm = np.linalg.norm(e_vec)
+    return e_vec / norm if norm > 1e-8 else np.zeros_like(e_vec)
+
+
+def ccqn_interp_e_vector(atoms, product_atoms, direction: str = "product") -> np.ndarray:
+    """Return the normalized interpolation-based CCQN cone axis.
+
+    Args:
+        atoms: Current ASE atoms.
+        product_atoms: Product-like reference geometry with matching atom count.
+        direction: ``product`` keeps the MIC displacement towards the product
+            configuration; ``midpoint`` uses the midpoint of an IDPP path
+            towards the product, per eq. 18 of the CCQN paper.
+
+    Returns:
         Flattened normalized MIC displacement from current to reference.
 
     Raises:
-        ValueError: If atom counts differ.
+        ValueError: If atom counts differ or ``direction`` is unknown.
     """
     if product_atoms is None:
         raise ValueError("product_atoms is required for e_vector_method='interp'")
     if len(product_atoms) != len(atoms):
         raise ValueError(f"product_atoms atom count mismatch: {len(product_atoms)} vs {len(atoms)}")
+    normalized_direction = str(direction).lower()
+    if normalized_direction not in {"product", "midpoint"}:
+        raise ValueError("interp_direction must be 'product' or 'midpoint'")
+    if normalized_direction == "midpoint":
+        return _ccqn_interp_midpoint_e_vector(atoms, product_atoms)
     raw = product_atoms.get_positions() - atoms.get_positions()
     mic, _ = find_mic(raw, atoms.get_cell(), atoms.get_pbc())
     e_vec = mic.flatten()
@@ -218,6 +264,7 @@ class CCQNOptimizer(Optimizer):
         hessian: bool = False,
         accept_initial_converged: bool = False,
         diagnostics_file: str | None = None,
+        interp_direction: str = "product",
     ):
         """Initialize a CCQN optimizer.
 
@@ -240,10 +287,14 @@ class CCQNOptimizer(Optimizer):
             accept_initial_converged: Treat an already force-converged TS guess
                 as a PRFO-region point before the first optimizer step.
             diagnostics_file: Optional JSON file for step-level diagnostics.
+            interp_direction: For ``e_vector_method='interp'``, ``product``
+                points at the product configuration and ``midpoint`` points at
+                the midpoint of an IDPP path towards it (paper eq. 18).
         """
         super().__init__(atoms, restart=restart, logfile=logfile, trajectory=trajectory, master=master)
         self.e_vector_method = str(e_vector_method).lower()
         self.product_atoms = product_atoms
+        self.interp_direction = str(interp_direction).lower()
         self.reactive_bonds = list(reactive_bonds or [])
         self.ic_mode = str(ic_mode).lower()
         self.cos_phi = float(cos_phi)
@@ -269,6 +320,10 @@ class CCQNOptimizer(Optimizer):
             raise ValueError("product_atoms is required for e_vector_method='interp'")
         if self.e_vector_method == "ic" and not self.reactive_bonds:
             raise ValueError("reactive_bonds is required for e_vector_method='ic'")
+        if self.interp_direction not in {"product", "midpoint"}:
+            raise ValueError("interp_direction must be 'product' or 'midpoint'")
+        if self.interp_direction == "midpoint" and self.e_vector_method != "interp":
+            raise ValueError("interp_direction='midpoint' requires e_vector_method='interp'")
         if accept_initial_converged:
             self.mode = "prfo"
 
@@ -315,7 +370,7 @@ class CCQNOptimizer(Optimizer):
 
     def _calculate_e_vector(self, forces) -> np.ndarray:
         if self.e_vector_method == "interp":
-            return ccqn_interp_e_vector(self.atoms, self.product_atoms)
+            return ccqn_interp_e_vector(self.atoms, self.product_atoms, direction=self.interp_direction)
         return ccqn_ic_e_vector(self.atoms, forces, self.reactive_bonds, ic_mode=self.ic_mode)
 
     def _select_mode(self, eigvals) -> None:
@@ -568,6 +623,7 @@ class AbacusCCQN:
             hessian=self.calc_config.get("hessian", False),
             accept_initial_converged=self.calc_config.get("accept_initial_converged", False),
             diagnostics_file=self.calc_config.get("diagnostics_file"),
+            interp_direction=self.calc_config.get("interp_direction", "product"),
         )
         max_steps = self.calc_config.get("max_steps")
         fmax_threshold = self.calc_config.get("fmax", 0.05)

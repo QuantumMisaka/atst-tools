@@ -816,6 +816,7 @@ def _ccqn_options_to_config(options: CCQNOptions) -> dict[str, Any]:
         "logfile": options.logfile,
         "final_structure": options.final_structure,
         "e_vector_method": options.e_vector_method,
+        "interp_direction": options.interp_direction,
         "reactive_bonds": options.reactive_bonds,
         "auto_reactive_bonds": dict(options.auto_reactive_bonds),
         "mode_manifest": options.mode_manifest,

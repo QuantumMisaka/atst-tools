@@ -1,3 +1,6 @@
+import contextlib
+import io
+
 import numpy as np
 import warnings
 from typing import List
@@ -348,6 +351,40 @@ def _interpolate(method: str, start: Atoms, end: Atoms, n_images: int, tol: floa
     if method == 'linear':
         return robust_interpolate(start, end, n_images)
     raise ValueError(f'{method} not supported')
+
+
+def interpolate_path(
+    start: Atoms,
+    end: Atoms,
+    n_images: int,
+    method: str = 'IDPP',
+    tol: float = 0.05,
+    quiet: bool = False,
+) -> List[Atoms]:
+    """Return an interpolated path between two endpoint structures.
+
+    This is the public entry point for the path generator used by NEB input
+    preparation; it does not run any energy or force evaluation.
+
+    Args:
+        start: Starting endpoint structure.
+        end: Ending endpoint structure.
+        n_images: Number of intermediate images between the endpoints.
+        method: Interpolation method, ``IDPP`` or ``linear``.
+        tol: Convergence tolerance forwarded to the IDPP relaxation.
+        quiet: Suppress solver progress output on ``stdout`` when ``True``.
+
+    Returns:
+        Frame list with ``n_images + 2`` entries. Both endpoints are included
+        at index ``0`` and ``-1`` with their input positions.
+
+    Raises:
+        ValueError: If ``method`` is not supported.
+    """
+    if quiet:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return _interpolate(method, start, end, n_images, tol)
+    return _interpolate(method, start, end, n_images, tol)
 
 
 def generate(method:str, n_images:int, is_file:str, fs_file:str, 

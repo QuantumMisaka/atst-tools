@@ -384,6 +384,70 @@ def test_validate_accepts_ccqn_auto_reactive_bonds_without_explicit_bonds():
     assert config["calculation"]["auto_reactive_bonds"]["enabled"] is True
 
 
+def test_validate_defaults_ccqn_interp_direction_to_product():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "ccqn",
+                "init_structure": "ccqn_init.traj",
+                "e_vector_method": "interp",
+                "product_file": "product.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["interp_direction"] == "product"
+
+
+def test_validate_accepts_ccqn_interp_direction_midpoint_with_product():
+    config = ConfigLoader.normalize(
+        {
+            "calculation": {
+                "type": "ccqn",
+                "init_structure": "ccqn_init.traj",
+                "e_vector_method": "interp",
+                "interp_direction": "midpoint",
+                "product_file": "product.traj",
+            },
+            "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+        }
+    )
+
+    assert config["calculation"]["interp_direction"] == "midpoint"
+
+
+def test_validate_rejects_ccqn_midpoint_direction_with_ic_e_vector_method():
+    with pytest.raises(ValueError, match="interp_direction=midpoint requires e_vector_method=interp"):
+        ConfigLoader.normalize(
+            {
+                "calculation": {
+                    "type": "ccqn",
+                    "init_structure": "ccqn_init.traj",
+                    "e_vector_method": "ic",
+                    "reactive_bonds": "1-2",
+                    "interp_direction": "midpoint",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
+def test_validate_rejects_ccqn_midpoint_direction_without_product_file():
+    with pytest.raises(ValueError, match="product_file is required when e_vector_method=interp"):
+        ConfigLoader.normalize(
+            {
+                "calculation": {
+                    "type": "ccqn",
+                    "init_structure": "ccqn_init.traj",
+                    "e_vector_method": "interp",
+                    "interp_direction": "midpoint",
+                },
+                "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+            }
+        )
+
+
 def test_validate_accepts_descent_irc_backend():
     config = ConfigLoader.normalize(
         {

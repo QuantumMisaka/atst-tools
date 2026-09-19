@@ -111,6 +111,7 @@ class CCQNOptions:
     logfile: str = "ccqn.log"
     final_structure: str | None = "ccqn_final.extxyz"
     e_vector_method: str = "ic"
+    interp_direction: str = "product"
     reactive_bonds: str | list[tuple[int, int]] | None = None
     auto_reactive_bonds: dict[str, Any] = field(default_factory=dict)
     product_atoms: Any | None = None

@@ -233,6 +233,10 @@ class CCQNCalculation(StrictConfig):
     fmax: float = Field(default=0.05, gt=0, description="Force convergence threshold in eV/Ang.")
     max_steps: int | None = Field(default=200, gt=0, description="Maximum optimizer steps.")
     e_vector_method: Literal["ic", "interp"] = Field(default="ic", description="CCQN cone-axis construction method.")
+    interp_direction: Literal["product", "midpoint"] = Field(
+        default="product",
+        description="Interp cone-axis target: the product structure or the IDPP path midpoint (paper eq. 18).",
+    )
     reactive_bonds: str | list[list[int]] | None = Field(default=None, description="1-based reactive bonds for IC mode.")
     product_file: str | None = Field(default=None, description="Product-like structure for interpolation mode.")
     align_product_indices: bool = Field(default=False, description="Align product atom indices to the initial structure.")
@@ -255,6 +259,8 @@ class CCQNCalculation(StrictConfig):
 
     @model_validator(mode="after")
     def _validate_direction_inputs(self) -> "CCQNCalculation":
+        if self.interp_direction == "midpoint" and self.e_vector_method != "interp":
+            raise ValueError("calculation.interp_direction=midpoint requires e_vector_method=interp")
         if self.e_vector_method == "ic" and not self.reactive_bonds and not self.auto_reactive_bonds.enabled:
             raise ValueError("calculation.reactive_bonds is required when e_vector_method=ic")
         if self.e_vector_method == "interp" and not self.product_file:

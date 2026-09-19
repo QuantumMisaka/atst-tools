@@ -169,7 +169,7 @@ responsibility.
 Runs ATST's CCQN single-ended transition-state search with caller-provided ASE
 `Atoms` and calculator objects. `CCQNOptions` mirrors the CCQN schema controls:
 `fmax`, `max_steps`, `trajectory`, `logfile`, `final_structure`,
-`e_vector_method`, `reactive_bonds`, `auto_reactive_bonds`, `product_atoms`,
+`e_vector_method`, `interp_direction`, `reactive_bonds`, `auto_reactive_bonds`, `product_atoms`,
 `mode_manifest`, `diagnostics_file`, `ic_mode`, `cos_phi`,
 `trust_radius_uphill`, `trust_radius_saddle_initial`, `hessian`,
 `accept_initial_converged`, and `artifact_manifest`.
