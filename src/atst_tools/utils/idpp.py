@@ -129,6 +129,18 @@ class Fast_IDPPSolver:
         self.natoms = len(self.start_atoms)
         self.cell = self.start_atoms.get_cell()
         self.images = images
+
+        #: Self-reported outcome of the last :meth:`run` call.  ``None`` means
+        #: the solver has not run yet; the remaining fields mirror the
+        #: ``IDPP CONVERGENCE REPORT`` block printed by :meth:`run`.
+        self.status: str | None = None
+        self.converged: bool | None = None
+        self.iterations: int | None = None
+        self.final_s_idpp: float | None = None
+        self.max_force: float | None = None
+        self.maxiter: int | None = None
+        self.tol: float | None = None
+        self.gtol: float | None = None
         
         if mic and np.linalg.det(self.cell) > 1e-8:
             self.inv_cell = np.linalg.inv(self.cell)
@@ -262,6 +274,18 @@ class Fast_IDPPSolver:
             step = maxiter - 1
             warnings.warn("IDPP did not fully converge: maximum iteration number reached")
 
+        # Self-reported outcome, readable by callers that cannot rely on the
+        # printed report (for example when the solver runs quietly inside an
+        # optimizer step).  Field values match the report printed below.
+        self.status = 'Converged' if converged else 'Failed'
+        self.converged = bool(converged)
+        self.iterations = int(step + 1)
+        self.final_s_idpp = float(np.sum(final_funcs))
+        self.max_force = float(max_force)
+        self.maxiter = int(maxiter)
+        self.tol = float(tol)
+        self.gtol = float(gtol)
+
         print("-" * 60)
         print("                 IDPP CONVERGENCE REPORT            ")
         print("-" * 60)
@@ -344,11 +368,42 @@ def _apply_image_metadata(
     return ase_path
 
 
-def _interpolate(method: str, start: Atoms, end: Atoms, n_images: int, tol: float):
+#: Keys written into the optional ``path_status`` mapping of
+#: :func:`interpolate_path` and :func:`_interpolate`.
+_PATH_STATUS_KEYS = (
+    'method',
+    'status',
+    'iterations',
+    'maxiter',
+    'final_S_IDPP',
+    'max_force',
+)
+
+
+def _interpolate(
+    method: str,
+    start: Atoms,
+    end: Atoms,
+    n_images: int,
+    tol: float,
+    path_status: dict | None = None,
+):
     if method == 'IDPP':
         solver = Fast_IDPPSolver.from_endpoints(start, end, n_images)
-        return solver.run(tol=tol)
+        images = solver.run(tol=tol)
+        if path_status is not None:
+            path_status.update(
+                method='IDPP',
+                status=solver.status,
+                iterations=solver.iterations,
+                maxiter=solver.maxiter,
+                final_S_IDPP=solver.final_s_idpp,
+                max_force=solver.max_force,
+            )
+        return images
     if method == 'linear':
+        # Linear interpolation reproduces the endpoints exactly and has no
+        # iterative solver, so there is no convergence fact to report.
         return robust_interpolate(start, end, n_images)
     raise ValueError(f'{method} not supported')
 
@@ -360,6 +415,8 @@ def interpolate_path(
     method: str = 'IDPP',
     tol: float = 0.05,
     quiet: bool = False,
+    *,
+    path_status: dict | None = None,
 ) -> List[Atoms]:
     """Return an interpolated path between two endpoint structures.
 
@@ -373,6 +430,12 @@ def interpolate_path(
         method: Interpolation method, ``IDPP`` or ``linear``.
         tol: Convergence tolerance forwarded to the IDPP relaxation.
         quiet: Suppress solver progress output on ``stdout`` when ``True``.
+        path_status: Optional mapping updated in place with the solver outcome,
+            so callers that run quietly can still observe it.  It always
+            receives the keys ``method``, ``status``, ``iterations``,
+            ``maxiter``, ``final_S_IDPP`` and ``max_force``; ``status`` is
+            ``"Converged"`` or ``"Failed"`` for ``IDPP``, while ``linear``
+            reports its method with ``None`` values because that path is exact.
 
     Returns:
         Frame list with ``n_images + 2`` entries. Both endpoints are included
@@ -381,10 +444,14 @@ def interpolate_path(
     Raises:
         ValueError: If ``method`` is not supported.
     """
+    if path_status is not None:
+        path_status.clear()
+        path_status.update(dict.fromkeys(_PATH_STATUS_KEYS))
+        path_status['method'] = method
     if quiet:
         with contextlib.redirect_stdout(io.StringIO()):
-            return _interpolate(method, start, end, n_images, tol)
-    return _interpolate(method, start, end, n_images, tol)
+            return _interpolate(method, start, end, n_images, tol, path_status)
+    return _interpolate(method, start, end, n_images, tol, path_status)
 
 
 def generate(method:str, n_images:int, is_file:str, fs_file:str, 

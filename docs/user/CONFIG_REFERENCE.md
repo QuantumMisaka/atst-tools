@@ -325,7 +325,7 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Initial transition-state guess. |
 | `e_vector_method` | string | `ic` | Cone-axis method: `ic` from reactive bonds or `interp` from a product-like structure. |
-| `interp_direction` | string | `product` | `interp` cone-axis target: `product` (MIC displacement to `product_file`) or `midpoint` (IDPP path midpoint, eq. 18 of the CCQN paper). |
+| `interp_direction` | string | `product` | `interp` cone-axis target: `product` (MIC displacement to `product_file`) or `midpoint` (centre frame of the fixed-budget IDPP path towards the product, eq. 18 of the CCQN paper; status in `diagnostics_file`). |
 | `reactive_bonds` | string/list | `None` | Required for `ic`; 1-based pairs such as `"1-2,3-4"` or `[[1, 2], [3, 4]]`. |
 | `product_file` | string/null | `None` | Required for standalone `interp`; product-like structure with matching atom order. |
 | `align_product_indices` | bool | `false` | Reorder `product_file` atom indices to match the initial structure before interpolation. |
@@ -347,6 +347,8 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 | `directory` | string | `ccqn_run` | Calculator working directory. |
 
 CCQN is a single-ended transition-state optimizer. In `ic` mode, the user supplies chemically meaningful reactive bonds or enables `auto_reactive_bonds`. In `interp` mode the cone axis is built from `product_file`, and `interp_direction` selects the target: `product` uses the displacement from the current structure to the product configuration, while `midpoint` follows eq. 18 of the CCQN paper and points at the midpoint (`path[len(path) // 2]`) of an IDPP path generated between the current structure and the product (seven inner images, tolerance `0.05`). The path is re-solved from the current geometry at every uphill step, which costs seconds of pure geometry work per step for medium systems, so `product` remains the default. `accept_initial_converged` is intended for final-TS confirmation examples that start from a separately verified saddle point; keep it false for ordinary searches.
+
+Midpoint semantics and the IDPP budget: `x_mid` is the centre frame of the IDPP path **as produced inside the solver's fixed iteration budget** (2000 iterations), not of a fully relaxed path. When the solver reports `Failed`, the path was truncated and `x_mid` is the centre frame of that truncated path. This is recorded as a fact and never upgraded into a hard failure: CCQN keeps stepping, and the first unconverged path of a run prints one English advisory (`stage=ccqn_interp_path`, with the observed and budgeted iteration counts). Per-step provenance for `midpoint` runs is written to `diagnostics_file`, where every uphill step carries `idpp_path_status` (`Converged`/`Failed`), `idpp_iterations`, `idpp_final_S_IDPP` and `idpp_max_force`; `product` and `ic` runs carry no `idpp_*` fields, so their diagnostics are unchanged.
 
 Example automatic IC mode setup:
 

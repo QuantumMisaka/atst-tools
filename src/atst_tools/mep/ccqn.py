@@ -36,6 +36,9 @@ from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
 # ``path[len(path) // 2]`` the centre inner image.
 CCQN_INTERP_PATH_IMAGES = 7
 CCQN_INTERP_PATH_TOL = 0.05
+#: Shared direction-family message; the YAML schema prefixes it with
+#: ``calculation.`` and the embedded-API mapping reuses it verbatim.
+CCQN_INTERP_DIRECTION_ERROR = "interp_direction='midpoint' requires e_vector_method='interp'"
 
 
 def parse_reactive_bonds(value: Any, natoms: int | None = None) -> list[tuple[int, int]]:
@@ -145,7 +148,7 @@ def ccqn_ic_e_vector(atoms, forces, reactive_bonds, ic_mode: str = "democratic")
     return e_vec / norm if norm > 1e-8 else e_vec
 
 
-def _ccqn_interp_midpoint_e_vector(atoms, product_atoms) -> np.ndarray:
+def _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status: dict | None = None) -> np.ndarray:
     """Return the normalized cone axis from the interpolation path midpoint.
 
     Implements eq. 18 of the CCQN paper: ``e = (x_mid - x) / |x_mid - x|``,
@@ -155,6 +158,8 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms) -> np.ndarray:
     Args:
         atoms: Current ASE atoms.
         product_atoms: Product-like reference geometry with matching atom count.
+        path_status: Optional mapping updated in place with the IDPP solver
+            outcome of the generated path (see ``interpolate_path``).
 
     Returns:
         Flattened normalized MIC displacement from current to the path
@@ -168,6 +173,7 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms) -> np.ndarray:
         method="IDPP",
         tol=CCQN_INTERP_PATH_TOL,
         quiet=True,
+        path_status=path_status,
     )
     midpoint = path[len(path) // 2]
     raw = midpoint.get_positions() - atoms.get_positions()
@@ -177,7 +183,13 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms) -> np.ndarray:
     return e_vec / norm if norm > 1e-8 else np.zeros_like(e_vec)
 
 
-def ccqn_interp_e_vector(atoms, product_atoms, direction: str = "product") -> np.ndarray:
+def ccqn_interp_e_vector(
+    atoms,
+    product_atoms,
+    direction: str = "product",
+    *,
+    path_status: dict | None = None,
+) -> np.ndarray:
     """Return the normalized interpolation-based CCQN cone axis.
 
     Args:
@@ -186,6 +198,9 @@ def ccqn_interp_e_vector(atoms, product_atoms, direction: str = "product") -> np
         direction: ``product`` keeps the MIC displacement towards the product
             configuration; ``midpoint`` uses the midpoint of an IDPP path
             towards the product, per eq. 18 of the CCQN paper.
+        path_status: Optional mapping updated in place with the IDPP solver
+            outcome when ``direction="midpoint"``. The ``product`` direction
+            generates no path, so the mapping is left untouched there.
 
     Returns:
         Flattened normalized MIC displacement from current to reference.
@@ -201,7 +216,7 @@ def ccqn_interp_e_vector(atoms, product_atoms, direction: str = "product") -> np
     if normalized_direction not in {"product", "midpoint"}:
         raise ValueError("interp_direction must be 'product' or 'midpoint'")
     if normalized_direction == "midpoint":
-        return _ccqn_interp_midpoint_e_vector(atoms, product_atoms)
+        return _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status=path_status)
     raw = product_atoms.get_positions() - atoms.get_positions()
     mic, _ = find_mic(raw, atoms.get_cell(), atoms.get_pbc())
     e_vec = mic.flatten()
@@ -313,6 +328,10 @@ class CCQNOptimizer(Optimizer):
         self.eigvecs = None
         self.diagnostics_file = diagnostics_file
         self.diagnostics_steps = []
+        #: IDPP path outcome of the most recent ``midpoint`` uphill step, or
+        #: ``None`` when no path was solved (``product``/``ic`` modes).
+        self.interp_path_status: dict[str, Any] | None = None
+        self._interp_path_advisory_emitted = False
 
         if self.e_vector_method not in {"ic", "interp"}:
             raise ValueError("e_vector_method must be 'ic' or 'interp'")
@@ -323,7 +342,7 @@ class CCQNOptimizer(Optimizer):
         if self.interp_direction not in {"product", "midpoint"}:
             raise ValueError("interp_direction must be 'product' or 'midpoint'")
         if self.interp_direction == "midpoint" and self.e_vector_method != "interp":
-            raise ValueError("interp_direction='midpoint' requires e_vector_method='interp'")
+            raise ValueError(CCQN_INTERP_DIRECTION_ERROR)
         if accept_initial_converged:
             self.mode = "prfo"
 
@@ -338,19 +357,59 @@ class CCQNOptimizer(Optimizer):
         with open(self.diagnostics_file, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
 
-    def _record_diagnostics(self, *, energy: float, gradient: np.ndarray, step: np.ndarray, eigvals: np.ndarray) -> None:
-        self.diagnostics_steps.append(
-            {
-                "step": len(self.diagnostics_steps),
-                "mode": self.mode,
-                "energy_eV": energy,
-                "max_force_eV_per_A": float(np.linalg.norm(gradient.reshape(-1, 3), axis=1).max()),
-                "step_norm_A": float(np.linalg.norm(step)),
-                "min_eigenvalue": float(eigvals[0]) if len(eigvals) else None,
-                "trust_radius_saddle_A": self.trust_radius_saddle,
-                "trust_radius_uphill_A": self.trust_radius_uphill,
-            }
+    def _record_interp_path_status(self, status: dict[str, Any] | None) -> None:
+        """Store the midpoint path outcome and advise once when it is unconverged.
+
+        The IDPP path has a fixed iteration budget and may be truncated, in
+        which case ``x_mid`` is the centre frame of a path that did not
+        converge. That is recorded as a fact: it is never upgraded into a hard
+        failure, and the shared advisory is printed only for the first
+        unconverged path of this optimizer instance so long runs stay readable.
+
+        Args:
+            status: Path status mapping, empty for entry points that generate
+                no path.
+        """
+        reported = status or {}
+        self.interp_path_status = dict(reported) if reported.get("status") else None
+        if self.interp_path_status is None or self.interp_path_status.get("status") != "Failed":
+            return
+        if self._interp_path_advisory_emitted:
+            return
+        self._interp_path_advisory_emitted = True
+        emit_unconverged_advisory(
+            StageRecord(
+                name="ccqn_interp_path",
+                role="diagnostic",
+                criterion="idpp_path",
+                converged=False,
+                steps=as_step_count(self.interp_path_status.get("maxiter")),
+                actual_steps=as_step_count(self.interp_path_status.get("iterations")),
+            ),
+            workflow="ccqn",
         )
+
+    def _record_diagnostics(self, *, energy: float, gradient: np.ndarray, step: np.ndarray, eigvals: np.ndarray) -> None:
+        payload = {
+            "step": len(self.diagnostics_steps),
+            "mode": self.mode,
+            "energy_eV": energy,
+            "max_force_eV_per_A": float(np.linalg.norm(gradient.reshape(-1, 3), axis=1).max()),
+            "step_norm_A": float(np.linalg.norm(step)),
+            "min_eigenvalue": float(eigvals[0]) if len(eigvals) else None,
+            "trust_radius_saddle_A": self.trust_radius_saddle,
+            "trust_radius_uphill_A": self.trust_radius_uphill,
+        }
+        if self.mode == "uphill" and self.interp_path_status is not None:
+            payload.update(
+                {
+                    "idpp_path_status": self.interp_path_status.get("status"),
+                    "idpp_iterations": as_step_count(self.interp_path_status.get("iterations")),
+                    "idpp_final_S_IDPP": as_finite_float(self.interp_path_status.get("final_S_IDPP")),
+                    "idpp_max_force": as_finite_float(self.interp_path_status.get("max_force")),
+                }
+            )
+        self.diagnostics_steps.append(payload)
         self._write_diagnostics()
 
     def converged(self, forces=None) -> bool:
@@ -370,7 +429,17 @@ class CCQNOptimizer(Optimizer):
 
     def _calculate_e_vector(self, forces) -> np.ndarray:
         if self.e_vector_method == "interp":
-            return ccqn_interp_e_vector(self.atoms, self.product_atoms, direction=self.interp_direction)
+            status: dict[str, Any] = {}
+            e_vec = ccqn_interp_e_vector(
+                self.atoms,
+                self.product_atoms,
+                direction=self.interp_direction,
+                path_status=status,
+            )
+            # The path is re-solved from the current geometry on every call, so
+            # the recorded status always describes this step.
+            self._record_interp_path_status(status)
+            return e_vec
         return ccqn_ic_e_vector(self.atoms, forces, self.reactive_bonds, ic_mode=self.ic_mode)
 
     def _select_mode(self, eigvals) -> None:
@@ -576,6 +645,13 @@ class AbacusCCQN:
         Returns:
             The optimized ASE ``Atoms`` object.
         """
+        # Direction-family guard: raised before any calculator is built or any
+        # working directory is touched, with the message the YAML schema uses.
+        if (
+            str(self.calc_config.get("interp_direction", "product")).strip().lower() == "midpoint"
+            and str(self.calc_config.get("e_vector_method", "ic")).strip().lower() != "interp"
+        ):
+            raise ValueError(CCQN_INTERP_DIRECTION_ERROR)
         atoms = self.init_Atoms.copy() if self.calculator is not None else self.init_Atoms
         atoms.calc = self.set_calculator()
         product_atoms = self.product_atoms

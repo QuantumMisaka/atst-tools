@@ -158,7 +158,7 @@ def test_midpoint_direction_reads_centre_frame_of_endpoint_inclusive_path(monkey
     atoms, product = ccqn_interp_test_system()
     calls = []
 
-    def fake_interpolate_path(start, end, n_images, method="IDPP", tol=0.05, quiet=False):
+    def fake_interpolate_path(start, end, n_images, method="IDPP", tol=0.05, quiet=False, *, path_status=None):
         calls.append({"n_images": n_images, "method": method, "tol": tol, "quiet": quiet, "frames": n_images + 2})
         frames = []
         for index in range(n_images + 2):
@@ -167,6 +167,15 @@ def test_midpoint_direction_reads_centre_frame_of_endpoint_inclusive_path(monkey
             frames.append(frame)
         frames[0].set_positions(start.get_positions())
         frames[-1].set_positions(end.get_positions())
+        if path_status is not None:
+            path_status.update(
+                method="IDPP",
+                status="Converged",
+                iterations=1,
+                maxiter=2000,
+                final_S_IDPP=0.0,
+                max_force=0.0,
+            )
         return frames
 
     monkeypatch.setattr(ccqn, "interpolate_path", fake_interpolate_path)
@@ -184,12 +193,44 @@ def test_interpolate_path_returns_endpoint_inclusive_frames():
 
     atoms, product = ccqn_interp_test_system()
 
-    path = interpolate_path(atoms, product, 7, method="linear")
+    linear_path = interpolate_path(atoms, product, 7, method="linear")
+    idpp_path = interpolate_path(atoms, product, 7, method="IDPP", quiet=True)
 
-    assert len(path) == 9
-    assert len(path) // 2 == 4
-    np.testing.assert_allclose(path[0].get_positions(), atoms.get_positions())
-    np.testing.assert_allclose(path[-1].get_positions(), product.get_positions())
+    for path in (linear_path, idpp_path):
+        assert len(path) == 9
+        assert len(path) // 2 == 4
+        np.testing.assert_allclose(path[0].get_positions(), atoms.get_positions())
+        np.testing.assert_allclose(path[-1].get_positions(), product.get_positions())
+
+
+def test_interpolate_path_status_reports_solver_budget_and_outcome():
+    from atst_tools.utils.idpp import interpolate_path
+
+    atoms, product = ccqn_interp_test_system()
+    idpp_status = {}
+    linear_status = {}
+
+    interpolate_path(atoms, product, 7, method="IDPP", quiet=True, path_status=idpp_status)
+    interpolate_path(atoms, product, 7, method="linear", path_status=linear_status)
+
+    # Fixed 2000-iteration budget: these geometries exhaust it, so x_mid is the
+    # centre frame of a truncated path. The state stays observable.
+    assert idpp_status["method"] == "IDPP"
+    assert idpp_status["status"] == "Failed"
+    assert idpp_status["iterations"] == 2000
+    assert idpp_status["maxiter"] == 2000
+    assert isinstance(idpp_status["final_S_IDPP"], float)
+    assert idpp_status["final_S_IDPP"] > 0.0
+    assert isinstance(idpp_status["max_force"], float)
+    assert idpp_status["max_force"] >= 0.0
+    assert linear_status == {
+        "method": "linear",
+        "status": None,
+        "iterations": None,
+        "maxiter": None,
+        "final_S_IDPP": None,
+        "max_force": None,
+    }
 
 
 def test_midpoint_direction_is_rejected_without_interp_e_vector_method():
@@ -507,3 +548,293 @@ def test_ccqn_uses_supplied_abacuslite_compatible_calculator(
     assert result.calc is vendored_abacuslite_calculator
     assert result.calc.profile.command == "abacus"
     assert type(result.calc.profile).__module__.endswith("abacuslite.core")
+
+
+class HarmonicCalculator(Calculator):
+    """Cheap analytic PES used to drive optimizer steps without external codes."""
+
+    implemented_properties = ["energy", "forces"]
+
+    def calculate(self, atoms=None, properties=("energy", "forces"), system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        positions = atoms.get_positions()
+        self.results["energy"] = float(
+            np.sum(0.5 * positions[:, 0] ** 2 + 0.25 * positions[:, 1] ** 2 + 0.1 * positions[:, 2] ** 2)
+        )
+        self.results["forces"] = -np.stack(
+            [positions[:, 0], 0.5 * positions[:, 1], 0.2 * positions[:, 2]], axis=1
+        )
+
+
+class CountingCalculator(HarmonicCalculator):
+    """Harmonic PES that counts how often energy/forces were evaluated."""
+
+    def __init__(self):
+        super().__init__()
+        self.calls = 0
+
+    def calculate(self, atoms=None, properties=("energy", "forces"), system_changes=all_changes):
+        self.calls += 1
+        super().calculate(atoms, properties, system_changes)
+
+
+def stub_interpolate_path(status, calls=None):
+    """Return an ``interpolate_path`` stand-in reporting ``status`` for the path."""
+
+    def stub(start, end, n_images, method="IDPP", tol=0.05, quiet=False, *, path_status=None):
+        if calls is not None:
+            calls.append({"n_images": n_images, "method": method, "tol": tol, "quiet": quiet})
+        offset = (end.get_positions() - start.get_positions()) * 0.5
+        frames = []
+        for _ in range(n_images + 2):
+            frame = start.copy()
+            frame.set_positions(start.get_positions() + offset)
+            frames.append(frame)
+        frames[0].set_positions(start.get_positions())
+        frames[-1].set_positions(end.get_positions())
+        if path_status is not None:
+            path_status.update(
+                method="IDPP",
+                status=status,
+                iterations=2000,
+                maxiter=2000,
+                final_S_IDPP=1.5,
+                max_force=0.75,
+            )
+        return frames
+
+    return stub
+
+
+def test_midpoint_solve_performs_no_energy_or_force_evaluation():
+    from atst_tools.mep.ccqn import ccqn_interp_e_vector
+
+    atoms, product = ccqn_interp_test_system()
+    calculator = CountingCalculator()
+    atoms.calc = calculator
+
+    e_vec = ccqn_interp_e_vector(atoms, product, direction="midpoint")
+
+    assert calculator.calls == 0
+    assert np.isclose(np.linalg.norm(e_vec), 1.0)
+
+
+def test_midpoint_diagnostics_records_idpp_path_status(tmp_path, capsys):
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    diagnostics = tmp_path / "diag.json"
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+
+    opt.step()
+
+    data = json.loads(diagnostics.read_text(encoding="utf-8"))
+    first_step = data["steps"][0]
+    assert first_step["mode"] == "uphill"
+    assert first_step["idpp_path_status"] == "Failed"
+    assert first_step["idpp_iterations"] == 2000
+    assert isinstance(first_step["idpp_final_S_IDPP"], float)
+    assert isinstance(first_step["idpp_max_force"], float)
+    advisory = capsys.readouterr().out
+    assert advisory.count("Warning: CCQN finished") == 1
+    assert "stage=ccqn_interp_path" in advisory
+    assert "nsteps=2000" in advisory
+
+
+def test_unconverged_path_advisory_is_emitted_once_and_only_for_failures(monkeypatch, capsys):
+    from atst_tools.mep import ccqn
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    calls = []
+    monkeypatch.setattr(ccqn, "interpolate_path", stub_interpolate_path("Failed", calls))
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+    )
+
+    opt.step()
+    opt.step()
+    opt.step()
+
+    assert len(calls) == 3
+    assert capsys.readouterr().out.count("Warning: CCQN finished") == 1
+    assert opt.interp_path_status["status"] == "Failed"
+
+    monkeypatch.setattr(ccqn, "interpolate_path", stub_interpolate_path("Converged"))
+    converged = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+    )
+    converged.step()
+
+    assert capsys.readouterr().out == ""
+    assert converged.interp_path_status["status"] == "Converged"
+
+
+def test_midpoint_path_is_recomputed_on_every_uphill_step(monkeypatch):
+    from atst_tools.mep import ccqn
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    calls = []
+    monkeypatch.setattr(ccqn, "interpolate_path", stub_interpolate_path("Failed", calls))
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+    )
+
+    for _ in range(3):
+        assert opt.mode == "uphill"
+        opt.step()
+
+    assert len(calls) == 3
+    assert {call["n_images"] for call in calls} == {7}
+    assert {call["tol"] for call in calls} == {0.05}
+    assert {call["quiet"] for call in calls} == {True}
+
+
+def test_product_mode_diagnostics_do_not_carry_idpp_fields(tmp_path):
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms = Atoms("H", positions=[[0.3, 0.0, 0.0]], cell=[10, 10, 10], pbc=True)
+    atoms.calc = HarmonicCalculator()
+    product = Atoms("H", positions=[[1.0, 0.0, 0.0]], cell=[10, 10, 10], pbc=True)
+    diagnostics = tmp_path / "diag.json"
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        hessian=False,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+
+    opt.step()
+    opt.step()
+
+    data = json.loads(diagnostics.read_text(encoding="utf-8"))
+    assert data["steps"]
+    assert opt.interp_path_status is None
+    for recorded in data["steps"]:
+        assert not [key for key in recorded if key.startswith("idpp_")]
+
+
+def test_run_ccqn_rejects_midpoint_with_ic_before_calculator_construction(monkeypatch, tmp_path):
+    """The embedded API fails fast without touching the calculator or optimizers."""
+    from helpers import DummyCalc
+    from atst_tools.api import CCQNOptions, run_ccqn
+    from atst_tools.api.models import WorkflowExecutionError
+    from atst_tools.mep import ccqn
+
+    events = []
+    monkeypatch.setattr(ccqn.AbacusCCQN, "set_calculator", lambda self: events.append("set_calculator"))
+    monkeypatch.setattr(ccqn.CCQNOptimizer, "run", lambda self, **kwargs: events.append("optimizer_run"))
+
+    with pytest.raises(ValueError, match="interp_direction='midpoint' requires e_vector_method='interp'") as caught:
+        run_ccqn(
+            Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]]),
+            DummyCalc(),
+            CCQNOptions(
+                e_vector_method="ic",
+                reactive_bonds="1-2",
+                interp_direction="midpoint",
+                artifact_manifest=str(tmp_path / "manifest.json"),
+            ),
+        )
+
+    assert not isinstance(caught.value, WorkflowExecutionError)
+    assert events == []
+
+    # Control: with a coherent direction family the guard stays silent and the
+    # calculator hook is reached, so the empty event list above is meaningful.
+    result = run_ccqn(
+        Atoms("H2", positions=[[0.0, 0.0, 0.0], [0.8, 0.0, 0.0]]),
+        DummyCalc(),
+        CCQNOptions(
+            e_vector_method="interp",
+            interp_direction="midpoint",
+            product_atoms=Atoms("H2", positions=[[0.0, 0.0, 0.0], [1.6, 0.0, 0.0]]),
+            artifact_manifest=str(tmp_path / "manifest.json"),
+        ),
+    )
+
+    assert events == ["set_calculator", "optimizer_run"]
+    assert result.status == "complete"
+
+
+def test_abacus_ccqn_run_rejects_midpoint_with_ic_before_calculator(monkeypatch, tmp_path):
+    from atst_tools.mep import ccqn
+
+    events = []
+    monkeypatch.setattr(ccqn.AbacusCCQN, "set_calculator", lambda self: events.append("set_calculator"))
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValueError, match="interp_direction='midpoint' requires e_vector_method='interp'"):
+        ccqn.AbacusCCQN(
+            Atoms("H", positions=[[0.0, 0.0, 0.0]], cell=[10, 10, 10], pbc=True),
+            {},
+            "abacus",
+            {
+                "type": "ccqn",
+                "e_vector_method": "ic",
+                "reactive_bonds": "1-2",
+                "interp_direction": "midpoint",
+                "artifact_manifest": None,
+            },
+        ).run()
+
+    assert events == []
+
+
+def test_prfo_steps_do_not_report_a_stale_idpp_path_status(monkeypatch, tmp_path):
+    """Only uphill steps solve a path, so only they carry IDPP provenance."""
+    from atst_tools.mep import ccqn
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    monkeypatch.setattr(ccqn, "interpolate_path", stub_interpolate_path("Failed"))
+    diagnostics = tmp_path / "diag.json"
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+
+    opt.step()
+    assert opt.interp_path_status["status"] == "Failed"
+    opt.hessian_matrix = np.diag([-1.0] + [1.0] * (3 * len(atoms) - 1))
+    opt.step()
+
+    steps = json.loads(diagnostics.read_text(encoding="utf-8"))["steps"]
+    assert [record["mode"] for record in steps] == ["uphill", "prfo"]
+    assert steps[0]["idpp_path_status"] == "Failed"
+    assert not [key for key in steps[1] if key.startswith("idpp_")]

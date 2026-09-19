@@ -259,6 +259,10 @@ class CCQNCalculation(StrictConfig):
 
     @model_validator(mode="after")
     def _validate_direction_inputs(self) -> "CCQNCalculation":
+        # Keep the wording in sync with ``mep.ccqn.CCQN_INTERP_DIRECTION_ERROR``,
+        # which the engine and the embedded-API option mapping raise verbatim
+        # (this module is imported by every entry point, so it must not import
+        # the optimizer module for the constant).
         if self.interp_direction == "midpoint" and self.e_vector_method != "interp":
             raise ValueError("calculation.interp_direction=midpoint requires e_vector_method=interp")
         if self.e_vector_method == "ic" and not self.reactive_bonds and not self.auto_reactive_bonds.enabled:

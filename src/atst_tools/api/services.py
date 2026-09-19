@@ -807,7 +807,20 @@ def run_workflow_from_cli(
 
 
 def _ccqn_options_to_config(options: CCQNOptions) -> dict[str, Any]:
-    """Map embedded-API options to the existing CCQN calculation fields."""
+    """Map embedded-API options to the existing CCQN calculation fields.
+
+    Direction-family conflicts are rejected here, before any calculator or
+    working directory is created, with the same message the YAML schema uses.
+
+    Raises:
+        ValueError: ``interp_direction="midpoint"`` was combined with a
+            non-``interp`` ``e_vector_method``.
+    """
+    from atst_tools.mep.ccqn import CCQN_INTERP_DIRECTION_ERROR
+
+    e_vector_method = str(options.e_vector_method).strip().lower()
+    if str(options.interp_direction).strip().lower() == "midpoint" and e_vector_method != "interp":
+        raise ValueError(CCQN_INTERP_DIRECTION_ERROR)
     return {
         "type": "ccqn",
         "fmax": options.fmax,
