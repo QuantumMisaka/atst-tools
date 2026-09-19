@@ -36,6 +36,9 @@ from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
 # ``path[len(path) // 2]`` the centre inner image.
 CCQN_INTERP_PATH_IMAGES = 7
 CCQN_INTERP_PATH_TOL = 0.05
+#: A midpoint path is called unphysical when some atom pair is compressed below
+#: this fraction of that pair's smallest endpoint separation.
+CCQN_INTERP_PATH_MIN_DISTANCE_RATIO = 0.5
 #: Shared direction-family message; the YAML schema prefixes it with
 #: ``calculation.`` and the embedded-API mapping reuses it verbatim.
 CCQN_INTERP_DIRECTION_ERROR = "interp_direction='midpoint' requires e_vector_method='interp'"
@@ -148,7 +151,12 @@ def ccqn_ic_e_vector(atoms, forces, reactive_bonds, ic_mode: str = "democratic")
     return e_vec / norm if norm > 1e-8 else e_vec
 
 
-def _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status: dict | None = None) -> np.ndarray:
+def _ccqn_interp_midpoint_e_vector(
+    atoms,
+    product_atoms,
+    path_status: dict | None = None,
+    path_quality: dict | None = None,
+) -> np.ndarray:
     """Return the normalized cone axis from the interpolation path midpoint.
 
     Implements eq. 18 of the CCQN paper: ``e = (x_mid - x) / |x_mid - x|``,
@@ -160,6 +168,9 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status: dict | Non
         product_atoms: Product-like reference geometry with matching atom count.
         path_status: Optional mapping updated in place with the IDPP solver
             outcome of the generated path (see ``interpolate_path``).
+        path_quality: Optional mapping updated in place with the path quality
+            facts of the generated path (see
+            :func:`_ccqn_interp_path_quality`).
 
     Returns:
         Flattened normalized MIC displacement from current to the path
@@ -175,6 +186,9 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status: dict | Non
         quiet=True,
         path_status=path_status,
     )
+    if path_quality is not None:
+        path_quality.clear()
+        path_quality.update(_ccqn_interp_path_quality(path))
     midpoint = path[len(path) // 2]
     raw = midpoint.get_positions() - atoms.get_positions()
     mic, _ = find_mic(raw, atoms.get_cell(), atoms.get_pbc())
@@ -183,12 +197,106 @@ def _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status: dict | Non
     return e_vec / norm if norm > 1e-8 else np.zeros_like(e_vec)
 
 
+def _ccqn_interp_path_quality(frames) -> dict[str, Any]:
+    """Return the tightest interatomic contact facts of an interpolated path.
+
+    Every atom pair is graded against its own endpoints: the smallest distance
+    that pair reaches on any frame is compared with the smaller of the two
+    endpoint distances for that same pair.  A pair driven far below both
+    endpoints is the signature of an unconverged path relaxation rather than of
+    a reaction coordinate, and the path midpoint is then not a trustworthy axis
+    estimate.
+
+    The reference is deliberately per pair: a global endpoint minimum would be
+    dominated by the tightest bond of the system (for example a 1 Ang X-H bond)
+    and could hide a collapsed metal-metal contact.
+
+    Distances use the minimum image convention whenever the frames are periodic.
+
+    Args:
+        frames: Path frames, including both endpoints.
+
+    Returns:
+        Mapping with ``min_distance_A``, ``min_distance_pair`` (0-based),
+        ``min_distance_ratio``, ``ratio_pair`` (0-based) and
+        ``ratio_reference_A``. Empty when the path has no atom pair to measure.
+    """
+    if len(frames) < 2 or len(frames[0]) < 2:
+        return {}
+    natoms = len(frames[0])
+    use_mic = bool(np.any(frames[0].get_pbc()))
+    pair_mask = ~np.eye(natoms, dtype=bool)
+    start_distances = frames[0].get_all_distances(mic=use_mic)
+    end_distances = frames[-1].get_all_distances(mic=use_mic)
+    reference = np.minimum(start_distances, end_distances)
+    measured = pair_mask & (reference > 0.0)
+    safe_reference = np.where(measured, reference, 1.0)
+
+    min_distance = np.inf
+    min_pair = (0, 0)
+    worst_ratio = np.inf
+    worst_pair = (0, 0)
+    worst_reference = np.inf
+    for index, frame in enumerate(frames):
+        if index == 0:
+            distances = start_distances
+        elif index == len(frames) - 1:
+            distances = end_distances
+        else:
+            distances = frame.get_all_distances(mic=use_mic)
+        masked = np.where(pair_mask, distances, np.inf)
+        row, column = np.unravel_index(int(np.argmin(masked)), masked.shape)
+        if masked[row, column] < min_distance:
+            min_distance = float(masked[row, column])
+            min_pair = (int(row), int(column))
+        ratios = np.where(measured, distances / safe_reference, np.inf)
+        row, column = np.unravel_index(int(np.argmin(ratios)), ratios.shape)
+        if ratios[row, column] < worst_ratio:
+            worst_ratio = float(ratios[row, column])
+            worst_pair = (int(row), int(column))
+            worst_reference = float(reference[row, column])
+
+    return {
+        "min_distance_A": min_distance,
+        "min_distance_pair": min_pair,
+        "min_distance_ratio": worst_ratio,
+        "ratio_pair": worst_pair,
+        "ratio_reference_A": worst_reference,
+    }
+
+
+def _emit_unphysical_path_advisory(quality: dict[str, Any]) -> None:
+    """Print one English advisory for an interpolation path that is not physical.
+
+    Mirrors :func:`atst_tools.utils.convergence.emit_unconverged_advisory`:
+    diagnostic only, never raises, and it changes no return value, workflow
+    status or manifest. The caller prints it at most once per optimizer instance.
+
+    Args:
+        quality: Path quality facts from :func:`_ccqn_interp_path_quality`.
+    """
+    row, column = quality["ratio_pair"]
+    print(
+        "Warning: CCQN interpolation path is not physical\n"
+        "(workflow=ccqn, stage=ccqn_interp_path, "
+        f"path_min_distance={quality['min_distance_A']:.3f} Ang, "
+        f"worst_ratio={quality['min_distance_ratio']:.3f}, "
+        f"atom_pair={row + 1}-{column + 1}, "
+        f"pair_endpoint_min={quality['ratio_reference_A']:.3f} Ang, "
+        f"threshold_ratio={CCQN_INTERP_PATH_MIN_DISTANCE_RATIO:.3f}).\n"
+        "An IDPP path that compresses an atom pair far below its endpoint separation "
+        "makes the midpoint cone axis untrustworthy; cross-check with "
+        "interp_direction=product or validate the path with IRC/NEB."
+    )
+
+
 def ccqn_interp_e_vector(
     atoms,
     product_atoms,
     direction: str = "product",
     *,
     path_status: dict | None = None,
+    path_quality: dict | None = None,
 ) -> np.ndarray:
     """Return the normalized interpolation-based CCQN cone axis.
 
@@ -201,6 +309,10 @@ def ccqn_interp_e_vector(
         path_status: Optional mapping updated in place with the IDPP solver
             outcome when ``direction="midpoint"``. The ``product`` direction
             generates no path, so the mapping is left untouched there.
+        path_quality: Optional mapping updated in place with the path quality
+            facts of ``direction="midpoint"`` (see
+            :func:`_ccqn_interp_path_quality`). Like ``path_status`` it is left
+            untouched when no path is generated.
 
     Returns:
         Flattened normalized MIC displacement from current to reference.
@@ -216,7 +328,12 @@ def ccqn_interp_e_vector(
     if normalized_direction not in {"product", "midpoint"}:
         raise ValueError("interp_direction must be 'product' or 'midpoint'")
     if normalized_direction == "midpoint":
-        return _ccqn_interp_midpoint_e_vector(atoms, product_atoms, path_status=path_status)
+        return _ccqn_interp_midpoint_e_vector(
+            atoms,
+            product_atoms,
+            path_status=path_status,
+            path_quality=path_quality,
+        )
     raw = product_atoms.get_positions() - atoms.get_positions()
     mic, _ = find_mic(raw, atoms.get_cell(), atoms.get_pbc())
     e_vec = mic.flatten()
@@ -332,6 +449,10 @@ class CCQNOptimizer(Optimizer):
         #: ``None`` when no path was solved (``product``/``ic`` modes).
         self.interp_path_status: dict[str, Any] | None = None
         self._interp_path_advisory_emitted = False
+        #: Path quality facts of the most recent ``midpoint`` uphill step, or
+        #: ``None`` when no path was solved (``product``/``ic`` modes).
+        self.interp_path_quality: dict[str, Any] | None = None
+        self._interp_path_quality_advisory_emitted = False
 
         if self.e_vector_method not in {"ic", "interp"}:
             raise ValueError("e_vector_method must be 'ic' or 'interp'")
@@ -389,6 +510,31 @@ class CCQNOptimizer(Optimizer):
             workflow="ccqn",
         )
 
+    def _record_interp_path_quality(self, quality: dict[str, Any] | None) -> None:
+        """Store the midpoint path quality facts and advise once when unphysical.
+
+        A path that compresses atom pairs far below their endpoint separation
+        makes the midpoint axis untrustworthy. That is reported as a fact: it is
+        never upgraded into a hard failure, the run keeps stepping, and the
+        advisory is printed only for the first such path of this optimizer
+        instance.
+
+        Args:
+            quality: Path quality mapping, empty for entry points that generate
+                no path.
+        """
+        reported = quality or {}
+        self.interp_path_quality = dict(reported) if reported else None
+        if self.interp_path_quality is None:
+            return
+        ratio = self.interp_path_quality.get("min_distance_ratio")
+        if ratio is None or not np.isfinite(ratio) or ratio >= CCQN_INTERP_PATH_MIN_DISTANCE_RATIO:
+            return
+        if self._interp_path_quality_advisory_emitted:
+            return
+        self._interp_path_quality_advisory_emitted = True
+        _emit_unphysical_path_advisory(self.interp_path_quality)
+
     def _record_diagnostics(self, *, energy: float, gradient: np.ndarray, step: np.ndarray, eigvals: np.ndarray) -> None:
         payload = {
             "step": len(self.diagnostics_steps),
@@ -409,6 +555,21 @@ class CCQNOptimizer(Optimizer):
                     "idpp_max_force": as_finite_float(self.interp_path_status.get("max_force")),
                 }
             )
+            if self.interp_path_quality is not None:
+                min_pair = self.interp_path_quality.get("min_distance_pair", (0, 0))
+                ratio_pair = self.interp_path_quality.get("ratio_pair", (0, 0))
+                payload.update(
+                    {
+                        "idpp_path_min_distance": as_finite_float(
+                            self.interp_path_quality.get("min_distance_A")
+                        ),
+                        "idpp_path_min_distance_pair": f"{min_pair[0] + 1}-{min_pair[1] + 1}",
+                        "idpp_path_min_distance_ratio": as_finite_float(
+                            self.interp_path_quality.get("min_distance_ratio")
+                        ),
+                        "idpp_path_min_distance_ratio_pair": f"{ratio_pair[0] + 1}-{ratio_pair[1] + 1}",
+                    }
+                )
         self.diagnostics_steps.append(payload)
         self._write_diagnostics()
 
@@ -430,15 +591,18 @@ class CCQNOptimizer(Optimizer):
     def _calculate_e_vector(self, forces) -> np.ndarray:
         if self.e_vector_method == "interp":
             status: dict[str, Any] = {}
+            quality: dict[str, Any] = {}
             e_vec = ccqn_interp_e_vector(
                 self.atoms,
                 self.product_atoms,
                 direction=self.interp_direction,
                 path_status=status,
+                path_quality=quality,
             )
             # The path is re-solved from the current geometry on every call, so
-            # the recorded status always describes this step.
+            # the recorded status and quality always describe this step.
             self._record_interp_path_status(status)
+            self._record_interp_path_quality(quality)
             return e_vec
         return ccqn_ic_e_vector(self.atoms, forces, self.reactive_bonds, ic_mode=self.ic_mode)
 

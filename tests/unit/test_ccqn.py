@@ -584,7 +584,9 @@ def stub_interpolate_path(status, calls=None):
     def stub(start, end, n_images, method="IDPP", tol=0.05, quiet=False, *, path_status=None):
         if calls is not None:
             calls.append({"n_images": n_images, "method": method, "tol": tol, "quiet": quiet})
-        offset = (end.get_positions() - start.get_positions()) * 0.5
+        # Rigid translation of the current geometry: every pair keeps its
+        # endpoint separation, so the path quality check stays silent.
+        offset = np.array([0.05, 0.0, 0.0])
         frames = []
         for _ in range(n_images + 2):
             frame = start.copy()
@@ -838,3 +840,137 @@ def test_prfo_steps_do_not_report_a_stale_idpp_path_status(monkeypatch, tmp_path
     assert [record["mode"] for record in steps] == ["uphill", "prfo"]
     assert steps[0]["idpp_path_status"] == "Failed"
     assert not [key for key in steps[1] if key.startswith("idpp_")]
+
+
+def collapsed_path_stub(calls=None):
+    """Return an ``interpolate_path`` stand-in whose centre frames collapse atoms."""
+
+    def stub(start, end, n_images, method="IDPP", tol=0.05, quiet=False, *, path_status=None):
+        if calls is not None:
+            calls.append(n_images)
+        frames = []
+        for index in range(n_images + 2):
+            frame = start.copy()
+            offset = (end.get_positions() - start.get_positions()) * (index / (n_images + 1))
+            frame.set_positions(start.get_positions() + offset)
+            frames.append(frame)
+        for frame in frames[1:-1]:
+            # Drive atom pair 0-1 far below its endpoint separation.
+            frame.positions[1] = frame.positions[0]
+        frames[0].set_positions(start.get_positions())
+        frames[-1].set_positions(end.get_positions())
+        if path_status is not None:
+            path_status.update(
+                method="IDPP",
+                status="Failed",
+                iterations=2000,
+                maxiter=2000,
+                final_S_IDPP=1.5,
+                max_force=0.75,
+            )
+        return frames
+
+    return stub
+
+
+def test_unphysical_midpoint_path_is_flagged_in_diagnostics_and_advisory(monkeypatch, tmp_path, capsys):
+    from atst_tools.mep import ccqn
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    calls = []
+    monkeypatch.setattr(ccqn, "interpolate_path", collapsed_path_stub(calls))
+    diagnostics = tmp_path / "diag.json"
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+
+    opt.step()
+    quality = dict(opt.interp_path_quality)
+    opt.step()
+    opt.step()
+
+    assert len(calls) == 3
+    assert quality["min_distance_A"] == 0.0
+    assert quality["min_distance_ratio"] == 0.0
+    assert quality["min_distance_pair"] == (0, 1)
+    assert quality["ratio_reference_A"] == pytest.approx(2.88)
+    assert opt.interp_path_quality["min_distance_ratio"] == 0.0
+
+    recorded = json.loads(diagnostics.read_text(encoding="utf-8"))["steps"]
+    assert recorded[0]["mode"] == "uphill"
+    assert recorded[0]["idpp_path_min_distance"] == 0.0
+    assert recorded[0]["idpp_path_min_distance_ratio"] == 0.0
+    assert recorded[0]["idpp_path_min_distance_pair"] == "1-2"
+    assert recorded[0]["idpp_path_min_distance_ratio_pair"] == "1-2"
+
+    advisory = capsys.readouterr().out
+    assert advisory.count("Warning: CCQN interpolation path is not physical") == 1
+    assert "stage=ccqn_interp_path" in advisory
+    assert "atom_pair=1-2" in advisory
+    assert "pair_endpoint_min=2.880 Ang" in advisory
+    assert "threshold_ratio=0.500" in advisory
+
+
+def test_physical_midpoint_path_records_quality_without_advisory(capsys):
+    from atst_tools.mep.ccqn import CCQNOptimizer, _ccqn_interp_path_quality
+
+    cell = [10.0, 10.0, 10.0]
+    positions = np.array([[0.0, 0.0, 0.0], [1.2, 0.0, 0.0], [0.0, 1.4, 0.5]])
+    atoms = Atoms("H3", positions=positions, cell=cell, pbc=True)
+    atoms.calc = HarmonicCalculator()
+    product = Atoms("H3", positions=positions + [1.5, -0.5, 0.25], cell=cell, pbc=True)
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="interp",
+        product_atoms=product,
+        interp_direction="midpoint",
+        hessian=False,
+        logfile=None,
+    )
+
+    opt.step()
+
+    # A rigid translation keeps every pair at its endpoint separation.
+    quality = opt.interp_path_quality
+    assert quality["min_distance_ratio"] == pytest.approx(1.0)
+    assert quality["min_distance_ratio"] >= 0.5
+    assert quality["min_distance_A"] == pytest.approx(1.2)
+    assert quality["min_distance_pair"] == (0, 1)
+    assert quality["ratio_reference_A"] == pytest.approx(1.2)
+    assert max(quality["min_distance_A"], quality["ratio_reference_A"]) > 0.0
+    assert _ccqn_interp_path_quality([]) == {}
+    assert "not physical" not in capsys.readouterr().out
+
+
+def test_ic_mode_diagnostics_do_not_carry_idpp_fields(tmp_path):
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms, _product = ccqn_interp_test_system()
+    atoms.calc = HarmonicCalculator()
+    diagnostics = tmp_path / "diag.json"
+    opt = CCQNOptimizer(
+        atoms,
+        e_vector_method="ic",
+        reactive_bonds=[(0, 1)],
+        hessian=False,
+        logfile=None,
+        diagnostics_file=str(diagnostics),
+    )
+
+    opt.step()
+    opt.step()
+
+    data = json.loads(diagnostics.read_text(encoding="utf-8"))
+    assert data["steps"]
+    assert opt.interp_path_status is None
+    assert opt.interp_path_quality is None
+    for recorded in data["steps"]:
+        assert not [key for key in recorded if key.startswith("idpp_")]

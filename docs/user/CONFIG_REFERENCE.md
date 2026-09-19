@@ -325,7 +325,7 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Initial transition-state guess. |
 | `e_vector_method` | string | `ic` | Cone-axis method: `ic` from reactive bonds or `interp` from a product-like structure. |
-| `interp_direction` | string | `product` | `interp` cone-axis target: `product` (MIC displacement to `product_file`) or `midpoint` (centre frame of the fixed-budget IDPP path towards the product, eq. 18 of the CCQN paper; status in `diagnostics_file`). |
+| `interp_direction` | string | `product` | `interp` cone-axis target: `product` (MIC displacement to `product_file`) or `midpoint` (centre frame of the fixed-budget IDPP path towards the product, eq. 18 of the CCQN paper; solver status and path quality are reported in `diagnostics_file`). |
 | `reactive_bonds` | string/list | `None` | Required for `ic`; 1-based pairs such as `"1-2,3-4"` or `[[1, 2], [3, 4]]`. |
 | `product_file` | string/null | `None` | Required for standalone `interp`; product-like structure with matching atom order. |
 | `align_product_indices` | bool | `false` | Reorder `product_file` atom indices to match the initial structure before interpolation. |
@@ -349,6 +349,17 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 CCQN is a single-ended transition-state optimizer. In `ic` mode, the user supplies chemically meaningful reactive bonds or enables `auto_reactive_bonds`. In `interp` mode the cone axis is built from `product_file`, and `interp_direction` selects the target: `product` uses the displacement from the current structure to the product configuration, while `midpoint` follows eq. 18 of the CCQN paper and points at the midpoint (`path[len(path) // 2]`) of an IDPP path generated between the current structure and the product (seven inner images, tolerance `0.05`). The path is re-solved from the current geometry at every uphill step, which costs seconds of pure geometry work per step for medium systems, so `product` remains the default. `accept_initial_converged` is intended for final-TS confirmation examples that start from a separately verified saddle point; keep it false for ordinary searches.
 
 Midpoint semantics and the IDPP budget: `x_mid` is the centre frame of the IDPP path **as produced inside the solver's fixed iteration budget** (2000 iterations), not of a fully relaxed path. When the solver reports `Failed`, the path was truncated and `x_mid` is the centre frame of that truncated path. This is recorded as a fact and never upgraded into a hard failure: CCQN keeps stepping, and the first unconverged path of a run prints one English advisory (`stage=ccqn_interp_path`, with the observed and budgeted iteration counts). Per-step provenance for `midpoint` runs is written to `diagnostics_file`, where every uphill step carries `idpp_path_status` (`Converged`/`Failed`), `idpp_iterations`, `idpp_final_S_IDPP` and `idpp_max_force`; `product` and `ic` runs carry no `idpp_*` fields, so their diagnostics are unchanged.
+
+Path quality (is the midpoint trustworthy?): a truncated path can also be **physically broken** — the interpolation may push atoms into each other, and the midpoint axis then points away from the reaction coordinate. Every `midpoint` solve therefore measures the tightest interatomic contact along the path (all frames, all atom pairs, minimum image convention) and grades it per atom pair against that same pair's smaller endpoint separation:
+
+| Diagnostics field (uphill steps of `midpoint` runs only) | Meaning |
+| :--- | :--- |
+| `idpp_path_min_distance` | Smallest interatomic distance on any frame, in Angstrom. |
+| `idpp_path_min_distance_pair` | The pair reaching it, as 1-based `"i-j"`. |
+| `idpp_path_min_distance_ratio` | Worst compression: the smallest, over all frames and pairs, of `d(pair, frame) / min(d(pair, start), d(pair, end))`. |
+| `idpp_path_min_distance_ratio_pair` | The pair responsible for that worst compression, as 1-based `"i-j"`. |
+
+`idpp_path_min_distance_ratio < 0.5` marks the path as **not physical**: some pair is squeezed to less than half of its separation in either endpoint, which a pure interpolation of a physical path does not do. The comparison is deliberately per pair rather than against the global endpoint minimum, because the tightest bond of a system (for example a 1 Angstrom X-H bond) would otherwise mask a collapsed metal-metal contact. The first unphysical path of a run prints one English advisory (`stage=ccqn_interp_path`, with the observed distance, the offending pair, its endpoint separation and the ratio threshold); the run continues. When that flag appears, the `midpoint` axis is **not trustworthy**: cross-check the direction with `interp_direction: product` or validate the path with IRC/NEB before drawing conclusions from the trajectory.
 
 Example automatic IC mode setup:
 
