@@ -254,3 +254,136 @@ def test_generate_idpp_from_abacus_stru_matches_example_traj_endpoints(tmp_path)
         np.testing.assert_array_equal(stru_atoms.pbc, direct_atoms.pbc)
         np.testing.assert_allclose(stru_atoms.cell.array, direct_atoms.cell.array, atol=1e-12)
         np.testing.assert_allclose(stru_atoms.positions, direct_atoms.positions, atol=1e-12)
+
+
+def _reference_build_translations(solver, images):
+    """Reference implementation kept in-test: per-pair scan, no vectorization."""
+    translations = np.zeros((solver.nimages, solver.natoms, solver.natoms, 3), dtype=float)
+    if not solver.mic:
+        return translations
+    for image_index, image in enumerate(images[1:-1]):
+        frac = image.get_scaled_positions(wrap=False)
+        for i in range(solver.natoms):
+            for j in range(i + 1, solver.natoms):
+                shift = solver._nearest_image(frac[i], frac[j])
+                cart_shift = np.dot(shift, solver.cell)
+                translations[image_index, i, j] = cart_shift
+                translations[image_index, j, i] = -cart_shift
+    return translations
+
+
+def _random_idpp_cells(count, seed):
+    """Yield ``(cell, frac, mic)`` triples covering triclinic, skewed, orthorhombic and tie cases."""
+    rng = np.random.default_rng(seed)
+    for index in range(count):
+        natoms = int(rng.integers(2, 10))
+        kind = index % 4
+        if kind == 0:  # fully triclinic
+            cell = np.array(
+                [
+                    [rng.uniform(3.0, 14.0), 0.0, 0.0],
+                    [rng.uniform(-4.0, 4.0), rng.uniform(3.0, 14.0), 0.0],
+                    [rng.uniform(-4.0, 4.0), rng.uniform(-4.0, 4.0), rng.uniform(3.0, 14.0)],
+                ]
+            )
+        elif kind == 1:  # skewed monoclinic
+            cell = np.array(
+                [
+                    [rng.uniform(3.0, 12.0), 0.0, 0.0],
+                    [rng.uniform(-6.0, 0.0), rng.uniform(3.0, 12.0), 0.0],
+                    [0.0, 0.0, rng.uniform(3.0, 12.0)],
+                ]
+            )
+        else:  # orthorhombic; kind 3 sits on half-cell boundaries (exact periodic ties)
+            cell = np.diag(rng.uniform(4.0, 12.0, size=3))
+        if kind == 3:
+            # Quarter-cell grid up to the half-cell boundary: every pair sits at a
+            # periodic tie position yet keeps a non-zero MIC distance.
+            grid = np.array(
+                np.meshgrid([0.0, 0.25, 0.5], [0.0, 0.25, 0.5], [0.0, 0.25, 0.5], indexing="ij")
+            ).reshape(3, -1).T
+            frac = grid[rng.choice(len(grid), size=natoms, replace=False)]
+        else:
+            frac = rng.uniform(-0.5, 1.5, size=(natoms, 3))
+        yield cell, frac, index % 6 != 5
+
+
+def test_vectorized_build_translations_matches_reference_scan_bitwise():
+    cases = 0
+    worst_difference = 0.0
+    for cell, frac, mic in _random_idpp_cells(220, seed=20260920):
+        natoms = len(frac)
+        images = [
+            Atoms("H" * natoms, scaled_positions=frac.copy(), cell=cell, pbc=True),
+            Atoms("H" * natoms, scaled_positions=frac + 0.05, cell=cell, pbc=True),
+            Atoms("H" * natoms, scaled_positions=frac - 0.05, cell=cell, pbc=True),
+        ]
+        solver = Fast_IDPPSolver(images, mic=mic)
+        reference = _reference_build_translations(solver, images)
+
+        assert np.array_equal(solver.translations, reference), f"case {cases} (natoms={natoms}, mic={mic})"
+        worst_difference = max(worst_difference, float(np.max(np.abs(solver.translations - reference))))
+        cases += 1
+
+    assert cases >= 200
+    assert worst_difference == 0.0
+
+
+def test_vectorized_translations_match_reference_for_half_cell_ties():
+    cell = [10.0, 10.0, 10.0]
+    frac = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.5 - 1e-10, 0.25, 0.0], [0.5 + 1e-10, 0.75, 0.5]])
+    images = [
+        Atoms("H4", scaled_positions=frac.copy(), cell=cell, pbc=True),
+        Atoms("H4", scaled_positions=frac.copy(), cell=cell, pbc=True),
+        Atoms("H4", scaled_positions=frac.copy(), cell=cell, pbc=True),
+    ]
+    solver = Fast_IDPPSolver(images)
+
+    reference = _reference_build_translations(solver, images)
+
+    assert np.array_equal(solver.translations, reference)
+    pair_shift = solver._nearest_image(frac[0], frac[1])
+    np.testing.assert_allclose(solver.translations[0, 0, 1], np.dot(pair_shift, solver.cell))
+
+
+def test_vectorized_translations_cover_multiple_pair_blocks():
+    rng = np.random.default_rng(4242)
+    natoms = 65  # 2080 pairs: more than one pair block
+    cell = np.array(
+        [
+            [11.3, 0.0, 0.0],
+            [-1.7, 12.1, 0.0],
+            [0.9, -2.4, 10.7],
+        ]
+    )
+    frac = rng.uniform(-0.5, 1.5, size=(natoms, 3))
+    images = [
+        Atoms("H" * natoms, scaled_positions=frac, cell=cell, pbc=True),
+        Atoms("H" * natoms, scaled_positions=frac + 0.03, cell=cell, pbc=True),
+        Atoms("H" * natoms, scaled_positions=frac - 0.03, cell=cell, pbc=True),
+    ]
+    solver = Fast_IDPPSolver(images)
+
+    reference = _reference_build_translations(solver, images)
+
+    assert np.array_equal(solver.translations, reference)
+    assert np.count_nonzero(solver.translations) > 0
+
+
+def test_mic_shift_rank_positions_form_a_strict_total_order():
+    from atst_tools.utils import idpp as idpp_module
+
+    candidates = idpp_module._MIC_SHIFT_CANDIDATES
+    ranks = [
+        (
+            float(np.dot(shift, shift)),
+            tuple(abs(int(value)) for value in shift),
+            tuple(int(value) for value in shift),
+        )
+        for shift in candidates
+    ]
+
+    assert candidates[0].tolist() == [-1.0, -1.0, -1.0]
+    assert candidates[-1].tolist() == [1.0, 1.0, 1.0]
+    assert len(set(ranks)) == len(candidates)
+    assert sorted(idpp_module._MIC_SHIFT_RANK_POSITIONS.tolist()) == list(range(len(candidates)))

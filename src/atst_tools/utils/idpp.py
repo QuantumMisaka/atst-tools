@@ -115,6 +115,45 @@ def robust_interpolate(start_atoms: Atoms, end_atoms: Atoms, nimages: int) -> Li
     return path
 
 
+#: Periodic image shifts in the reference scan order (``sx`` outer, ``sz`` inner).
+_MIC_SHIFT_CANDIDATES = np.array(
+    [(sx, sy, sz) for sx in (-1, 0, 1) for sy in (-1, 0, 1) for sz in (-1, 0, 1)],
+    dtype=float,
+)
+
+#: Number of atom pairs handled per allocation block by the vectorized scan.
+#: Blocks are independent, so this only bounds peak memory.
+_MIC_PAIR_BLOCK = 2048
+
+
+def _mic_shift_rank_positions() -> np.ndarray:
+    """Return each shift candidate's position in the reference rank order.
+
+    The reference scan ranks candidates by
+    ``(‖shift‖², |components|, signed components)``.  Those triples are distinct
+    for all 27 candidates, so their sorted order is a strict total order and the
+    scan's tuple comparison is equivalent to comparing these positions.
+
+    Returns:
+        Integer rank position per candidate, indexed like ``_MIC_SHIFT_CANDIDATES``.
+    """
+    ranks = [
+        (
+            float(np.dot(shift, shift)),
+            tuple(abs(int(value)) for value in shift),
+            tuple(int(value) for value in shift),
+        )
+        for shift in _MIC_SHIFT_CANDIDATES
+    ]
+    positions = np.empty(len(ranks), dtype=np.int64)
+    for position, index in enumerate(sorted(range(len(ranks)), key=ranks.__getitem__)):
+        positions[index] = position
+    return positions
+
+
+_MIC_SHIFT_RANK_POSITIONS = _mic_shift_rank_positions()
+
+
 class Fast_IDPPSolver:
     """
     IDPP solver compatible with pymatgen's NEB-like path relaxation.
@@ -161,25 +200,129 @@ class Fast_IDPPSolver:
         self.translations = self._build_translations(images)
         self.initial_positions = np.array([img.get_positions() for img in images[1:-1]])
 
+    def _mic_tie_tolerance(self) -> float:
+        """Return the tie tolerance of the reference nearest-image scan.
+
+        Returns:
+            ``max(1e-8, 1e-9 * max_row_norm_squared_of_cell)``.
+        """
+        return max(1e-8, 1e-9 * float(np.max(np.sum(np.asarray(self.cell) ** 2, axis=1))))
+
+    def _mic_candidate_cartesians(self, frac_i: np.ndarray, frac_j: np.ndarray) -> np.ndarray:
+        """Return the MIC displacement vector for every candidate shift and pair.
+
+        Reproduces the reference arithmetic ``(frac_j + shift - frac_i) @ cell``
+        with plain ordered elementwise operations.  That matters for the bitwise
+        contract: batched BLAS matmul accumulates with a different rounding path
+        and is not bitwise identical to ``np.dot`` on a single 3-vector.
+
+        Args:
+            frac_i: Unwrapped scaled positions of the first atoms, shape ``(P, 3)``.
+            frac_j: Unwrapped scaled positions of the second atoms, shape ``(P, 3)``.
+
+        Returns:
+            Cartesian candidates with shape ``(P, 27, 3)`` in scan order.
+        """
+        cell = np.asarray(self.cell, dtype=float)
+        vectors = frac_j[:, None, :] + _MIC_SHIFT_CANDIDATES[None, :, :] - frac_i[:, None, :]
+        cartesian = np.empty(vectors.shape, dtype=float)
+        for column in range(3):
+            cartesian[:, :, column] = (
+                vectors[:, :, 0] * cell[0, column]
+                + vectors[:, :, 1] * cell[1, column]
+                + vectors[:, :, 2] * cell[2, column]
+            )
+        return cartesian
+
+    @staticmethod
+    def _scan_nearest_candidates(distances: np.ndarray, tie_tol: float) -> np.ndarray:
+        """Return the candidate index the reference scan would select per pair.
+
+        Visits the candidates in the reference order and applies the reference
+        replacement rule, so the sequential scan semantics (including its
+        ``tie_tol`` band and rank tie-break) are preserved exactly.
+
+        Args:
+            distances: Squared candidate distances with shape ``(P, 27)``.
+            tie_tol: Tie tolerance from :meth:`_mic_tie_tolerance`.
+
+        Returns:
+            Selected candidate index per pair, shape ``(P,)``.
+        """
+        pairs = distances.shape[0]
+        best_distance = np.full(pairs, np.inf, dtype=float)
+        best_rank = np.full(pairs, len(_MIC_SHIFT_CANDIDATES), dtype=np.int64)
+        best_index = np.zeros(pairs, dtype=np.int64)
+        for index in range(len(_MIC_SHIFT_CANDIDATES)):
+            candidate = distances[:, index]
+            rank = _MIC_SHIFT_RANK_POSITIONS[index]
+            replaces = (candidate < best_distance - tie_tol) | (
+                (np.abs(candidate - best_distance) <= tie_tol) & (rank < best_rank)
+            )
+            best_distance = np.where(replaces, candidate, best_distance)
+            best_rank = np.where(replaces, rank, best_rank)
+            best_index = np.where(replaces, index, best_index)
+        return best_index
+
+    def _mic_shift_cartesians(self, shifts: np.ndarray) -> np.ndarray:
+        """Return ``shift @ cell`` for a batch of periodic image shifts.
+
+        Args:
+            shifts: Shift vectors with shape ``(P, 3)``.
+
+        Returns:
+            Cartesian shift vectors with shape ``(P, 3)``, computed with the same
+            plain ordered arithmetic as the reference ``np.dot(shift, cell)``.
+        """
+        cell = np.asarray(self.cell, dtype=float)
+        cartesian = np.empty((shifts.shape[0], 3), dtype=float)
+        for column in range(3):
+            cartesian[:, column] = (
+                shifts[:, 0] * cell[0, column]
+                + shifts[:, 1] * cell[1, column]
+                + shifts[:, 2] * cell[2, column]
+            )
+        return cartesian
+
     def _build_translations(self, images: List[Atoms]) -> np.ndarray:
+        """Return per-image nearest-image translations for every atom pair.
+
+        Pairs are processed in blocks and the 27 candidates are scanned
+        vectorized, but the selected shift per pair is the one the reference
+        per-pair scan selects: same candidate order, same replacement rule, same
+        ordered displacement arithmetic.
+
+        Args:
+            images: Full image list; only the intermediate images are measured.
+
+        Returns:
+            Array with shape ``(nimages, natoms, natoms, 3)``, all zeros when
+            MIC is disabled.
+        """
         translations = np.zeros((self.nimages, self.natoms, self.natoms, 3), dtype=float)
         if not self.mic:
             return translations
+        tie_tol = self._mic_tie_tolerance()
+        i_index, j_index = np.triu_indices(self.natoms, k=1)
         for image_index, image in enumerate(images[1:-1]):
             frac = image.get_scaled_positions(wrap=False)
-            for i in range(self.natoms):
-                for j in range(i + 1, self.natoms):
-                    shift = self._nearest_image(frac[i], frac[j])
-                    cart_shift = np.dot(shift, self.cell)
-                    translations[image_index, i, j] = cart_shift
-                    translations[image_index, j, i] = -cart_shift
+            frac_i = frac[i_index]
+            frac_j = frac[j_index]
+            for start in range(0, len(i_index), _MIC_PAIR_BLOCK):
+                stop = start + _MIC_PAIR_BLOCK
+                cartesian = self._mic_candidate_cartesians(frac_i[start:stop], frac_j[start:stop])
+                distances = np.sum(cartesian * cartesian, axis=-1)
+                selected = self._scan_nearest_candidates(distances, tie_tol)
+                cart_shift = self._mic_shift_cartesians(_MIC_SHIFT_CANDIDATES[selected])
+                translations[image_index, i_index[start:stop], j_index[start:stop]] = cart_shift
+                translations[image_index, j_index[start:stop], i_index[start:stop]] = -cart_shift
         return translations
 
     def _nearest_image(self, frac_i: np.ndarray, frac_j: np.ndarray) -> np.ndarray:
         best_shift = np.zeros(3, dtype=float)
         best_distance = np.inf
         best_rank = (np.inf, (np.inf, np.inf, np.inf), (np.inf, np.inf, np.inf))
-        tie_tol = max(1e-8, 1e-9 * float(np.max(np.sum(np.asarray(self.cell) ** 2, axis=1))))
+        tie_tol = self._mic_tie_tolerance()
         for sx in (-1, 0, 1):
             for sy in (-1, 0, 1):
                 for sz in (-1, 0, 1):
