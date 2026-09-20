@@ -22,6 +22,7 @@ atst run config.yaml
 atst run --dry-run config.yaml
 atst run --restart config.yaml
 atst run --list-types
+atst run --show-template constant_potential --calculator abacus
 atst run --show-template neb --calculator abacus
 atst run --show-template ccqn --calculator abacus
 atst run --show-template irc --calculator abacus
@@ -31,10 +32,18 @@ atst run --show-template md --calculator abacus
 `atst run` executes YAML-driven workflows. `--dry-run` validates the
 configuration without launching calculators. `--restart` temporarily sets
 `calculation.restart: true` without editing the YAML file. `--list-types`
-prints supported workflow types. `--show-template` accepts `neb`, `autoneb`,
-`dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, or `md`; combine it with
+prints supported workflow types. `--show-template` accepts
+`constant_potential`, `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`,
+`vibration`, `irc`, `md`, or `dmf`; combine it with
 `--calculator {abacus,dp}` to choose the template backend. `--log-level`
 accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR`.
+
+`constant_potential` is an unreleased ABACUS-only development candidate. The
+template is a schema skeleton: fill the strict boundary fields and the prepared
+ABACUS gate/dipole parameters before running it. See the
+[configuration reference](CONFIG_REFERENCE.md) for target units, workflow
+restrictions, failure artifacts, and the distinction between the legacy
+`reference_fcp` and `compensated_gate` boundaries.
 
 The command adapter preserves established workflow filesystem behavior. In
 particular, it does not create or replace an artifact manifest for workflows

@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import math
 from types import UnionType
 from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 VALID_CALCULATION_TYPES = (
+    "constant_potential",
     "neb",
     "autoneb",
     "dimer",
@@ -27,6 +38,254 @@ class StrictConfig(BaseModel):
     """Base model for governed YAML sections."""
 
     model_config = ConfigDict(extra="forbid")
+
+
+class ConstantPotentialConfig(StrictConfig):
+    """Strict electronic-state settings for the constant-potential decorator."""
+
+    energy_boundary: Literal["reference_fcp", "compensated_gate"] = Field(
+        description=(
+            "Required energy/conjugate-potential boundary. reference_fcp is a "
+            "reference-only legacy algorithm; compensated_gate uses explicit "
+            "gate/dipole density terms."
+        ),
+    )
+    potential_v: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="One target electrode potential in V; mutually exclusive with potentials_v.",
+    )
+    potentials_v: list[float] | None = Field(
+        default=None,
+        description="Ordered, non-empty fixed-geometry potential scan in V.",
+    )
+    reference_electrode: str = Field(
+        default="SHE",
+        min_length=1,
+        description="Named reference electrode used for the explicit work_ref calibration or custom gate boundary.",
+    )
+    work_ref: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        validation_alias=AliasChoices("work_ref", "work_ref_eV"),
+        description="Absolute reference-electrode work function in eV (required by reference_fcp).",
+    )
+    work_ref_source: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Source/provenance for work_ref (required by reference_fcp).",
+    )
+    reference_electrons: float = Field(
+        ...,
+        allow_inf_nan=False,
+        ge=0,
+        validation_alias=AliasChoices("reference_electrons", "nelec0", "NELECT0"),
+        description="Model-zero-charge electron count derived from or declared by the prepared INPUT.",
+    )
+    potential_tolerance_v: float = Field(
+        default=0.01,
+        allow_inf_nan=False,
+        gt=0,
+        validation_alias=AliasChoices("potential_tolerance_v", "potential_tolerance"),
+        description="Positive absolute electrode-potential tolerance in V.",
+    )
+    max_iterations: int = Field(
+        default=100,
+        gt=0,
+        validation_alias=AliasChoices("max_iterations", "max_fcp_iterations", "max_FCP_iter"),
+        description="Maximum fixed-electron backend evaluations per target.",
+    )
+    capacitance_initial: float = Field(
+        default=1.0 / 80.0,
+        allow_inf_nan=False,
+        gt=0,
+        validation_alias=AliasChoices("capacitance_initial", "C"),
+        description="Positive initial capacitance in the declared capacitance_unit.",
+    )
+    capacitance_unit: str = Field(
+        default="e/(V Angstrom^2)",
+        description="Initial-capacitance unit: e/V or e/(V Angstrom^2).",
+    )
+    nelec_min: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        validation_alias=AliasChoices("nelec_min", "electron_min"),
+        description="Optional lower electron-count bound.",
+    )
+    nelec_max: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        validation_alias=AliasChoices("nelec_max", "electron_max"),
+        description="Optional upper electron-count bound.",
+    )
+    nelec_step_max: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        gt=0,
+        validation_alias=AliasChoices("nelec_step_max", "electron_step_max"),
+        description="Optional maximum absolute electron-count update.",
+    )
+    vacuum_axis: int = Field(default=2, ge=0, le=2, description="Vacuum-reference axis index.")
+    interface_count: Literal[1, 2] = Field(
+        default=1,
+        description="Interface normalization for scan capacitance (1 or 2).",
+    )
+    reference_pH: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="pH required for RHE calibration.",
+    )
+    temperature_K: float | None = Field(
+        default=None,
+        gt=0,
+        allow_inf_nan=False,
+        description="Temperature in K required for RHE calibration.",
+    )
+    target_mu_ev: float | None = Field(
+        default=None,
+        allow_inf_nan=False,
+        description="Target conjugate electron chemical potential in eV for compensated_gate.",
+    )
+    target_mu_values_ev: list[float] | None = Field(
+        default=None,
+        description="Ordered, non-empty compensated_gate target chemical potentials in eV.",
+    )
+
+    @field_validator("potentials_v")
+    @classmethod
+    def _validate_potentials(cls, value: list[float] | None) -> list[float] | None:
+        if value is None:
+            return None
+        if not value:
+            raise ValueError("calculator.constant_potential.potentials_v must not be empty")
+        if any(not math.isfinite(float(item)) for item in value):
+            raise ValueError("calculator.constant_potential.potentials_v must be finite")
+        if len({float(item) for item in value}) != len(value):
+            raise ValueError("calculator.constant_potential.potentials_v must not contain duplicates")
+        return [float(item) for item in value]
+
+    @field_validator("target_mu_values_ev")
+    @classmethod
+    def _validate_target_mu_values(cls, value: list[float] | None) -> list[float] | None:
+        if value is None:
+            return None
+        if not value:
+            raise ValueError("calculator.constant_potential.target_mu_values_ev must not be empty")
+        if any(not math.isfinite(float(item)) for item in value):
+            raise ValueError("calculator.constant_potential.target_mu_values_ev must be finite")
+        if len({float(item) for item in value}) != len(value):
+            raise ValueError("calculator.constant_potential.target_mu_values_ev must not contain duplicates")
+        return [float(item) for item in value]
+
+    @field_validator("reference_electrode")
+    @classmethod
+    def _validate_nonblank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("constant-potential text fields must not be blank")
+        return value
+
+    @field_validator("work_ref_source")
+    @classmethod
+    def _validate_work_ref_source(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("constant-potential work_ref_source must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_target(self) -> "ConstantPotentialConfig":
+        if self.nelec_min is not None and self.nelec_max is not None and self.nelec_min > self.nelec_max:
+            raise ValueError("calculator.constant_potential.nelec_min must not exceed nelec_max")
+        if self.capacitance_unit not in {"e/V", "e/(V Angstrom^2)", "e/V/A^2", "e/(V A^2)"}:
+            raise ValueError(
+                "calculator.constant_potential.capacitance_unit must be 'e/V' or 'e/(V Angstrom^2)'"
+            )
+        if self.energy_boundary == "reference_fcp":
+            if (self.potential_v is None) == (self.potentials_v is None):
+                raise ValueError(
+                    "calculator.constant_potential requires exactly one of potential_v or potentials_v"
+                )
+            if self.work_ref is None or self.work_ref_source is None:
+                raise ValueError(
+                    "calculator.constant_potential.work_ref and work_ref_source are required for reference_fcp"
+                )
+            if self.target_mu_ev is not None or self.target_mu_values_ev is not None:
+                raise ValueError(
+                    "target_mu_ev/target_mu_values_ev are only valid for energy_boundary=compensated_gate"
+                )
+            if self.reference_electrode.strip().upper() == "RHE":
+                if self.reference_pH is None or self.temperature_K is None:
+                    raise ValueError(
+                        "RHE reference requires calculator.constant_potential.reference_pH and temperature_K"
+                    )
+            elif self.reference_pH is not None or self.temperature_K is not None:
+                raise ValueError(
+                    "reference_pH and temperature_K are only valid for a RHE reference"
+                )
+        else:
+            if self.reference_electrode.strip().lower() != "custom":
+                raise ValueError(
+                    "energy_boundary=compensated_gate requires reference_electrode=custom"
+                )
+            if (self.target_mu_ev is None) == (self.target_mu_values_ev is None):
+                raise ValueError(
+                    "energy_boundary=compensated_gate requires exactly one of target_mu_ev or target_mu_values_ev"
+                )
+            if self.potential_v is not None or self.potentials_v is not None:
+                raise ValueError(
+                    "potential_v/potentials_v are not valid for energy_boundary=compensated_gate"
+                )
+            if self.work_ref is not None or self.work_ref_source is not None:
+                raise ValueError(
+                    "work_ref/work_ref_source are not valid for energy_boundary=compensated_gate"
+                )
+            if self.reference_pH is not None or self.temperature_K is not None:
+                raise ValueError(
+                    "reference_pH and temperature_K are not valid for energy_boundary=compensated_gate"
+                )
+            if self.vacuum_axis not in (0, 1, 2):
+                raise ValueError("calculator.constant_potential.vacuum_axis must be 0, 1, or 2")
+        return self
+
+    def targets(self) -> list[float]:
+        """Return the configured potential target sequence in input order."""
+        if self.energy_boundary == "compensated_gate":
+            return [float(self.target_mu_ev)] if self.target_mu_ev is not None else [
+                float(item) for item in (self.target_mu_values_ev or [])
+            ]
+        return [float(self.potential_v)] if self.potential_v is not None else [
+            float(item) for item in (self.potentials_v or [])
+        ]
+
+    def effective_work_ref(self) -> float:
+        """Return the declared work reference after the RHE pH/T conversion."""
+        if self.energy_boundary == "compensated_gate":
+            raise ValueError("compensated_gate has no work_ref; use target_mu_ev")
+        if self.reference_electrode.strip().upper() != "RHE":
+            assert self.work_ref is not None
+            return float(self.work_ref)
+        # k_B is expressed in eV/K, so the numerical result is already in eV
+        # per electron as required by the §4 convention.
+        k_B_eV_per_K = 8.617333262145e-5
+        assert self.reference_pH is not None and self.temperature_K is not None
+        assert self.work_ref is not None
+        return float(self.work_ref) - k_B_eV_per_K * float(self.temperature_K) * math.log(10.0) * float(self.reference_pH)
+
+
+class ConstantPotentialCalculation(StrictConfig):
+    """Fixed-geometry constant-potential single-point or serial scan."""
+
+    type: Literal["constant_potential"] = Field(description="Select constant-potential evaluation.")
+    init_structure: str = Field(description="Input structure for the fixed-geometry evaluation.")
+    artifact_manifest: str = Field(default="atst_artifacts.json", description="Workflow artifact manifest JSON output.")
+    results_file: str = Field(default="constant_potential_results.json", description="Machine-readable CP result/scan output.")
+    log_file: str = Field(default="constant_potential.log", description="Human-readable CP evaluation log.")
+    checkpoint_file: str = Field(default="constant_potential_checkpoint.json", description="Atomic CP scan checkpoint.")
+    directory: str = Field(default="constant_potential_run", description="Root directory for CP evaluations.")
+    restart: bool = Field(default=False, description="Resume from a matching CP scan checkpoint when available.")
+
+    @model_validator(mode="after")
+    def _validate_single_structure(self) -> "ConstantPotentialCalculation":
+        return self
 
 
 class NEBMakeConfig(StrictConfig):
@@ -654,6 +913,7 @@ class MDCalculation(StrictConfig):
 
 CalculationConfig = Annotated[
     Union[
+        ConstantPotentialCalculation,
         NEBCalculation,
         AutoNEBCalculation,
         DimerCalculation,
@@ -670,6 +930,7 @@ CalculationConfig = Annotated[
 ]
 
 CALCULATION_SCHEMA_BY_TYPE: dict[str, type[StrictConfig]] = {
+    "constant_potential": ConstantPotentialCalculation,
     "neb": NEBCalculation,
     "autoneb": AutoNEBCalculation,
     "dimer": DimerCalculation,
@@ -804,6 +1065,10 @@ class CalculatorConfig(StrictConfig):
     name: Literal["abacus", "dp", "deepmd"] = Field(description="Calculator backend name.")
     abacus: AbacusConfig | None = Field(default=None, description="ABACUS calculator settings.")
     dp: DPConfig | None = Field(default=None, description="DeepMD-kit calculator settings.")
+    constant_potential: ConstantPotentialConfig | None = Field(
+        default=None,
+        description="Optional strict constant-potential decorator settings.",
+    )
 
     @model_validator(mode="after")
     def _validate_matching_section(self) -> "CalculatorConfig":
@@ -825,6 +1090,43 @@ class ATSTConfig(StrictConfig):
         if isinstance(self.calculation, MDCalculation):
             if self.calculation.driver == "abacus_native" and self.calculator.name != "abacus":
                 raise ValueError("calculation.driver=abacus_native requires calculator.name=abacus")
+        cp = self.calculator.constant_potential
+        if cp is not None:
+            if self.calculator.name != "abacus":
+                raise ValueError("calculator.constant_potential requires calculator.name=abacus")
+            abacus = self.calculator.abacus
+            if abacus is not None:
+                merged_parameters = {
+                    key: value
+                    for key, value in abacus.model_dump(mode="python").items()
+                    if key not in {"command", "directory", "mpi", "omp", "parameters", "version_command"}
+                }
+                merged_parameters.update(dict(abacus.parameters))
+                if "nupdown" in merged_parameters:
+                    raise ValueError(
+                        "calculator.constant_potential does not support explicit nupdown; "
+                        "use a common-Fermi nspin profile"
+                    )
+                if merged_parameters.get("two_fermi"):
+                    raise ValueError("calculator.constant_potential does not support two_fermi")
+            workflow = self.calculation.type
+            if workflow not in {"constant_potential", "relax", "neb"}:
+                raise ValueError(
+                    "calculator.constant_potential is supported only for calculation.type="
+                    "constant_potential, relax, or neb"
+                )
+            if workflow in {"relax", "neb"} and (
+                cp.potentials_v is not None or cp.target_mu_values_ev is not None
+            ):
+                raise ValueError(
+                    "constant-potential target scans are only valid for "
+                    "calculation.type=constant_potential; relax/neb require one scalar target"
+                )
+            if workflow in {"relax", "neb"} and cp.energy_boundary != "compensated_gate":
+                raise ValueError(
+                    "calculation.type=relax/neb requires the validated "
+                    "energy_boundary=compensated_gate profile"
+                )
         return self
 
 

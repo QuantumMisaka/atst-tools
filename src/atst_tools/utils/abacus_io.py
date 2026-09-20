@@ -166,6 +166,18 @@ def prepare_abacus_input_from_config(
     abacus = dict(calculator.get("abacus", {}))
     base_dir = Path(config_base_dir or Path.cwd()).resolve()
     parameters = _absolutize_abacus_path_parameters(_merged_abacus_parameters(abacus), base_dir=base_dir)
+    if calculator.get("constant_potential") is not None:
+        # Keep dry-run/input preparation aligned with the CP factory and
+        # calculator: nupdown activates ABACUS's two-Fermi state, including
+        # the explicit neutral value 0, and is outside the supported CP
+        # occupation boundary.
+        if "nupdown" in parameters:
+            raise ValueError(
+                "calculator.constant_potential does not support explicit nupdown; "
+                "use a common-Fermi nspin profile"
+            )
+        if parameters.get("two_fermi"):
+            raise ValueError("calculator.constant_potential does not support two_fermi")
     destination = Path(output_dir)
     targets = [destination / "INPUT", destination / "KPT", destination / "STRU"]
     existing = [path for path in targets if path.exists()]

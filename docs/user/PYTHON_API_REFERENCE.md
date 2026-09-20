@@ -123,8 +123,10 @@ print(config["calculation"]["type"])
 ### `run_workflow(config_source, options=RunOptions())`
 
 Runs a validated YAML path or equivalent mapping and returns a
-`WorkflowResult`. It supports every current `calculation.type`: NEB, AutoNEB,
-Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and experimental DMF.
+`WorkflowResult`. It supports every current `calculation.type`: the released
+NEB, AutoNEB, Dimer, Sella, CCQN, D2S, Relax, Vibration, IRC, MD, and
+experimental DMF workflows, plus the unreleased ABACUS-only
+`constant_potential` development candidate.
 `RunOptions` exposes the CLI-equivalent controls:
 
 - `dry_run`, `restart`, `check_input`, and `check_input_timeout` select the
@@ -157,6 +159,14 @@ from atst_tools.api import RunOptions, run_workflow
 result = run_workflow("config.yaml", RunOptions(dry_run=True))
 print(result.status, result.artifact_manifest)
 ```
+
+The `constant_potential` mapping uses the same `run_workflow` route and strict
+schema as the CLI; it does not add a new stable root import. It is currently
+limited to fixed-geometry serial evaluations/scans and fixed-cell
+`compensated_gate` `relax`/`neb` calls. The legacy `reference_fcp` boundary is
+reference-only and cannot be used for those optimization workflows. This
+development candidate is not part of the published 2.2.6 package and has no
+Paimon/public tool-chain acceptance claim.
 
 ### Process runner for external hosts
 

@@ -177,6 +177,7 @@ mpirun -np <number-of-interior-images> atst run config.yaml
 | `16_dmf_nonperiodic` | H2 non-periodic endpoint pair | H | DMF |
 | `17_dmf_pbc_cartesian_unwrapped` | H2 fixed-cell toy endpoint pair | H | DMF PBC guard |
 | `18_dmf_production_validation` | Li-Si and H2-Au staged P3 validation cases | Li, Si, H, Au | DMF validation |
+| `19_constant_potential_Pt` | Pt slab gate/dipole fixture and fixed-electron diagnostics | Pt | Unreleased CP validation inputs |
 
 ## Reference Results
 
@@ -218,3 +219,15 @@ with validation status or auxiliary output references.
 | `08_d2s_Cy-Pt` | yellow | rough barrier `1.929739` eV, dimer fmax `0.052908` eV/Ang | rough barrier `-0.749073` eV; rough TS RMSD `0.150699` Ang |
 | `10_irc_H2` | green | 5 IRC frames, final fmax `0.004265` eV/Ang | gas-phase auxiliary workflow |
 | `11_vibration_ideal_gas_H2` | yellow | ideal-gas Gibbs free energy `-0.032443` eV | minimal H2 fixture with 5 filtered modes |
+
+### Constant-potential validation
+
+* `19_constant_potential_Pt/`: Reproducible PW/LCAO Pt gate-field inputs and the fixed-electron/force validation sequence.
+
+This is an unreleased development fixture rather than a production benchmark.
+Its `compensated_gate` inputs use a custom chemical-potential boundary and keep
+gate, blocking, field, dipole, PP, ORB, and KPT settings explicit. The fixture
+does not establish universal basis/cutoff convergence, a calibrated SHE/RHE
+potential, a production barrier, or Paimon/public tool-chain acceptance; read
+its local README together with the [configuration reference](../docs/user/CONFIG_REFERENCE.md)
+before reusing it.

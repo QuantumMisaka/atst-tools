@@ -297,6 +297,17 @@ def test_multiframe_scf_read_results_returns_current_structure_force(tmp_path):
     assert np.allclose(results["forces"], STRU_FRAME_FORCES, atol=1e-12)
 
 
+def test_scf_read_results_preserves_backend_neutral_efermi(tmp_path):
+    """The Fermi level survives the file-I/O boundary under the CP result key."""
+    directory = _read_results_fixture(tmp_path)
+    results = _template().read_results(directory)
+
+    # The selected parser value in this real nspin=2 log is the second
+    # channel's Fermi level, -2.04 eV.
+    assert results["efermi"] == pytest.approx(-2.04)
+    assert results["fermi_level"] == pytest.approx(results["efermi"])
+
+
 def test_scf_read_results_fails_closed_when_no_frame_matches(tmp_path):
     """无匹配帧：STRU 与 running log 全部帧不一致时 fail-closed（含 log 路径/帧数/差异摘要）。"""
     stru_text = (

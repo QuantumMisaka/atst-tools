@@ -6,11 +6,17 @@ import os
 import re
 import shlex
 import logging
+import math
+from copy import deepcopy
 from typing import Any, Dict
 
 from ase.calculators.calculator import Calculator
 
 from atst_tools.calculators.abacuslite_backend import Abacus, ATSTAbacusProfile, BACKEND_SOURCE
+from atst_tools.calculators.constant_potential import (
+    ConstantPotentialCalculator,
+    fixed_hamiltonian_identity_for_config,
+)
 from atst_tools.calculators.dp import DeepPotentialFactory
 from atst_tools.utils.mpi import mpi_launcher_detected
 
@@ -180,7 +186,157 @@ class CalculatorFactory:
     def get_calculator(name: str, config: Dict[str, Any], **kwargs: Any) -> Calculator:
         name = name.lower()
         if name == "abacus":
+            constant_potential = (
+                config.get("calculator", {}).get("constant_potential")
+                if isinstance(config.get("calculator", {}), dict)
+                else None
+            )
+            if constant_potential is not None:
+                return _constant_potential_calculator(config, constant_potential, kwargs)
             return AbacusFactory.get_calculator(config, **kwargs)
         if name in {"dp", "deepmd"}:
+            calculator_section = config.get("calculator", {})
+            if isinstance(calculator_section, dict) and calculator_section.get("constant_potential") is not None:
+                raise ValueError("calculator.constant_potential requires calculator.name=abacus")
             return DeepPotentialFactory.get_calculator(config, **kwargs)
         raise ValueError(f"Unsupported calculator: {name}. Supported: 'abacus', 'dp'")
+
+
+def _constant_potential_calculator(
+    config: Dict[str, Any], cp_config: Dict[str, Any], kwargs: Dict[str, Any]
+) -> ConstantPotentialCalculator:
+    """Build one CP decorator around fresh, unwrapped ABACUS calculators."""
+    supported_workflows = {"constant_potential", "relax", "neb"}
+    workflow = config.get("calculation", {}).get("type") if isinstance(config.get("calculation"), dict) else None
+    if workflow is not None and workflow not in supported_workflows:
+        raise ValueError(
+            "calculator.constant_potential is supported only for calculation.type in "
+            f"{sorted(supported_workflows)}; got {workflow!r}"
+        )
+    options = dict(cp_config)
+    energy_boundary = str(options.get("energy_boundary", "reference_fcp"))
+    if energy_boundary not in {"reference_fcp", "compensated_gate"}:
+        raise ValueError("calculator.constant_potential.energy_boundary is unsupported")
+    if workflow in {"relax", "neb"} and energy_boundary != "compensated_gate":
+        raise ValueError(
+            "calculation.type=relax/neb requires energy_boundary=compensated_gate; "
+            "reference_fcp is not a validated optimization boundary"
+        )
+    target = options.pop("potential_v", None)
+    if energy_boundary == "compensated_gate":
+        target = options.pop("target_mu_ev", None)
+    else:
+        options.pop("target_mu_ev", None)
+    target_override = kwargs.pop("constant_potential_target", None)
+    if target_override is not None:
+        target = target_override
+    if target is None:
+        targets = options.pop(
+            "target_mu_values_ev" if energy_boundary == "compensated_gate" else "potentials_v",
+            None,
+        )
+        if not targets:
+            raise ValueError("constant-potential calculator requires a target value")
+        target = targets[0]
+    else:
+        options.pop("potentials_v", None)
+        options.pop("target_mu_values_ev", None)
+
+    required_fields = ("reference_electrons",)
+    if energy_boundary == "reference_fcp":
+        required_fields = ("work_ref", "work_ref_source", "reference_electrons")
+    for required in required_fields:
+        if options.get(required) is None:
+            raise ValueError(f"calculator.constant_potential.{required} is required")
+
+    root_directory = kwargs.get("directory")
+    if root_directory is None:
+        calculator_section = config.get("calculator", {})
+        abacus_section = calculator_section.get("abacus", {}) if isinstance(calculator_section, dict) else {}
+        root_directory = abacus_section.get("directory", ".") if isinstance(abacus_section, dict) else "."
+    root_directory = str(root_directory)
+    initial_override = kwargs.pop("constant_potential_initial", None)
+    if initial_override is not None:
+        initial_override = float(initial_override)
+
+    # ``nupdown`` is the ABACUS control that activates the two-Fermi spin
+    # state.  It is not a harmless optional switch for a CP boundary: even
+    # nupdown=0 must be rejected so every profile has one auditable occupation
+    # convention.  Check the merged top-level/parameters layout before any
+    # backend directory is created; the runtime callback repeats this check for
+    # direct calculator use and backend-reported parameters.
+    abacus_section = _abacus_section(config)
+    prepared_parameters = {
+        key: value
+        for key, value in abacus_section.items()
+        if key not in _ABACUS_CONTROL_KEYS
+    }
+    raw_prepared = abacus_section.get("parameters", {})
+    if isinstance(raw_prepared, dict):
+        prepared_parameters.update(raw_prepared)
+    if "nupdown" in prepared_parameters:
+        raise ValueError(
+            "calculator.constant_potential does not support explicit nupdown; "
+            "use a common-Fermi nspin profile"
+        )
+    if prepared_parameters.get("two_fermi"):
+        raise ValueError(
+            "calculator.constant_potential does not support two_fermi"
+        )
+
+    # The callback closes over a copy of the original backend configuration and
+    # mutates only the CP-owned evaluation copy.  This keeps the prepared INPUT
+    # immutable and prevents recursively wrapping the inner backend.
+    def inner_factory(nelec: float, directory: str):
+        local_config = deepcopy(config)
+        calculator_section = local_config.setdefault("calculator", {})
+        abacus_section = calculator_section.setdefault("abacus", {})
+        parameters = dict(abacus_section.get("parameters", {}))
+        parameters["nelec"] = float(nelec)
+        parameters.setdefault("calculation", "scf")
+        parameters.setdefault("out_pot", 2)
+        parameters.setdefault("cal_force", 1)
+        if energy_boundary == "compensated_gate":
+            # Compensation is evaluated from the same-run density.  Do not
+            # overwrite gate/dipole geometry from the prepared INPUT; the
+            # reader records and validates those actual parameters.
+            parameters["out_chg"] = "1 12"
+        abacus_section["parameters"] = parameters
+        calculator_section.pop("constant_potential", None)
+        local_kwargs = dict(kwargs)
+        local_kwargs["directory"] = directory
+        return AbacusFactory.get_calculator(local_config, **local_kwargs)
+
+    if options.get("reference_electrons") is None:
+        raise ValueError(
+            "calculator.constant_potential.reference_electrons is required; "
+            "the initial ABACUS nelec is not a model-zero-charge definition"
+        )
+    if initial_override is not None:
+        options["initial_electrons"] = initial_override
+    else:
+        # N0 is a separately declared model-zero-charge reference.  The first
+        # SCF guess follows the prepared ABACUS INPUT instead; silently using
+        # N0 here would erase an explicit nelec/nelec_delta preparation choice.
+        abacus_section = _abacus_section(config)
+        prepared_parameters = (
+            abacus_section.get("parameters", {}) if isinstance(abacus_section, dict) else {}
+        )
+        prepared_nelec = prepared_parameters.get("nelec") if isinstance(prepared_parameters, dict) else None
+        if prepared_nelec is None and isinstance(abacus_section, dict):
+            prepared_nelec = abacus_section.get("nelec")
+        if prepared_nelec is not None:
+            try:
+                options["initial_electrons"] = float(prepared_nelec)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("calculator.abacus.parameters.nelec must be finite when used as the CP initial guess") from exc
+            if not math.isfinite(options["initial_electrons"]):
+                raise ValueError("calculator.abacus.parameters.nelec must be finite when used as the CP initial guess")
+    return ConstantPotentialCalculator(
+        inner_factory=inner_factory,
+        potential_v=None if energy_boundary == "compensated_gate" else float(target),
+        target_mu_ev=float(target) if energy_boundary == "compensated_gate" else None,
+        directory=root_directory,
+        fixed_hamiltonian_identity=fixed_hamiltonian_identity_for_config(config),
+        **options,
+    )

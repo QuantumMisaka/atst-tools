@@ -14,10 +14,12 @@ from atst_tools.utils.neb_endpoints import (
     ENDPOINT_PLACEHOLDER,
     ENDPOINT_PROVIDED,
     ENDPOINT_RESULT_KEY,
+    CP_ENDPOINT_IDENTITY_KEY,
     ensure_neb_endpoint_results,
     freeze_current_results,
     mark_endpoint_result,
 )
+from atst_tools.calculators.constant_potential import publish_constant_potential_facts
 
 
 class DummyCalc(Calculator):
@@ -62,6 +64,51 @@ def _placeholder_atoms(x=0.0):
     atoms = _atoms(0.0, x=x)
     mark_endpoint_result(atoms, ENDPOINT_PLACEHOLDER)
     return atoms
+
+
+def _complete_cp_results(atoms, identity, energy):
+    """Build a complete durable CP result for endpoint persistence tests."""
+    target = float(identity["target_mu_ev"])
+    reference_electrons = float(identity["reference_electrons"])
+    return {
+        "energy": float(energy),
+        "free_energy": float(energy),
+        "raw_energy": float(energy),
+        "raw_free_energy": float(energy),
+        "efermi": target,
+        "vacuum_level": None,
+        "fermishift": None,
+        "energy_boundary": "compensated_gate",
+        "profile_status": "test",
+        "boundary_parameters": {},
+        "compensation": {
+            "boundary": "compensated_gate",
+            "gate_derivative_ev": 0.0,
+            "dipole_derivative_ev": 0.0,
+            "compensation_derivative_ev": 0.0,
+            "integrated_electrons": reference_electrons,
+            "density_electron_error": 0.0,
+            "ionic_valence_electrons": reference_electrons,
+            "total_dipole_ry_au": 0.0,
+            "density_precision": 12,
+            "density_electron_tolerance": 1e-8,
+        },
+        "mu_calc": target,
+        "mu_target": target,
+        "potential_calc": None,
+        "potential_target": None,
+        "residual_mu": 0.0,
+        "residual_v": 0.0,
+        "omega_correction": 0.0,
+        "nelec": reference_electrons,
+        "reference_electrons": reference_electrons,
+        "delta_nelec": 0.0,
+        "forces": atoms.get_forces(),
+        "scf_converged": True,
+        "cp_converged": True,
+        "cp_iterations": 1,
+        "cp_history": [{"converged": True}],
+    }
 
 
 def test_endpoint_helper_recomputes_placeholder_endpoint(capsys):
@@ -157,6 +204,132 @@ def test_endpoint_helper_always_recomputes_valid_endpoint():
 
     assert chain[0].get_potential_energy() == 9.0
     assert chain[-1].get_potential_energy() == 9.0
+
+
+def test_cp_identity_mismatch_recomputes_auto_and_never_rejects():
+    identity = {
+        "energy_boundary": "compensated_gate",
+        "potential_v": None,
+        "target_mu_ev": -15.0,
+        "reference_electrode": "custom",
+        "work_ref": None,
+        "work_ref_source": None,
+        "reference_pH": None,
+        "temperature_K": None,
+        "reference_electrons": 216.0,
+        "boundary_parameters": {},
+        "energy_definition": "omega_compensated_gate",
+        "calculator": "constant_potential",
+    }
+    chain = [_atoms(1.0), _atoms(2.0), _atoms(3.0)]
+    for endpoint in (chain[0], chain[-1]):
+        mark_endpoint_result(endpoint, ENDPOINT_COMPUTED)
+        publish_constant_potential_facts(
+            endpoint,
+            _complete_cp_results(endpoint, identity, endpoint.get_potential_energy()),
+            identity,
+        )
+    chain[-1].info[CP_ENDPOINT_IDENTITY_KEY]["target_mu_ev"] = -14.0
+    chain[-1].info["atst_constant_potential_facts"]["identity"]["target_mu_ev"] = -14.0
+
+    with pytest.raises(ValueError, match="lacks meaningful"):
+        ensure_neb_endpoint_results(
+            chain,
+            lambda directory: DummyCalc(energy=9.0),
+            policy="never",
+            constant_potential_identity=identity,
+        )
+
+    calls = []
+
+    def get_calculator(directory):
+        calls.append(directory)
+        return DummyCalc(energy=9.0)
+
+    ensure_neb_endpoint_results(
+        chain,
+        get_calculator,
+        policy="auto",
+        constant_potential_identity=identity,
+    )
+    assert calls == ["endpoint_final"]
+    assert chain[0].info[CP_ENDPOINT_IDENTITY_KEY] == identity
+    assert CP_ENDPOINT_IDENTITY_KEY not in chain[-1].info
+
+
+def test_cp_facts_round_trip_and_geometry_staleness_are_endpoint_gated(tmp_path):
+    identity = {
+        "energy_boundary": "compensated_gate",
+        "potential_v": None,
+        "target_mu_ev": -15.0,
+        "reference_electrode": "custom",
+        "work_ref": None,
+        "work_ref_source": None,
+        "reference_pH": None,
+        "temperature_K": None,
+        "reference_electrons": 216.0,
+        "boundary_parameters": {},
+        "energy_definition": "omega_compensated_gate",
+        "calculator": "constant_potential",
+        "fixed_hamiltonian": {
+            "boundary_parameters": {"zgate": 0.7},
+            "assets": {"pseudopotentials": [{"sha256": "pp-v1"}]},
+        },
+    }
+    endpoint = _atoms(1.0)
+    mark_endpoint_result(endpoint, ENDPOINT_COMPUTED)
+    publish_constant_potential_facts(
+        endpoint,
+        _complete_cp_results(endpoint, identity, 1.0),
+        identity,
+    )
+    path = tmp_path / "endpoint.traj"
+    write(path, endpoint)
+    loaded = read(path)
+    final = _atoms(3.0)
+    mark_endpoint_result(final, ENDPOINT_COMPUTED)
+    publish_constant_potential_facts(
+        final,
+        _complete_cp_results(final, identity, 3.0),
+        identity,
+    )
+    chain = [loaded, _atoms(2.0), final]
+
+    calls = []
+    ensure_neb_endpoint_results(
+        chain,
+        lambda directory: calls.append(directory) or DummyCalc(),
+        policy="never",
+        constant_potential_identity=identity,
+    )
+    assert calls == []
+
+    loaded.positions[0, 0] += 0.2
+    with pytest.raises(ValueError, match="lacks meaningful"):
+        ensure_neb_endpoint_results(
+            [loaded, _atoms(2.0), final],
+            lambda directory: DummyCalc(),
+            policy="never",
+            constant_potential_identity=identity,
+        )
+
+    changed_identity = {
+        **identity,
+        "fixed_hamiltonian": {
+            **identity["fixed_hamiltonian"],
+            "boundary_parameters": {"zgate": 0.8},
+        },
+    }
+    loaded_again = read(path)
+    final_again = final.copy()
+    calls = []
+    ensure_neb_endpoint_results(
+        [loaded_again, _atoms(2.0), final_again],
+        lambda directory: calls.append(directory) or DummyCalc(),
+        policy="auto",
+        constant_potential_identity=changed_identity,
+    )
+    assert calls == ["endpoint_initial", "endpoint_final"]
 
 
 def test_neb_make_marks_pure_structure_endpoints_as_placeholder(tmp_path, monkeypatch):

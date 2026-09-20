@@ -9,6 +9,9 @@ ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工�
 当前版本把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
+开发分支另有尚未发布的 ABACUS 恒电势候选能力；它的边界和验收状态见
+[功能状态矩阵](../reports/FEATURE_STATUS_MATRIX.md)，不属于当前 2.2.6
+PyPI 发布内容。
 
 ATST-Tools 的边界是工作流编排、配置校验、calculator 构造、轨迹命名、
 重启辅助、ABACUS 常见前后处理和示例文档。ABACUS、DeePMD-kit、ASE、Sella
@@ -137,6 +140,7 @@ atst run --show-template dmf --calculator dp
 | `irc` | Sella IRC 正向、反向或双向路径 | `atst run config.yaml` |
 | `md` | 分子动力学；支持 ASE 驱动和 ABACUS 原生 MD | `atst run config.yaml` |
 | `dmf` | Direct MaxFlux 实验性 TS candidate / path optimizer | `atst run config.yaml` |
+| `constant_potential` | ABACUS 恒电势固定几何单点/串行扫描（开发候选） | `atst run config.yaml` |
 
 DMF 当前是 experimental：默认只面向非周期基线，输出 `tmax` TS candidate，
 不能表述为已验证 TS；周期输入默认拒绝，只有显式设置
@@ -147,6 +151,15 @@ rotation/translation removal 时才进入实验路径。D2S 默认仍使用 roug
 D2S、CCQN 和 IRC 已纳入 2.0.x schema 与示例，不再是待集成状态。功能支持状态、
 验证边界和暂不支持项目以
 [FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md) 为准。
+
+`constant_potential` 当前是开发候选。它通过 `calculator.constant_potential`
+装饰 ABACUS calculator，可运行固定几何的单点或串行目标扫描；固定晶胞的
+`relax`/`neb` 只接受 `energy_boundary: compensated_gate` 的单一
+`target_mu_ev`。`reference_fcp` 仅用于旧算法复现和诊断，不可用于这些核优化
+工作流。恒电势结果需要同一轮 SCF 的有限 Fermi/边界事实和可验证的 CP 身份；失败
+或身份不匹配时不会把旧能量/力交给优化器。该候选不覆盖 cell-relax、stress、
+AutoNEB、D2S、MD、两 Fermi 或显式 `nupdown`，也不表示 Paimon/public 工具链
+已经通过验收。参数和产物见 [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md)。
 
 ## 5. ABACUS / abacuslite 集成
 

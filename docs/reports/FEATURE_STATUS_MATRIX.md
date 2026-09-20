@@ -1,7 +1,7 @@
 # ATST-Tools Feature Status Matrix
 
 **Version**: 2.2.6
-**Last Updated**: 2026-09-17
+**Last Updated**: 2026-09-20
 **Status**: Published (PyPI clean-install verified)
 **Owner**: ATST-Tools maintainers
 
@@ -19,9 +19,19 @@ step with its original Hessian and applies the updated radius to the next step.
 Local unit validation: 875 passed, 2 skipped; no DFT or deployment claim.
 See the CCQN section of [CONFIG_REFERENCE](../user/CONFIG_REFERENCE.md).
 
+Unreleased development (2026-09-20): the constant-potential candidate adds an
+ABACUS calculator decorator, a fixed-geometry single-point/serial-scan workflow,
+and fixed-cell `relax`/`neb` routing for the explicit `compensated_gate`
+boundary. The legacy `reference_fcp` boundary remains reference-only. Local
+ATST behavior checks and bounded numerical profile evidence exist, but this
+candidate is not part of 2.2.6/PyPI and has no Paimon/public tool-chain or
+deployment acceptance claim. See the [CP configuration section](../user/CONFIG_REFERENCE.md#211-constant-potential-evaluation-development-candidate)
+for fields, artifacts, and failure semantics.
+
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
 | **Relax** | ✅ Supported | Geometry Optimization | Uses ASE optimizers. |
+| **Constant-potential** | 🧪 Unreleased candidate | ABACUS-only fixed-electron electronic-number loop and fixed-geometry serial scan; fixed-cell `relax`/`neb` may use the explicit compensated-gate boundary. | `reference_fcp` is reference-only; compensated targets use custom `mu` in eV and same-run gate/dipole density facts. No cell-relax/stress, AutoNEB, D2S, MD, two-Fermi, or explicit `nupdown` scope. The candidate is not published and the public Paimon chain remains pending. |
 | **Vibration** | ✅ Supported | Frequency Analysis and TS validation | Finite difference method with JSON results, TS validation, and artifact manifest support. |
 | **NEB** | ✅ Supported | Nudged Elastic Band | CI-NEB, two-stage NEB, endpoint single-point repair, optional endpoint relaxation, native ASE selector, artifact manifest, ABACUS STRU inputs for `atst neb make`, and MPI image-level parallelism are supported. |
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling, native ASE selector, endpoint single-point repair, and MPI image-level parallelism are supported. |

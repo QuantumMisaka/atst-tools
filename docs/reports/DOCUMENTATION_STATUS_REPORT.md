@@ -1,7 +1,7 @@
 # 文档治理状态报告
 
 **版本**: 2.2.6
-**日期**: 2026-09-17
+**日期**: 2026-09-20
 **状态**: 已发布（PyPI clean-install 已验证）
 **责任人**: ATST-Tools maintainers
 
@@ -13,6 +13,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
+
+- 2026-09-20（未发布开发）：ATST 恒电势候选文档已补齐用户入口、严格 CP schema 语义、固定几何串行扫描产物、`reference_fcp`/`compensated_gate` 边界、固定晶胞 `relax`/`neb` 限制和失败/身份校验语义。`examples/19_constant_potential_Pt/` 是受限验证 fixture，不是生产基准；本条不表示 Paimon/public 工具链、PyPI、SIF 或平台验收完成。`YAML_INPUT_VARIABLES.md` 仍由现有非 calculator 导出器生成，CP calculator 字段由 `CONFIG_REFERENCE` 维护。
 
 
 - 2026-09-17（发布后记录）：2.2.6 已从 release commit
@@ -91,10 +93,10 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 生命周期 | 当前职责 |
 | :--- | :--- | :--- |
-| `docs/user/USER_GUIDE_CN.md` | guide | 中文项目目标、10 分钟快速开始、后端说明、功能矩阵和参数入口。 |
+| `docs/user/USER_GUIDE_CN.md` | guide | 中文项目目标、10 分钟快速开始、后端说明、功能矩阵和参数入口；含未发布恒电势候选边界。 |
 | `docs/user/CLI_REFERENCE.md` | reference | `atst` CLI、轻量 post/summary/config/abacus 工具。 |
 | `docs/user/PYTHON_API_REFERENCE.md` | reference | 稳定 `atst_tools.api` 十个 root imports（含 `build_config_from_abacus_dir` 的 NEB-only 配置生成边界）、CLI/API/runner 选择、JSON handoff、结果、artifact、MPI 和 backend delegation 边界；2026-09-20 补齐已存在导出的文档，不新增 API 或发行版本。 |
-| `docs/user/CONFIG_REFERENCE.md` | reference | 手写 YAML 语义、workflow 行为、calculator 配置说明。 |
+| `docs/user/CONFIG_REFERENCE.md` | reference | 手写 YAML 语义、workflow 行为、calculator 配置说明；恒电势参数、边界、产物和失败语义的规范入口。 |
 | `docs/user/YAML_INPUT_VARIABLES.md` | reference | 由 schema 生成的非 calculator YAML 字段总表。 |
 | `docs/user/ABACUSLITE_WRAPPER_GUIDE.md` | guide | ABACUS/abacuslite wrapper 边界、MPI/mpi4py 注意事项。 |
 
@@ -116,7 +118,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 当前职责 |
 | :--- | :--- |
-| `docs/reports/FEATURE_STATUS_MATRIX.md` | 当前功能支持范围和限制。 |
+| `docs/reports/FEATURE_STATUS_MATRIX.md` | 当前功能支持范围和限制，含未发布恒电势候选状态。 |
 | `docs/reports/DOCUMENTATION_STATUS_REPORT.md` | 当前文档治理账本。 |
 
 ### L2: 当前证据

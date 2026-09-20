@@ -17,7 +17,7 @@ YAML file, and run a workflow.
    in local and site environments.
 3. [Examples overview](../examples/README.md) for runnable NEB, AutoNEB, Dimer,
    Sella, CCQN, D2S, Relax, Vibration, IRC, MD, experimental DMF, DP, and MPI
-   examples.
+   examples, plus the unreleased constant-potential validation fixtures.
 4. [CLI reference](user/CLI_REFERENCE.md) for `atst run`, `atst config`,
    `atst abacus`, and lightweight helper commands.
 5. [Stable Python API reference](user/PYTHON_API_REFERENCE.md) when embedding
@@ -30,7 +30,7 @@ YAML file, and run a workflow.
 8. [ABACUSLite wrapper guide](user/ABACUSLITE_WRAPPER_GUIDE.md) for ABACUS
    backend boundaries and image-level MPI configuration.
 9. [Feature status matrix](reports/FEATURE_STATUS_MATRIX.md) for supported,
-   partial, and experimental workflow boundaries.
+   partial, experimental, and unreleased workflow boundaries.
 
 ## Developer Path
 

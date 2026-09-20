@@ -22,7 +22,9 @@ atst run CONFIG.yaml
 
 Use it when you want repeatable NEB, AutoNEB, Dimer, Sella, CCQN, D2S,
 relaxation, vibration, IRC, MD, or experimental DMF calculations driven by YAML
-instead of one-off Python scripts.
+instead of one-off Python scripts. The development tree also contains an
+unreleased constant-potential candidate; its scope and validation boundary are
+documented separately below and in the [feature status matrix](docs/reports/FEATURE_STATUS_MATRIX.md).
 
 ## At A Glance
 
@@ -50,6 +52,14 @@ instead of one-off Python scripts.
 | `irc` | Sella IRC | Sella-backed IRC orchestration with controlled boundary diagnostics. |
 | `md` | Molecular dynamics | ASE-driven MD with ABACUS/DP calculators, or ABACUS native MD input/run/output orchestration. |
 | `dmf` | Direct MaxFlux | Experimental TS candidate/path optimizer; non-periodic first and not a validated TS result. |
+
+The `constant_potential` workflow is an unreleased development candidate and is
+not part of the published 2.2.6 package. The current ATST scope is ABACUS-only
+fixed-geometry single-point/serial scans plus fixed-cell `relax`/`neb` with the
+explicit `compensated_gate` boundary. The legacy `reference_fcp` boundary is
+reference-only and is rejected for optimization workflows; no Paimon/public
+tool-chain or package-release acceptance is implied. See the
+[configuration reference](docs/user/CONFIG_REFERENCE.md) before using it.
 
 Local pre/post-processing commands are intentionally lightweight. They do not
 construct calculators or submit expensive calculations:
@@ -302,6 +312,7 @@ project:
 | `examples/13_neb_parallel_Cy-Pt` | Image-parallel NEB example. |
 | `examples/14_autoneb_parallel_Cy-Pt` | Image-parallel AutoNEB example. |
 | `examples/15_md_Li-Si` | ASE-driven and ABACUS-native MD templates starting from the `01_neb_Li-Si` initial structure. |
+| `examples/19_constant_potential_Pt` | Unreleased ABACUS constant-potential gate/dipole fixtures and bounded validation inputs; not a production benchmark. |
 
 Each calculation example uses `config.yaml` for ABACUS and, where available,
 `config_dp.yaml` for DP.

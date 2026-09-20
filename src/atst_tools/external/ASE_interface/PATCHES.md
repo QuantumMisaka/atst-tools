@@ -6,6 +6,7 @@
 | --- | --- | --- | --- | --- |
 | `abacuslite/io/legacyio.py` | SinglePointDFTCalculator 构造 | `efermi=ener['E_Fermi']` → `ener.get('E_Fermi')`（running log 缺 E_Fermi 容错） | 2026-08-04 | 未上游化（待 PR） |
 | `abacuslite/io/latestio.py` | 同上 | 同上 | 2026-08-04 | 未上游化（待 PR） |
+| `abacuslite/core.py` | `AbacusTemplate.read_results` | 将 `SinglePointDFTCalculator` 的 `fermi_level`/`eFermi` 显式保留为后端中立的 `efermi` 结果字段，避免 GenericFileIOCalculator 边界丢失恒电势求根所需的 Fermi 能级 | 2026-09-20 | 未上游化（待 PR） |
 | `abacuslite/io/legacyio.py` | band parser | 容差块（`_legacy_band_parser_tolerant_block`） | 2026-05-10 | 已由 #7588 上游化（checker 归一化保留至基线推进后清理） |
 | `abacuslite/core.py` | SCF 帧身份匹配与 STRU 文件名交接 | PBC-aware 周期性整数晶格平移判定；校验 cell/元素/映射/有限值，损坏帧 fail-closed；保留原生 relax/md | 2026-09-16 | 未上游化（待 PR） |
 | `abacuslite/io/generalio.py` | `_read_kpoint` | `0b01ed2`：坐标正则的小数部分改为非捕获组，并将权重读取从捕获组 6 修正为组 3（保证 point-KPT 小数坐标精确往返） | 2026-08-12 | 未上游化（待 PR） |

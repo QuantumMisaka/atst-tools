@@ -166,6 +166,10 @@ def _dispatch_normalized(config: dict[str, Any], options: RunOptions) -> Any:
         # imported. The CLI is refactored to call services in a later task.
         from atst_tools.scripts import main as legacy_run
 
+        if workflow == "constant_potential":
+            from atst_tools.workflows.constant_potential import ConstantPotentialWorkflow
+
+            return ConstantPotentialWorkflow(config, calculator_name, calculation).run()
         if workflow == "neb":
             return legacy_run.run_neb(
                 config, calculator_name, calculation, world=options.world
@@ -393,6 +397,11 @@ def _synthesized_artifacts(
     calculation = config["calculation"]
     workflow = calculation["type"]
     artifact_fields = {
+        "constant_potential": (
+            ("results", "results_file"),
+            ("constant_potential_log", "log_file"),
+            ("checkpoint", "checkpoint_file"),
+        ),
         "neb": (("trajectory", "trajectory"),),
         "dimer": (("trajectory", "trajectory"),),
         "sella": (("trajectory", "trajectory"),),

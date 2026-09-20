@@ -1,8 +1,8 @@
 # ATST-Tools Configuration Reference
 
 **Version**: 2.2.6
-**Last Updated**: 2026-09-17
-**Status**: Published (official PyPI clean-install verified)
+**Last Updated**: 2026-09-20
+**Status**: Published 2.2.6 reference; unreleased CP candidate documented separately
 
 This document is the hand-written semantic reference for `config.yaml` files
 used by `atst run`. It explains workflow behavior, common configuration
@@ -32,7 +32,7 @@ the process current working directory rather than the YAML file's parent.
 
 ```yaml
 calculation:
-  type: <task_type>  # Required. Options: neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md, dmf
+  type: <task_type>  # Required. Options: constant_potential, neb, autoneb, dimer, sella, ccqn, d2s, relax, vibration, irc, md, dmf
   # ... task specific parameters ...
 
 calculator:
@@ -63,7 +63,7 @@ The `calculation` section defines the type of task and its parameters.
 ### 2.1 Common Parameters (All Types)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | Task type: `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`, `dmf`. |
+| `type` | string | **Required** | Task type: `constant_potential`, `neb`, `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`, `relax`, `vibration`, `irc`, `md`, `dmf`. |
 | `restart` | bool | `false` | Resume from workflow checkpoints when supported. CLI equivalent: `atst run --restart config.yaml`. |
 
 Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `parallel` are type-specific in the schema because their defaults differ by workflow.
@@ -574,6 +574,58 @@ IRC supports the Sella backend and an opt-in descent backend. The Sella backend 
 
 ---
 
+### 2.11 Constant-Potential Evaluation (development candidate)
+**Type**: `constant_potential`
+
+`constant_potential` is an unreleased ABACUS-only development candidate. It
+evaluates one fixed structure at one target or scans an ordered list of targets
+serially. The electronic-number loop is supplied by the
+`calculator.constant_potential` decorator; target units and boundary-specific
+fields are documented in [§3.1a](#31a-constant-potential-decorator).
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `type` | string | **Required** | Must be `constant_potential`. |
+| `init_structure` | string | **Required** | Structure read for every fixed-geometry target. |
+| `directory` | string | `constant_potential_run` | Root for per-target calculator evaluations and the final trajectory. |
+| `results_file` | string | `constant_potential_results.json` | JSON result envelope containing status, target points, analysis, and calculator identity. |
+| `log_file` | string | `constant_potential.log` | Tabular per-target log; compensated-gate residuals are in eV. |
+| `checkpoint_file` | string | `constant_potential_checkpoint.json` | Atomic completed-point checkpoint used by `restart: true`. |
+| `artifact_manifest` | string | `atst_artifacts.json` | Manifest for results, log, checkpoint, input/final structures, and point artifacts. |
+| `restart` | bool | `false` | Resume only when target order, structure, CP settings, and fixed ABACUS asset contents match exactly. |
+
+The target itself belongs in `calculator.constant_potential`: use exactly one
+scalar (`potential_v` or `target_mu_ev`) for a single evaluation, or one
+non-empty list (`potentials_v` or `target_mu_values_ev`) for a serial scan.
+Duplicate and non-finite targets are rejected. The scan carries the previous
+point's electron count only as the next initial guess; every point still writes
+its own SCF/CP identity and result.
+
+`reference_fcp` is retained for reproducing the frozen vacuum/work-reference
+algorithm and is marked reference-only. It may be used by this fixed-geometry
+workflow for algorithm comparison, but it is rejected for `relax` and `neb`.
+The `compensated_gate` boundary consumes the same-run gate/dipole density terms,
+uses a custom target chemical potential, and is the only CP boundary accepted by
+fixed-cell `relax` and ordinary `neb`. Those optimization workflows require one
+scalar target and do not support a target list, cell relaxation, or CP stress.
+
+On success, the workflow writes `constant_potential_results.json`,
+`constant_potential.log`, `constant_potential_checkpoint.json`,
+`constant_potential_run/point_####_<target>/result.json`,
+`constant_potential_run/final_structure.traj`, and `atst_artifacts.json` (with
+the configured output names substituted). A failed target leaves previously
+completed points in the result/checkpoint artifacts and writes a failed
+manifest; the run remains failed and no incomplete energy/force state is
+published for optimization.
+
+The factory rejects CP for `autoneb`, `dimer`, `sella`, `ccqn`, `d2s`,
+`vibration`, `irc`, `md`, and `dmf`. This candidate also rejects explicit
+`nupdown` (including `0`) and `two_fermi`; supported profiles use one common
+Fermi level. No claim of Paimon/public tool-chain acceptance or package release
+is made by this section.
+
+---
+
 ## 3. Calculator Section
 
 The `calculator` section configures the underlying compute engine (DFT or ML Potential).
@@ -637,6 +689,83 @@ configuration generation from a completed ABACUS run directory) resolves
 `pseudo_dir`/`orbital_dir` have a schema default (`.`); `pseudopotentials` and
 `basissets` are required.
 
+### 3.1a Constant-Potential Decorator
+**Path**: `calculator.constant_potential`
+
+The decorator is valid only when `calculator.name: abacus`. Its fields are
+strictly schema-governed; unknown keys, non-finite numbers, blank provenance,
+duplicate targets, and invalid boundary combinations are rejected before an
+ABACUS run starts. `reference_electrons` is the explicit model-zero-charge
+count (`N0`) and is required for every boundary. It is never inferred from the
+prepared input or silently reused as the first SCF guess. Set the prepared
+`calculator.abacus.parameters.nelec` explicitly for that initial guess (the
+factory keeps the two values separate).
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `energy_boundary` | string | **Required** | `reference_fcp` for the frozen vacuum/work-reference algorithm, or `compensated_gate` for the explicit gate/dipole boundary. |
+| `reference_electrons` | float | **Required** | Model-zero-charge electron count `N0`; finite and non-negative. |
+| `potential_v` | float | `null` | One target electrode potential in V; reference boundary only and mutually exclusive with `potentials_v`. |
+| `potentials_v` | list[float] | `null` | Ordered non-empty voltage scan in V; reference boundary only. |
+| `target_mu_ev` | float | `null` | One custom conjugate chemical-potential target in eV; compensated boundary only and mutually exclusive with `target_mu_values_ev`. |
+| `target_mu_values_ev` | list[float] | `null` | Ordered non-empty custom chemical-potential scan in eV; compensated boundary only. |
+| `reference_electrode` | string | `SHE` | Named reference for `reference_fcp`; must be `custom` for `compensated_gate`. This label does not calibrate a compensated target to SHE/RHE. |
+| `work_ref` | float | `null` | Explicit reference-electrode work function in eV; required for `reference_fcp`. `work_ref_eV` is an accepted input alias. |
+| `work_ref_source` | string | `null` | Required provenance for `work_ref` under `reference_fcp`. |
+| `reference_pH` | float | `null` | RHE pH; only valid when `reference_electrode: RHE`. |
+| `temperature_K` | float | `null` | Positive temperature for RHE conversion; required with `reference_pH` for RHE. |
+| `potential_tolerance_v` | float | `0.01` | Positive absolute residual tolerance. Under `compensated_gate`, the numerical residual is `residual_mu_eV` in eV; the historical field name is retained for schema compatibility. |
+| `max_iterations` | int | `100` | Maximum fresh ABACUS evaluations per target. |
+| `capacitance_initial` | float | `0.0125` | Positive initial capacitance in `capacitance_unit`. |
+| `capacitance_unit` | string | `e/(V Angstrom^2)` | `e/V` for total capacitance or `e/(V Angstrom^2)` for per-area updates. |
+| `nelec_min` | float | `null` | Optional lower bound for a candidate electron count. |
+| `nelec_max` | float | `null` | Optional upper bound for a candidate electron count. |
+| `nelec_step_max` | float | `null` | Optional positive maximum absolute Newton update in electrons. |
+| `vacuum_axis` | int | `2` | Cell axis index (`0`, `1`, or `2`) used by surface/density analysis. |
+| `interface_count` | int | `1` | Area normalization for scan analysis: one or two interfaces. |
+
+For `reference_fcp`, exactly one of `potential_v`/`potentials_v` is required,
+and `work_ref` plus `work_ref_source` are required. An RHE reference also needs
+both `reference_pH` and `temperature_K`; those fields are rejected for SHE or
+other named references. The runtime records a finite vacuum level and its
+fermishift from the current backend output; it does not consume a stale log
+from an earlier evaluation.
+
+For `compensated_gate`, exactly one of `target_mu_ev`/`target_mu_values_ev` is
+required, `reference_electrode` must be `custom`, and voltage/work-reference/RHE
+fields are invalid. Gate, blocking, field, dipole, and sawtooth settings remain
+ABACUS `INPUT` parameters under `calculator.abacus.parameters`; they are not
+duplicated in the CP block. Keep those actual settings fixed across a scan or
+optimization. ATST requests high-precision charge output (`out_chg: "1 12"`)
+for the inner compensated evaluations and validates the density integral,
+gate/dipole derivatives, and compensation identity from the same run. The
+compensated profile requires a usable vacuum/field geometry and fixed cell;
+implicit solvent, cell filters, and stress are outside this candidate scope.
+
+Common-Fermi occupation is required. Explicit `nupdown` is rejected even when
+its value is `0`, and `two_fermi` is rejected. The first fixed-electron guess
+comes from the prepared ABACUS `nelec`; `N0` remains the separately declared
+reference used in `delta_nelec` and `Omega` accounting.
+
+The scan analysis uses the target coordinate recorded in the result. For
+`reference_fcp`, it reports the historical voltage response (`dQ/dU`). For
+`compensated_gate`, it reports the positive electronic response `dN/dmu`, with
+units `e^2/(eV Angstrom^2)` (or `e^2/eV` for total capacitance), and names the
+zero-charge crossing `zero_charge_mu_ev`. It does not call that custom
+chemical-potential crossing an experimentally calibrated PZC. Fewer than two
+identifiable points, a non-bracketed crossing, or a non-finite/degenerate fit
+leaves the corresponding analysis field unavailable.
+
+Successful CP results also persist a validated facts envelope in ASE
+`Atoms.info` for trajectory, relax, and NEB consumers. The envelope contains a
+geometry fingerprint, the complete CP boundary, finite energy/force/electron/
+residual facts, SCF and CP convergence markers, and fixed-Hamiltonian asset
+identity (PP/ORB/KPT content hashes). Consumers reject missing, stale,
+non-finite, geometrically changed, boundary-changed, or asset-changed facts;
+moving an unchanged asset file is allowed because content hashes, not paths,
+define the physical identity. Reference-fcp facts remain reference-only and
+must not be used to claim optimization energy/force consistency.
+
 ### 3.2 Deep Potential (DP)
 **Name**: `dp`
 
@@ -662,9 +791,10 @@ provide a separate backend selector. Multi-head DPA/DPA3 models should set
 
 ## 4. Configuration Maintenance
 
-Installed-package schemas reject unknown `calculation` and DP calculator
-fields. ABACUS INPUT variables belong under `calculator.abacus.parameters`,
-which is intentionally pass-through. Maintainers changing schema fields or
+Installed-package schemas reject unknown `calculation`, strict CP, and DP
+calculator fields. ABACUS INPUT variables belong under
+`calculator.abacus.parameters`, which is intentionally pass-through; the CP
+decorator itself remains strict. Maintainers changing schema fields or
 generated parameter documentation should follow the
 [developer handover](../developer/HANDOVER.md).
 
@@ -686,3 +816,64 @@ calculator:
     head: null
     share_calculator: true
 ```
+
+For the unreleased constant-potential candidate, keep the gate/dipole settings
+in the ABACUS block and declare the CP boundary separately. This is a schema
+shape example; derive the target chemical potential and geometry-specific gate
+positions for the actual input:
+
+```yaml
+calculation:
+  type: constant_potential
+  init_structure: inputs/STRU
+  directory: constant_potential_run
+  results_file: constant_potential_results.json
+  log_file: constant_potential.log
+  checkpoint_file: constant_potential_checkpoint.json
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    directory: abacus_base
+    kpts: [1, 1, 1]
+    pseudo_dir: ../data
+    orbital_dir: ../data
+    pseudopotentials:
+      Pt: Pt_ONCV_PBE-1.0.upf
+    basissets:
+      Pt: Pt_gga_6au_100Ry_2s1p.orb
+    parameters:
+      calculation: scf
+      basis_type: lcao
+      nspin: 1                 # common-Fermi profile
+      nelec: 216.9             # initial guess; it is not N0
+      efield_flag: 1
+      dip_cor_flag: 1
+      efield_amp: 0.0
+      efield_dir: 0            # choose the actual vacuum/field axis
+      gate_flag: 1
+      zgate: 0.7
+      efield_pos_max: 0.8      # fixed dipole position
+      efield_pos_dec: 0.1      # fixed dipole width
+      out_pot: 2
+      cal_force: 1
+      out_chg: "1 12"          # also enforced for compensated evaluations
+    constant_potential:
+      energy_boundary: compensated_gate
+      reference_electrode: custom
+      target_mu_ev: 15.0        # derive for this boundary and input
+      reference_electrons: 216.0
+      potential_tolerance_v: 1.0e-6
+      max_iterations: 100
+      capacitance_initial: 0.0125
+      capacitance_unit: e/(V Angstrom^2)
+```
+
+The fixture-specific `zgate`, axis, blocking interval, pseudopotential
+valence, target, and `reference_electrons` in this example are illustrative;
+they must agree with the actual `INPUT`/`STRU`/PP files. For a compensated
+profile, changing any fixed gate/dipole setting changes the Hamiltonian
+identity and invalidates old checkpoints or persisted endpoint facts. See
+[`examples/19_constant_potential_Pt/README.md`](../../examples/19_constant_potential_Pt/README.md)
+for the bounded Pt fixture and its scientific limitations.

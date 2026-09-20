@@ -766,7 +766,24 @@ class AbacusTemplate(CalculatorTemplate):
             )
         assert atoms is not None
 
-        return dict(atoms.calc.properties())
+        # ``SinglePointDFTCalculator.properties()`` exposes the Fermi level
+        # under ASE's ``fermi_level`` property, while the CP adapter consumes
+        # the backend-neutral ``efermi`` fact.  Keep both names in the result
+        # mapping so file-backed ABACUS evaluations do not lose this value at
+        # the GenericFileIOCalculator boundary.  Older ASE snapshots store it
+        # on ``eFermi``; tolerate that spelling as well.
+        results = dict(atoms.calc.properties())
+        efermi = results.get("efermi", results.get("fermi_level"))
+        if efermi is None:
+            for attribute in ("efermi", "eFermi", "fermi_level"):
+                candidate = getattr(atoms.calc, attribute, None)
+                if candidate is not None:
+                    efermi = candidate
+                    break
+        if efermi is not None:
+            results["efermi"] = efermi
+            results.setdefault("fermi_level", efermi)
+        return results
 
     def load_profile(self, cfg, **kwargs):
         return AbacusProfile.from_config(cfg, self.name, **kwargs)

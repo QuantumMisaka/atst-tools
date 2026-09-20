@@ -27,6 +27,7 @@ from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.abacus_io import run_abacus_check_input_dry_run
 from atst_tools.calculators.factory import CalculatorFactory
+from atst_tools.calculators.constant_potential import constant_potential_identity_for_config
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.mep.autoneb import AutoNEBRunner
@@ -112,6 +113,15 @@ calculator:
 """
 
     calculation_blocks = {
+        "constant_potential": """\
+calculation:
+  type: constant_potential
+  init_structure: inputs/init.stru
+  directory: constant_potential_run
+  results_file: constant_potential_results.json
+  log_file: constant_potential.log
+  checkpoint_file: constant_potential_checkpoint.json
+""",
         "neb": """\
 calculation:
   type: neb
@@ -339,6 +349,24 @@ calculation:
   # remove_rotation_and_translation: false
 """,
     }
+    if calculation_type == "constant_potential":
+        calculator += """\
+  constant_potential:
+    # Required boundary profile: reference_fcp is reference-only; use
+    # compensated_gate for optimization workflows after preparing the gate.
+    energy_boundary: reference_fcp
+    # Set exactly one of potential_v or potentials_v.
+    potential_v: 0.0
+    # potentials_v: [-0.2, 0.0, 0.2]
+    reference_electrode: SHE
+    work_ref: 4.6
+    work_ref_source: "declared calibration source"
+    reference_electrons: 216
+    potential_tolerance_v: 0.01
+    max_iterations: 100
+    capacitance_initial: 0.0125
+    capacitance_unit: e/(V Angstrom^2)
+"""
     return calculation_blocks[calculation_type] + "\n" + calculator
 
 
@@ -632,6 +660,22 @@ def run_neb(config, calc_name, calc_config, world=None):
         endpoint_records = _relax_neb_endpoints(
             images, config, calc_name, calc_config, base_dir, optimizer
         )
+        cp_identity = None
+        cp_section = config.get("calculator", {}).get("constant_potential")
+        if isinstance(cp_section, dict):
+            boundary = cp_section.get("energy_boundary", "reference_fcp")
+            target = (
+                cp_section.get("target_mu_ev")
+                if boundary == "compensated_gate"
+                else cp_section.get("potential_v")
+            )
+        else:
+            boundary = None
+            target = None
+        if isinstance(cp_section, dict) and target is not None:
+            cp_identity = constant_potential_identity_for_config(
+                config, target=target
+            )
         ensure_neb_endpoint_results(
             images,
             lambda directory: _get_workflow_calculator(
@@ -642,6 +686,7 @@ def run_neb(config, calc_name, calc_config, world=None):
             policy=policy,
             directories=("endpoint_initial", "endpoint_final"),
             context="NEB",
+            constant_potential_identity=cp_identity,
         )
         return endpoint_records
 
@@ -939,7 +984,7 @@ def _build_parser():
     epilog = dedent(
         """
         Configuration shape:
-          calculation.type: neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md | dmf
+          calculation.type: constant_potential | neb | autoneb | dimer | sella | ccqn | d2s | relax | vibration | irc | md | dmf
           calculator.name:  abacus | dp
 
         Common commands:
