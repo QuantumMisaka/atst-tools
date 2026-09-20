@@ -4,8 +4,11 @@ Every benchmark row must be self-describing: which atst revision ran, in which
 interpreter and environment, on which hardware, over which manifest and
 fixtures, with which result directories, and which operator-owned fields (job
 identifier, partition, QOS, allocated GPU-hours) are still to be filled in.
-This module writes that record next to the results and hashes every referenced
-artifact so a later review can verify nothing changed.
+This module writes that record next to the results: it hashes the referenced
+summary documents and the whole run tree, captures the revision facts at
+record time and copies the run-time revisions recorded by the harness/sweep
+documents, and lists every missing input as a warning (with a non-zero exit
+code) instead of pretending the reference exists.
 
 Usage::
 
@@ -26,7 +29,7 @@ import subprocess
 import sys
 from typing import Any, Mapping, Sequence
 
-from atst_tools.runtime.evidence import environment_facts
+from atst_tools.runtime.evidence import atst_revision, environment_facts
 
 RECORD_SCHEMA = "atst-bench-record-v1"
 
@@ -49,45 +52,6 @@ def _sha256(path: Path) -> str | None:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _git_facts(root: Path) -> dict[str, Any]:
-    """Return the revision facts of the checkout that ran the benchmark."""
-    facts: dict[str, Any] = {"head": None, "branch": None, "dirty": None}
-    try:
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        branch = subprocess.run(
-            ["git", "branch", "--show-current"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        status = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return facts
-    if head.returncode == 0:
-        facts["head"] = head.stdout.strip() or None
-    if branch.returncode == 0:
-        facts["branch"] = branch.stdout.strip() or None
-    if status.returncode == 0:
-        facts["dirty"] = bool(status.stdout.strip())
-    return facts
 
 
 def _host_facts() -> dict[str, Any]:
@@ -127,8 +91,31 @@ def _artifact(path: Path) -> dict[str, Any]:
     }
 
 
+def _tree_digest(root: Path) -> dict[str, Any]:
+    """Hash every file under *root* so per-case tampering stays visible."""
+    if not root.is_dir():
+        return {"file_count": 0, "tree_sha256": None}
+    digest = hashlib.sha256()
+    count = 0
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        file_hash = _sha256(path)
+        digest.update(f"{path.relative_to(root).as_posix()}:{file_hash}\n".encode())
+        count += 1
+    return {"file_count": count, "tree_sha256": digest.hexdigest()}
+
+
 def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
     """Summarize one harness or sweep directory by its summary document."""
+    if not run_dir.is_dir():
+        return {
+            "dir": str(run_dir.resolve()),
+            "exists": False,
+            "summary": None,
+            "summary_sha256": None,
+            "tree": None,
+            "schema": None,
+        }
+    tree = _tree_digest(run_dir)
     candidates = (
         run_dir / "sweep_summary.json",
         run_dir / "harness_summary.json",
@@ -139,9 +126,12 @@ def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
         payload = json.loads(candidate.read_text(encoding="utf-8"))
         entry: dict[str, Any] = {
             "dir": str(run_dir.resolve()),
+            "exists": True,
             "summary": str(candidate.resolve()),
             "summary_sha256": _sha256(candidate),
+            "tree": tree,
             "schema": payload.get("schema"),
+            "revision": payload.get("revision"),
         }
         if payload.get("schema") == "atst-bench-sweep-v1":
             entry["repeats"] = payload.get("repeats")
@@ -162,9 +152,12 @@ def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
         return entry
     return {
         "dir": str(run_dir.resolve()),
+        "exists": True,
         "summary": None,
         "summary_sha256": None,
+        "tree": tree,
         "schema": None,
+        "revision": None,
     }
 
 
@@ -173,16 +166,10 @@ def build_record(
     manifest: Path,
     run_dirs: Sequence[Path] = (),
     fixtures: Sequence[Path] = (),
-    repo_root: Path | None = None,
     operator: Mapping[str, Any] | None = None,
     notes: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Build one benchmark record document (no file writes)."""
-    root = (
-        Path(repo_root).resolve()
-        if repo_root is not None
-        else Path(__file__).resolve().parents[3]
-    )
     operator_payload: dict[str, Any] = {}
     provided = dict(operator or {})
     for key in OPERATOR_FIELDS:
@@ -190,18 +177,44 @@ def build_record(
     for key, value in provided.items():
         if key not in operator_payload:
             operator_payload[key] = value
+    results = [_summarize_run_dir(Path(run_dir)) for run_dir in run_dirs]
+    run_revisions = [
+        {"dir": entry["dir"], "revision": entry.get("revision")}
+        for entry in results
+        if entry.get("revision")
+    ]
+    heads = {
+        entry["revision"].get("head")
+        for entry in run_revisions
+        if entry["revision"]
+    }
+    record_revision = atst_revision()
+    warnings: list[str] = []
+    if not Path(manifest).is_file():
+        warnings.append(f"manifest is missing: {manifest}")
+    for path in fixtures:
+        if not Path(path).is_file():
+            warnings.append(f"fixture is missing: {path}")
+    for entry in results:
+        if not entry["exists"]:
+            warnings.append(f"run directory is missing: {entry['dir']}")
     return {
         "schema": RECORD_SCHEMA,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "atst": _git_facts(root),
+        "atst": {
+            "record_time": record_revision,
+            "run_time": run_revisions,
+            "run_time_consistent": (len(heads) <= 1) if run_revisions else None,
+        },
         "environment": environment_facts(os.environ),
         "host": _host_facts(),
         "inputs": {
             "manifest": _artifact(manifest),
             "fixtures": [_artifact(path) for path in fixtures],
         },
-        "results": [_summarize_run_dir(Path(run_dir)) for run_dir in run_dirs],
+        "results": results,
         "operator": operator_payload,
+        "warnings": warnings,
         "notes": list(notes),
     }
 
@@ -260,8 +273,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         notes=args.note,
     )
     written = write_record(payload, Path(args.out))
+    for warning in payload["warnings"]:
+        print(f"warning: {warning}", file=sys.stderr)
     print(f"wrote benchmark record: {written}")
-    return 0
+    return 1 if payload["warnings"] else 0
 
 
 if __name__ == "__main__":  # pragma: no cover - module execution entry

@@ -298,6 +298,53 @@ def test_dry_run_with_runtime_controls_reports_the_binding(monkeypatch, tmp_path
     assert not (tmp_path / runtime_evidence.EVIDENCE_FILENAME).exists()
 
 
+def test_legacy_cli_path_still_writes_phases(monkeypatch, tmp_path):
+    """The legacy adapter keeps the same evidence fields (review F4)."""
+    from atst_tools.api import services
+    from atst_tools.api.models import RunOptions
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
+    monkeypatch.setenv("ATST_TELEMETRY_ENABLED", "1")
+    (tmp_path / "atst_artifacts.json").write_text(
+        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        encoding="utf-8",
+    )
+
+    result = services.run_workflow_from_cli(_relax_config(), RunOptions())
+
+    assert result.status == "complete"
+    payload = json.loads(
+        (tmp_path / runtime_evidence.EVIDENCE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert payload["status"] == "complete"
+    assert payload["phases"]["dispatch_s"] >= 0
+
+
+def test_non_root_ranks_do_not_claim_a_runtime_summary(monkeypatch, tmp_path):
+    """Only the rank that owns the evidence file reports it (review F5)."""
+    from helpers import FakeWorld
+
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
+    (tmp_path / "atst_artifacts.json").write_text(
+        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        encoding="utf-8",
+    )
+
+    result = run_workflow(
+        _relax_config(telemetry=True),
+        RunOptions(world=FakeWorld(size=2, rank=1)),
+    )
+
+    assert result.status == "complete"
+    assert result.runtime is None
+    assert "runtime" not in result.to_document(tmp_path)
+
+
 def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(monkeypatch, tmp_path):
     from atst_tools.api import RunOptions, run_workflow
     from atst_tools.api import services

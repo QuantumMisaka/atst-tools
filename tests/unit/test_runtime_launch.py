@@ -272,3 +272,18 @@ def test_round_robin_survives_the_worker_contract_check():
     )
     with pytest.raises(RuntimeBindingError):
         runtime_launch.ensure_runtime_contract({}, environ=wrong_mask)
+
+
+def test_worker_verifies_the_merged_cli_request_not_the_raw_yaml():
+    """CLI wins over YAML, so the worker must not reject that combination (review F7)."""
+    environ = {"CUDA_VISIBLE_DEVICES": "2,3"}
+    request = runtime_launch.merge_runtime_request(
+        cli_devices="0", yaml_section={"devices": [1]}, environ=environ
+    )
+    resolution = runtime_devices.resolve_devices(request.devices, environ=environ)
+    assert resolution.effective == ("2",)
+    child_env = runtime_launch.build_child_environment(request, resolution, base=environ)
+
+    runtime_launch.ensure_runtime_contract(
+        {"runtime": {"devices": [1]}}, environ=child_env
+    )

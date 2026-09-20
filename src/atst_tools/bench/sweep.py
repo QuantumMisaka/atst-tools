@@ -20,7 +20,9 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
+import signal
 import sys
+import threading
 import time
 from typing import Any, Callable, Mapping, Sequence
 
@@ -45,10 +47,11 @@ class SweepOptions:
     continue_on_failure: bool = True
     sampler_interval_s: float = 1.0
     telemetry: bool = True
-    case_telemetry: bool = True
+    case_telemetry: bool = False
     worker_factory: (
         Callable[[harness.CaseSpec, Path, tuple[str, ...]], Sequence[str]] | None
     ) = None
+    stop_event: threading.Event | None = None
 
 
 def _variant_dir(output_dir: Path, slots: int, repeat: int) -> Path:
@@ -60,6 +63,9 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     gpu_seconds = [float(row["gpu_seconds_total"]) for row in rows]
     succeeded = [int(row["succeeded"]) for row in rows]
     cases_total = [int(row["cases_total"]) for row in rows]
+    throughputs = [
+        3600.0 * ok / wall for ok, wall in zip(succeeded, makespans) if wall
+    ]
     return {
         "runs": len(rows),
         "makespan_s": {
@@ -86,18 +92,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 for ok, wall in zip(succeeded, makespans)
             ],
             "median": (
-                round(
-                    median(
-                        [
-                            3600.0 * ok / wall
-                            for ok, wall in zip(succeeded, makespans)
-                            if wall
-                        ]
-                    ),
-                    2,
-                )
-                if makespans
-                else None
+                round(median(throughputs), 2) if throughputs else None
             ),
         },
     }
@@ -129,9 +124,17 @@ def run_sweep(
     }
     repeat_rows: list[dict[str, Any]] = []
 
+    stop = options.stop_event or threading.Event()
+    cancelled = False
     for repeat in range(1, repeats + 1):
+        if stop.is_set():
+            cancelled = True
+            break
         order = variants if repeat % 2 == 1 else tuple(reversed(variants))
         for slots in order:
+            if stop.is_set():
+                cancelled = True
+                break
             run_dir = _variant_dir(output_dir, slots, repeat)
             run_dir.mkdir(parents=True, exist_ok=True)
             summary = harness.run_manifest(
@@ -148,6 +151,7 @@ def run_sweep(
                     telemetry=options.telemetry,
                     case_telemetry=options.case_telemetry,
                     worker_factory=options.worker_factory,
+                    stop_event=stop,
                 ),
             )
             row = {
@@ -156,6 +160,9 @@ def run_sweep(
                 "run_dir": str(run_dir),
                 "summary": str(run_dir / harness.SUMMARY_REPORT),
                 "status": summary["status"],
+                "effective_cpu_budget": summary.get("cpu_budget"),
+                "effective_slots_per_device": summary.get("slots_per_device"),
+                "revision": summary.get("revision"),
                 "wall_s": summary["wall_s"],
                 "gpu_seconds_total": summary["gpu_seconds_total"],
                 "cases_total": summary["cases_total"],
@@ -169,6 +176,8 @@ def run_sweep(
 
     summary_payload = {
         "schema": SWEEP_SCHEMA,
+        "status": "cancelled" if cancelled else "complete",
+        "revision": harness._evidence.atst_revision(),
         "started_at": started_at,
         "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "wall_s": round(time.monotonic() - started_monotonic, 3),
@@ -181,6 +190,9 @@ def run_sweep(
             slots: _aggregate(rows) for slots, rows in per_variant.items()
         },
         "notes": [
+            "Per-case evidence sidecars are opt-in for sweeps "
+            "(case_telemetry=False by default) so per-case samplers do not add "
+            "noise to makespan/throughput measurements.",
             "Aggregates are descriptive statistics over "
             f"{repeats} repeat(s); the frozen matrix asks for at least "
             f"{MIN_MEANINGFUL_REPEATS} alternating repeats before drawing "
@@ -214,9 +226,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--stop-on-failure", action="store_true")
     parser.add_argument("--no-telemetry", action="store_true")
     parser.add_argument("--no-case-telemetry", action="store_true")
+    parser.add_argument(
+        "--case-telemetry",
+        action="store_true",
+        help="Request per-case runtime evidence sidecars (off by default for sweeps)",
+    )
     args = parser.parse_args(argv)
 
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+    stop_event = threading.Event()
+
+    def _handle(signum, frame):  # pragma: no cover - signal path
+        stop_event.set()
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(signum, _handle)
     try:
         slots = tuple(
             int(part.strip())
@@ -239,7 +263,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             default_timeout_s=args.timeout,
             continue_on_failure=not args.stop_on_failure,
             telemetry=not args.no_telemetry,
-            case_telemetry=not args.no_case_telemetry,
+            case_telemetry=args.case_telemetry,
+            stop_event=stop_event,
         ),
     )
     for slots, aggregate in sorted(

@@ -871,13 +871,6 @@ def _run_workflow(
             _emit_image_step_events(config, value, options)
             profiles = _workflow_profiles(config, value, options)
             plots = _workflow_plots(config, value, options)
-        if not ensure_completed_manifest:
-            legacy_result = _result_without_manifest(config, world, "complete")
-            if runtime_summary is not None:
-                legacy_result = _dataclass_replace(
-                    legacy_result, runtime=runtime_summary
-                )
-            return legacy_result
         phase_wall = {
             "dispatch_s": round(time.monotonic() - dispatch_started, 3),
             "attempt_s": round(time.monotonic() - workflow_started, 3),
@@ -891,11 +884,19 @@ def _run_workflow(
             if evidence is not None
             else None
         )
-        runtime_summary = _runtime_summary(
-            config,
-            status="complete" if evidence_reference else "partial",
-            evidence=evidence_reference,
-        )
+        if int(world.rank) == 0:
+            runtime_summary = _runtime_summary(
+                config,
+                status="complete" if evidence_reference else "partial",
+                evidence=evidence_reference,
+            )
+        if not ensure_completed_manifest:
+            legacy_result = _result_without_manifest(config, world, "complete")
+            if runtime_summary is not None:
+                legacy_result = _dataclass_replace(
+                    legacy_result, runtime=runtime_summary
+                )
+            return legacy_result
         _ensure_completed_manifest(
             config,
             value,

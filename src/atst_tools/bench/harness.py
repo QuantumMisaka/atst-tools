@@ -3,11 +3,14 @@
 The harness runs a bounded case list inside one existing allocation:
 
 * every case runs as an isolated worker process in its own output directory;
-* device slots and the CPU thread budget are both respected;
+* device slots and the CPU thread budget are both respected (a case's rank
+  multiplier from its launcher, or its declared ``ranks``, counts towards the
+  thread budget);
 * failures, timeouts, OOM signals and skips stay in the report instead of
   disappearing from the denominator;
 * retries never happen implicitly - a new attempt is a new manifest row;
-* one host sampler covers the whole batch (never one per case).
+* one batch-level host sampler covers the whole batch; per-case evidence
+  sidecars (and their own samplers) are opt-in through ``case_telemetry``.
 
 Usage::
 
@@ -72,6 +75,7 @@ class CaseSpec:
     env: Mapping[str, str] = field(default_factory=dict)
     launcher: tuple[str, ...] = ()
     args: tuple[str, ...] = ()
+    ranks: int | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "CaseSpec":
@@ -102,6 +106,11 @@ class CaseSpec:
             isinstance(item, str) for item in args
         ):
             raise ValueError(f"case {case_id}: args entries must be strings")
+        ranks = payload.get("ranks")
+        if ranks is not None:
+            ranks = int(ranks)
+            if ranks < 1:
+                raise ValueError(f"case {case_id}: ranks must be positive")
         return cls(
             case_id=case_id,
             config=config,
@@ -112,6 +121,7 @@ class CaseSpec:
             env={str(key): str(value) for key, value in env.items()},
             launcher=tuple(launcher),
             args=tuple(args),
+            ranks=ranks,
         )
 
 
@@ -165,6 +175,35 @@ def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[Cas
         seen.add(case.case_id)
         cases.append(case)
     return cases
+
+
+
+_RANK_FLAGS = ("-n", "-np", "--n", "--np", "--ntasks")
+
+
+def resolve_case_ranks(case: CaseSpec) -> tuple[int, str]:
+    """Return ``(ranks, source)`` for one case.
+
+    A declared ``ranks`` wins; otherwise the launcher's ``-n``-style flag is
+    parsed; a launcher without a recognizable rank flag is recorded as an
+    explicit ``assumed-1`` so the CPU budget never silently ignores the rank
+    multiplier.
+    """
+    if case.ranks is not None:
+        return int(case.ranks), "declared"
+    tokens = list(case.launcher)
+    for index, token in enumerate(tokens):
+        if token in _RANK_FLAGS and index + 1 < len(tokens):
+            value = tokens[index + 1]
+            if value.isdigit() and int(value) >= 1:
+                return int(value), "parsed"
+    return (1, "assumed-1") if tokens else (1, "serial")
+
+
+def case_thread_cost(case: CaseSpec) -> int:
+    """Return the CPU thread cost of one case, including its rank multiplier."""
+    ranks, _ = resolve_case_ranks(case)
+    return int(case.threads) * ranks
 
 
 def worker_command(
@@ -353,6 +392,8 @@ def _case_report_payload(
         "exit_code": exit_code,
         "devices": list(running.devices),
         "threads": running.case.threads,
+        "ranks": resolve_case_ranks(running.case)[0],
+        "ranks_source": resolve_case_ranks(running.case)[1],
         "started_at": running.started_at,
         "finished_at": _now(),
         "wall_s": round(wall_s, 3),
@@ -384,6 +425,8 @@ def _record_skipped(
         "exit_code": None,
         "devices": [],
         "threads": case.threads,
+        "ranks": resolve_case_ranks(case)[0],
+        "ranks_source": resolve_case_ranks(case)[1],
         "started_at": None,
         "finished_at": _now(),
         "wall_s": 0.0,
@@ -417,6 +460,8 @@ def _record_spawn_failure(
         "exit_code": None,
         "devices": [],
         "threads": case.threads,
+        "ranks": resolve_case_ranks(case)[0],
+        "ranks_source": resolve_case_ranks(case)[1],
         "started_at": None,
         "finished_at": _now(),
         "wall_s": 0.0,
@@ -485,14 +530,15 @@ def run_manifest(
         )
         reports.append(payload)
         pool.release(running_case.case.case_id)
-        threads_in_use -= running_case.case.threads
+        threads_in_use -= case_thread_cost(running_case.case)
 
     sampler_summary: dict[str, Any] | None = None
     try:
         while pending or running:
             if not running and pending:
                 admissible = any(
-                    case.slots <= pool.free_count and case.threads <= cpu_limit
+                    case.slots <= pool.free_count
+                    and case_thread_cost(case) <= cpu_limit
                     for case in pending
                 )
                 if not admissible and not stop.is_set():
@@ -509,7 +555,7 @@ def run_manifest(
                 for case in list(pending):
                     if stop.is_set():
                         break
-                    if threads_in_use + case.threads > cpu_limit:
+                    if threads_in_use + case_thread_cost(case) > cpu_limit:
                         continue
                     devices = pool.acquire(case.case_id, case.slots)
                     if devices is None:
@@ -562,7 +608,7 @@ def run_manifest(
                         started_monotonic=time.monotonic(),
                         started_at=_now(),
                     )
-                    threads_in_use += case.threads
+                    threads_in_use += case_thread_cost(case)
                     pending.remove(case)
             if not running and not pending:
                 break
@@ -614,12 +660,17 @@ def run_manifest(
                 break
 
     finally:
+        # Any exit path (cancel, unexpected exception, KeyboardInterrupt) must
+        # not leave worker process groups behind on a GPU node.
+        for item in list(running.values()):
+            _terminate_group(item.process)
         if sampler is not None:
             sampler_summary = sampler.stop()
     succeeded = [row for row in reports if row["status"] == STATUS_SUCCEEDED]
     summary = {
         "schema": SCHEMA,
         "status": "cancelled" if cancelled else "complete",
+        "revision": _evidence.atst_revision(),
         "started_at": batch_started_at,
         "finished_at": _now(),
         "wall_s": round(time.monotonic() - batch_started, 3),

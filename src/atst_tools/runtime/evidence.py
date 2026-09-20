@@ -57,6 +57,63 @@ def _number(text: str) -> float | None:
         return None
 
 
+def _git_facts(root: Path) -> dict[str, Any]:
+    """Return revision facts of one checkout, or nulls when git is unavailable."""
+    facts: dict[str, Any] = {"head": None, "branch": None, "dirty": None}
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return facts
+    if head.returncode == 0:
+        facts["head"] = head.stdout.strip() or None
+    if branch.returncode == 0:
+        facts["branch"] = branch.stdout.strip() or None
+    if status.returncode == 0:
+        facts["dirty"] = bool(status.stdout.strip())
+    return facts
+
+
+def atst_revision() -> dict[str, Any]:
+    """Return the revision of the atst_tools checkout in use, when there is one.
+
+    The facts describe the process that calls this helper, so a benchmark can
+    record them at run time instead of relying on a later record build.
+    """
+    try:
+        import atst_tools
+
+        start = Path(atst_tools.__file__).resolve().parent
+    except Exception:  # pragma: no cover - defensive
+        return {"source_root": None, "head": None, "branch": None, "dirty": None}
+    for candidate in (start, *start.parents):
+        if (candidate / ".git").exists():
+            return {"source_root": str(candidate), **_git_facts(candidate)}
+    return {"source_root": None, "head": None, "branch": None, "dirty": None}
+
+
 def environment_facts(environ: Mapping[str, str]) -> dict[str, Any]:
     """Collect the interpreter, package and thread identity of this worker."""
     try:

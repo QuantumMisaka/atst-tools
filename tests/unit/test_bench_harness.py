@@ -384,6 +384,89 @@ def test_stalled_batch_stops_the_sampler_before_raising(monkeypatch, tmp_path):
     assert stopped == [True]
 
 
+def test_unexpected_errors_terminate_surviving_workers(monkeypatch, tmp_path):
+    """Any exit path must terminate worker groups (review F1)."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    original_sleep = harness.time.sleep
+    ticks = {"count": 0}
+
+    def exploding_sleep(seconds):
+        ticks["count"] += 1
+        if ticks["count"] >= 3:
+            raise RuntimeError("simulated scheduler failure")
+        return original_sleep(seconds)
+
+    monkeypatch.setattr(harness.time, "sleep", exploding_sleep)
+    case = _case("slow", "sleep")
+    case["timeout_s"] = 60
+    with pytest.raises(RuntimeError):
+        harness.run_manifest(
+            {"cases": [case]},
+            harness.HarnessOptions(
+                devices=("0",),
+                output_dir=tmp_path / "out",
+                worker_factory=_factory(script),
+                telemetry=False,
+            ),
+        )
+    pid_path = tmp_path / "out" / "slow" / "child.pid"
+    assert pid_path.is_file()
+    child_pid = int(pid_path.read_text())
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        original_sleep(0.1)
+    else:
+        raise AssertionError(f"worker group survived the failed batch: {child_pid}")
+
+
+def test_launcher_rank_multiplier_counts_against_the_cpu_budget(tmp_path, monkeypatch):
+    """`mpiexec -n 4` with threads=4 must not fit a budget of 8 (review F8)."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    case = _case("mpi")
+    case["launcher"] = ["mpiexec", "-n", "4"]
+    case["threads"] = 4
+    with pytest.raises(RuntimeError) as caught:
+        harness.run_manifest(
+            {"cases": [case]},
+            harness.HarnessOptions(
+                devices=("0",),
+                output_dir=tmp_path / "out",
+                cpu_budget=8,
+                worker_factory=_factory(script),
+                telemetry=False,
+            ),
+        )
+    assert "mpi" in str(caught.value)
+
+
+def test_ranks_resolution_prefers_declared_then_parsed_then_assumed():
+    parsed = harness.CaseSpec.from_mapping(
+        {"case_id": "a", "config": "a.yaml", "launcher": ["mpiexec", "-n", "3"]}
+    )
+    assert harness.resolve_case_ranks(parsed) == (3, "parsed")
+    declared = harness.CaseSpec.from_mapping(
+        {"case_id": "b", "config": "b.yaml", "launcher": ["mpiexec", "-n", "3"], "ranks": 2}
+    )
+    assert harness.resolve_case_ranks(declared) == (2, "declared")
+    assumed = harness.CaseSpec.from_mapping(
+        {"case_id": "c", "config": "c.yaml", "launcher": ["srun"]}
+    )
+    assert harness.resolve_case_ranks(assumed) == (1, "assumed-1")
+    serial = harness.CaseSpec.from_mapping({"case_id": "d", "config": "d.yaml"})
+    assert harness.resolve_case_ranks(serial) == (1, "serial")
+    assert harness.case_thread_cost(parsed) == 3 * parsed.threads
+    with pytest.raises(ValueError):
+        harness.CaseSpec.from_mapping(
+            {"case_id": "e", "config": "e.yaml", "ranks": 0}
+        )
+
+
 def test_case_launcher_and_extra_args_prefix_the_worker(tmp_path):
     case = harness.CaseSpec.from_mapping(
         {

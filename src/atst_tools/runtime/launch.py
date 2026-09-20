@@ -351,15 +351,13 @@ def ensure_runtime_contract(
             binding=_devices.parse_binding(env.get(_devices.BINDING_ENV)),
         )
         return
-    devices_value = section.get("devices")
-    if devices_value is None:
-        # CLI-driven requests leave their record in the facts, not the YAML.
-        requested_fact = env.get(_devices.REQUESTED_DEVICES_ENV)
-        devices_value = (
-            requested_fact
-            if requested_fact is not None and requested_fact.strip()
-            else None
-        )
+    # The coordinator records the *merged* request (CLI wins over YAML); the
+    # worker must verify against that, not against the raw YAML alone.
+    requested_fact = env.get(_devices.REQUESTED_DEVICES_ENV)
+    if requested_fact is not None and requested_fact.strip():
+        devices_value = requested_fact
+    else:
+        devices_value = section.get("devices")
     tokens = (
         None
         if devices_value is None

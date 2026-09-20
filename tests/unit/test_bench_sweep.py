@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 import pytest
+import threading
 
 from atst_tools.bench import harness, sweep
 
@@ -112,3 +113,45 @@ def test_sweep_rejects_invalid_variants(tmp_path):
             _manifest(),
             sweep.SweepOptions(devices=("0",), output_dir=tmp_path, slots=(0,)),
         )
+
+
+def test_sweep_stops_when_the_stop_event_is_already_set(tmp_path):
+    """A cancelled sweep writes its summary without launching any run (review F1)."""
+    stop = threading.Event()
+    stop.set()
+    summary = sweep.run_sweep(
+        _manifest(),
+        sweep.SweepOptions(
+            devices=("0",),
+            output_dir=tmp_path / "sweep",
+            slots=(1, 2),
+            repeats=2,
+            telemetry=False,
+            stop_event=stop,
+        ),
+    )
+    assert summary["status"] == "cancelled"
+    assert summary["runs"] == []
+    assert (tmp_path / "sweep" / sweep.SWEEP_SUMMARY).is_file()
+
+
+def test_sweep_aggregate_survives_zero_wall_rows():
+    """A zero makespan (all cases spawned and failed instantly) must not crash."""
+    aggregate = sweep._aggregate(
+        [
+            {
+                "wall_s": 0.0,
+                "gpu_seconds_total": 0.0,
+                "succeeded": 0,
+                "cases_total": 2,
+            }
+        ]
+    )
+    assert aggregate["makespan_s"]["median"] == 0.0
+    assert aggregate["successful_cases_per_hour"]["median"] is None
+    assert aggregate["successful_cases_per_hour"]["values"] == [None]
+
+
+def test_sweep_defaults_to_no_per_case_telemetry():
+    """Timing sweeps must not add per-case samplers unless asked (review F9)."""
+    assert sweep.SweepOptions(devices=("0",), output_dir=Path("x")).case_telemetry is False

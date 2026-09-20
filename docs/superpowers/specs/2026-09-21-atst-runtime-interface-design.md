@@ -175,6 +175,8 @@ runtime:
 
 阶段耗时（首版粒度，已实现）：sidecar `phases` 记录 `dispatch_s`（科学 dispatch 墙钟）与 `attempt_s`（worker 起至完成的总墙钟）；更细的逐 workflow-stage 计时仍列为 P2 后续项，届时复用同一 `phases` 容器。
 
+第二轮独立复核修复（2026-09-21，bench/services 聚焦）：① harness 在任何退出路径（取消/异常/中断）都终止存活 worker 进程组，sweep 也接入 SIGINT/SIGTERM 信号并传播停止；② harness/sweep 汇总在**运行开始**记录 atst 修订（`revision`），record 文档区分 `atst.record_time` 与 `atst.run_time`（含一致性标志），不再把"建记录时"的 git 状态冒充"测量时"；③ record 对结果目录做全树哈希（`tree_sha256`/`file_count`）并把缺失输入列为 `warnings`（CLI 以非零码提示）；④ legacy CLI 成功路径与 API 路径同样写出 `counters_mpi`/`phases`；⑤ `runtime` 摘要仅由拥有证据文件的 rank 0 附带；⑥ sweep 统计对零墙钟行健壮并回传 harness 生效的 CPU 预算；⑦ worker 一致性校验以 coordinator 记录的**合并后请求**为准（CLI 优先于 YAML），不再误拒合法组合；⑧ launcher 的 rank 数（声明或从 `-n` 解析）计入 CPU 线程预算；⑨ sweep 默认不产 per-case sidecar（`--case-telemetry` 显式开启），避免采样噪声污染计时。
+
 MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`（`counters_scope=process`）外，成功路径在失败同步 collective 之后对**全部 rank** 求和 canonical 计数，写入 `counters_mpi`（`scope=sum-over-ranks`、`world_size`、`counters`、`gauges`）；失败路径无此集体操作，只保留 rank 0 的进程级值（诚实降级）。
 
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）

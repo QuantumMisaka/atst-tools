@@ -58,6 +58,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（归档记录实测）：对本地 §12 测量生成真实 `bench_record.json`（scratch 目录）：记录 atst `feature/gpu-node-tuning@36f4d26`（dirty=false）、解释器/依赖、GPU 清单、manifest 与 DPA-3.1-3M fixture 哈希、sweep/harness 结果摘要与显式 null 的操作者字段，验证记录构件在真实目录上可用。
 
+- 2026-09-21（第二轮独立复核与修复）：聚焦 bench/services 的独立 reviewer 给 **approve with required changes**（F1 major：非取消退出路径不回收 worker；F2 major：record 的修订事实取自建记录时；F3–F9 minor：record 哈希覆盖/缺失表示、legacy 路径丢 `counters_mpi`/`phases`、非 root 自报 partial、sweep 零墙钟崩溃与生效预算、CLI+YAML devices 误拒、launcher rank 未计入线程预算、sweep per-case 采样噪声）——9 项全部修复并配回归测试（含真实 MPI 集成 21 项复跑通过）；接口文档 §7.2 增补修复摘要，计划 P5 段更新 sweep/record 语义。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

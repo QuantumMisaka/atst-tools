@@ -117,9 +117,9 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（P3 harness，站点 QOS/module 行按 `$sai-user-guide` 现场填写）；清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（harness 默认注入 `ATST_TELEMETRY_ENABLED`，可用 `--no-case-telemetry` 关闭）+ 批次 `harness_summary.json`。
 
-并发/重复矩阵入口：`python -m atst_tools.bench.sweep --manifest cases.json --out runs --devices 0,1 --slots 1,2,3 --repeats 3 [--cpu-budget N]`（变体间交替顺序、每 (variant,repeat) 独立目录、汇总 `sweep_summary.json`；本地已用 3 repeats × slots 1,2 实测，见验证报告 §12）。
+并发/重复矩阵入口：`python -m atst_tools.bench.sweep --manifest cases.json --out runs --devices 0,1 --slots 1,2,3 --repeats 3 [--cpu-budget N]`（变体间交替顺序、每 (variant,repeat) 独立目录、汇总 `sweep_summary.json`；默认不产 per-case sidecar 以避免采样噪声，`--case-telemetry` 显式开启；本地已用 3 repeats × slots 1,2 实测，见验证报告 §12）。
 
-归档记录入口：`python -m atst_tools.bench.record --manifest cases.json --out bench_record.json --run-dir runs/sweep --fixture <model.pt> --job-id <slurm id> --qos <qos>`——把 atst 修订（git head/branch/dirty）、解释器与依赖版本、GPU 清单、manifest/fixture 哈希、结果目录摘要与"操作者字段"（job/partition/QOS/分配卡时/sacct 摘要/批准人）写进一份可复核的 `atst-bench-record-v1` 文档；未提供的操作者字段显式写 null，便于 P5 收尾时逐项补齐。
+归档记录入口：`python -m atst_tools.bench.record --manifest cases.json --out bench_record.json --run-dir runs/sweep --fixture <model.pt> --job-id <slurm id> --qos <qos>`——把 atst 修订（区分 record_time 与 run_time，后者来自 harness/sweep 汇总在运行开始记录的 `revision`）、解释器与依赖版本、GPU 清单、manifest/fixture 哈希、结果目录全树哈希与"操作者字段"（job/partition/QOS/分配卡时/sacct 摘要/批准人）写进一份可复核的 `atst-bench-record-v1` 文档；未提供的操作者字段显式写 null、缺失输入列 `warnings` 并以非零码提示，便于 P5 收尾时逐项补齐。
 
 harness 语义：case 默认在配置文件所在目录运行（ATST 相对路径按 cwd 解析），显式 `workdir` 则相对批量输出目录解析；报告/日志/`atst_api_result.json` 一律在 `<out>/<case_id>/`。实时站点快照（2026-09-21 只读查询）：4V100 35 节点（13 mix / 10 alloc / 12 idle，队列 56 作业）、8V100V0 队列 2、16V100 队列 525（拥堵）；`rush-1o2gpu`/`rush-gpu` MaxWall 1 天、gres/gpu=16、MaxJobsPU 10，`flood-1o2gpu` MaxWall 4 小时。
 
