@@ -24,6 +24,7 @@ THREAD_ENV_KEYS = (
 )
 LOG_LEVEL_ENV = "ATST_LOG_LEVEL"
 ATTEMPT_ENV = "ATST_ATTEMPT"
+THREADS_SOURCE_ENV = "ATST_THREADS_SOURCE"
 TELEMETRY_ENV = "ATST_TELEMETRY_ENABLED"
 TELEMETRY_INTERVAL_ENV = "ATST_TELEMETRY_INTERVAL_S"
 WORKER_MODULE = "atst_tools.api.runner"
@@ -42,6 +43,7 @@ class RuntimeRequest:
     devices_source: str | None
     binding: str
     threads: int | None
+    threads_source: str | None
     telemetry_enabled: bool
     telemetry_interval_s: float
     requested: bool
@@ -79,6 +81,23 @@ def _coerce_float(value: Any) -> Any:
     return value
 
 
+def cpu_affinity_count() -> int:
+    """Return the CPU budget implied by the process affinity mask."""
+    try:
+        return max(len(os.sched_getaffinity(0)), 1)
+    except AttributeError:  # pragma: no cover - non-Linux platforms
+        return max(os.cpu_count() or 1, 1)
+
+
+def _resolve_threads(value: Any) -> tuple[int | None, str | None]:
+    """Resolve one thread request; ``auto`` follows the CPU affinity mask."""
+    if value is None:
+        return None, None
+    if isinstance(value, str) and value.strip().lower() == "auto":
+        return cpu_affinity_count(), "auto"
+    return _devices.parse_threads(_coerce_int(value)), "explicit"
+
+
 def merge_runtime_request(
     *,
     cli_devices: Any = None,
@@ -114,11 +133,11 @@ def merge_runtime_request(
         binding = "inherit"
 
     if cli_threads is not None:
-        threads = _devices.parse_threads(_coerce_int(cli_threads))
+        threads, threads_source = _resolve_threads(cli_threads)
     elif section is not None and section.get("threads") is not None:
-        threads = _devices.parse_threads(section.get("threads"))
+        threads, threads_source = _resolve_threads(section.get("threads"))
     else:
-        threads = None
+        threads, threads_source = None, None
 
     telemetry_enabled = False
     telemetry_interval = 1.0
@@ -159,6 +178,7 @@ def merge_runtime_request(
         devices_source=source,
         binding=binding,
         threads=threads,
+        threads_source=threads_source,
         telemetry_enabled=telemetry_enabled,
         telemetry_interval_s=telemetry_interval,
         requested=requested,
@@ -199,6 +219,7 @@ def build_child_environment(
     if request.threads is not None:
         for key in THREAD_ENV_KEYS:
             env[key] = str(request.threads)
+        env[THREADS_SOURCE_ENV] = request.threads_source or "explicit"
     if workflow_dir is not None:
         cache_dir = child_cache_dir(workflow_dir, attempt)
         cache_dir.mkdir(parents=True, exist_ok=True)

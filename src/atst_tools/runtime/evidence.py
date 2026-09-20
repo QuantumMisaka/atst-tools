@@ -78,6 +78,8 @@ def environment_facts(environ: Mapping[str, str]) -> dict[str, Any]:
         "atst_tools_version": _dist_version("atst-tools"),
         "packages": {name: _dist_version(name) for name in _PACKAGE_NAMES},
         "threads": threads,
+        "threads_source": environ.get(_launch.THREADS_SOURCE_ENV),
+        "cpu_affinity_count": _launch.cpu_affinity_count(),
     }
 
 
@@ -171,6 +173,61 @@ def sample_gpus(timeout: float = 5.0) -> dict[str, Any]:
     }
 
 
+def sample_compute_processes(timeout: float = 5.0) -> dict[str, Any]:
+    """Take one host-scope compute-process sample (PID, memory, device UUID).
+
+    Attribution stays conservative: the rows are what the host reports now.
+    MPS, container PID namespaces and permissions can block or distort this
+    view, so consumers must treat the result as reported evidence rather than
+    as an authoritative ownership map.
+    """
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-compute-apps=pid,used_memory,gpu_uuid",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "status": STATUS_UNAVAILABLE,
+            "reason": f"nvidia-smi could not be executed ({type(exc).__name__})",
+            "source": "nvidia-smi",
+            "processes": [],
+        }
+    if completed.returncode != 0:
+        return {
+            "status": STATUS_UNAVAILABLE,
+            "reason": f"nvidia-smi exited with status {completed.returncode}",
+            "source": "nvidia-smi",
+            "processes": [],
+        }
+    processes: list[dict[str, Any]] = []
+    for line in completed.stdout.splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) < 3:
+            continue
+        processes.append(
+            {
+                "pid": int(parts[0]) if parts[0].isdigit() else None,
+                "used_memory_mib": _number(parts[1]),
+                "gpu_uuid": parts[2],
+                "attribution": "reported",
+            }
+        )
+    return {
+        "status": STATUS_OBSERVED if processes else STATUS_UNAVAILABLE,
+        "reason": None if processes else "no compute process was reported",
+        "source": "nvidia-smi",
+        "processes": processes,
+    }
+
+
 @dataclass
 class EvidenceSession:
     """One workflow attempt's runtime evidence, written at most once."""
@@ -260,6 +317,8 @@ class HostSampler:
         def _loop() -> None:
             while not self._stop.is_set():
                 sample = sample_gpus()
+                processes = sample_compute_processes()
+                sample["processes"] = processes
                 self._last_status = sample["status"]
                 self._reason = sample.get("reason")
                 self._source = sample.get("source")

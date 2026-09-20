@@ -55,6 +55,24 @@ def test_merge_marks_telemetry_only_sections_as_requested_but_not_rebinding():
     assert empty_section.rebinds is False
 
 
+def test_threads_auto_follows_the_cpu_affinity_mask(monkeypatch):
+    monkeypatch.setattr(runtime_launch, "cpu_affinity_count", lambda: 12)
+    auto_request = runtime_launch.merge_runtime_request(
+        cli_threads="auto", environ={}
+    )
+    assert auto_request.threads == 12
+    assert auto_request.threads_source == "auto"
+
+    explicit = runtime_launch.merge_runtime_request(cli_threads="3", environ={})
+    assert (explicit.threads, explicit.threads_source) == (3, "explicit")
+
+    yaml_auto = runtime_launch.merge_runtime_request(
+        yaml_section={"threads": "AUTO"}, environ={}
+    )
+    assert yaml_auto.threads == 12
+    assert yaml_auto.threads_source == "auto"
+
+
 def test_child_environment_sets_mask_threads_cache_and_facts(tmp_path):
     resolution = runtime_devices.resolve_devices(
         runtime_devices.parse_device_tokens([0]),

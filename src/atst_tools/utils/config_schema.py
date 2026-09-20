@@ -1105,9 +1105,12 @@ class RuntimeConfig(StrictConfig):
         default="inherit",
         description="Per-rank device binding mode for MPI launches: inherit or round_robin.",
     )
-    threads: int | None = Field(
+    threads: int | Literal["auto"] | None = Field(
         default=None,
-        description="Process thread budget applied before the scientific stack is imported.",
+        description=(
+            "Process thread budget applied before the scientific stack is "
+            "imported; 'auto' follows the CPU affinity mask."
+        ),
     )
     telemetry: bool | RuntimeTelemetryConfig | None = Field(
         default=None,
@@ -1135,6 +1138,8 @@ class RuntimeConfig(StrictConfig):
         """Reject non-positive and boolean thread budgets."""
         if value is None:
             return None
+        if isinstance(value, str) and value.strip().lower() == "auto":
+            return "auto"
         from atst_tools.runtime.devices import THREADS_MESSAGE
 
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:

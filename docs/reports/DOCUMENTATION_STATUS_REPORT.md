@@ -26,6 +26,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P4 首片）：逐 rank 运行时绑定——CLI/env 逗号分隔设备规格解析修正（真实 MPI 集成测试暴露并修复 `parse_device_tokens('0,1')`）；`round_robin` 增加多节点拒绝（`declared_node_count`，`SLURM_JOB_NUM_NODES`/`SLURM_NNODES`/`ATST_NODES`）；新增 `tests/integration/test_runtime_binding_mpi.py`（真实 MPICH 2-rank：rank 掩码互异、coordinator 逐 rank 生成隔离 worker 计划）；既有 17 项真实 MPI 失败同步回归本地全绿。P4 除“DP 后端 image-parallel NEB 首个 E2E”外各项已具备本地证据；站点 OpenMPI/SIF 与 DP 并行 E2E 留 P5。
 
+- 2026-09-21（P2 收口片）：线程预算与采样细化——`runtime.threads: auto` 按 CPU affinity 解析（`cpu_affinity_count`），child env 记录 `ATST_THREADS_SOURCE` 并在证据中回显 `cpu_affinity_count`/`threads_source`；宿主采样增加计算进程行（`nvidia-smi --query-compute-apps`，`attribution=reported`，缺工具/权限/无进程分别记 `unavailable` 与原因）；P2 其余项以既有覆盖收口（ABACUS launcher/command 校验由 `tests/unit/test_factory.py` 16 项承载）。同时新增 P5 预备：`scripts/sai_runtime_bench.sbatch` 模板与计划内测量矩阵草案。全量 970 项通过。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

@@ -113,6 +113,23 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作为阶段交付，但首期“双后端完成”必须两条均通过。无需混跑两种后端，也不要求两种势的能量彼此相等。FT²DP 的模型科学精度评估仍归科研项目，GPU 优化负责同模型/同方法前后等价。
 
+### P5 预备（草案，2026-09-21；真实运行前仍待维护者裁决 fixture/容差/预算）
+
+启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（P3 harness，站点 QOS/module 行按 `$sai-user-guide` 现场填写）；清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（telemetry 开启时）+ `harness_summary.json`。
+
+测量矩阵（SPEC §7.1）与本轮证据缺口对应：
+
+| 组 | 对照 | 记录 |
+| --- | --- | --- |
+| DP 单 case | 1 卡 × 线程档位（`runtime.threads` 1/4/auto） | 冷/热启动、`dp.force_calls`、wall、GPU 利用率/显存样本 |
+| DP 独立批 | 每卡 1/2/3 进程（容量允许再到 4–6） | 成功 case/hour、卡时/成功案、OOM/unknown 分类、并发曲线 |
+| ABACUS 独立批 | 串行队列 vs 四卡各一 case | E/F 一致性、wall、实际卡时 |
+| MPI NEB | 串行 vs 10 ranks/4 卡 vs 10 ranks/1 卡 | 单 band 延迟、模型复制/内存、`world.size == interior_images` |
+| AutoNEB | inherit / 已验证共享布局 | active window 正确性、端点阶段 |
+| 容器 | host/SIF 成对 | 环境/mapping/观测一致性 |
+
+记录清单（每条证据）：环境三元组（解释器/包路径/dist 版本）、作业号与 QOS、`sacct` 卡时、`runtime_evidence.json`、失败原因分类、原始命令。原稿作业 `1422694/1422849/1423160/1423179` 的 `sacct`/日志导出仍是待补项。
+
 ## P6：atst 交付及后续平台接入
 
 依赖：P5；平台部分独立排期/授权。

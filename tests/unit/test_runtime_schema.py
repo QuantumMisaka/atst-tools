@@ -32,6 +32,7 @@ def _normalize(runtime):
         {"devices": 1},
         {"binding": "round_robin"},
         {"threads": 4},
+        {"threads": "auto"},
         {"telemetry": True},
         {"telemetry": {"enabled": True, "interval_s": 2.5}},
     ],

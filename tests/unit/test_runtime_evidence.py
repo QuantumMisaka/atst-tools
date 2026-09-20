@@ -73,6 +73,8 @@ def test_environment_and_device_facts_use_the_recorded_values():
     assert facts["python"]
     assert facts["threads"]["OMP_NUM_THREADS"] == "6"
     assert "numpy" in facts["packages"]
+    assert facts["cpu_affinity_count"] >= 1
+    assert facts["threads_source"] is None
 
     devices = runtime_evidence.device_facts({"devices": [0], "binding": "inherit"}, environ)
     assert devices["bound"] is True
@@ -80,6 +82,34 @@ def test_environment_and_device_facts_use_the_recorded_values():
     assert devices["inherited"] == ["2", "3"]
     assert devices["effective"] == ["2"]
     assert devices["allocation_identity"] == "unverified"
+
+
+def test_compute_process_sampling_reports_rows_and_permission_failures(monkeypatch):
+    def ok_run(*args, **kwargs):
+        return types.SimpleNamespace(returncode=0, stdout="4242, 1024, GPU-abc\n")
+
+    monkeypatch.setattr(runtime_evidence.subprocess, "run", ok_run)
+    observed = runtime_evidence.sample_compute_processes()
+    assert observed["status"] == "observed"
+    assert observed["processes"][0]["pid"] == 4242
+    assert observed["processes"][0]["used_memory_mib"] == 1024.0
+    assert observed["processes"][0]["attribution"] == "reported"
+
+    def no_rows(*args, **kwargs):
+        return types.SimpleNamespace(returncode=0, stdout="")
+
+    monkeypatch.setattr(runtime_evidence.subprocess, "run", no_rows)
+    empty = runtime_evidence.sample_compute_processes()
+    assert empty["status"] == "unavailable"
+    assert "no compute process" in empty["reason"]
+
+    def denied(*args, **kwargs):
+        return types.SimpleNamespace(returncode=6, stdout="")
+
+    monkeypatch.setattr(runtime_evidence.subprocess, "run", denied)
+    refused = runtime_evidence.sample_compute_processes()
+    assert refused["status"] == "unavailable"
+    assert "status 6" in refused["reason"]
 
 
 def test_session_writes_once_and_marks_partial_failures(tmp_path):
