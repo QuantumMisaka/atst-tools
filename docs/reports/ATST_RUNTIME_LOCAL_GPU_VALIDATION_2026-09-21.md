@@ -327,7 +327,7 @@ case id），示例模板与单测同步更新；本节数据即用修复后的�
 **14.4 归档记录**：`batch-ft2dp/bench_record.json`（`atst-bench-record-v1`）记录
 解释器/依赖、GPU 清单（2070S UUID）、manifest 与 FT²DP 权重 sha256、结果目录
 全树哈希与显式 null 的操作者字段；由于从 wheel 运行，`revision` 三键为 null ——
-登台手册因此改为在 SAI 克隆 git bundle，使 P5 记录携带真实 `head/branch/dirty`。
+登台手册因此改为在 SAI 克隆 git bundle，使 P5 记录携带真实 `head/branch/dirty`；本地已用 bundle 克隆复验：同一清单重跑后 `record_time`/`run_time` 均为 `branch=feature/gpu-node-tuning`、`head=e853852`、`dirty=false`。
 
 边界：单张消费级卡、2 个 case、2 repeats；P5 仍须在 V100 上按 ≥3 次交替重复
 执行并覆盖 ABACUS 通道，本节的数字只证明测量形状与工具链可用。
