@@ -236,6 +236,8 @@ def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_pa
     assert payload["status"] == "complete"
     assert payload["workflow"] == "relax"
     assert payload["telemetry"]["sampler"]["sample_count"] >= 1
+    assert payload["phases"]["dispatch_s"] >= 0
+    assert payload["phases"]["attempt_s"] >= payload["phases"]["dispatch_s"]
     manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
     assert (
         manifest["metadata"][runtime_evidence.EVIDENCE_MANIFEST_KEY]

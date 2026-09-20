@@ -173,6 +173,8 @@ runtime:
 
 结果 envelope 摘要（已实现）：请求过 runtime 的运行在 `atst-api-result-v1` 顶层增加可选 `runtime` 对象（`status`、`evidence` 相对路径、`attempt`、`devices` 事实）；未请求 runtime 的运行不产生该键（逐字节兼容）。`--dry-run` 与 runtime 选项组合按同一触发规则进入隔离路径并在 worker 内校验（`--dry-run` 转发给 worker）：隔离 dry-run 的结果文档带 `runtime` 摘要（`status="dry-run"`、`evidence=null`）但不写 sidecar（没有实际计算），legacy dry-run 仍然不写任何文件；"argparse 未识别 `--devices`"空洞已消除。
 
+阶段耗时（首版粒度，已实现）：sidecar `phases` 记录 `dispatch_s`（科学 dispatch 墙钟）与 `attempt_s`（worker 起至完成的总墙钟）；更细的逐 workflow-stage 计时仍列为 P2 后续项，届时复用同一 `phases` 容器。
+
 MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`（`counters_scope=process`）外，成功路径在失败同步 collective 之后对**全部 rank** 求和 canonical 计数，写入 `counters_mpi`（`scope=sum-over-ranks`、`world_size`、`counters`、`gauges`）；失败路径无此集体操作，只保留 rank 0 的进程级值（诚实降级）。
 
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）

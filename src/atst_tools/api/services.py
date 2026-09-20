@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Any
 
 from atst_tools.api.models import (
@@ -808,6 +809,7 @@ def _run_workflow(
             evidence = None
             print(f"runtime evidence unavailable: {exc}", file=sys.stderr)
     runtime_summary: dict[str, Any] | None = None
+    workflow_started = time.monotonic()
     try:
         if int(world.rank) == 0:
             _emit_workflow_start(options, workflow)
@@ -847,6 +849,7 @@ def _run_workflow(
             _synchronize_rank_failure(world, workflow, manifest_inspection_failure)
         value = None
         failure = None
+        dispatch_started = time.monotonic()
         try:
             value = _dispatch_normalized(config, options)
         except ATSTAPIError as exc:
@@ -875,8 +878,16 @@ def _run_workflow(
                     legacy_result, runtime=runtime_summary
                 )
             return legacy_result
+        phase_wall = {
+            "dispatch_s": round(time.monotonic() - dispatch_started, 3),
+            "attempt_s": round(time.monotonic() - workflow_started, 3),
+        }
         evidence_reference = (
-            evidence.finish("complete", rank_counters=aggregated_counters)
+            evidence.finish(
+                "complete",
+                rank_counters=aggregated_counters,
+                phases=phase_wall,
+            )
             if evidence is not None
             else None
         )

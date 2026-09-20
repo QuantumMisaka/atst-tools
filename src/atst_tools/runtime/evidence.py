@@ -292,6 +292,7 @@ class EvidenceSession:
         reason: str | None = None,
         *,
         rank_counters: Mapping[str, Any] | None = None,
+        phases: Mapping[str, Any] | None = None,
     ) -> str | None:
         """Stop sampling, write the sidecar once and return its relative path."""
         if self.written_path is not None:
@@ -331,6 +332,8 @@ class EvidenceSession:
         }
         if rank_counters is not None:
             payload["counters_mpi"] = dict(rank_counters)
+        if phases is not None:
+            payload["phases"] = {str(key): value for key, value in phases.items()}
         try:
             _write_json_atomic(self.path, payload)
         except Exception:
