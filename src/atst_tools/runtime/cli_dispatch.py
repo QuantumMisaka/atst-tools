@@ -161,7 +161,7 @@ def plan_runtime_launch(
         if not _has_runtime_options(parsed):
             return None
         _reject_unknown_options(extras)
-    if parsed.dry_run or parsed.list_types or parsed.show_template or parsed.check_input:
+    if parsed.list_types or parsed.show_template:
         return None
     config_path = Path(parsed.config).resolve() if parsed.config else None
     request = launch.merge_runtime_request(
@@ -183,9 +183,14 @@ def plan_runtime_launch(
     command = launch.build_worker_command(
         config_path,
         workdir=workdir,
+        dry_run=bool(parsed.dry_run),
         restart=bool(parsed.restart),
         abacus_executable=parsed.abacus_executable,
     )
+    if parsed.check_input:
+        command.append("--check-input")
+        if parsed.check_input_timeout is not None:
+            command += ["--check-input-timeout", str(parsed.check_input_timeout)]
     return _build_plan(
         config_path=config_path,
         request=request,
@@ -221,8 +226,6 @@ def plan_runner_launch(
         if not _has_runtime_options(parsed):
             return None
         _reject_unknown_options(extras)
-    if parsed.dry_run:
-        return None
     if parsed.config is None:
         return None
     config_path = Path(parsed.config).resolve()
@@ -268,6 +271,7 @@ def _runner_command_from(
     command = launch.build_worker_command(
         config_path,
         workdir=workdir,
+        dry_run=bool(parsed.dry_run),
         restart=bool(parsed.restart),
         abacus_executable=parsed.abacus_executable,
     )

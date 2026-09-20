@@ -284,6 +284,7 @@ def build_worker_command(
     python: str | None = None,
     module: str = WORKER_MODULE,
     workdir: str | Path | None = None,
+    dry_run: bool = False,
     restart: bool = False,
     abacus_executable: str | None = None,
     extra: Sequence[str] = (),
@@ -292,6 +293,8 @@ def build_worker_command(
     command = [python or sys.executable, "-m", module, "--config", str(config_path)]
     if workdir is not None:
         command += ["--workdir", str(workdir)]
+    if dry_run:
+        command.append("--dry-run")
     if restart:
         command.append("--restart")
     if abacus_executable:

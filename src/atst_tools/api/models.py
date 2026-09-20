@@ -141,6 +141,7 @@ class WorkflowResult:
     ts_atoms: Any | None = None
     plots: tuple[str, ...] = ()
     profiles: tuple[dict[str, Any], ...] = ()
+    runtime: dict[str, Any] | None = None
 
     def to_document(self, workdir: str | Path) -> dict[str, Any]:
         """Return the stable JSON handoff envelope without ASE objects.
@@ -167,4 +168,6 @@ class WorkflowResult:
             document["plots"] = list(self.plots)
         if self.profiles:
             document["profiles"] = _json_detached(list(self.profiles))
+        if self.runtime is not None:
+            document["runtime"] = _json_detached(dict(self.runtime))
         return document

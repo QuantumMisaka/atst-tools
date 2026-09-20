@@ -271,7 +271,8 @@ the same figure the corresponding Python call would produce.
 
 `WorkflowResult` is a frozen container with `workflow`, `status`, `is_root`,
 `artifact_manifest`, `artifacts`, `metadata`, `final_atoms`, `final_images`,
-`ts_atoms`, and the 2.2.1 optional `plots` and `profiles` fields. The artifact
+`ts_atoms`, the 2.2.1 optional `plots` and `profiles` fields, and the optional
+`runtime` summary described below. The artifact
 manifest is the durable, restart-safe record for the Python API; `artifacts`
 is its structured output list and
 `metadata` includes the backend provenance. After a successful API run, a stale
@@ -286,6 +287,13 @@ are populated only when the corresponding `RunOptions` flag was set. In the
 JSON handoff, they appear as optional `plots` and `profiles` keys only when
 non-empty, so `atst-api-result-v1` documents produced without those options
 stay byte-identical to the original schema.
+
+`runtime` appears only for runs that requested runtime controls (`runtime`
+YAML section, runtime CLI options, or `ATST_VISIBLE_DEVICES`). It carries the
+compact summary `status`, `evidence` (the relative `runtime_evidence.json`
+path), `attempt`, and `devices` (requested/inherited/effective plus the
+allocation identity); the sidecar remains the detailed record. Runs without
+runtime requests keep producing documents without that key.
 
 The container is immutable, but ASE objects are mutable. `final_atoms`,
 `final_images`, and `ts_atoms` are caller-owned snapshots: modifying one does

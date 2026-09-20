@@ -24,12 +24,7 @@ def test_cli_plan_is_none_for_legacy_invocations(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert cli_dispatch.plan_runtime_launch(["banner"]) is None
     assert cli_dispatch.plan_runtime_launch(["run", str(config)]) is None
-    assert (
-        cli_dispatch.plan_runtime_launch(
-            ["run", "--dry-run", str(config), "--devices", "0"], environ={}
-        )
-        is None
-    )
+    assert cli_dispatch.plan_runtime_launch(["run", "--dry-run", str(config)]) is None
     assert (
         cli_dispatch.plan_runtime_launch(
             ["run", "--mystery-flag", str(config)], environ={"CUDA_VISIBLE_DEVICES": "2,3"}
@@ -121,7 +116,7 @@ def test_runner_plan_rebinds_only_when_unbound(tmp_path, monkeypatch):
     )
     assert (
         cli_dispatch.plan_runner_launch(
-            ["--config", str(config), "--dry-run", "--devices", "0"], environ={}
+            ["--config", str(config), "--dry-run"], environ={}
         )
         is None
     )
@@ -151,3 +146,24 @@ def test_runner_plan_uses_absolute_paths_for_the_reexec(tmp_path, monkeypatch):
     assert str(config) in plan.command
     assert str((tmp_path / "runs" / "one").resolve()) in plan.command
     assert "config.yaml" not in plan.command
+
+
+def test_dry_run_with_runtime_options_still_binds_and_validates(tmp_path, monkeypatch):
+    """`--dry-run` must not silently drop runtime options (argparse trap)."""
+    config = _write_config(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    plan = cli_dispatch.plan_runtime_launch(
+        ["run", str(config), "--dry-run", "--devices", "0"],
+        environ={"CUDA_VISIBLE_DEVICES": "2,3"},
+    )
+    assert plan is not None
+    assert "--dry-run" in plan.command
+    assert plan.environment["CUDA_VISIBLE_DEVICES"] == "2"
+
+    runner_plan = cli_dispatch.plan_runner_launch(
+        ["--config", str(config), "--dry-run", "--devices", "1"],
+        environ={"CUDA_VISIBLE_DEVICES": "2,3"},
+    )
+    assert runner_plan is not None
+    assert "--dry-run" in runner_plan.command
+    assert runner_plan.environment["CUDA_VISIBLE_DEVICES"] == "3"

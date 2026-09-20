@@ -634,6 +634,7 @@ def _result_from_manifest(
     world: Any,
     status: str,
     profiles: Sequence[Mapping[str, Any]] = (),
+    runtime: Mapping[str, Any] | None = None,
 ) -> WorkflowResult:
     """Build one root-aware result using the durable manifest as source of truth."""
     calculation = config["calculation"]
@@ -677,6 +678,7 @@ def _result_from_manifest(
         ts_atoms=ts_atoms,
         plots=tuple(manifest.get("plots", [])),
         profiles=tuple(profiles),
+        runtime=dict(runtime) if runtime is not None else None,
     )
 
 
@@ -712,7 +714,10 @@ def _validated_result(config: dict[str, Any], world: Any) -> WorkflowResult:
 
 
 def _result_without_manifest(
-    config: dict[str, Any], world: Any, status: str
+    config: dict[str, Any],
+    world: Any,
+    status: str,
+    runtime: Mapping[str, Any] | None = None,
 ) -> WorkflowResult:
     """Build the legacy CLI result without reading or writing artifact manifests."""
     calculation = config["calculation"]
@@ -723,6 +728,7 @@ def _result_without_manifest(
         artifact_manifest=str(calculation.get("artifact_manifest", "atst_artifacts.json")),
         artifacts=(),
         metadata={},
+        runtime=dict(runtime) if runtime is not None else None,
     )
 
 
@@ -788,6 +794,7 @@ def _run_workflow(
         except Exception as exc:
             evidence = None
             print(f"runtime evidence unavailable: {exc}", file=sys.stderr)
+    runtime_summary: dict[str, Any] | None = None
     try:
         if int(world.rank) == 0:
             _emit_workflow_start(options, workflow)
@@ -846,12 +853,24 @@ def _run_workflow(
             profiles = _workflow_profiles(config, value, options)
             plots = _workflow_plots(config, value, options)
         if not ensure_completed_manifest:
-            return _result_without_manifest(config, world, "complete")
+            return _result_without_manifest(
+                config, world, "complete", runtime=runtime_summary
+            )
         evidence_reference = (
             evidence.finish("complete", rank_counters=aggregated_counters)
             if evidence is not None
             else None
         )
+        runtime_summary = None
+        if evidence is not None:
+            from atst_tools.runtime.evidence import device_facts
+
+            runtime_summary = {
+                "status": "complete" if evidence_reference else "partial",
+                "evidence": evidence_reference,
+                "attempt": evidence.attempt,
+                "devices": device_facts(config.get("runtime"), os.environ),
+            }
         _ensure_completed_manifest(
             config,
             value,
@@ -861,7 +880,12 @@ def _run_workflow(
             runtime_evidence=evidence_reference,
         )
         return _result_from_manifest(
-            config, value, world, "complete", profiles=profiles
+            config,
+            value,
+            world,
+            "complete",
+            profiles=profiles,
+            runtime=runtime_summary,
         )
     finally:
         if evidence is not None:

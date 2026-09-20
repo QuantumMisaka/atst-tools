@@ -73,6 +73,11 @@ cannot forward (for example an unknown or legacy flag) fail with an explicit
 "unsupported option(s) combined with runtime requests" error instead of
 silently dropping the option.
 
+`--dry-run` follows the same rule: without runtime options it keeps the legacy
+validation path, while `atst run --dry-run config.yaml --devices 0` validates
+the configuration *and* the device request in the bound worker (a result
+document is written there because the run went through the isolated path).
+
 ## Configuration Tools
 
 ```bash

@@ -245,6 +245,27 @@ def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_pa
         result.metadata[runtime_evidence.EVIDENCE_MANIFEST_KEY]
         == runtime_evidence.EVIDENCE_FILENAME
     )
+    document = result.to_document(tmp_path)
+    assert document["runtime"]["evidence"] == runtime_evidence.EVIDENCE_FILENAME
+    assert document["runtime"]["status"] == "complete"
+    assert document["runtime"]["attempt"] == 1
+    assert document["runtime"]["devices"]["bound"] is False
+
+
+def test_documents_without_runtime_requests_stay_unchanged(monkeypatch, tmp_path):
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
+    (tmp_path / "atst_artifacts.json").write_text(
+        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        encoding="utf-8",
+    )
+    result = run_workflow(_relax_config(), RunOptions())
+    document = result.to_document(tmp_path)
+    assert "runtime" not in document
+    assert result.runtime is None
 
 
 def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(monkeypatch, tmp_path):
