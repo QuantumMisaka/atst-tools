@@ -212,3 +212,28 @@ test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧
 该复核发现的 DP `omp` 覆盖未记账缺口已修复（`runtime/launch.py::
 apply_explicit_omp`，DP 工厂改用；ABACUS/MD 走 `resolve_calculator_omp`），
 并新增两条工厂级测试（覆盖记账、无 `omp` 时保留继承预算）。
+
+## 12. 重复交替并发测量（本地，3 repeats × 2 variants）
+
+新增 P5 用驱动器 `src/atst_tools/bench/sweep.py`（变体间交替顺序、每
+(variant, repeat) 独立目录、汇总 makespan/成功数/卡时/成功案每小时）后，
+在本机对同一 2-case 清单实测：
+
+```bash
+python -m atst_tools.bench.sweep --manifest cases_isolated.json --out sweep_local \
+  --devices 0 --slots 1,2 --repeats 3 --cpu-budget 16
+```
+
+| 变体 | makespan 三次值 | 中位 | 成功 | 卡时中位 | 成功案/小时 中位 |
+| --- | --- | --- | --- | --- | --- |
+| slots=1（每卡 1 案） | 43.88 / 44.59 / 44.58 s | **44.58 s** | 6/6 | 44.58 | 161.5 |
+| slots=2（每卡 2 案） | 29.74 / 29.51 / 29.50 s | **29.51 s** | 6/6 | 45.44 | 244.0 |
+
+运行顺序为 (1,2) → (2,1) → (1,2)，符合冻结矩阵的"交替重复"要求；两个变体
+卡时几乎相同（44.6 vs 45.4）而 makespan 缩短 1.51×，与 §7/§9 的"该模型/
+该卡远未饱和、共卡几乎零单案代价"一致。
+
+边界：单张 RTX 2070 SUPER、66 原子、2 个变体、3 repeats；**不构成 V100 或
+生产体系的默认并发结论**。P5 仍按矩阵扩展到 1/2/3(–6) 变体、更多卡与
+FT²DP/ABACUS fixture，并把 `DP_INFER_BATCH_SIZE`、线程档位与仓库快照写入
+汇总。

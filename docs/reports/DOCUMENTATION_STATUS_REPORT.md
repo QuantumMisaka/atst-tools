@@ -52,6 +52,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（装包路径端到端复核）：验证报告 §11——干净安装 wheel 直连 runner（`--devices/--telemetry/--threads` + YAML `dp.omp`）跑通 DP relax：结果文档带 `runtime.status=complete`，sidecar 记录 `runtime_threads_overridden=1`、`runtime_threads_effective=4.0`；并修掉该复核发现的"DP `omp` 覆盖未记账"缺口（`apply_explicit_omp`，DP 工厂改用），新增两条工厂测试。
 
+- 2026-09-21（并发扫描驱动器 + 本地重复测量）：新增 `src/atst_tools/bench/sweep.py`（变体交替顺序、每 (variant,repeat) 独立目录、`sweep_summary.json` 汇总 makespan/成功数/卡时/成功案每小时；3 项单测）。本地 3 repeats × slots 1,2 实测（报告 §12）：makespan 中位 44.58 s → 29.51 s（1.51×），两变体卡时几乎相同（44.6 vs 45.4），成功 6/6；边界为非 V100/单卡/2 变体，P5 仍须扩展。计划 P5 预备段登记该驱动器用法。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
