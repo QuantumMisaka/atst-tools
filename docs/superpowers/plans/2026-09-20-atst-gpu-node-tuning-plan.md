@@ -1,0 +1,154 @@
+# ATST GPU 节点优化开发与验证计划
+
+**版本**: 2026-09-20（2026-09-21 迁入 atst-tools 规范源）
+**日期**: 2026-09-20
+**状态**: 执行中（P0）
+**责任人**: ATST-Tools maintainers
+
+> **迁移记录（2026-09-21）**：本计划已由发起方 ABACUS 文档目录迁入 atst-tools 规范源并在文档账本登记；设计源为 [GPU 节点调优设计](../specs/2026-09-20-atst-gpu-node-tuning-design.md)，P0 接口冻结为 [runtime 接口冻结设计](../specs/2026-09-21-atst-runtime-interface-design.md)。原位置只保留交接说明，不得独立演进。
+
+**Goal:** 先交付 atst 单节点设备隔离、运行证据和可复现优化，再分阶段接入平台。
+**Spec:** [GPU 节点调优设计](../specs/2026-09-20-atst-gpu-node-tuning-design.md)；分期范围已确认，具体接口设计待实施前收敛。
+**Authorization:** 2026-09-20 用户要求系统明确开发/工程化方案，并确认“先 atst，后平台接入”；本轮为设计与计划整理，未开始代码实施、真实计算、依赖同步或发布。
+**Architecture:** 保留进程内 API，扩展轻量进程启动边界；设备选择、case 并发、MPI rank 绑定、宿主计量各有 owner。
+**Verification:** CPU 行为/子进程测试 → site-compatible MPI 测试 → 经授权的 GPU 数值/性能基准 → 后续平台 E2E。
+Status: in_progress (P0)
+
+**实施 owner：** atst-tools 维护者已接手 P0–P5 与 P6 的 atst 交付部分（2026-09-21 迁移完成，规范源为本仓）；ABACUS/MLIP-Agent 开发者仅承接后续平台适配。不要求在 ABACUS Toolbox 内实施通用 runtime；实施基线为 `origin/main` `2cf5b7e6`（SPEC §11 R1）。
+**测试环境依据：** 显式使用 `$sai-user-guide`（§2–§5、§7–§8、性能调优 reference；涉及 SIF 时 §11）；双后端与 FT²DP fixture 规则见 SPEC §7.3，恒电势协调见 §7A。
+
+## 组件与边界
+
+atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_tools/`（如 `scripts/cli.py` 指 `src/atst_tools/scripts/cli.py`，仓级 `scripts/` 只放 CI/治理脚本）。下表为预期修改位置，不强制创建指定的新模块。
+
+| 组件 | 修改位置 | 交付责任 |
+| --- | --- | --- |
+| 设备解析/启动 | `src/atst_tools/` 下轻量 runtime 模块、包初始化、`scripts/cli.py`、`api/runner.py` | 初始化前绑定、隔离启动及错误诊断 |
+| YAML/API | `utils/config_schema.py`、`api/models.py`、`api/services.py` | 可选 runtime schema、保持嵌入 API 与既有结果兼容 |
+| backend | `calculators/dp.py`、`factory.py`、`abacuslite_backend.py` | 线程/模型/command 适配，不重写 solver |
+| MPI | `utils/mpi.py`、`scripts/main.py`、`mep/autoneb.py` | 图像 ownership、绑定验证、失败同步 |
+| 证据 | `utils/artifacts.py`、API result metadata、workflow instrumentation | stage/rank 证据与采样来源 |
+| 基准 | `examples/` 或 `scripts/` 的独立 harness 与 fixture manifest | 已有 allocation 内有限队列、清理、宿主采样和汇总 |
+| 后续平台 | ABACUS `toolkits/transition_atst.py` 等、MLIP runtime adapter | 单独变更各自 owner 契约；首期不修改 |
+
+## P0：冻结可实现的输入/执行边界
+
+依赖：无。交付设备选择、runtime schema 与进程入口的准确草案，整理已有测试与代表 fixture。
+
+- [x] 读取实施工作树的 AGENTS 与文档入口，记录 atst/DP/ABACUS/ASE/MPI/JAX 实际版本（2026-09-21：接口文档 §1 记录 `atst-dev`、`dpa4-dpmd-v100` 实测清单与“解释器、包路径、dist 版本”三元组要求）。
+- [x] atst 维护者选定实际基线（2026-09-21 复核各树 pin 后裁定 `2cf5b7e6`，SPEC §11 R1）；runner/schema/model manifest 差异已按该基线核对。
+- [ ] 与恒电势 owner 约定共享文件合入顺序和字段归属（清单与建议顺序见接口文档 §8；等待其分支提交后确认）。
+- [x] 定义参数类型、CLI/YAML/env 优先级、inherit/空值/UUID/非法 ordinal 行为；概念字段转成唯一 schema（接口文档 §2–§4）。
+- [x] 定义 CLI 和 runner bootstrap 的一次性 exec/child 路径，核查包导入链；嵌入 API 保持不隐式启动进程（接口文档 §5）。
+- [x] 选 DP 模型/backend/head 和 ABACUS fixture；列出原稿 job 证据待补项，不把假设写为基线（接口文档 §7）。
+- [x] 双后端 fixture 均进入验收清单；DP 包含通用回归与只读 FT²DP 钉版 `.pt` 候选，回读模型 manifest 核实身份和运行兼容（接口文档 §7；权重回读在执行阶段完成）。沿用科研目录只读输入，新结果单独存放，不将普通 FT²DP 势标为恒电势模型。
+- [ ] 准备现有 legacy API/CLI/YAML 基线和代码 owner 测试；相称独立设计审查后进入 P1（基线套件已在 `PYTHONPATH=src` + `atst-dev` 下执行并记录；独立设计审查待启动）。
+
+验收：开发者能明确处理 `CUDA_VISIBLE_DEVICES=2,3` + 逻辑0、显式空掩码、过度暴露、已初始化 API、自定义 communicator/callback，无需临场决定产品语义（逐场景对照表见接口文档 §9）。P0 只做本地静态设计，不需要运行 GPU。
+
+## P1：设备解析与进程隔离
+
+依赖：P0。对应 SPEC §4。
+
+- [ ] 先写行为测试：mask 顺序、UUID、缺失/空值、越界/重复、可信 allocation 收窄及 unsupported MIG；已知过度暴露但无获配身份必须拒绝，未知身份的 standalone inherit 保留未验证标记，不能用于共享池。
+- [ ] 实现纯解析与必要短命枚举 helper；coordinator 不初始化 CUDA，不扩大可见性/分配。
+- [ ] 调整轻量 bootstrap/import 链，复用 API runner；启动前设置 child env/cwd/cache/threads。
+- [ ] 子进程替身记录实际 env 与 import 顺序；验证父进程 env/cwd 不变，失败和取消不遗留子进程。
+- [ ] 验证未指定新字段的 CLI/API 输出、callback、communicator 和 manifest 消费行为；embedded rebinding 明确拒绝。
+
+验收：CPU 替身证明执行边界和兼容；真实 GPU 身份验收留到 P5，不以 mock 宣称 GPU 已验证。
+
+## P2：线程/backend 与运行证据
+
+依赖：P1。对应 SPEC §4.3、§5.3、§6。
+
+- [ ] 在初始化前应用明确的线程预算，覆盖 CPU affinity/cpuset 与 DP TF/PT 差异；不静默覆盖用户已有科学配置。
+- [ ] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例。
+- [ ] ABACUS 按实际 command 验证 launcher；复用现有 MPI 清理、profile 和 backend 选择。
+- [ ] 增加 opt-in runtime sidecar、阶段耗时、初始化/力调用计数与版本来源；成功关联 manifest，失败保留部分证据。
+- [ ] 宿主 sampler/parser 区分 device/process，覆盖缺工具、权限不足、短任务无样本、MPS 归属未知和采样失败。
+
+验收：计量失败不掩盖科学运行结果；显式 GPU 不可用仍报执行错误；现有结果消费者可忽略新增可选字段。线程调优带来的真实收益由 P5 证明。
+
+## P3：独立 case 参考 harness
+
+依赖：P1/P2。对应 SPEC §3、§5.1。
+
+- [ ] 有限清单包含 case id、输入、输出目录、设备槽位、线程和超时；不引入跨作业服务。
+- [ ] 每卡并发默认1，显式候选2–6；调度以 GPU 和 CPU 可用预算共同限流。
+- [ ] 子进程测试验证槽位上限、独立目录、结果汇总、失败继续/停止策略、取消和超时后回收。
+- [ ] OOM/unknown 分类保持证据，不默认 retry；显式 retry 使用新 attempt。
+- [ ] 一个 allocation 一个 sampler，记录全部任务结果和卡时，失败 case 不从分母/清单消失。
+
+验收：有限 batch 完成或有界退出；无外部排队/重新申请资源，无全节点进程清理。生产 batch CLI 不在本阶段。
+
+## P4：MPI 绑定与图像语义
+
+依赖：P1/P2；可与 P3 独立推进。对应 SPEC §5.2。
+
+- [ ] 保持 NEB interior / AutoNEB `n_simul` rank 数约束，明确内部图和端点计数。
+- [ ] 实现 inherit 与单节点共同池 round-robin；验证 local rank、逐 rank 可见性和共享上限。
+- [ ] CPU fake-world 覆盖10/4、10/1、越界、不同 rank mask、零设备、多节点拒绝共享模式。
+- [ ] 使用真实 MPI + 无 GPU calculator 验证端点、active window、rank-local 配置异常、rank 崩溃和超时回收。
+- [ ] 验证每图 ABACUS 内部仍单 rank，无 nested MPI；DP 各 rank 模型上下文独立，容量以实测驻留为准。
+
+验收：科学计算前错误在各 rank 或 launcher 层有界结束；fake-world 不替代真实 MPI 证据。10 ranks/1 GPU 只在后续容量许可时计算。
+
+## P5：经授权的 SAI GPU 基准
+
+依赖：P2/P3/P4 通过。对应 SPEC §7。
+
+- [ ] 真实运行前确定 fixture、各项数值容差、最大并发/时长/卡时与停止条件，实时核验 QOS 和实际 CPU/GPU 配额。
+- [ ] 依据 SAI guide 核验提交方式、module/MPI、存储与 sampler；分别记录 ABACUS 环境和模型匹配 DP 环境，不能以版本下限代替 DPA4 加载验证。
+- [ ] 先单 worker 身份/数值验证，再短矩阵；出现 OOM、数值不合格或并发收益饱和时停止扩大该分支。
+- [ ] 固定配置对比冷启动/稳态和同 allocation 吞吐；分开报告增加资源的收益。
+- [ ] 候选正式点至少三次交替重复，保留失败；host/SIF 成对验证，采样开/关检查观测开销。
+- [ ] 归档输入/环境身份、原始结果、采样、汇总与可重跑命令；报告适用范围，不输出通用每卡并发默认值。
+
+验收：工程和科学门禁通过后才可比较性能；无显著提升如实报告，不强行满足“2倍/40%”。首次基准不自动扩展到20条反应或改用其它账号/分区。
+
+ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作为阶段交付，但首期“双后端完成”必须两条均通过。无需混跑两种后端，也不要求两种势的能量彼此相等。FT²DP 的模型科学精度评估仍归科研项目，GPU 优化负责同模型/同方法前后等价。
+
+## P6：atst 交付及后续平台接入
+
+依赖：P5；平台部分独立排期/授权。
+
+- [ ] 更新 atst `CONFIG_REFERENCE.md`、schema 生成参数表、用户指南、examples、FEATURE_STATUS_MATRIX 与文档账本；发布说明区分 CPU/mock、MPI、GPU、SIF 验证范围。
+- [ ] 相称独立终审，按 atst 版本规则发布；父仓依赖同步与 gitlink 更新独立执行。
+- [ ] 平台先消费单任务绑定/运行证据，再单独设计共享 image 的参数、resAlloc/prepare/runner 迁移；不重释现有 `n_gpu`。
+- [ ] 核对恒电势 Task 3.2 共用 `toolkits/atst_runner.py` 抽取进展，平台 GPU 适配复用届时的 owner 入口；不另造 runner。
+- [ ] 更新对应 owner guide 与交接测试，经本地 E2E、授权的平台发布验证后再宣称平台支持；只有新增依赖确需镜像变化时才插入非活动 SIF 候选。
+
+验收：standalone、SIF、本地 E2E、平台验证分别标注；可关闭 opt-in 回到旧入口。缺性能证据不修改生产默认。
+
+## 环境与验收命令
+
+本轮文档检查使用 ABACUS 规定的 `abacus-env`，每次新 shell 显式 `conda run -n abacus-env`，并先完成解释器、`adam_community/ase/docstring_parser` 和 `adam-cli` 预检。执行文档门禁：
+
+```bash
+conda run -n abacus-env make docs-check
+```
+
+atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线为 `atst-dev`，科研 DP 模型另使用已核验的匹配运行时并记录环境身份；不得强行用通用 DeePMD 版本替代 DPA4 环境。ABACUS 后续集成门禁仍为 `abacus-env`，两者证据分别标注，不要求把所有后端装进同一个 conda 环境。若实际从 ABACUS 子树发起受其规则约束的测试，仍执行上层 `abacus-env` 规则，缺依赖不静默 fallback；改在独立仓维护验证不冒充本仓验收。真实计算遵循 Slurm 与授权边界。
+
+（2026-09-21 补充，SPEC §11 R2）`atst-dev` 的 editable 安装当前指向 `/home/james/work/deepmodeling/atst-tools`（dist 2.2.3 / 代码 v2.2.4+1），不等于实施基线。本分支的单元与集成验证默认以 `PYTHONPATH=src` 覆盖并以基线工作树为代码源；所有证据条目必须记录“解释器、包路径、dist 版本”三元组；`pip install -e .` 重指向在 P1 执行并登记。
+
+精确 pytest 命令在 P0 依据现有 suite 与新增行为确定，不为未创建的测试虚构可运行命令。YAML 变更同步参数生成及 `tests/unit/test_config.py`；atst 文档治理脚本为 `scripts/check_docs_governance.py`，运行环境按其 owner 规则执行。
+
+## 与恒电势的集成检查点
+
+依据 SPEC §7A，GPU runtime 与恒电势算法没有性能验收上的相互前置依赖；共享文件由 atst 维护者串行集成，不要求等待整个恒电势项目完成。
+
+- [ ] P0 对齐 runtime/calculation 字段和结果扩展；恒电势每轮允许新 calculator，不受“单模型实例”限制。
+- [ ] P2/P4 审查 cache、任务目录、restart、rank/image 状态，不能将 `nelec` 或前轮 E/F 混用。
+- [ ] 两项实现都可用后，运行恒电势单点/扫描与新 runtime 的组合回归；恒电势 NEB 共享另在其 P1 科学验收后验证。
+
+恒电势 O7、M0 后端事实及电势收敛容差由恒电势 owner 解决；本计划不修改其算法或授权范围。组合回归尚未满足时只交付已验证的固定电荷/普通 DP runtime，不泛称恒电势已获优化支持。
+
+## 本轮交付记录
+
+2026-09-20：已完成源码/文档取证及分期方案，用户已确认先 atst 后平台；开发项均未执行。原始 FT²DP 作业、真实硬件和性能数值未复核。本计划用于后续实施交接，不作为性能验收报告。
+
+独立文档复核提出两项实质修订：模型实例数量不得从 rank 数直接推定；已知 allocation 过度暴露但身份未知不能沿用 inherit。均已对照源码/契约修正到 SPEC 和 P1/P2/P4；最终复核和文档门禁结果随本轮交付说明报告。
+
+2026-09-21（维护者接手执行 P0）：SPEC 与 PLAN 迁入 atst 规范源并登记账本；P0 完成基线裁定（SPEC §11 R1）、验证环境约定（R2）、线程优先级（R3）、共享文件顺序（R4），接口冻结文档产出。P0 剩余项：与恒电势 owner 确认共享文件字段/顺序（等待其分支提交）、legacy 基线测试清单执行登记、相称独立设计审查（P0→P1 门）。未开始 P1 代码实施、未运行真实 GPU、未推送。
