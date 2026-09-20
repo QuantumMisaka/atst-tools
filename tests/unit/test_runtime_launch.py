@@ -287,3 +287,19 @@ def test_worker_verifies_the_merged_cli_request_not_the_raw_yaml():
     runtime_launch.ensure_runtime_contract(
         {"runtime": {"devices": [1]}}, environ=child_env
     )
+
+
+def test_telemetry_interval_uses_the_frozen_message_for_bad_values():
+    """Bad CLI or YAML intervals report the frozen runtime message."""
+    for kwargs in (
+        {"cli_interval": "abc"},
+        {"cli_interval": "0"},
+        {"yaml_section": {"telemetry": {"enabled": True, "interval_s": "fast"}}},
+        {"yaml_section": {"telemetry": {"enabled": True, "interval_s": 0}}},
+    ):
+        with pytest.raises(ValueError) as caught:
+            runtime_launch.merge_runtime_request(environ={}, **kwargs)
+        assert (
+            "runtime.telemetry.interval_s must be a positive number"
+            in str(caught.value)
+        ), kwargs

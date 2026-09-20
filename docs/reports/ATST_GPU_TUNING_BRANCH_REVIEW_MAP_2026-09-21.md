@@ -49,7 +49,7 @@
 
 | 验收/主题 | 证据位置 |
 | --- | --- |
-| 接口语义（schema、错误、优先级、进程模型分流） | 接口冻结 §2–§9（rev.5）+ `tests/unit/test_runtime_*.py` |
+| 接口语义（schema、错误、优先级、进程模型分流） | 接口冻结 §2–§9（rev.5）+ `tests/unit/test_runtime_*.py`（含冻结消息契约测试） |
 | 设备可采性与逐 rank 绑定 | 接口冻结 §4 权威表；`tests/unit/test_runtime_devices.py`；`tests/integration/test_runtime_binding_mpi.py` |
 | P1 本地真实 GPU 隔离路径与证据链 | 验证报告 §4–§5 |
 | DP + mpi4py 图像并行 NEB（首个 E2E） | 报告 §6（与串行逐帧等价 max\|ΔE\| 1.4e-06 eV） |

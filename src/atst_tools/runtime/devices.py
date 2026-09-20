@@ -30,7 +30,7 @@ _UUID_PATTERN = re.compile(
 
 DEVICES_TYPE_MESSAGE = "runtime.devices must be a device index, GPU UUID or a list of them"
 DEVICES_ENTRY_MESSAGE = (
-    "runtime.devices entry {token!r} is not a valid 0-based device index "
+    "runtime.devices entry '{token}' is not a valid 0-based device index "
     "or full GPU UUID"
 )
 DEVICES_DUPLICATE_MESSAGE = "runtime.devices must not contain duplicate entries ({token})"

@@ -83,6 +83,19 @@ def _coerce_float(value: Any) -> Any:
     return value
 
 
+def _positive_interval(value: Any) -> float:
+    """Return a positive sampling interval or raise the frozen message."""
+    try:
+        interval = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "runtime.telemetry.interval_s must be a positive number"
+        ) from exc
+    if interval <= 0:
+        raise ValueError("runtime.telemetry.interval_s must be a positive number")
+    return interval
+
+
 def cpu_affinity_count() -> int:
     """Return the CPU budget implied by the process affinity mask."""
     try:
@@ -195,7 +208,7 @@ def merge_runtime_request(
         elif isinstance(raw, Mapping):
             telemetry_enabled = bool(raw.get("enabled", False))
             if raw.get("interval_s") is not None:
-                telemetry_interval = float(raw["interval_s"])
+                telemetry_interval = _positive_interval(raw["interval_s"])
         elif raw is not None:
             raise ValueError(
                 "runtime.telemetry must be a boolean or a mapping with 'enabled'"
@@ -203,10 +216,7 @@ def merge_runtime_request(
     if cli_telemetry is not None:
         telemetry_enabled = cli_telemetry
     if cli_interval is not None:
-        interval = float(_coerce_float(cli_interval))
-        if interval <= 0:
-            raise ValueError("runtime.telemetry.interval_s must be a positive number")
-        telemetry_interval = interval
+        telemetry_interval = _positive_interval(_coerce_float(cli_interval))
     if telemetry_interval <= 0:
         raise ValueError("runtime.telemetry.interval_s must be a positive number")
 

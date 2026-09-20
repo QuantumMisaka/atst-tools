@@ -69,6 +69,67 @@ def test_runtime_section_must_be_a_mapping():
         _normalize(["devices"])
 
 
+def test_runtime_section_uses_the_frozen_interface_messages():
+    """The interface freeze fixes these user-visible validation messages."""
+    cases = [
+        (["devices"], "runtime must be a mapping"),
+        (
+            {"devices": {}},
+            "runtime.devices must be a device index, GPU UUID or a list of them",
+        ),
+        (
+            {"devices": True},
+            "runtime.devices entry 'True' is not a valid 0-based device index or full GPU UUID",
+        ),
+        (
+            {"devices": [1.5]},
+            "runtime.devices entry '1.5' is not a valid 0-based device index or full GPU UUID",
+        ),
+        (
+            {"devices": []},
+            "runtime.devices must not be empty; omit the field to inherit all visible devices",
+        ),
+        (
+            {"devices": [0, 0]},
+            "runtime.devices must not contain duplicate entries (0)",
+        ),
+        (
+            {"devices": ["MIG-aa11bb22-cc33-4455-6677-8899aabbccdd"]},
+            "runtime.devices does not support MIG device selection "
+            "('MIG-aa11bb22-cc33-4455-6677-8899aabbccdd'); "
+            "pass a full physical GPU UUID instead",
+        ),
+        ({"threads": 0}, "runtime.threads must be a positive integer"),
+        (
+            {"binding": "pinned"},
+            "runtime.binding 'pinned' is not one of: inherit, round_robin",
+        ),
+        (
+            {"telemetry": "yes"},
+            "runtime.telemetry must be a boolean or a mapping with 'enabled'",
+        ),
+        (
+            {"telemetry": {"enabled": "yes"}},
+            "runtime.telemetry.enabled must be a boolean",
+        ),
+        (
+            {"telemetry": {"interval_s": 0}},
+            "runtime.telemetry.interval_s must be a positive number",
+        ),
+        (
+            {"telemetry": {"interval_s": "fast"}},
+            "runtime.telemetry.interval_s must be a positive number",
+        ),
+    ]
+    for runtime, expected in cases:
+        with pytest.raises(ValueError) as caught:
+            _normalize(runtime)
+        text = str(caught.value)
+        assert expected in text, (runtime, expected, text)
+        # The telemetry union must not leak the boolean member's pydantic error.
+        assert "runtime.telemetry.bool" not in text
+
+
 def test_runtime_section_is_absent_by_default_and_keeps_defaults_when_empty():
     assert "runtime" not in _normalize(None)
     assert _normalize({})["runtime"]["binding"] == "inherit"

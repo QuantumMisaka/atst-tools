@@ -78,6 +78,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（审阅地图 + 冷/热启动复核）：新增 [分支审阅地图](ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md)（49 提交分组、证据索引、开放门、复现命令、建议阅读顺序），作为 reviewer/合入入口；验证报告 §14 增补冷/热启动复核（全新目录 12.76 s vs 同目录重复 12.37/13.70 s，进程级缓存无显著影响）。
 
+- 2026-09-21（冻结消息机械审计 + 修正）：逐条比对接口冻结 §2/§4 的用户可见消息与实现，发现 5 处偏差并修正——`runtime must be a mapping` 未实现；`telemetry.enabled`/`interval_s` 走 pydantic 原始消息且 union 泄漏 `runtime.telemetry.bool` 行；非字符串 token 缺引号；CLI 非数字 interval 泄漏 `could not convert string to float`。实现现与冻结文本逐条一致，新增契约测试锁定（`test_runtime_schema.py` 表格 12 例 + `test_runtime_launch.py` 4 例）；`tests/unit` 1019 passed / 2 skipped；wheel clean-install 公开 API 门与 `ATST_RUN_MPI_TESTS=1` 集成 22 项在 `2c807a9` 复跑通过。接口冻结文档 §7.2 补记收口说明。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

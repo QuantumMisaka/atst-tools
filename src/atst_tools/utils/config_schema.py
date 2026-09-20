@@ -1117,6 +1117,14 @@ class RuntimeConfig(StrictConfig):
         description="Runtime evidence sidecar switch (boolean shorthand or object).",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _require_mapping(cls, value: Any) -> Any:
+        """Reject non-mapping runtime sections with the frozen message."""
+        if isinstance(value, RuntimeConfig) or isinstance(value, dict):
+            return value
+        raise ValueError("runtime must be a mapping")
+
     @field_validator("devices")
     @classmethod
     def _validate_devices(cls, value: Any) -> Any:
@@ -1160,10 +1168,23 @@ class RuntimeConfig(StrictConfig):
     @field_validator("telemetry", mode="before")
     @classmethod
     def _validate_telemetry(cls, value: Any) -> Any:
-        """Keep telemetry a boolean or a mapping instead of coercing strings."""
+        """Validate telemetry with the frozen messages instead of union errors."""
         if value is None or isinstance(value, bool):
             return value
         if isinstance(value, dict):
+            enabled = value.get("enabled", False)
+            if not isinstance(enabled, bool):
+                raise ValueError("runtime.telemetry.enabled must be a boolean")
+            interval = value.get("interval_s", None)
+            if interval is not None:
+                if isinstance(interval, bool) or not isinstance(interval, (int, float)):
+                    raise ValueError(
+                        "runtime.telemetry.interval_s must be a positive number"
+                    )
+                if float(interval) <= 0:
+                    raise ValueError(
+                        "runtime.telemetry.interval_s must be a positive number"
+                    )
             return value
         raise ValueError(
             "runtime.telemetry must be a boolean or a mapping with 'enabled'"
