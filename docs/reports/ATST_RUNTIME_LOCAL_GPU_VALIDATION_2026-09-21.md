@@ -356,3 +356,22 @@ case id），示例模板与单测同步更新；本节数据即用修复后的�
 
 边界：WSL2 + 单张消费级卡、118 原子、3/2 步短程 NEB、单次测量；不构成
 V100 或生产结论。
+
+## 16. AutoNEB + FT²DP 本地冒烟（2026-09-21 追加；非 P5 结论）
+
+P5 矩阵的 AutoNEB 行（"inherit / 已验证共享布局"）在本地用 FT²DP 单头 100k
+做了一次冒烟：端点取 H2-Au chain5 的首末帧（66 原子，`n_simul=2`、`n_max=4`、
+两段 `maxsteps=[3,3]`、`fmax=[0.5,0.5]`、`climb=false`、`parallel=false`）。
+
+- 结果：`status=success`、workflow `autoneb`、墙钟 16.25 s、`attempt_s=13.52`；
+  `dp.calculator_built=1`、`dp.calculator_reused=2`、`dp.force_calls=28`、
+  `dp.cached_instances=1` —— **图像间共享单个 calculator（预期布局）**；窗口按
+  `n_simul` 增长到 `n_max=4` 并正常收束（"n_max images has been reached" 的
+  非收敛提示属于 maxsteps 限制，不是错误）。
+- 产物：每图轨迹 `run_autoneb_smoke00{0..3}.traj`、`AutoNEB_iter_smoke/`、
+  `atst_api_result.json` 与 `atst-runtime-evidence-v1` sidecar（`complete`）。
+- 登台同步：SAI 路径版 AutoNEB case（`configs/dp_autoneb_h2au.yaml`）与
+  `fixtures/endpoints_H2Au.traj` 已加入 P5 清单草案（现 6 个 case）。
+
+边界：单卡、66 原子、两段 ×3 步、单次测量；并行 AutoNEB 与多卡布局仍留给
+P5 现场（结合 §15 的单卡压力结论，单卡多 rank 不应期待收益）。

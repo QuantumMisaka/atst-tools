@@ -131,6 +131,8 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 **NEB 图数 × rank 数本地压力测试（2026-09-21，非 P5 结论；详见报告 §15）**：FT²DP 科学体系（χ-Fe₅C₂ 118 原子，`TS1_IS/FS` 插值出 `chain6`=4 内部图、`chain10`=8 内部图，已入登台 fixtures）——串行 16.97 s / 20.37 s，单卡 4 rank 69.20 s、8 rank 136.83 s（4.1×/7.7× 负收益），显存峰值 7.6–7.7 GiB 逼近 8 GiB；并行侧 Σforce_calls 反而更少（18/26 vs 46/66）。→ P5 的"10 ranks / 1 卡"按压力边界记录、不预设收益；"图数 ≤ 卡数"收益只在多卡现场验证。
 
+**AutoNEB + FT²DP 本地冒烟（2026-09-21，非 P5 结论；详见报告 §16）**：66 原子 H2-Au 端点、`n_simul=2`/`n_max=4`/两段 3 步——`status=success`、16.25 s、`dp.cached_instances=1`（图像间共享单 calculator）、窗口增长到 n_max 正常收束；SAI 版 AutoNEB case 已加入 P5 清单草案（现 6 case）。并行 AutoNEB/多卡布局留 P5。
+
 **P5 开跑前待裁决（拟值，可直接批注）**：
 
 | 决策点 | 拟值 | 依据 |
