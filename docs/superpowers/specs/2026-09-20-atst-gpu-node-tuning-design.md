@@ -29,6 +29,8 @@
 
 维护者接手复核（2026-09-21，对照表见 §11）：`a633f06` 即 atst `v2.2.6` 发布提交；atst `origin/main` 为 `2cf5b7e6`（v2.2.6 + 7 个未发布提交：CCQN `interp_direction`、Sella 事件、IDPP 性能修复等），已选定为实施基线（R1）；独立 checkout `9318177` = `v2.2.4+1`；`workplace/app-tools-forge` pin `4c96691` = `v2.2.5`。本文档中 atst 源码路径均以 `deps/atst-tools/src/atst_tools/` 为基准（`examples/` 与仓级 `scripts/` 除外）。
 
+性能前提复核（2026-09-21，[P0 复核](2026-09-21-atst-gpu-node-tuning-p0-review.md)）：原稿“118 原子单点 6–13 min”无本地记录支持（同规模历史 median ≈20.19 min，n=43），须由 SAI `sacct`/日志或 P5 重测裁定；DP 模型的 mpi4py 并行 NEB 在 ft2dp-dpeva **从未运行**（全部 DP NEB 为 `parallel: false`），P4/P5 已相应增加验收项。
+
 | 事实 | 实现或记录 | 对方案的影响 |
 | --- | --- | --- |
 | DP 在当前 Python 进程导入并实例化，存在进程内 calculator cache，`omp` 会写进程环境 | `calculators/dp.py` | 不能假设已有独立 DP 子进程；绑定早于科学库初始化 |
@@ -277,3 +279,5 @@ DP fixture 建议两层：atst 已有 `examples/dp_model_manifest.json` 的通�
 - **R2（验证环境）** `atst-dev` 当前 editable 安装指向独立 checkout（dist 2.2.3 / 代码 v2.2.4+1）。所有证据必须显式记录“解释器、包路径、dist 版本”三元组；本分支验证以 `PYTHONPATH=src` 覆盖为默认，`pip install -e .` 重指向动作与 P1 一并执行并登记。错了的代价：未重指向时，证据可能落在旧代码上（已实测 `tests/unit/test_config.py` 默认 4 failed、`PYTHONPATH=src` 56 passed）。
 - **R3（线程优先级）** `calculator.*.omp` 显式设置时按其执行（保持 Toolbox 已验证契约）；`runtime.threads` 仅在该 calculator 未设置 `omp` 时作为进程默认，冲突以证据 fact 记录、不静默覆盖用户科学配置。依据：§4.3 与 P2 的“不静默覆盖用户已有科学配置”。错了的代价：若反转优先级，平台既有 `omp=ABACUS_CORES_PER_GPU` 行为会被新 runtime 默认值改变。
 - **R4（共享文件顺序）** 与恒电势在途分支的共享文件清单与建议顺序见接口文档 §8：GPU 侧先做新增模块与文档，`config_schema.py`、`scripts/main.py`、`api/services.py`、`calculators/factory.py` 的共享改动在恒电势分支提交合入后串行落地。错了的代价：并行提交会在同一区域反复冲突并产生不可审阅的合并。
+- **R5（设备请求可采性）** 显式 `devices` 的可采性由接口文档 §4 的单一权威表裁决：可信 allocation 下允许收窄；allocation 未知时仅允许对 caller-bound 掩码做集合内收窄；整机可见且无 allocation 事实时显式选择拒绝（不猜获配设备）；UUID 采 fail-closed。`ATST_ALLOCATION_DEVICES` 使用宿主命名空间 token 或 `count=<N>`。错了的代价：过宽会越过他人 allocation（错卡），过严会让 standalone 单卡用户无法 pin 设备（可退回复用外层 env 绑定）。
+- **R6（进程模型分流）** 未请求 runtime 的既有 `atst run` 维持进程内 legacy 路径（不合成 manifest、不写 `atst_api_result.json`、退出码不变）；仅当存在 runtime 段或选项时进入隔离 worker 模式，worker 经 `ATST_RUNTIME_BOUND` 标记做一致性校验而非重绑定。错了的代价：若把 legacy 路径也切到隔离模式，会破坏旧调用兼容与既有回归测试（`tests/unit/test_cli.py` 的 manifest 断言、runner 退出码契约）。

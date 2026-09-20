@@ -1,11 +1,11 @@
 # ATST-Tools Runtime 接口冻结设计（GPU 节点调优 P0）
 
-**版本**: 2026-09-21
+**版本**: 2026-09-21（rev.2，按独立审查清单修订）
 **日期**: 2026-09-21
-**状态**: 草案（P0 交付；待相称独立设计审查后进入 P1）
+**状态**: 草案（P0 交付；独立审查为 block，本版按其 3 个 blocker 与 7 个 major 清单闭合，待复审后进入 P1）
 **责任人**: ATST-Tools maintainers
 
-设计来源：[GPU 节点调优设计](2026-09-20-atst-gpu-node-tuning-design.md)；执行计划：[GPU 节点优化开发与验证计划](../plans/2026-09-20-atst-gpu-node-tuning-plan.md)。本文冻结 P0 要求的接口语义（schema 拼写、优先级、解析边界、进程路径、证据与协调顺序），不表示代码、真实计算或发布已执行。实现与本文冲突时以本文为准；变更需回写本文并列 Ruling。
+设计来源：[GPU 节点调优设计](2026-09-20-atst-gpu-node-tuning-design.md)；执行计划：[GPU 节点优化开发与验证计划](../plans/2026-09-20-atst-gpu-node-tuning-plan.md)；审查记录：[P0 复核](2026-09-21-atst-gpu-node-tuning-p0-review.md)与独立设计审查（2026-09-21，findings 已逐条处理，见 §10）。本文冻结 P0 要求的接口语义，不表示代码、真实计算或发布已执行。实现与本文冲突时以本文为准；变更需回写本文并列 Ruling。
 
 ## 1. 实施基线与环境身份
 
@@ -31,71 +31,102 @@ runtime:
     interval_s: 1.0
 ```
 
-| 字段 | 类型 | 默认 | 语义 |
+| 字段 | 类型 | 默认 | 语义与用户可见描述（冻结，供生成参数表） |
 | --- | --- | --- | --- |
-| `runtime.devices` | null、int、str 或 list（int/str 混合） | null（inherit） | 设备请求；只决定请求，不扩大可用集合 |
-| `runtime.binding` | `inherit` 或 `round_robin` | `inherit` | MPI 逐 rank 绑定策略；`round_robin` 仅限已核验的单节点共同设备池 |
-| `runtime.threads` | null 或 ≥1 整数 | null | 进程线程预算；科学库初始化前生效（优先级见 §6） |
-| `runtime.telemetry` | null、bool 或 `{enabled: bool=false, interval_s: float>0=1.0}` | false | GPU 宿主采样与运行证据 sidecar 开关 |
+| `runtime.devices` | null、int、str 或 list（int/str 混合） | null（inherit） | 设备请求：继承可见集合内的 0-based 逻辑序号或完整 GPU UUID；只决定请求，不扩大可用集合。 |
+| `runtime.binding` | `inherit` 或 `round_robin` | `inherit` | 逐 rank 设备绑定策略；`round_robin` 仅限已核验的单节点共同设备池（P1 阶段 fail-closed）。 |
+| `runtime.threads` | null 或 ≥1 整数 | null | 进程线程预算；在科学库初始化前生效，冲突优先级见 §6。 |
+| `runtime.telemetry` | null、bool 或 `{enabled: bool=false, interval_s: float>0=1.0}` | false | 运行证据 sidecar 与 GPU 宿主采样开关。 |
+
+`runtime` 本身必须是 mapping；未知子键由 strict schema 拒绝（`extra="forbid"`，沿用现有行为）。`true`/`false` 不接受为整数（不得被当作 1/0）。
 
 `devices` 值语法（YAML / CLI / env 三者一致）：
 
-- 标量或列表；元素为非负整数（0-based 逻辑序号）或完整物理 UUID（`GPU-` + 8-4-4-4-12 十六进制）。
-- 列表保持顺序；重复元素拒绝；负数拒绝；`MIG-` 前缀拒绝（首期不支持 MIG 选择）。
-- 空列表、CLI 空值、`ATST_VISIBLE_DEVICES=""` 一律视为“显式空请求”并拒绝；字段缺省 / 环境变量未设置 = inherit。两者不可混同。
+- 标量与列表元素为非负整数（0-based 逻辑序号）或完整物理 UUID（`GPU-` + 8-4-4-4-12 十六进制）。
+- 列表保持顺序；重复元素拒绝；负数与浮点拒绝；`MIG-` 前缀拒绝（首期不支持 MIG 选择）。
+- 空列表、CLI 空值、`ATST_VISIBLE_DEVICES=""` 一律视为“显式空请求”并拒绝；字段缺省 / 环境变量未设置 = inherit。
 - 逻辑序号相对“继承可见集合”，与原子选择 1-based 规则无关。
 
 校验消息（冻结，英文，`ConfigValidationError`）：
 
-- `runtime.devices must be a device index or GPU UUID string`
+- `runtime must be a mapping`
+- `runtime.devices must be a device index, GPU UUID or a list of them`
 - `runtime.devices entry '<token>' is not a valid 0-based device index or full GPU UUID`
 - `runtime.devices must not contain duplicate entries (<token>)`
 - `runtime.devices must not be empty; omit the field to inherit all visible devices`
 - `runtime.devices does not support MIG device selection ('<token>'); pass a full physical GPU UUID instead`
 - `runtime.threads must be a positive integer`
 - `runtime.binding '<mode>' is not one of: inherit, round_robin`
+- `runtime.telemetry must be a boolean or a mapping with 'enabled'`
+- `runtime.telemetry.enabled must be a boolean`
 - `runtime.telemetry.interval_s must be a positive number`
 
 ## 3. CLI 与环境变量
 
-`atst run` 与 `python -m atst_tools.api.runner` 增加以下可选选项；未指定时行为与现状逐字节一致：
+`atst run` 与 `python -m atst_tools.api.runner` 增加以下可选选项：
 
 - `--devices <spec>`：逗号分隔，语法同 YAML；空值 = 显式空请求（拒绝）。
 - `--binding inherit|round_robin`
 - `--threads <n>`
 - `--telemetry` / `--no-telemetry`，`--telemetry-interval <sec>`
 
-优先级（逐字段独立解析）：CLI > YAML `runtime.*` > `ATST_VISIBLE_DEVICES`（仅 devices）> 缺省。任何层级只决定“请求”，不能扩大可用集合。`ATST_VISIBLE_DEVICES` 与参数同语法、同逻辑序号语义，不是 CUDA mask 的直接复制。
+优先级（逐字段独立解析）：CLI > YAML `runtime.*` > `ATST_VISIBLE_DEVICES`（仅 devices）> 缺省。任何层级只决定“请求”，不能扩大可用集合。
+
+环境变量：
+
+| 变量 | 角色 | 语法 |
+| --- | --- | --- |
+| `ATST_VISIBLE_DEVICES` | 设备请求（同 `--devices`） | 同 `devices` |
+| `ATST_ALLOCATION_DEVICES` | **外层提供的可信分配事实**（平台/harness），atst 只消费不生成 | 逗号分隔的 token 列表（UUID 或宿主序号，宿主命名空间），或 `count=<N>` 表示“数量已知、身份未知” |
+| `ATST_RUNTIME_BOUND` | 内部绑定标记（由 coordinator 设置，见 §5） | `1`；只表达状态，不构成资源授权 |
 
 其他子命令（`atst prepare`、`atst config validate`、`atst banner` 等）本期不新增 runtime 选项；`atst prepare` 不生成 `runtime` 段。
 
 ## 4. 设备解析语义
 
-四层事实分开记录：requested / inherited / allocation / effective。解析在 bootstrap 内、科学库导入之前完成：
+四层事实分开记录：requested / inherited / allocation / effective。解析在 bootstrap 内、科学库导入之前完成。
 
-1. 读 `CUDA_VISIBLE_DEVICES`（未设置 = 全部可见）；需要身份时用短命 helper 枚举 UUID，coordinator 不初始化 CUDA。
-2. 解析 requested（§3 优先级）；无请求 = inherit。
-3. allocation 事实：平台 adapter 提供时可用；首期仅接受外层显式传入 `ATST_ALLOCATION_DEVICES`（同语法），未提供 = unknown。
-4. 过度暴露判定：
+- `inherited`：`CUDA_VISIBLE_DEVICES` 的字面集合；未设置 = 整机可见。**已设置且非空 = 调用者已绑定（caller-bound）**。
+- `allocation`：`ATST_ALLOCATION_DEVICES`（宿主命名空间）；未提供 = unknown。
+- `effective`：最终写入 child 的集合；**恒为 inherited 的子集**（不变量）。
 
-| inherited 与 allocation 关系 | 请求形态 | 行为 |
-| --- | --- | --- |
-| 身份未知，visible 数 > 可信 allocation | 显式 devices，或共享/重绑定请求 | 拒绝：`explicit device selection is refused: ...` |
-| 身份未知，visible 数 > 可信 allocation | 纯 inherit、无冲突证据 | 原样沿用启动环境，记录 `allocation_identity: "unverified"` |
-| 有可信 allocation | 显式 devices | 收窄到 inherited ∩ allocation；越界报错 |
-| 无 allocation 事实 | 显式 devices（ordinal） | 允许；记录 allocation unknown；ordinal 越界报错 |
+可采性规则（唯一权威表；`devices` 请求的可采性由本表裁决，不再出现在两张互斥表中）：
 
-- `effective` 永远是 inherited 的子集；序号越界消息：`device index <i> is outside the inherited visible set (size <n>)`。
-- UUID 请求在无法枚举身份时按字面 token 传递并标记 `identity: "literal"`。
+| allocation | inherited | 请求 | 行为 |
+| --- | --- | --- | --- |
+| 已知（含 `count=N`） | 任意 | 显式 devices | 允许；收窄到 inherited ∩ allocation；越界或 token 不在可信集合内 → 拒绝 |
+| 已知且数量小于 visible 数 | 身份不可验证 | 显式 devices / 共享 / 重绑定 | 拒绝：`explicit device selection is refused: the visible device set exceeds the trusted allocation and device identity is unverified` |
+| unknown | caller-bound | 显式 devices（继承集合内收窄） | 允许；记录 `allocation_identity: "unverified"` |
+| unknown | caller-bound | 请求出现继承集合之外的 token | 拒绝（fail-closed）：`... is not part of the inherited visible set` |
+| unknown | 整机可见（env 未设置） | 显式 devices | 拒绝：`explicit device selection is refused: the visible device set is not caller-bound and the trusted allocation is unknown` |
+| unknown | 任意 | inherit（无 devices） | 放行，原样沿用启动环境；记录 `allocation_identity: "unverified"` 或已知状态 |
+
+- UUID token 采 fail-closed：必须能在 inherited 字面串或枚举结果中定位，否则拒绝（不得按字面透传给 child 导致零可见设备或静默落 CPU）。
+- 序号越界消息：`device index <i> is outside the inherited visible set (size <n>)`。
+- `binding: round_robin` 在 P1 为 **fail-closed**：`world.size <= 1`、无已核验单节点共同池、或 local rank 不可判定时抛 `RuntimeBindingError`（不静默按 inherit 执行）。local rank 来源冻结为 `OMPI_COMM_WORLD_LOCAL_RANK`、`SLURM_LOCALID`、`PMIX_LOCAL_RANK`（P4 可扩展）；轮转为 `local_rank % effective_count`。
 - 无 GPU/无采样工具：显式 GPU 请求按执行错误失败；计量降级不冒充成功。
 
-## 5. 进程与启动边界
+## 5. 进程、入口与嵌入 API（冻结进程模型分流）
 
-- `atst run`：轻量 coordinator 解析配置/CLI → 构造 child（CUDA mask、线程、cwd、可写 JIT/cache 目录、telemetry 开关）→ 以 exec 进入唯一 worker 进程，复用 `python -m atst_tools.api.runner` 协议与原子结果写。一个工作流一个新解释器，不为每次力调用创建进程。
-- 导入链：绑定先于 NumPy/ASE/DP/ABACUS/JAX 初始化；`atst_tools/__init__.py` 保持轻量（当前为 metadata-only）；新 runtime 模块不得在包导入期触发重依赖，P1 用 import smoke 测试固定。
-- MPI：既有 launcher 每 rank 启动 bootstrap，rank 在 MPI/CUDA 初始化前绑定并 exec；communicator 不跨普通 subprocess 传递；NEB/AutoNEB 的 rank 约束与失败同步 helper 不变。
-- 嵌入 API：`run_workflow(config, RunOptions(...))` 保持当前进程、communicator、callback 和返回类型；YAML 含 `runtime.devices` 或 `runtime.threads` 时抛 `RuntimeBindingError`（`embedding API cannot rebind devices; run the workflow through 'atst run' or 'python -m atst_tools.api.runner' instead`），不污染调用者环境；`runtime.telemetry` 只读记录。
-- 失败与取消：worker 进程组有界终止，回收采样进程与槽位；MPI 初始化前死亡由 launcher/coordinator 的退出与超时处理。
+**模式分流（SPEC §11 R6）**：
+
+1. **未请求 runtime**（YAML 无 `runtime` 段且无 runtime 选项）：`atst run` 保持现状进程内路径（`run_workflow_from_cli` 语义），不合成 manifest、不写 `atst_api_result.json`、退出码不变——旧调用逐字节兼容。
+2. **请求 runtime**：进入隔离模式。轻量 coordinator 构造 child（CUDA mask、线程、cwd、缓存目录、`ATST_RUNTIME_BOUND=1`）→ 以 exec 进入唯一 worker（复用 `python -m atst_tools.api.runner` 协议与原子结果写）。一个工作流一个新解释器，不为每次力调用创建进程。
+
+**内部标记 `ATST_RUNTIME_BOUND` 语义（冻结）**：只表达“child 已由 coordinator 绑定”，不构成资源授权。标记存在时，worker 内 `run_workflow` 对 `runtime.*` 做**一致性校验**（与实际 env/线程不符 → `RuntimeBindingError`），不再拒绝设备请求；标记不存在时（嵌入或进程内调用），`runtime.devices`、`runtime.threads`、`runtime.binding: round_robin` 一律抛 `RuntimeBindingError`（`embedding API cannot rebind devices; run the workflow through 'atst run' or 'python -m atst_tools.api.runner' instead`）。
+
+**入口与导入契约（P1 必须实现，且受测试固定）**：
+
+- console script 维持单一 `atst`（`tests/unit/test_cli.py` 固定）；`scripts/cli.py` 把 NumPy/ASE/`scripts.main` 导入推迟到命令处理内，使 runtime 解析可先于科学库导入。
+- `api/runner.py` 把 `from atst_tools.api import ...` 推迟到 runtime 解析之后（`main()` 内）。
+- 新增轻量解析模块（建议 `atst_tools/runtime/`），包导入期不得引入 NumPy/ASE/DP/ABACUS/JAX；以 import smoke 测试固定。
+- `mpi4py` bootstrap 允许先于设备绑定（MPI 初始化 ≠ CUDA 初始化）；CUDA/DP/ABACUS/JAX 初始化必须晚于绑定。
+
+**缓存目录（冻结契约）**：每 attempt 一个可写目录 `<workflow_dir>/.atst_cache/<attempt>/`；child 环境设 `JAX_COMPILATION_CACHE_DIR`、`NUMBA_CACHE_DIR`、`MPLCONFIGDIR` 指向其内，路径记入证据。P1 可追加更多缓存键，但“每 attempt 独立可写目录”不变。
+
+**失败与取消**：worker 进程组有界终止，回收采样进程与槽位；MPI 初始化前死亡由 launcher/coordinator 的退出与超时处理。
+
+**错误类型（冻结）**：`RuntimeBindingError(ATSTAPIError)`，加入 `atst_tools.api.__all__`（需同步更新 `tests/unit/test_api.py` 的等值断言；属纯增量 API 变化）。
 
 ## 6. 线程与 OMP 优先级（SPEC §11 R3）
 
@@ -103,59 +134,81 @@ runtime:
 | --- | --- | --- | --- |
 | 显式 | 缺省 | calculator 值（现状） | — |
 | 显式 | 显式且不同 | calculator 值 | fact `runtime_threads_overridden`（记录两值） |
-| 缺省 | 显式 | runtime 值（导入前写入） | — |
+| **缺省** | **显式** | **runtime 值**（导入前写入；工厂/驱动的隐式默认不得覆盖） | — |
 | 缺省 | 缺省 | 不写 OMP，保持现状 | — |
 
-进程级键：`OMP_NUM_THREADS`、`OPENBLAS_NUM_THREADS`、`MKL_NUM_THREADS`、`NUMEXPR_NUM_THREADS` 取同一值。`calculator.omp` 的既有写入点（`calculators/dp.py:92-94`、`calculators/factory.py:165`）保持不变，冲突只记录、不覆盖用户科学配置。
+进程级键：`OMP_NUM_THREADS`、`OPENBLAS_NUM_THREADS`、`MKL_NUM_THREADS`、`NUMEXPR_NUM_THREADS` 取同一值。
+
+现有 `OMP_NUM_THREADS` 写入点（完整清单）：`calculators/dp.py:92-94`、`calculators/factory.py:165`、`workflows/md.py:278`（另有 `utils/abacus_io.py:232` 仅用于 `--check-input` 子进程）。其中 `factory.py:159-165` 与 `md.py:278` 会把**缺省** omp 隐式写成 `1`，与上行第三行冲突——**P1 必须修改**：仅当 `calculator.*.omp` 为用户显式给出时才写 `omp` 值（或以 fact 记录覆盖），保证 `runtime.threads` 不被隐式默认静默覆盖。
 
 ## 7. Fixture 与运行证据
 
 ### 7.1 Fixture 候选（P5 定稿）
 
-- DP 通用回归：`examples/dp_model_manifest.json` 的 `DPA-3.1-3M`（head `Omat24`，sha256 `86dd3a80…`）。
-- DP 科研候选（只读）：`FT2DPv2.2-dpa4-air-zbl-single100k-v20260919` 的 `checkpoints/model.ckpt-100000.pt`（regular，sha256 `13b74797…`；EMA `45667e7f…`），位于 `/home/james/work/ft2dp-dpeva/models/…`。使用前回读模型 manifest 核验 head/type map/单位/精度/格式与运行兼容；历史接入记录为 atst 2.1.1 + deepmd `3.2.1.dev0+g687b5107`，不得当作恒电势模型使用。
-- ABACUS 候选（按规模）：`examples/01_neb_Li-Si`、`02_neb_H2-Au`、`03_autoneb_Cy-Pt`、`08_d2s_Cy-Pt`、`06_relax_H2-Au`；原子数与输入身份在 P5 基线实测登记，不用原稿“120 原子量级”假设。
-- 原稿作业证据待补：DP `1422694/1422849/1423160`、ABACUS `1423179` 的日志/输入/卡时；未补齐前不作为基线。
+- DP 通用回归：`examples/dp_model_manifest.json` 的 `DPA-3.1-3M`（head `Omat24`，sha256 `86dd3a80…`）；本 checkout 无本地权重，P5 前经 `scripts/download_dp_model.py` 下载并按 `tests/unit/test_dp_model_manifest.py` 固定 url/sha256/size 校验。
+- DP 科研候选（只读）：FT²DP 单头 100k。本机副本 `scratch_atp_upload/model.ckpt-100000.pt`（sha256 `13b74797…` 已实测一致）；SAI 钉版路径为 `$R/models/ft2dp-v2.2/FT2DPv2.2-dpa4-air-zbl-single100k-v20260919/checkpoints/`。EMA `45667e7f…` 目前只在 pin 文档中（`ft2dp-dpeva/docs/checkpoints/2026-09-19-C075-…pin.md`），本机无文件，P5 需从 SAI 取并复核。使用前回读模型 manifest 核验 head/type map/单位/精度/格式；不得当作恒电势模型使用。
+- 历史接入记录（atst 2.1.1 + deepmd `3.2.1.dev0+g687b5107`）来源：`ft2dp-dpeva/docs/superpowers/plans/2026-09-19-ft2dp-v2.2-model-validation.md:78`（未独立复核）。
+- ABACUS 候选（按规模）：`examples/01_neb_Li-Si`、`02_neb_H2-Au`、`03_autoneb_Cy-Pt`、`08_d2s_Cy-Pt`、`06_relax_H2-Au`；原子数与输入身份在 P5 基线实测登记。
+- 原稿作业证据待补：DP `1422694/1422849/1423160`、ABACUS `1423179` 的日志/输入/卡时（SAI 侧 `sacct`，本机不可达）；复核结论见 [P0 复核](2026-09-21-atst-gpu-node-tuning-p0-review.md)。
 
-### 7.2 运行证据 sidecar
+### 7.2 运行证据 sidecar（冻结）
 
 - 触发：存在 `runtime` 段、显式 runtime 选项或 `telemetry.enabled=true` 时写出；缺省调用不新增文件、结果文档逐字节不变。
-- 位置与引用：`runtime_evidence.json` 与 artifact manifest 同目录；manifest metadata 增加可选 `runtime_evidence` 相对路径；`atst-api-result-v1` 增加可选 `runtime` 摘要对象（只增字段）。
+- 产物：同目录 `runtime_evidence.json`；manifest metadata 键 `runtime_evidence`（相对路径）；`atst-api-result-v1` 增加可选 `runtime` 摘要对象（只增字段）。
 - 字段分层按 SPEC §6：workflow/stage、rank/worker、GPU device、process（可得）、allocation/batch。状态 `disabled | unavailable | partial | observed` 加 `reason/source`；缺失 = null，不填 0；显存峰值标记 `sampled_peak`。
-- 采样所有权：每 job 一个宿主采样器（不按 rank 复制），默认关闭；`nvidia-smi` 缺失或权限不足时状态 `unavailable`。
+- 采样所有权：**每 job 仅 local rank 0 启动一个宿主采样器**（其余 rank 不复制），默认关闭；`nvidia-smi` 缺失或权限不足时状态 `unavailable`。
 
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）
 
-现状（2026-09-21）：`sidereus/.worktrees/constant-potential-plan-review` 的 atst 子模块在本地分支 `feature/constant-potential-integration` 上有 29 个未提交文件，含本计划 P1–P2 要改的共享文件：`utils/config_schema.py`（+304）、`api/services.py`、`calculators/factory.py`、`scripts/main.py`、`utils/neb_endpoints.py`，以及双方都会更新的用户文档。
+现状（2026-09-21）：`sidereus/.worktrees/constant-potential-plan-review` 的 atst 子模块在本地分支 `feature/constant-potential-integration` 上有 29 个未提交文件，含 GPU 侧 P1–P2 要碰的共享文件：`utils/config_schema.py`（+304）、`api/services.py`、`calculators/factory.py`、`scripts/main.py`、`utils/neb_endpoints.py`、`utils/abacus_io.py`，以及用户文档 `docs/user/PYTHON_API_REFERENCE.md`、`docs/user/CONFIG_REFERENCE.md`、`docs/user/CLI_REFERENCE.md`、`docs/user/USER_GUIDE_CN.md`、`docs/index.md`、`examples/README.md`、`README.md`、`docs/reports/FEATURE_STATUS_MATRIX.md`、`docs/reports/DOCUMENTATION_STATUS_REPORT.md`。
+
+GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（新）、`scripts/cli.py`（入口推迟）、`api/runner.py`（lazy import + 选项）、`utils/config_docs.py` 与 `docs/user/YAML_INPUT_VARIABLES.md`（`runtime` 是否进入生成参数表：**进入**，需扩展 `config_docs.py` 顶层字段遍历与 `tests/unit/test_config_governance.py` 覆盖）、`workflows/md.py`（OMP 写入点，见 §6）。
 
 建议顺序：
 
 1. 恒电势分支先提交其变更（当前完全未提交，存在丢失风险）；
-2. GPU 侧先落地无重叠的新模块（设备解析/绑定/证据）与单测、以及本文档；
-3. 恒电势合入后 GPU rebase，按顺序串行修改 `config_schema.py`（新增 `runtime` 段）→ `scripts/main.py`（CLI 选项）→ `api/services.py`（plumbing）→ `calculators/factory.py`（绑定适配）；
-4. 文档（`CONFIG_REFERENCE`、`CLI_REFERENCE`、`USER_GUIDE_CN`、README、`FEATURE_STATUS_MATRIX`、文档账本）最后合并，避免双方重复编辑。
+2. GPU 侧先落地无重叠的新模块（runtime 解析/绑定/证据）、`scripts/cli.py` 与 `api/runner.py` 的入口推迟，以及本文档；
+3. 恒电势合入后 GPU rebase，串行修改 `utils/config_schema.py`（新增 `runtime` 段）→ `scripts/main.py`（CLI 选项）→ `api/services.py`（plumbing）→ `calculators/factory.py`（绑定适配与 §6 的隐式默认修正）；
+4. 文档最后合并，显式包含 `PYTHON_API_REFERENCE.md`、`CONFIG_REFERENCE.md`、`CLI_REFERENCE.md`、`USER_GUIDE_CN.md`、`docs/index.md`、`examples/README.md`、`YAML_INPUT_VARIABLES.md`、`FEATURE_STATUS_MATRIX.md` 与账本；注意 `tests/unit/test_docs_governance.py` 对用户入口文档（`README.md`、`docs/index.md`、`examples/README.md`）设有禁用词表（`job/jobs/partition/qos/server/sai/test/pytest/ci` 等），合并文案需过门禁。
 
-字段归属：恒电势拥有 `calculation.type: constant_potential` 与 `calculator.constant_potential`；GPU 拥有 `runtime`；两者都只增可选字段，联合验收至少包含一条“同时启用仍严格校验”的测试（SPEC §7A）。
+字段归属：恒电势拥有 `calculation.type: constant_potential` 与 `calculator.constant_potential`；GPU 拥有 `runtime`；两者都只增可选字段，联合验收至少包含一条“同时启用仍严格校验”的测试（SPEC §7A）。`utils/abacus_io.py` 被恒电势分支占用（CP 语义校验），GPU 侧当前无重叠改动，合并时按恒电势版本为准。
 
 ## 9. P0 验收对照表
 
 | 场景 | 期望行为 |
 | --- | --- |
-| `CUDA_VISIBLE_DEVICES=2,3` + `runtime.devices: [0]` | effective = 继承集合第 0 个（宿主 2）；证据记录 inherited=[2,3]、requested=[0]、effective=<uuid 或 2> |
+| `CUDA_VISIBLE_DEVICES=2,3` + `runtime.devices: [0]` | effective = 继承集合第 0 个（宿主 2）；证据记录 inherited=[2,3]、requested=[0]、effective=<uuid 或 2>、allocation unverified |
 | `CUDA_VISIBLE_DEVICES=2,3` + `devices: []` | `ConfigValidationError`：`runtime.devices must not be empty; omit the field to inherit all visible devices` |
 | `CUDA_VISIBLE_DEVICES=2,3` + `devices: [2]` | `device index 2 is outside the inherited visible set (size 2)` |
-| visible=0,1,2,3、allocation 未知、`devices: [0]`（共享/重绑定请求） | 拒绝：`explicit device selection is refused: ...` |
-| 同上但纯 inherit 且无冲突证据 | 放行，证据 `allocation_identity: "unverified"` |
+| `CUDA_VISIBLE_DEVICES` 未设置（整机可见）+ `devices: [0]` | 拒绝：`explicit device selection is refused: the visible device set is not caller-bound and the trusted allocation is unknown` |
+| `ATST_ALLOCATION_DEVICES=count=1` + visible 0,1,2,3 + `devices: [0]` | 拒绝：`... the visible device set exceeds the trusted allocation and device identity is unverified` |
+| `ATST_ALLOCATION_DEVICES=<uuid>` 且与 visible 一致 + `devices: [<uuid>]` | 允许（收窄到 allocation ∩ inherited） |
+| `CUDA_VISIBLE_DEVICES` 未设置 + 请求不存在/越界 UUID | 拒绝（fail-closed；不得字面透传） |
 | `MIG-…` UUID 请求 | `runtime.devices does not support MIG device selection ('<token>'); ...` |
-| 已初始化进程内 API + `runtime.devices` | `RuntimeBindingError` 指向隔离入口；父进程 env/cwd 不变 |
-| 自定义 communicator/callback | 行为不变；`RunOptions.world` 原样使用 |
+| `binding: round_robin` 且 `world.size == 1` 或无已核验共同池 | `RuntimeBindingError`（不静默按 inherit 执行） |
+| 已初始化进程内 API + `runtime.devices` / `runtime.threads` / `binding: round_robin` | `RuntimeBindingError` 指向隔离入口；父进程 env/cwd 不变 |
+| worker 内 `ATST_RUNTIME_BOUND=1` 且 `runtime.*` 与环境一致 | 正常执行（一致性校验通过，不抛错） |
+| worker 内 `ATST_RUNTIME_BOUND=1` 但 `runtime.devices` 与环境不符 | `RuntimeBindingError` |
 | `devices: [1,1]` | `runtime.devices must not contain duplicate entries (1)` |
 | `ATST_VISIBLE_DEVICES=""` | 显式空请求错误；未设置 = inherit |
+| 不含 runtime 的既有 `atst run` | 进程内 legacy 路径；不新增 `atst_api_result.json`、不合成 manifest、退出码不变 |
 
-## 10. 未决与待审查项
+## 10. 审查处理与剩余未决
 
-- sidecar 文件名、位置与 manifest 键名（`runtime_evidence`）待审查确认；
-- `round_robin` 校验时机（bootstrap，依赖 world size）与逐 rank 掩码写法待 P4 以 fake-world 测试固定；
-- `ATST_ALLOCATION_DEVICES` 作为首期可信分配输入的命名与保留性待审查；
-- `telemetry.interval_s` 默认 1.0 s；
-- 是否允许 `--devices` 出现在 `atst validate`（默认否）。
+独立设计审查（2026-09-21）结论为 block；本版处理清单：
+
+| 审查项 | 处理 |
+| --- | --- |
+| B1 worker 与嵌入 API 冲突 | §5 冻结 `ATST_RUNTIME_BOUND` 语义与一致性校验 |
+| B2 进程模型破坏旧调用 | §5 冻结模式分流（legacy 默认路径 / runtime 隔离模式），SPEC §11 R6 |
+| B3 过度暴露两表互斥、allocation 命名空间未定义 | §4 单一权威表 + `ATST_ALLOCATION_DEVICES` 锚点与 `count=N`，SPEC §11 R5 |
+| M1 runner/CLI 生效时机与入口 | §5 入口与导入契约（lazy import、`atst_tools/runtime/` 轻量模块） |
+| M2 隐式 omp 覆盖 runtime.threads | §6 修订 + 写入点全清单 + P1 必改项 |
+| M3 错误分类学 | §5 `RuntimeBindingError(ATSTAPIError)` 与公开面 |
+| M4 UUID 字面透传 | §4 fail-closed |
+| M5 §8 文件清单不完整 | §8 扩展清单 |
+| M6 `runtime` 未进生成参数表 | §8 冻结“进入”+ `config_docs.py`/治理测试/description 文案 |
+| M7 `round_robin` 静默降级 | §4 P1 fail-closed + local rank 来源 |
+| m1–m8 | §2 消息补齐、§5 缓存契约与错误类型、§7.2 采样所有权与 sidecar 冻结、§8 文档门禁提示、§9 场景补齐、命名修正（`atst config validate`） |
+
+剩余未决（可留 P2/P4）：sidecar 采样字段的具体实现与间隔自适应；`round_robin` 的逐 rank 掩码扩展与多节点拒绝矩阵（P4 fake-world）；P3 harness 与外层绑定的去重策略。

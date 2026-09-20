@@ -12,6 +12,10 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21：接管 GPU 节点调优交接（发起方 ABACUS/Toolbox 文档目录）：[设计](../superpowers/specs/2026-09-20-atst-gpu-node-tuning-design.md)与[计划](../superpowers/plans/2026-09-20-atst-gpu-node-tuning-plan.md)迁入本仓规范源并登记；P0 产出 [runtime 接口冻结设计](../superpowers/specs/2026-09-21-atst-runtime-interface-design.md)（`runtime` schema 与错误消息、CLI/env 优先级、设备解析与过度暴露边界、bootstrap/嵌入 API 语义、OMP 优先级、证据 sidecar、恒电势共享文件顺序、P0 验收对照表）。裁定实施基线 `origin/main` `2cf5b7e6`（v2.2.6 + 7 个未发布提交）；发现 `atst-dev` editable 安装仍指向旧 checkout（v2.2.4+1），验证以 `PYTHONPATH=src` 为默认并记录环境三元组。未开始代码实施、未运行真实 GPU、未推送；P0→P1 门为相称独立设计审查与恒电势共享文件顺序确认。
 
+- 2026-09-21（P0 复核）：[性能前提与 DP 并行 NEB 证据审查](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)（取证源 `ft2dp-dpeva`）：原稿“118 原子单点 6–13 min”无本地记录支持（同规模 median ≈20.19 min，n=43）；DP 模型的 mpi4py 并行 NEB 从未运行（DP NEB 全为 `parallel: false`，image-parallel E2E 仅 ABACUS 后端）；推理侧无 GPU 利用率/显存采样。结论：高性能前提未证实；P4 增加“DP image-parallel NEB 首个 E2E”，P5 增加 DP 推理并发曲线、NEB 图数×卡数映射与推理侧采样三项验收。
+
+- 2026-09-21（独立设计审查）：接口冻结文档经独立审查（同族、独立上下文）结论 **block**：3 blocker（worker/嵌入 API 语义冲突；`atst run` 进程模型破坏旧调用兼容；过度暴露判定两表互斥且 allocation 命名空间未定义）与 7 major（入口生效时机、隐式 omp 覆盖、错误分类、UUID 透传、共享文件清单、生成参数表、`round_robin` 静默降级）。已按清单修订为 rev.2 并新增 SPEC §11 R5/R6；待复审。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
@@ -165,6 +169,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 生命周期 | 当前职责 |
 | :--- | :--- | :--- |
+| `docs/superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md` | review | P0 复核（性能前提与 DP 并行 NEB 证据审查）：GPU 调优前提未证实、DP mpi4py 并行 NEB 零证据、原稿作业记录不可达；结论已回写 SPEC §2 与 PLAN P4/P5 验收项。 |
 | `docs/superpowers/specs/2026-09-21-atst-runtime-interface-design.md` | spec | P0 接口冻结（接手 GPU 节点调优）：`runtime` schema 与冻结错误消息、CLI/env 优先级、设备解析与过度暴露边界、bootstrap 与嵌入 API 语义、OMP 优先级、证据 sidecar、恒电势共享文件顺序、P0 验收对照表；待相称独立设计审查。 |
 | `docs/superpowers/specs/2026-09-20-atst-gpu-node-tuning-design.md` | spec | GPU 节点调优设计（2026-09-21 自发起方迁入）：设备与进程契约、独立 case 与 MPI 并发、分层计量、基准与科学验收、恒电势协调；pin 对照与 Ruling 见 §11。 |
 | `docs/superpowers/plans/2026-09-20-atst-gpu-node-tuning-plan.md` | plan | 执行中（P0）：先 atst 后平台的分期计划（P0–P6）；P0 产出接口冻结与四项 Ruling，P1–P6 待执行。 |

@@ -42,7 +42,7 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 - [x] 定义 CLI 和 runner bootstrap 的一次性 exec/child 路径，核查包导入链；嵌入 API 保持不隐式启动进程（接口文档 §5）。
 - [x] 选 DP 模型/backend/head 和 ABACUS fixture；列出原稿 job 证据待补项，不把假设写为基线（接口文档 §7）。
 - [x] 双后端 fixture 均进入验收清单；DP 包含通用回归与只读 FT²DP 钉版 `.pt` 候选，回读模型 manifest 核实身份和运行兼容（接口文档 §7；权重回读在执行阶段完成）。沿用科研目录只读输入，新结果单独存放，不将普通 FT²DP 势标为恒电势模型。
-- [ ] 准备现有 legacy API/CLI/YAML 基线和代码 owner 测试；相称独立设计审查后进入 P1（基线套件已在 `PYTHONPATH=src` + `atst-dev` 下执行并记录；独立设计审查待启动）。
+- [ ] 准备现有 legacy API/CLI/YAML 基线和代码 owner 测试；相称独立设计审查后进入 P1。基线套件已执行（`PYTHONPATH=src` + `atst-dev`，877 collected、exit 0）；独立设计审查 2026-09-21 完成，结论 **block**（3 blocker + 7 major），接口冻结文档已按其清单修订为 **rev.2**（SPEC §11 R5/R6），待复审通过后进入 P1。
 
 验收：开发者能明确处理 `CUDA_VISIBLE_DEVICES=2,3` + 逻辑0、显式空掩码、过度暴露、已初始化 API、自定义 communicator/callback，无需临场决定产品语义（逐场景对照表见接口文档 §9）。P0 只做本地静态设计，不需要运行 GPU。
 
@@ -91,6 +91,7 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 - [ ] CPU fake-world 覆盖10/4、10/1、越界、不同 rank mask、零设备、多节点拒绝共享模式。
 - [ ] 使用真实 MPI + 无 GPU calculator 验证端点、active window、rank-local 配置异常、rank 崩溃和超时回收。
 - [ ] 验证每图 ABACUS 内部仍单 rank，无 nested MPI；DP 各 rank 模型上下文独立，容量以实测驻留为准。
+- [ ] DP 后端 image-parallel NEB 首个 E2E（P0 复核新增）：DP 环境内 `mpi4py` ABI 与站点 launcher 匹配（MPICH/OpenMPI 边界按 `docs/reports/MPI4PY_ASE_NEB_PARALLEL_ATST_SUMMARY_2026-05-27.md`）；`world.size == interior_images`；与串行同种子收敛等价；收益与容量曲线在 P5 测量。
 
 验收：科学计算前错误在各 rank 或 launcher 层有界结束；fake-world 不替代真实 MPI 证据。10 ranks/1 GPU 只在后续容量许可时计算。
 
@@ -104,6 +105,9 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 - [ ] 固定配置对比冷启动/稳态和同 allocation 吞吐；分开报告增加资源的收益。
 - [ ] 候选正式点至少三次交替重复，保留失败；host/SIF 成对验证，采样开/关检查观测开销。
 - [ ] 归档输入/环境身份、原始结果、采样、汇总与可重跑命令；报告适用范围，不输出通用每卡并发默认值。
+- [ ] DP 推理并发曲线（P0 复核新增）：同 allocation 每卡 1/2/4 个独立进程；记录 GPU 利用率、显存、成功 case/hour 与卡时/成功案；不采信“墙钟只随 CONC 缩放”的无据断言。
+- [ ] NEB 图数 × 卡数映射（P0 复核新增）：4/8 内部图 × 1/2/4/8 卡；验证“图数 ≤ 卡数”的延迟收益与 8 ranks/1 卡的压力边界。
+- [ ] 推理侧 GPU 采样（P0 复核新增）：利用率/显存/样本覆盖，复用 P2 sampler；无采样工具时记 `unavailable`、不得填 0。
 
 验收：工程和科学门禁通过后才可比较性能；无显著提升如实报告，不强行满足“2倍/40%”。首次基准不自动扩展到20条反应或改用其它账号/分区。
 
