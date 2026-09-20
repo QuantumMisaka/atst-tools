@@ -68,6 +68,11 @@ is unchanged, including exit codes and the absence of `atst_api_result.json`.
 `python -m atst_tools.api.runner` accepts the same runtime options and rebinds
 itself before running the workflow.
 
+Commands that combine a runtime request with an option the isolation path
+cannot forward (for example an unknown or legacy flag) fail with an explicit
+"unsupported option(s) combined with runtime requests" error instead of
+silently dropping the option.
+
 ## Configuration Tools
 
 ```bash
