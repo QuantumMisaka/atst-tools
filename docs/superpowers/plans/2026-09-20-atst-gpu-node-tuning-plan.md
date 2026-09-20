@@ -115,7 +115,7 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 ### P5 预备（草案，2026-09-21；真实运行前仍待维护者裁决 fixture/容差/预算）
 
-启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（P3 harness，站点 QOS/module 行按 `$sai-user-guide` 现场填写）；清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（harness 默认注入 `ATST_TELEMETRY_ENABLED`，可用 `--no-case-telemetry` 关闭）+ 批次 `harness_summary.json`。
+启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（一条命令跑完"计时 sweep → 证据 pass → 归档记录"，站点 QOS/module 行按 `$sai-user-guide` 现场填写；`DRY_RUN=1` 可先自检命令）。默认时序：计时 sweep（`SLOTS=1,2,3` × `REPEATS=3`，无 per-case 采样）→ 证据 pass（首个 slots 变体 × 1 次，`--case-telemetry`，产出每 case sidecar）→ `bench_record.json`（自动带 SLURM job/partition/QOS 与 `MODEL` fixture 哈希）。清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（证据 pass）+ 批次 `harness_summary.json`。
 
 并发/重复矩阵入口：`python -m atst_tools.bench.sweep --manifest cases.json --out runs --devices 0,1 --slots 1,2,3 --repeats 3 [--cpu-budget N]`（变体间交替顺序、每 (variant,repeat) 独立目录、汇总 `sweep_summary.json`；默认不产 per-case sidecar 以避免采样噪声，`--case-telemetry` 显式开启；本地已用 3 repeats × slots 1,2 实测，见验证报告 §12）。
 
