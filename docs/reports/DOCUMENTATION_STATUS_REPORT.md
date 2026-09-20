@@ -76,6 +76,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（NEB 图数×rank 数本地压力测试）：FT²DP 科学体系（χ-Fe₅C₂ 118 原子，`TS1_IS/FS` 插值 chain6/chain10）单卡对照——串行 16.97 s / 20.37 s，单卡 4 rank 69.20 s、8 rank 136.83 s（**4.1×/7.7× 负收益**），显存峰值 7.6–7.7 GiB 逼近 8 GiB 上限；并行侧 Σforce_calls 更少（18/26 vs 46/66），劣化来自同卡多上下文下每次调用延迟。P5 的"10 ranks / 1 卡"改按压力边界记录；chain6/chain10 已加入登台 fixtures。报告 §15。
 
+- 2026-09-21（审阅地图 + 冷/热启动复核）：新增 [分支审阅地图](ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md)（49 提交分组、证据索引、开放门、复现命令、建议阅读顺序），作为 reviewer/合入入口；验证报告 §14 增补冷/热启动复核（全新目录 12.76 s vs 同目录重复 12.37/13.70 s，进程级缓存无显著影响）。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
@@ -192,6 +194,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | 文档 | 当前职责 |
 | :--- | :--- |
 | `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` | 隔离运行路径在本地真实 GPU（RTX 2070 SUPER + DPA-3.1-3M）的 end-to-end 证据：设备请求/绑定、线程预算、DP 推理计数、宿主采样与 manifest 引用；SAI V100/ABACUS/MPI 仍属 P5。 |
+| `docs/reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md` | GPU 节点调优分支（`feature/gpu-node-tuning`，49 提交）审阅地图：提交分组、证据索引、开放门与复现命令；面向 reviewer 与后续合入/PR。 |
 | `docs/reports/DP_VALIDATION_2.0.0.md` | DP/DPA 示例级 SAI 验证和相关边界证据。 |
 | `docs/reports/DPA3_DP_EXAMPLES_VALIDATION_2026-05-28.md` | DPA-3.1 DP examples 全量 config_dp runtime 验证、模型来源和 checksum 证据。 |
 | `docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md` | examples 与 main/LTS 3.10.1 对齐验证证据。 |
