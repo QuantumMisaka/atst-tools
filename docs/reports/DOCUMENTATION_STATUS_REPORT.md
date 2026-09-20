@@ -68,6 +68,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P5 前置续：FT²DP 本地接入 + 站点 env 复核）：**DPA4/SeZM 兼容性为选型硬条件**——站点 `deepmd-kit/3.1.2` 对 FT²DP 单头 100k 报 `Unknown model type: dpa4`，P5 底座改用 `deepmd-kit/3.2.0`（torch 2.13.0+cu126）+ `openmpi/5.0.8-nvhpc25.7-gnu-auto`（mpi4py 实测可用；Lmod 初始化路径 `/opt/modules/lmod/9.2.4/init/bash`，`/etc/profile.d/modules.sh` 不生效）。本地以 3.2.0b1.dev62 底座 venv 完成：atst 隔离 relax 冒烟（FT²DP 单头 100k、66 原子 H2-Au，E=−3498.0803 eV、sidecar `complete`）与 **FT²DP + mpi4py 3-rank 图像并行 NEB**（chain5，与串行逐帧等价 max|ΔE|=2.97e-05 eV、max|ΔF|=1.27e-05 eV/Å；小 band 并行更慢，每 rank ≈5 s 加载成本）；跨 3.2.0 dev 构建单点 ΔE 7.6e-06 eV。`scripts/sai_runtime_bench.sbatch` 已填入核实的 module 行（QOS 行留提交时确认）；运行手册与登台包在 `~/scratch/atst-p5-staging-20260921/`。**未提交作业、未写入远端**。
 
+- 2026-09-21（HEAD 复核快照）：`d8cd59c` 上 `tests/unit` 1016 passed / 0 failed（2 documented skips）、`ATST_RUN_MPI_TESTS=1 tests/integration` 22 passed（真实 MPI，48.5 s）；wheel clean-install 公开 API 门在 `b9722d7` 复跑通过（src 自 `acc791a` 未变）。P5 执行仍待维护者授权与 fixture/容差/预算裁决。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

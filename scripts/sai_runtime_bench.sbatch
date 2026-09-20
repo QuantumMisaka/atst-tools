@@ -35,7 +35,8 @@ SLOTS="${SLOTS:-1,2,3}"
 REPEATS="${REPEATS:-3}"
 CPU_BUDGET="${ATST_BATCH_CPU_BUDGET:-$(nproc)}"
 DRY_RUN="${DRY_RUN:-0}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+# SAI has python3 but no bare python; prefer an explicit interpreter (venv).
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python || command -v python3)}"
 
 # Site facts from the 2026-09-21 read-only reconnaissance (plan P5 prep):
 # Lmod lives under /opt/modules/lmod/9.2.4 with modulefiles in
