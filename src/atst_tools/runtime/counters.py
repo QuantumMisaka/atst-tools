@@ -17,6 +17,18 @@ _ENABLED = False
 _COUNTERS: dict[str, int] = {}
 _GAUGES: dict[str, float] = {}
 
+# Canonical keys: MPI aggregation sums exactly these counters (and the listed
+# gauges) so the rank-0 evidence document can report job-level totals.
+COUNTER_KEYS: tuple[str, ...] = (
+    "abacus.calculator_built",
+    "abacus.force_calls",
+    "dp.calculator_built",
+    "dp.calculator_reused",
+    "dp.force_calls",
+    "runtime_threads_overridden",
+)
+AGGREGATED_GAUGE_KEYS: tuple[str, ...] = ("dp.cached_instances",)
+
 
 def set_enabled(enabled: bool) -> None:
     """Enable or disable counting for this process."""

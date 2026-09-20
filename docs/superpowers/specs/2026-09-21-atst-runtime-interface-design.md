@@ -171,6 +171,8 @@ runtime:
 - 采样所有权：**每 job 仅 local rank 0 启动一个宿主采样器**（其余 rank 不复制），默认关闭；`nvidia-smi` 缺失或权限不足时状态 `unavailable`。
 - 实现状态（P2 首片，2026-09-21）：sidecar（schema `atst-runtime-evidence-v1`）、manifest 引用、环境/设备事实与宿主采样（rank 0 单例、默认关闭）已实现；计量写失败只写 stderr 警告、**不阻断科学运行**。结果 envelope 的 `runtime` 摘要对象、阶段耗时明细与力调用/模型构建计数留待 P2 后续片。
 
+MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`（`counters_scope=process`）外，成功路径在失败同步 collective 之后对**全部 rank** 求和 canonical 计数，写入 `counters_mpi`（`scope=sum-over-ranks`、`world_size`、`counters`、`gauges`）；失败路径无此集体操作，只保留 rank 0 的进程级值（诚实降级）。
+
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）
 
 现状（2026-09-21 更新）：`sidereus/.worktrees/constant-potential-plan-review` 的 atst 子模块位于本地分支 `feature/constant-potential-integration`；其 29 个在途文件已经维护者指示提交为 **checkpoint `7bc3f92`**（提交时验证：CP 相关单测 105 passed、`check_docs_governance.py` 通过；工作树已 clean）。该 checkpoint 是安全存档，不等于已审查/已合入 main——合入 main 仍由恒电势 owner 决定。共享文件（GPU 侧 P1–P2 要碰的）：`utils/config_schema.py`（+304）、`api/services.py`、`calculators/factory.py`、`scripts/main.py`、`utils/neb_endpoints.py`、`utils/abacus_io.py`，以及用户文档 `docs/user/PYTHON_API_REFERENCE.md`、`docs/user/CONFIG_REFERENCE.md`、`docs/user/CLI_REFERENCE.md`、`docs/user/USER_GUIDE_CN.md`、`docs/index.md`、`examples/README.md`、`README.md`、`docs/reports/FEATURE_STATUS_MATRIX.md`、`docs/reports/DOCUMENTATION_STATUS_REPORT.md`。

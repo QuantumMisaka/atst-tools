@@ -40,6 +40,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P1–P4 独立代码审查与修复）：同族独立 reviewer 审查 22 提交 diff，确认 8 项 findings 并全部修复——**F1 blocker**：YAML `runtime.binding: round_robin` 在 worker 一致性校验中被错误拒绝（`verify_bound_devices` 现按 rank 重放轮转，并新增真实 MPI 回归 `test_bound_worker_verifies_round_robin_facts_under_mpi`）；F2：count-only allocation 覆盖可见集合时不再要求 caller-bound；F3：harness 默认注入 `ATST_TELEMETRY_ENABLED`，无 YAML `runtime` 段的 case 也产出 sidecar；F4：`allocation_identity=verified` 仅在 token 列表时成立；F5：多槽 case 只分配互异设备；F6：`run_manifest` 异常路径在 finally 停止采样器；F7：显式 `omp` 覆盖继承预算时记录 `runtime_threads_overridden` 计数与 gauge；F8：legacy 路径保留旧默认（无 runtime 请求仍写 `OMP_NUM_THREADS=1`）。验证：`tests/unit` 全绿（约 1010 项）、`ATST_RUN_MPI_TESTS=1` 集成 21 项通过、wheel clean-install 公开发布门（含 `--mpi-smoke`）通过、本地 harness 复跑两份 case 均产出 sidecar。
 
+- 2026-09-21（MPI 计数汇总）：成功路径在失败同步 collective 后对全部 rank 求和 canonical 计数并写入 sidecar `counters_mpi`（`scope=sum-over-ranks`、`world_size`）；真实 3-rank DP NEB 复跑验证 `dp.force_calls` 由 rank 0 的 9 汇总为 23、`dp.calculator_built=4`、`cached_instances` gauge 求和 1；失败路径保持 rank 0 进程级值（诚实降级）。同时把 runtime 选项补进 `docs/skills/atst-cli/SKILL.md`。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

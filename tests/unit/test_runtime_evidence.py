@@ -350,6 +350,70 @@ def test_gauges_record_live_instances_in_the_sidecar(tmp_path):
     assert payload["gauges"]["dp.cached_instances"] == 2.0
     counters.reset()
     counters.set_enabled(False)
+
+
+def test_sidecar_records_rank_summed_counters_when_provided(tmp_path):
+    session = runtime_evidence.start_session(
+        workflow_dir=tmp_path,
+        workflow="neb",
+        config_runtime={"telemetry": {"enabled": False}},
+        environ={},
+        rank=0,
+    )
+    assert session is not None
+    session.finish(
+        "complete",
+        rank_counters={
+            "scope": "sum-over-ranks",
+            "world_size": 3,
+            "counters": {"dp.force_calls": 27},
+            "gauges": {"dp.cached_instances": 3},
+        },
+    )
+    payload = json.loads(
+        (tmp_path / runtime_evidence.EVIDENCE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert payload["counters_mpi"]["world_size"] == 3
+    assert payload["counters_mpi"]["counters"]["dp.force_calls"] == 27
+    assert payload["counters_scope"] == "process"
+
+
+def test_run_workflow_aggregates_counters_across_ranks(monkeypatch, tmp_path):
+    """MPI runs report summed counters in the rank-0 sidecar."""
+    from helpers import FakeWorld
+
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.runtime import counters
+
+    class DoublingWorld(FakeWorld):
+        def sum_scalar(self, value):
+            return int(value) * int(self.size)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
+    (tmp_path / "atst_artifacts.json").write_text(
+        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        encoding="utf-8",
+    )
+    counters.reset()
+    counters.increment("dp.force_calls", 3)
+
+    result = run_workflow(
+        _relax_config(telemetry=True),
+        RunOptions(world=DoublingWorld(size=2, rank=0)),
+    )
+
+    assert result.status == "complete"
+    payload = json.loads(
+        (tmp_path / runtime_evidence.EVIDENCE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert payload["counters_mpi"]["scope"] == "sum-over-ranks"
+    assert payload["counters_mpi"]["world_size"] == 2
+    assert payload["counters_mpi"]["counters"]["dp.force_calls"] == 6
+    assert counters.snapshot()["dp.force_calls"] == 3
+    counters.reset()
+    counters.set_enabled(False)
     instrumented = counters.instrument_calculator(
         _FakeCalculator(),
         build_key="dp.calculator_built",

@@ -138,6 +138,12 @@ python -m atst_tools.bench.harness --manifest cases.json --out runs \
 rank 0 计数（`dp.calculator_built=2`、`dp.calculator_reused=1`、
 `dp.force_calls=9`）与 79 个采样。
 
+复跑（含 rank 求和）：sidecar 新增 `counters_mpi`（`scope: sum-over-ranks`，
+`world_size=3`）——`dp.force_calls` 由 rank 0 的 9 汇总为 **23**、
+`dp.calculator_built` 4、`dp.calculator_reused` 1、
+`dp.cached_instances`（gauge 求和）1，即 3 个 rank 的独立模型上下文与调用
+总量第一次有了作业级证据；`counters`/`gauges` 仍保留 rank 0 的进程级原始值。
+
 实现侧同步补齐（均带测试）：case 级 `launcher`/`args`（`"mpiexec -n 3"` 或
 列表皆可）；worker 启动失败（缺 launcher/二进制）记为该 case 的
 `spawn_error` 失败证据，而不是让整批崩溃；`tests/integration/

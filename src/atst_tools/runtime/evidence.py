@@ -286,7 +286,13 @@ class EvidenceSession:
             self.sampler = HostSampler(self.telemetry_interval_s)
             self.sampler.start()
 
-    def finish(self, status: str, reason: str | None = None) -> str | None:
+    def finish(
+        self,
+        status: str,
+        reason: str | None = None,
+        *,
+        rank_counters: Mapping[str, Any] | None = None,
+    ) -> str | None:
         """Stop sampling, write the sidecar once and return its relative path."""
         if self.written_path is not None:
             return self.written_path.name
@@ -323,6 +329,8 @@ class EvidenceSession:
                 "reported as null, never zero.",
             ],
         }
+        if rank_counters is not None:
+            payload["counters_mpi"] = dict(rank_counters)
         try:
             _write_json_atomic(self.path, payload)
         except Exception:

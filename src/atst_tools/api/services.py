@@ -509,6 +509,46 @@ def _synchronize_rank_failure(
         )
 
 
+def _aggregate_runtime_counters(world: Any, workflow: str) -> dict[str, Any] | None:
+    """Sum the canonical runtime counters across ranks (collective).
+
+    Returns ``None`` for serial worlds.  Every rank must reach this call at the
+    same point, so it runs right after the failure-synchronisation collective
+    and before any rank-local work.
+    """
+    if int(world.size) <= 1:
+        return None
+    from atst_tools.runtime import counters as runtime_counters
+
+    local_counters = runtime_counters.snapshot()
+    local_gauges = runtime_counters.gauge_snapshot()
+    reduce = getattr(world, "sum_scalar", None) or getattr(world, "sum", None)
+    if reduce is None:
+        raise WorkflowExecutionError(
+            "Unable to synchronize runtime counters.",
+            workflow=workflow,
+        )
+    try:
+        totals = {
+            key: int(reduce(int(local_counters.get(key, 0))))
+            for key in runtime_counters.COUNTER_KEYS
+        }
+        gauges = {
+            key: int(reduce(int(local_gauges.get(key, 0))))
+            for key in runtime_counters.AGGREGATED_GAUGE_KEYS
+        }
+    except Exception as exc:
+        raise WorkflowExecutionError(
+            "Unable to synchronize runtime counters.", workflow=workflow
+        ) from exc
+    return {
+        "scope": "sum-over-ranks",
+        "world_size": int(world.size),
+        "counters": totals,
+        "gauges": gauges,
+    }
+
+
 def _ensure_completed_manifest(
     config: dict[str, Any],
     value: Any,
@@ -798,6 +838,7 @@ def _run_workflow(
                 failure = WorkflowExecutionError(str(exc), workflow=workflow)
             failure.__cause__ = exc
         _synchronize_rank_failure(world, workflow, failure)
+        aggregated_counters = _aggregate_runtime_counters(world, workflow)
         profiles = ()
         plots = ()
         if int(world.rank) == 0:
@@ -807,7 +848,9 @@ def _run_workflow(
         if not ensure_completed_manifest:
             return _result_without_manifest(config, world, "complete")
         evidence_reference = (
-            evidence.finish("complete") if evidence is not None else None
+            evidence.finish("complete", rank_counters=aggregated_counters)
+            if evidence is not None
+            else None
         )
         _ensure_completed_manifest(
             config,

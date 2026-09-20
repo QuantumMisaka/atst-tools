@@ -47,6 +47,21 @@ Use `atst run CONFIG.yaml` for calculator-backed workflows:
 ABACUS workflows use `calculator.name: abacus` and the active `abacuslite`
 backend. DP workflows use `calculator.name: dp` and `deepmd.calculator.DP`.
 
+On GPU hosts the optional runtime controls bind devices and thread budgets
+before the scientific stack is imported, and can write a run-evidence sidecar:
+
+```bash
+atst run CONFIG.yaml --devices 0,1 --threads auto
+atst run CONFIG.yaml --telemetry              # adds runtime_evidence.json
+python -m atst_tools.api.runner --config CONFIG.yaml --devices 0
+```
+
+`--devices` counts 0-based indices inside the *inherited* visible set (never
+physical renumbering); `--binding round_robin` maps `local_rank` onto a
+verified single-node pool for MPI launches. Without any runtime request the
+legacy in-process path is unchanged. See `docs/user/CONFIG_REFERENCE.md`
+section 4 and `docs/user/CLI_REFERENCE.md` for the full contract.
+
 ## Lightweight Commands
 
 These do not launch ABACUS or DP:
