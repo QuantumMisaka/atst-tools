@@ -50,13 +50,13 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 依赖：P0。对应 SPEC §4。
 
-- [ ] 先写行为测试：mask 顺序、UUID、缺失/空值、越界/重复、可信 allocation 收窄及 unsupported MIG；已知过度暴露但无获配身份必须拒绝，未知身份的 standalone inherit 保留未验证标记，不能用于共享池。
-- [ ] 实现纯解析与必要短命枚举 helper；coordinator 不初始化 CUDA，不扩大可见性/分配。
-- [ ] 调整轻量 bootstrap/import 链，复用 API runner；启动前设置 child env/cwd/cache/threads。
-- [ ] 子进程替身记录实际 env 与 import 顺序；验证父进程 env/cwd 不变，失败和取消不遗留子进程。
-- [ ] 验证未指定新字段的 CLI/API 输出、callback、communicator 和 manifest 消费行为；embedded rebinding 明确拒绝。
+- [x] 先写行为测试：mask 顺序、UUID、缺失/空值、越界/重复、可信 allocation 收窄及 unsupported MIG；已知过度暴露但无获配身份必须拒绝，未知身份的 standalone inherit 保留未验证标记，不能用于共享池（`tests/unit/test_runtime_devices.py`、`test_runtime_launch.py`、`test_runtime_dispatch.py`、`test_runtime_schema.py`；全量 951 项通过）。
+- [x] 实现纯解析与必要短命枚举 helper；coordinator 不初始化 CUDA，不扩大可见性/分配（`src/atst_tools/runtime/devices.py`，枚举仅经 `nvidia-smi` 短命查询且可注入替身）。
+- [x] 调整轻量 bootstrap/import 链，复用 API runner；启动前设置 child env/cwd/cache/threads（`runtime/launch.py` 构造 child env 与 worker 命令；`scripts/cli.py` 变为轻入口、重实现在 `cli_impl.py`；`api/__init__` PEP 562 惰性导出；runner 惰性导入并在绑定后 re-exec 自身）。
+- [x] 子进程替身记录实际 env 与 import 顺序；验证父进程 env/cwd 不变，失败和取消不遗留子进程（`test_runtime_entry.py`：stand-in 记录 env/facts；导入 smoke 断言 NumPy/ASE/JAX 等未加载；父进程 env 快照相等；exec 语义不留子进程）。
+- [x] 验证未指定新字段的 CLI/API 输出、callback、communicator 和 manifest 消费行为；embedded rebinding 明确拒绝（legacy 运行不新增 `atst_api_result.json`/`atst_artifacts.json`；`ensure_runtime_contract` 的嵌入拒绝与 worker 一致性校验）。
 
-验收：CPU 替身证明执行边界和兼容；真实 GPU 身份验收留到 P5，不以 mock 宣称 GPU 已验证。
+验收：CPU 替身证明执行边界和兼容（已完成，见上）；真实 GPU 身份验收留到 P5，不以 mock 宣称 GPU 已验证。用户可见文档（`CONFIG_REFERENCE`、`CLI_REFERENCE`、`USER_GUIDE_CN`）按接口文档 §8 在恒电势合入后的文档合并步更新；`YAML_INPUT_VARIABLES.md` 已随 schema 重新生成。
 
 ## P2：线程/backend 与运行证据
 

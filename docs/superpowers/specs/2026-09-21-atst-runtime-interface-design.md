@@ -97,7 +97,7 @@ runtime:
 | allocation | inherited | 请求 | 行为 |
 | --- | --- | --- | --- |
 | token 列表（身份可验证） | 任意 | 显式 devices | 允许；收窄到 inherited ∩ allocation；越界或 token 不在可信集合内 → 拒绝 |
-| 仅 `count=N` 且 `N >= 继承集合规模` | 任意 | 显式 devices | 放行：effective = inherited（身份不可验证，不猜测） |
+| 仅 `count=N` 且 `N >= 继承集合规模` | 任意 | 显式 devices | 放行：允许在继承集合内收窄（effective = 解析后的子集）；身份不可验证时记 `unverified`，不猜测宿主编号 |
 | 仅 `count=N` 且 `N < 继承集合规模` | 任意 | 显式 devices / 共享 / 重绑定 | 拒绝：`explicit device selection is refused: the visible device set exceeds the trusted allocation and device identity is unverified` |
 | unknown | caller-bound | 显式 devices（继承集合内收窄） | 允许；记录 `allocation_identity: "unverified"` |
 | unknown | caller-bound | 请求出现继承集合之外的 token | 拒绝（fail-closed）：`... is not part of the inherited visible set` |
@@ -109,6 +109,7 @@ runtime:
 - 表中由环境/绑定判定触发的“拒绝”行一律抛 `RuntimeBindingError`（YAML 语法问题才抛 `ConfigValidationError`）。
 - **一致性校验基准（冻结）**：入口层在绑定前把继承集合与最终集合经 `ATST_INHERITED_DEVICES`、`ATST_EFFECTIVE_DEVICES` 传给 worker；校验式为“requested 在 inherited 基准上的解析结果 == effective == child 实际掩码”，**不得在收窄后的掩码上重新求序号**（否则恒真，无法发现绑错卡）。
 - `binding: round_robin` 在 P1 为 **fail-closed**：`world.size <= 1`、无已核验单节点共同池、或 local rank 不可判定时抛 `RuntimeBindingError`（不静默按 inherit 执行）。local rank 来源冻结为 `OMPI_COMM_WORLD_LOCAL_RANK`、`SLURM_LOCALID`、`PMIX_LOCAL_RANK`（P4 可扩展）；轮转为 `local_rank % effective_count`。
+- `round_robin` 的设备池 = 请求解析后的 effective 集合（`devices` 选池、逐 rank 在池内轮转）；池为空或非 caller-bound 时拒绝。
 - 无 GPU/无采样工具：显式 GPU 请求按执行错误失败；计量降级不冒充成功。
 
 ## 5. 进程、入口与嵌入 API（冻结进程模型分流）
@@ -128,6 +129,10 @@ runtime:
 - `mpi4py` bootstrap 允许先于设备绑定（MPI 初始化 ≠ CUDA 初始化）；CUDA/DP/ABACUS/JAX 初始化必须晚于绑定。
 
 **缓存目录（冻结契约）**：每 attempt 一个可写目录 `<workflow_dir>/.atst_cache/<attempt>/`；child 环境设 `JAX_COMPILATION_CACHE_DIR`、`NUMBA_CACHE_DIR`、`MPLCONFIGDIR` 指向其内，路径记入证据。P1 可追加更多缓存键，但“每 attempt 独立可写目录”不变。
+
+**attempt 编号**：取自 `ATST_ATTEMPT`（正整数，缺省/非法回退 1），用于缓存目录与证据归属。
+
+**worker 参数**：隔离模式下 coordinator 不把 runtime 选项回传给 worker（`--devices` 等由 coordinator 消费）；worker 的权威事实是 `ATST_RUNTIME_BOUND` + `ATST_INHERITED_DEVICES`/`ATST_EFFECTIVE_DEVICES`，一致性校验按 §4 基准执行。
 
 **失败与取消**：worker 进程组有界终止，回收采样进程与槽位；MPI 初始化前死亡由 launcher/coordinator 的退出与超时处理。
 
@@ -223,5 +228,6 @@ GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（�
 | M7 `round_robin` 静默降级 | §4 P1 fail-closed + local rank 来源 |
 | m1–m8 | §2 消息补齐、§5 缓存契约与错误类型、§7.2 采样所有权与 sidecar 冻结、§8 文档门禁提示、§9 场景补齐、命名修正（`atst config validate`） |
 | 复审 N1–N10 | N1 runner 直接入口的绑定/re-exec 规则、N2 env 通道纳入模式与 sidecar trigger、N3 一致性校验基准（`ATST_INHERITED_DEVICES`/`ATST_EFFECTIVE_DEVICES`）、N4 隐式 omp 二选一措辞、N5 count-only allocation 边界、N6 bool 显式 validator、N7 重依赖清单、N8 复核文档行号、N9 错误类型指派、N10 SPEC §4.1 指向 R5——已全部闭合 |
+| 实现期细化（rev.4，2026-09-21 P1） | ① count-only allocation 覆盖可见集合时按“集合内收窄”实现（rev.3 的“effective = inherited”措辞作废，用户请求不被忽略）；② `round_robin` 的池 = 解析后的 effective 集合；③ attempt 编号来源 `ATST_ATTEMPT`（缺省 1）；④ worker 不接收 runtime 选项回传，marker + facts 为权威；⑤ 轻入口经 `api` PEP 562 惰性导出与 `cli.py`/`cli_impl.py` 拆分实现，import smoke 已固定该事实；⑥ OMP 优先级经 `_effective_omp` 落地：显式 `calculator.abacus.omp` 胜出，否则保留继承预算，缺省写 1（保持旧行为）。 |
 
 剩余未决（可留 P2/P4）：sidecar 采样字段的具体实现与间隔自适应；`round_robin` 的逐 rank 掩码扩展与多节点拒绝矩阵（P4 fake-world）；P3 harness 与外层绑定的去重策略。

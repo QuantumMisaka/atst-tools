@@ -16,6 +16,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（独立设计审查）：接口冻结文档经独立审查（同族、独立上下文）两轮：首轮 **block**（3 blocker：worker/嵌入 API 语义冲突、`atst run` 进程模型破坏旧调用兼容、过度暴露判定两表互斥且 allocation 命名空间未定义；7 major：入口生效时机、隐式 omp 覆盖、错误分类、UUID 透传、共享文件清单、生成参数表、`round_robin` 静默降级）；修订后复审结论 **approve with required changes**，其 N1–N10（runner 直接入口 re-exec 规则、env 通道 trigger、一致性校验基准、count-only allocation 边界、bool 校验、重依赖清单等）已在 rev.3 全部闭合。新增 SPEC §11 R5/R6；P0 交付完成，P1 入口工作项需先落 N1 规则。
 
+- 2026-09-21（P1 实施）：runtime 层落地——设备请求解析与可采性（`src/atst_tools/runtime/devices.py`，含短命枚举 helper 与 `round_robin` fail-closed）、child 环境与 worker 计划（`runtime/launch.py`）、轻入口分流（`runtime/cli_dispatch.py`）、`runtime` YAML 段（`config_schema.py` + 重新生成的 `docs/user/YAML_INPUT_VARIABLES.md`）、`atst`/runner 入口（`cli.py` 轻壳 + `cli_impl.py`、`api` PEP 562 惰性导出、runner 惰性导入与绑定后 re-exec）、OMP 优先级修正（`factory.py`/`workflows/md.py` 的隐式默认不再覆盖 `runtime.threads`）。验证：`tests/unit` 951 项通过（新增 ~74 项行为测试：设备语义、可采性矩阵、child env 事实、入口 smoke、legacy 兼容、嵌入拒绝）；`check_docs_governance.py` 通过。用户可见文档与 SIF/平台内容按接口文档 §8 的合并顺序在恒电势合入后更新；真实 GPU 身份验收留 P5；未推送。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
