@@ -36,6 +36,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（harness×MPI 组合）：报告 §8——P3 harness 以 case 级 `launcher: [mpiexec,-n,3]` 驱动 P4 的 3-rank DP NEB：`succeeded`（wall 60.0 s、`gpu_seconds=60.0`），rank 0 写 `atst_api_result.json`，sidecar 记录 `mpi.world_size=3`、计数与 79 个采样；新增 case 级 `launcher`/`args` 与 spawn 失败记账（`spawn_error` 不使批次崩溃），并新增真实 launcher 的集成测试 `tests/integration/test_bench_harness_mpi.py`。P5 的 NEB 图数×卡数矩阵可直接复用该模板。
 
+- 2026-09-21（本地推理成本剖面）：报告 §9——DPA-3.1-3M / 66 原子实测：deepmd 导入 0.09 s、模型加载 ≈5.1–5.3 s/worker、首次调用预热 4.8–8.0 s、稳态 E+F ≈0.56–0.58 s/call，运行期 GPU 利用率 ≤20%（桌面共享卡）；结论：单次延迟由 CPU/调度侧主导，且每 worker 有 ≈10–13 s 固定成本（解释了短 relax 的 ≈30 s 墙钟构成）。P5 需在 V100 与科学模型上重测该剖面。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

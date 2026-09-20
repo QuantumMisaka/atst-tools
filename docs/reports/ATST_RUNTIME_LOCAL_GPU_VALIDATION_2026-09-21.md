@@ -141,3 +141,32 @@ rank 0 计数（`dp.calculator_built=2`、`dp.calculator_reused=1`、
 `spawn_error` 失败证据，而不是让整批崩溃；`tests/integration/
 test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧注意：
 `launcher` 需要绝对路径或已 `module load`（P5 现场按 `$sai-user-guide` 填写）。
+
+## 9. DP 单次推理成本剖面（本地微测量；回答"谁主导墙钟"）
+
+对同一张 66 原子 H2-Au 结构、DPA-3.1-3M（PT 后端）做逐次计时（每次
+`rattle` 强制重算 E+F）：
+
+| 量 | 实测（本机 1×RTX 2070 SUPER，桌面共享该卡） |
+| --- | --- |
+| `import deepmd` | 0.09 s |
+| 模型加载（每 worker） | ≈ 5.1–5.3 s |
+| 首次调用（预热/编译/邻居表） | ≈ 4.8–8.0 s（前 3 次合计 ≈ 19.5 s） |
+| 稳态 E+F | ≈ **0.56–0.58 s/call**（中位 2.67 s 含预热） |
+| 运行期 GPU 利用率 | ≤ 20%（`nvidia-smi` 采样；卡上另有桌面 Xwayland ≈3.2 GiB） |
+
+结论与影响：
+
+- 对 66 原子、DPA-3.1-3M 这类模型，**单次 E+F 延迟由 CPU/调度侧主导**
+  （0.57 s/call 而 GPU 利用率 ≤20%）——与 P0 复核中"Sella 成本在 CPU 侧"
+  的直觉部分一致，但主导项是 DP 推理调用本身，而不是 Sella/JAX 的坐标运算
+  （`atst-dev` 里 jax 为 CPU-only，Sella 的 jacfwd/vmap 亦走 CPU）。
+- 每 worker 存在 ≈10–13 s 的固定成本（模型加载 + 首次调用预热），解释了
+  12 步 relax（3 次力调用）为何仍需 ≈30 s：3×冷调用 ≈19.5 s + 加载 ≈5 s。
+- 因此"每卡多进程"对小体系几乎无单案减速（§7），而真正的大收益方向是
+  摊薄固定成本与多卡摊分调用（P5 测量）。
+
+边界：消费级卡 + 桌面共享、DPA-3.1-3M 类别、batch=1、无 ABACUS；ft2dp
+记录的 105 原子 120–184 ms/call 属更小模型世代，两者不可直接比较。P5 必须
+在 V100 与 FT²DP/科学 fixture 上重测该剖面，并记录 `DP_INFER_BATCH_SIZE`
+与线程档位。

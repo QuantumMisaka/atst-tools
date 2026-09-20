@@ -121,6 +121,8 @@ harness 语义：case 默认在配置文件所在目录运行（ATST 相对路�
 
 本地迷你并发观察（**非 P5 结论**，66 原子/单张 2070S/2 slots，详见 `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` §7）：单案墙钟 ±2%，makespan 46.3 s → 30.3 s。P5 仍须在 V100 上按矩阵重复测量。
 
+本地推理成本剖面（**非 P5 结论**，同报告 §9）：模型加载 ≈5 s/worker、首次调用预热 ≈5–8 s、稳态 E+F ≈0.57 s/call（66 原子/DPA-3.1-3M），运行期 GPU 利用率 ≤20% → 单次延迟由 CPU/调度侧主导；P5 需在 V100 上按模型世代与线程档位重测，并报告 `DP_INFER_BATCH_SIZE`。
+
 测量矩阵（SPEC §7.1）与本轮证据缺口对应：
 
 | 组 | 对照 | 记录 |
