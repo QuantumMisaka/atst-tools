@@ -67,6 +67,21 @@ def test_runner_help_exposes_the_runtime_options():
         assert flag in completed.stdout
 
 
+def test_cli_module_entry_point_executes_main():
+    code = (
+        "import runpy, sys\n"
+        "sys.argv = ['atst', '--help']\n"
+        "try:\n"
+        "    runpy.run_module('atst_tools.scripts.cli', run_name='__main__')\n"
+        "except SystemExit as exc:\n"
+        "    print('exit', exc.code)\n"
+    )
+    completed = _run_python(code)
+    assert completed.returncode == 0, completed.stderr
+    assert "usage: atst" in completed.stdout
+    assert "exit 0" in completed.stdout
+
+
 def test_worker_child_environment_carries_bound_facts(tmp_path):
     """A stand-in worker records the environment the coordinator builds."""
     from atst_tools.runtime import devices as runtime_devices

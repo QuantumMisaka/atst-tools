@@ -28,6 +28,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P2 收口片）：线程预算与采样细化——`runtime.threads: auto` 按 CPU affinity 解析（`cpu_affinity_count`），child env 记录 `ATST_THREADS_SOURCE` 并在证据中回显 `cpu_affinity_count`/`threads_source`；宿主采样增加计算进程行（`nvidia-smi --query-compute-apps`，`attribution=reported`，缺工具/权限/无进程分别记 `unavailable` 与原因）；P2 其余项以既有覆盖收口（ABACUS launcher/command 校验由 `tests/unit/test_factory.py` 16 项承载）。同时新增 P5 预备：`scripts/sai_runtime_bench.sbatch` 模板与计划内测量矩阵草案。全量 970 项通过。
 
+- 2026-09-21（本地真实 GPU 验证）：`docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md`——RTX 2070 SUPER + DPA-3.1-3M 上以隔离路径完成 relax（−203.7575 eV，≈31.5 s），`runtime_evidence.json`（status=complete）记录 requested/inherited/effective、线程预算与 affinity、`dp.calculator_built=1`/`dp.force_calls=3`、26 个宿主采样与真实显存占用；manifest 携带 `runtime_evidence` 引用。另修复 `python -m atst_tools.scripts.cli` 缺少 `__main__` 入口（模块执行静默无操作）并新增回归测试。SAI V100/ABACUS/MPI 仍属 P5。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
@@ -143,6 +145,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 | 文档 | 当前职责 |
 | :--- | :--- |
+| `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` | 隔离运行路径在本地真实 GPU（RTX 2070 SUPER + DPA-3.1-3M）的 end-to-end 证据：设备请求/绑定、线程预算、DP 推理计数、宿主采样与 manifest 引用；SAI V100/ABACUS/MPI 仍属 P5。 |
 | `docs/reports/DP_VALIDATION_2.0.0.md` | DP/DPA 示例级 SAI 验证和相关边界证据。 |
 | `docs/reports/DPA3_DP_EXAMPLES_VALIDATION_2026-05-28.md` | DPA-3.1 DP examples 全量 config_dp runtime 验证、模型来源和 checksum 证据。 |
 | `docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md` | examples 与 main/LTS 3.10.1 对齐验证证据。 |

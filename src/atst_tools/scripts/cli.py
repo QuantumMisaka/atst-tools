@@ -42,3 +42,7 @@ def __getattr__(name: str) -> Any:
     value = getattr(importlib.import_module(_IMPLEMENTATION), name)
     globals()[name] = value
     return value
+
+
+if __name__ == "__main__":  # pragma: no cover - module execution entry
+    raise SystemExit(main())
