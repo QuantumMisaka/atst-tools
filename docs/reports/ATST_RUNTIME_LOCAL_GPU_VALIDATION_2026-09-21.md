@@ -237,3 +237,11 @@ python -m atst_tools.bench.sweep --manifest cases_isolated.json --out sweep_loca
 生产体系的默认并发结论**。P5 仍按矩阵扩展到 1/2/3(–6) 变体、更多卡与
 FT²DP/ABACUS fixture，并把 `DP_INFER_BATCH_SIZE`、线程档位与仓库快照写入
 汇总。
+
+本轮同时用新增的 `python -m atst_tools.bench.record` 为上述测量生成了归档
+记录 `bench_record.json`（位于该次运行的 scratch 目录）：`atst-bench-record-v1`
+文档记录 atst 修订（`feature/gpu-node-tuning` @ `36f4d26`，dirty=false）、
+解释器与依赖版本、宿主机 GPU 清单（RTX 2070 SUPER UUID）、manifest 与
+DPA-3.1-3M fixture 的 sha256、两个结果目录的摘要（sweep 变体中位 44.582 /
+29.507 s，均为 6/6 成功）以及显式为 null 的操作者字段（job/partition/QOS/
+卡时/sacct/批准人），供 P5 站点运行时逐项补齐。
