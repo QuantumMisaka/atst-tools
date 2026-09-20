@@ -15,6 +15,7 @@ from typing import Any, Callable
 _LOCK = threading.Lock()
 _ENABLED = False
 _COUNTERS: dict[str, int] = {}
+_GAUGES: dict[str, float] = {}
 
 
 def set_enabled(enabled: bool) -> None:
@@ -44,10 +45,23 @@ def snapshot() -> dict[str, int]:
         return dict(sorted(_COUNTERS.items()))
 
 
+def set_gauge(key: str, value: float) -> None:
+    """Record the latest value of one observable process quantity."""
+    with _LOCK:
+        _GAUGES[key] = float(value)
+
+
+def gauge_snapshot() -> dict[str, float]:
+    """Return a JSON-safe copy of the recorded gauges."""
+    with _LOCK:
+        return dict(sorted(_GAUGES.items()))
+
+
 def reset() -> None:
     """Clear all counters (used by tests and fresh attempts)."""
     with _LOCK:
         _COUNTERS.clear()
+        _GAUGES.clear()
 
 
 def instrument_calculator(

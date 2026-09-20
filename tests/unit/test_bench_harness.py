@@ -76,8 +76,36 @@ def _case(case_id: str, mode: str = "ok") -> dict:
     return {
         "case_id": case_id,
         "config": f"{case_id}.yaml",
+        "workdir": case_id,
         "env": {"STANDIN_MODE": mode},
     }
+
+
+def test_default_workdir_is_the_configuration_directory(tmp_path, monkeypatch):
+    """Cases run where their config lives, like a user-typed `atst run`."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    config_dir = tmp_path / "source_case"
+    config_dir.mkdir()
+    config = config_dir / "config.yaml"
+    config.write_text("calculation: {}\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    summary = harness.run_manifest(
+        {"cases": [{"case_id": "inplace", "config": str(config)}]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=Path("out"),
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+    assert summary["succeeded"] == 1
+    assert (config_dir / "env.json").is_file()
+    report = json.loads(
+        (tmp_path / "out" / "inplace" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert report["workdir"] == str(config_dir)
+    assert (tmp_path / "out" / "inplace" / "harness_worker.out").is_file()
 
 
 def test_cases_run_in_slots_with_isolated_dirs_and_reports(tmp_path, monkeypatch):
@@ -111,6 +139,68 @@ def test_cases_run_in_slots_with_isolated_dirs_and_reports(tmp_path, monkeypatch
         assert report["result_json"] is not None
     events = [line.split()[0] for line in log.read_text(encoding="utf-8").splitlines()]
     assert events == ["start", "end", "start", "end"]
+
+
+def test_relative_output_dir_is_resolved_before_launching_workers(tmp_path, monkeypatch):
+    """A relative --out must not leak into worker paths (nested-dir regression)."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    monkeypatch.chdir(tmp_path)
+    summary = harness.run_manifest(
+        {"cases": [_case("rel")]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=Path("out"),
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+    assert summary["succeeded"] == 1
+    assert (tmp_path / "out" / "rel" / "env.json").is_file()
+    assert not (tmp_path / "out" / "rel" / "out").exists()
+    report = json.loads(
+        (tmp_path / "out" / "rel" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert Path(report["workdir"]).is_absolute()
+
+
+def test_sequential_cases_do_not_trigger_the_no_progress_guard(tmp_path, monkeypatch):
+    """A finishing case must not be mistaken for a stalled scheduler."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    cases = [_case("first", "sleep"), _case("second")]
+    cases[0]["timeout_s"] = 1.0
+    summary = harness.run_manifest(
+        {"cases": cases},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+    statuses = {row["case_id"]: row["status"] for row in summary["cases"]}
+    assert statuses == {"first": "timeout", "second": "succeeded"}
+    assert summary["succeeded"] == 1
+    assert summary["timed_out"] == 1
+
+
+def test_unsatisfiable_case_reports_an_explicit_error(tmp_path, monkeypatch):
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    case = _case("too-big")
+    case["slots"] = 2
+    with pytest.raises(RuntimeError) as caught:
+        harness.run_manifest(
+            {"cases": [case]},
+            harness.HarnessOptions(
+                devices=("0",),
+                output_dir=tmp_path / "out",
+                worker_factory=_factory(script),
+                telemetry=False,
+            ),
+        )
+    assert "too-big" in str(caught.value)
 
 
 def test_failure_keeps_evidence_and_stop_on_failure_skips_the_rest(tmp_path, monkeypatch):

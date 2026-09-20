@@ -94,3 +94,29 @@ CUDA_VISIBLE_DEVICES=0 mpiexec -n 3 python -m atst_tools.api.runner \
 
 局限：3 ranks 共享单张消费级 GPU，未测吞吐/加速比，也未涉及站点 OpenMPI、
 SIF、ABACUS 与 4×V100；这些仍按计划 P5 执行。
+
+## 7. 本地并发小实验（P3 harness 实跑；非 P5 结论）
+
+P3 harness 以**真实 worker**（非替身）在本机跑同一清单两遍：`--slots 1`
+（串行）与 `--slots 2`（两个 case 共享 GPU 0，隔离 `workdir`）。case 为
+66 原子 H2-Au / DPA-3.1-3M / relax 12 步（fmax 0.2 与 0.3）。
+
+| 变体 | makespan | caseA wall | caseB wall | 采样峰值显存 | 利用率 mean/max |
+| --- | --- | --- | --- | --- | --- |
+| 串行（slots=1） | 46.3 s | 30.7 s | 15.6 s | 3219 MiB | 14.8% / 20% |
+| 并发（slots=2） | 30.3 s | 30.3 s | 16.2 s | 3214 MiB | 10.9% / 18% |
+
+- 两个 case 共享一卡时**单案墙钟几乎不变**（±2%），批次 makespan 46.3 s →
+  30.3 s（≈1.5×）；显存峰值无增长；GPU 利用率本身很低（≤20%），说明这类
+  小体系 DP 推理在消费级卡上远未饱和。
+- 每 case 报告（`harness_case.json` + `atst_api_result.json`）与 sidecar
+  （`runtime_evidence.json`，含 `dp.calculator_built`/`dp.force_calls` 与
+  `dp.cached_instances` gauge）齐全；批次汇总保留全部 case 与卡时。
+- **边界（不可外推）**：单张 RTX 2070 SUPER、66 原子、12 步短程 relax、
+  2 slots、单次重复、无 ABACUS。它只支持"P5 值得测每卡多进程"这一假设，
+  不构成 V100/生产体系或并发默认值的结论；P5 仍按矩阵做 ≥3 次交替重复。
+
+本轮同时定稿 harness 运行语义（实现与文档一致）：case 默认在**配置文件所在
+目录**运行（ATST 相对 YAML 路径按 cwd 解析）；显式 `workdir`（相对批量输出
+目录）用于隔离并发场景；报告、worker 日志与 `atst_api_result.json` 一律写入
+`<out>/<case_id>/`。

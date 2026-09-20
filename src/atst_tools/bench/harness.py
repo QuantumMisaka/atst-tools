@@ -152,6 +152,7 @@ def worker_command(
     workdir: Path,
     devices: tuple[str, ...],
     *,
+    result_json: Path | None = None,
     factory: Callable[[CaseSpec, Path, tuple[str, ...]], Sequence[str]] | None = None,
 ) -> list[str]:
     """Return the worker argv for one case (the API runner by default)."""
@@ -167,8 +168,23 @@ def worker_command(
         "--workdir",
         str(workdir),
         "--result-json",
-        DEFAULT_RESULT_JSON,
+        str(result_json) if result_json is not None else DEFAULT_RESULT_JSON,
     ]
+
+
+def case_workdir(case: CaseSpec, output_dir: Path) -> Path:
+    """Return where one case runs.
+
+    The worker follows ATST path semantics (relative YAML paths resolve from
+    the process working directory), so the default is the configuration file's
+    own directory: a case behaves exactly like `atst run` typed there.  An
+    explicit `workdir` is resolved against the batch output directory, which
+    keeps concurrent cases of one manifest isolated.
+    """
+    if case.workdir:
+        candidate = Path(case.workdir)
+        return candidate.resolve() if candidate.is_absolute() else (output_dir / candidate)
+    return Path(case.config).resolve().parent
 
 
 def case_environment(
@@ -231,6 +247,11 @@ class _SlotPool:
         for item in self._held.pop(case_id, []):
             self._free.append(item)
 
+    @property
+    def free_count(self) -> int:
+        """Return how many device slots are currently free."""
+        return len(self._free)
+
 
 @dataclass
 class _RunningCase:
@@ -238,6 +259,7 @@ class _RunningCase:
     process: subprocess.Popen
     devices: tuple[str, ...]
     workdir: Path
+    report_dir: Path
     stdout_path: Path
     stderr_path: Path
     started_monotonic: float
@@ -292,8 +314,8 @@ def _case_report_payload(
         "config": running.case.config,
         "workdir": str(running.workdir),
         "result_json": (
-            str(running.workdir / DEFAULT_RESULT_JSON)
-            if (running.workdir / DEFAULT_RESULT_JSON).exists()
+            str(running.report_dir / DEFAULT_RESULT_JSON)
+            if (running.report_dir / DEFAULT_RESULT_JSON).exists()
             else None
         ),
         "stdout": str(running.stdout_path),
@@ -319,7 +341,7 @@ def _record_skipped(
         "wall_s": 0.0,
         "gpu_seconds": 0.0,
         "config": case.config,
-        "workdir": str(output_dir / (case.workdir or case.case_id)),
+        "workdir": str(case_workdir(case, output_dir)),
         "result_json": None,
         "stdout": None,
         "stderr": None,
@@ -337,7 +359,7 @@ def run_manifest(
 ) -> dict[str, Any]:
     """Run every manifest case with slot/CPU limits and return the summary."""
     cases = load_cases(manifest, options)
-    output_dir = Path(options.output_dir)
+    output_dir = Path(options.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     pool = _SlotPool(options.devices, options.slots_per_device)
     cpu_limit = options.cpu_limit()
@@ -383,11 +405,21 @@ def run_manifest(
         threads_in_use -= running_case.case.threads
 
     while pending or running:
+        if not running and pending:
+            admissible = any(
+                case.slots <= pool.free_count and case.threads <= cpu_limit
+                for case in pending
+            )
+            if not admissible and not stop.is_set():
+                blocked = ", ".join(case.case_id for case in pending)
+                raise RuntimeError(
+                    f"no case can start with {len(options.devices)} device "
+                    f"slot(s) and a CPU budget of {cpu_limit}: {blocked}"
+                )
         if stop.is_set() and not cancelled:
             cancelled = True
             for item in list(running.values()):
                 _terminate_group(item.process)
-        started_any = False
         if not cancelled:
             for case in list(pending):
                 if stop.is_set():
@@ -397,17 +429,25 @@ def run_manifest(
                 devices = pool.acquire(case.case_id, case.slots)
                 if devices is None:
                     continue
-                workdir = output_dir / (case.workdir or case.case_id)
+                report_dir = output_dir / case.case_id
+                report_dir.mkdir(parents=True, exist_ok=True)
+                workdir = case_workdir(case, output_dir)
                 workdir.mkdir(parents=True, exist_ok=True)
                 env = case_environment(
                     case, devices, base=os.environ, attempt=1, workdir=workdir
                 )
-                stdout_path = workdir / "harness_worker.out"
-                stderr_path = workdir / "harness_worker.err"
+                stdout_path = report_dir / "harness_worker.out"
+                stderr_path = report_dir / "harness_worker.err"
                 stdout_handle = stdout_path.open("w", encoding="utf-8")
                 stderr_handle = stderr_path.open("w", encoding="utf-8")
                 process = subprocess.Popen(
-                    worker_command(case, workdir, devices, factory=options.worker_factory),
+                    worker_command(
+                        case,
+                        workdir,
+                        devices,
+                        result_json=report_dir / DEFAULT_RESULT_JSON,
+                        factory=options.worker_factory,
+                    ),
                     env=env,
                     cwd=workdir,
                     stdout=stdout_handle,
@@ -421,6 +461,7 @@ def run_manifest(
                     process=process,
                     devices=devices,
                     workdir=workdir,
+                    report_dir=report_dir,
                     stdout_path=stdout_path,
                     stderr_path=stderr_path,
                     started_monotonic=time.monotonic(),
@@ -428,7 +469,6 @@ def run_manifest(
                 )
                 threads_in_use += case.threads
                 pending.remove(case)
-                started_any = True
         if not running and not pending:
             break
         time.sleep(0.05)
@@ -477,13 +517,6 @@ def run_manifest(
             pending.clear()
         if stop.is_set() and not running and not pending:
             break
-        if not started_any and not running and pending:
-            # No progress is possible (thread budget or slot pool exhausted).
-            blocked = ", ".join(case.case_id for case in pending)
-            raise RuntimeError(
-                f"no case can start with {len(options.devices)} device slot(s) "
-                f"and a CPU budget of {cpu_limit}: {blocked}"
-            )
 
     sampler_summary = sampler.stop() if sampler is not None else None
     succeeded = [row for row in reports if row["status"] == STATUS_SUCCEEDED]

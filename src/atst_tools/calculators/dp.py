@@ -107,6 +107,9 @@ class DeepPotentialFactory:
         key = _cache_key(model_file, constructor_params)
         if share and key in DeepPotentialFactory._instances:
             runtime_counters.increment("dp.calculator_reused")
+            runtime_counters.set_gauge(
+                "dp.cached_instances", len(DeepPotentialFactory._instances)
+            )
             return DeepPotentialFactory._instances[key]
 
         calc = DP(model=model_file, **constructor_params)
@@ -117,4 +120,7 @@ class DeepPotentialFactory:
         )
         if share:
             DeepPotentialFactory._instances[key] = calc
+        runtime_counters.set_gauge(
+            "dp.cached_instances", len(DeepPotentialFactory._instances)
+        )
         return calc

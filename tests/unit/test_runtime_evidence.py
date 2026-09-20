@@ -317,6 +317,29 @@ def test_counters_track_builds_and_force_calls_only_when_enabled():
 
     counters.reset()
     counters.set_enabled(False)
+
+
+def test_gauges_record_live_instances_in_the_sidecar(tmp_path):
+    from atst_tools.runtime import counters
+
+    counters.reset()
+    counters.set_gauge("dp.cached_instances", 2)
+    assert counters.gauge_snapshot() == {"dp.cached_instances": 2.0}
+    session = runtime_evidence.start_session(
+        workflow_dir=tmp_path,
+        workflow="relax",
+        config_runtime={"telemetry": {"enabled": False}},
+        environ={},
+        rank=0,
+    )
+    assert session is not None
+    session.finish("complete")
+    payload = json.loads(
+        (tmp_path / runtime_evidence.EVIDENCE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert payload["gauges"]["dp.cached_instances"] == 2.0
+    counters.reset()
+    counters.set_enabled(False)
     instrumented = counters.instrument_calculator(
         _FakeCalculator(),
         build_key="dp.calculator_built",

@@ -32,6 +32,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（DP image-parallel NEB 首跑）：同一报告 §6——本地 MPICH 3 ranks 完成 DP + `mpi4py` 图像并行 NEB（`world.size == interior_images`，`status=success`），证据记录 `mpi.world_size=3`、rank 0 计数（`dp.calculator_built/reused/force_calls`）与 45 个采样（峰值 3.2 GiB / 8 GiB）；与串行对照逐帧等价（max |ΔE| 1.4e-06 eV、|ΔF| 1.9e-06 eV/Å）。另修复 runner 直接入口 re-exec 的相对路径缺陷与 plan 构建晚于 chdir 的基准缺陷（均带回归测试）。P4 至此全部闭合；站点 OpenMPI/SIF 与收益曲线留 P5。
 
+- 2026-09-21（P3 harness 真实 worker 实跑 + 本地并发观察）：报告 §7——`bench/harness.py` 以真实 DP worker 跑同一 2-case 清单两遍（`--slots 1` vs `--slots 2`，隔离 `workdir`）：makespan 46.3 s → 30.3 s（≈1.5×），单案墙钟 ±2%，显存峰值不变，采样利用率 ≤20%；每 case 报告与 sidecar（含 `dp.cached_instances` gauge）齐全。修复三个 harness 缺陷（相对 `--out` 造成 worker 路径嵌套、串行完成被误判为"无进展"、case 运行目录语义未定义）；定稿语义：默认在配置文件目录运行、显式 `workdir` 相对批量输出目录、报告统一写 `<out>/<case_id>/`。新增实时站点快照与本地并发观察至 P5 预备段（非 P5 结论）。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

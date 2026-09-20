@@ -300,6 +300,7 @@ class EvidenceSession:
             "devices": device_facts(self.config_runtime, self.environ),
             "counters": _counters.snapshot(),
             "counters_scope": "process",
+            "gauges": _counters.gauge_snapshot(),
             "telemetry": {
                 "enabled": self.telemetry_enabled,
                 "interval_s": self.telemetry_interval_s,
