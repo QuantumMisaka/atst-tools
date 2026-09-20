@@ -83,6 +83,18 @@ def test_environment_and_device_facts_use_the_recorded_values():
     assert devices["effective"] == ["2"]
     assert devices["allocation_identity"] == "unverified"
 
+    coordinator_facts = dict(
+        environ,
+        **{
+            runtime_devices.REQUESTED_DEVICES_ENV: "1",
+            runtime_devices.REQUESTED_SOURCE_ENV: "--devices",
+        },
+    )
+    from_coordinator = runtime_evidence.device_facts(None, coordinator_facts)
+    assert from_coordinator["requested"] == ["1"]
+    assert from_coordinator["requested_source"] == "--devices"
+    assert from_coordinator["threads"] == 6
+
 
 def test_compute_process_sampling_reports_rows_and_permission_failures(monkeypatch):
     def ok_run(*args, **kwargs):

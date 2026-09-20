@@ -88,15 +88,32 @@ def device_facts(
 ) -> dict[str, Any]:
     """Describe the device request and the facts recorded by the coordinator."""
     section = config_runtime if isinstance(config_runtime, Mapping) else {}
-    requested = section.get("devices")
-    if requested is not None:
-        requested_tokens = [token.raw for token in _devices.parse_device_tokens(requested)]
+    requested_fact = environ.get(_devices.REQUESTED_DEVICES_ENV)
+    if requested_fact is not None and requested_fact.strip():
+        requested_tokens = [
+            part.strip() for part in requested_fact.split(",") if part.strip()
+        ]
+        requested_source = (
+            environ.get(_devices.REQUESTED_SOURCE_ENV) or "runtime.devices"
+        )
+    elif section.get("devices") is not None:
+        requested_value = section.get("devices")
+        requested_tokens = [
+            token.raw for token in _devices.parse_device_tokens(requested_value)
+        ]
+        requested_source = "runtime.devices"
     else:
         requested_tokens = []
+        requested_source = None
+    threads = section.get("threads")
+    if threads is None:
+        raw_threads = environ.get("OMP_NUM_THREADS", "").strip()
+        if raw_threads.isdigit():
+            threads = int(raw_threads)
     return {
         "bound": environ.get(_devices.RUNTIME_BOUND_ENV) == "1",
         "requested": requested_tokens,
-        "requested_source": "runtime.devices" if requested is not None else None,
+        "requested_source": requested_source,
         "inherited": _split(environ.get(_devices.INHERITED_DEVICES_ENV)),
         "effective": _split(environ.get(_devices.EFFECTIVE_DEVICES_ENV)),
         "caller_bound": environ.get(_devices.CUDA_VISIBLE_DEVICES) is not None,
@@ -106,7 +123,7 @@ def device_facts(
             else "unverified"
         ),
         "binding": section.get("binding", "inherit"),
-        "threads": section.get("threads"),
+        "threads": threads,
     }
 
 

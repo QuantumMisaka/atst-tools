@@ -228,6 +228,11 @@ def build_child_environment(
     env[_devices.RUNTIME_BOUND_ENV] = "1"
     env[_devices.INHERITED_DEVICES_ENV] = ",".join(resolution.inherited)
     env[_devices.EFFECTIVE_DEVICES_ENV] = ",".join(resolution.effective)
+    if request.devices is not None:
+        env[_devices.REQUESTED_DEVICES_ENV] = ",".join(
+            token.raw for token in request.devices
+        )
+        env[_devices.REQUESTED_SOURCE_ENV] = request.devices_source or "runtime.devices"
     if log_level:
         env[LOG_LEVEL_ENV] = str(log_level)
     if request.telemetry_enabled:
