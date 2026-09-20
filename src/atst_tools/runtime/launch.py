@@ -341,6 +341,14 @@ def ensure_runtime_contract(
         )
         return
     devices_value = section.get("devices")
+    if devices_value is None:
+        # CLI-driven requests leave their record in the facts, not the YAML.
+        requested_fact = env.get(_devices.REQUESTED_DEVICES_ENV)
+        devices_value = (
+            requested_fact
+            if requested_fact is not None and requested_fact.strip()
+            else None
+        )
     tokens = (
         None
         if devices_value is None

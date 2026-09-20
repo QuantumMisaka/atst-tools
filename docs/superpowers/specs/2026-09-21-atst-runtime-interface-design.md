@@ -171,7 +171,7 @@ runtime:
 - 采样所有权：**每 job 仅 local rank 0 启动一个宿主采样器**（其余 rank 不复制），默认关闭；`nvidia-smi` 缺失或权限不足时状态 `unavailable`。
 - 实现状态（P2 首片，2026-09-21）：sidecar（schema `atst-runtime-evidence-v1`）、manifest 引用、环境/设备事实与宿主采样（rank 0 单例、默认关闭）已实现；计量写失败只写 stderr 警告、**不阻断科学运行**。结果 envelope 的 `runtime` 摘要对象、阶段耗时明细与力调用/模型构建计数留待 P2 后续片。
 
-结果 envelope 摘要（已实现）：请求过 runtime 的运行在 `atst-api-result-v1` 顶层增加可选 `runtime` 对象（`status`、`evidence` 相对路径、`attempt`、`devices` 事实）；未请求 runtime 的运行不产生该键（逐字节兼容）。`--dry-run` 与 runtime 选项组合按同一触发规则进入隔离路径并在 worker 内校验（`--dry-run` 会转发给 worker），不再出现"argparse 未识别 `--devices`"的空洞。
+结果 envelope 摘要（已实现）：请求过 runtime 的运行在 `atst-api-result-v1` 顶层增加可选 `runtime` 对象（`status`、`evidence` 相对路径、`attempt`、`devices` 事实）；未请求 runtime 的运行不产生该键（逐字节兼容）。`--dry-run` 与 runtime 选项组合按同一触发规则进入隔离路径并在 worker 内校验（`--dry-run` 转发给 worker）：隔离 dry-run 的结果文档带 `runtime` 摘要（`status="dry-run"`、`evidence=null`）但不写 sidecar（没有实际计算），legacy dry-run 仍然不写任何文件；"argparse 未识别 `--devices`"空洞已消除。
 
 MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`（`counters_scope=process`）外，成功路径在失败同步 collective 之后对**全部 rank** 求和 canonical 计数，写入 `counters_mpi`（`scope=sum-over-ranks`、`world_size`、`counters`、`gauges`）；失败路径无此集体操作，只保留 rank 0 的进程级值（诚实降级）。
 

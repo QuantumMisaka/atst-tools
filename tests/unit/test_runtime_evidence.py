@@ -268,6 +268,34 @@ def test_documents_without_runtime_requests_stay_unchanged(monkeypatch, tmp_path
     assert result.runtime is None
 
 
+def test_dry_run_with_runtime_controls_reports_the_binding(monkeypatch, tmp_path):
+    """A validation-only run still reports the bound device facts."""
+    from atst_tools.api import RunOptions, run_workflow
+    from atst_tools.api import services
+    from atst_tools.runtime import devices as runtime_devices
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
+    monkeypatch.setenv(runtime_devices.RUNTIME_BOUND_ENV, "1")
+    monkeypatch.setenv(runtime_devices.INHERITED_DEVICES_ENV, "2,3")
+    monkeypatch.setenv(runtime_devices.EFFECTIVE_DEVICES_ENV, "2")
+    monkeypatch.setenv(runtime_devices.CUDA_VISIBLE_DEVICES, "2")
+    monkeypatch.setenv(runtime_devices.BINDING_ENV, "inherit")
+    monkeypatch.setenv(runtime_devices.REQUESTED_DEVICES_ENV, "0")
+    monkeypatch.setenv(runtime_devices.REQUESTED_SOURCE_ENV, "--devices")
+
+    result = run_workflow(
+        _relax_config(telemetry=True), RunOptions(dry_run=True)
+    )
+    document = result.to_document(tmp_path)
+    assert result.status == "validated"
+    assert document["runtime"]["status"] == "dry-run"
+    assert document["runtime"]["evidence"] is None
+    assert document["runtime"]["devices"]["effective"] == ["2"]
+    assert document["runtime"]["devices"]["requested"] == ["0"]
+    assert not (tmp_path / runtime_evidence.EVIDENCE_FILENAME).exists()
+
+
 def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(monkeypatch, tmp_path):
     from atst_tools.api import RunOptions, run_workflow
     from atst_tools.api import services

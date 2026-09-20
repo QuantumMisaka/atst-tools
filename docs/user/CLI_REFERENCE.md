@@ -75,8 +75,10 @@ silently dropping the option.
 
 `--dry-run` follows the same rule: without runtime options it keeps the legacy
 validation path, while `atst run --dry-run config.yaml --devices 0` validates
-the configuration *and* the device request in the bound worker (a result
-document is written there because the run went through the isolated path).
+the configuration *and* the device request in the bound worker. The isolated
+dry-run writes a result document whose optional `runtime` summary has
+`status: "dry-run"` (no run-evidence sidecar is produced, because nothing
+ran); the legacy dry-run keeps writing nothing.
 
 ## Configuration Tools
 
