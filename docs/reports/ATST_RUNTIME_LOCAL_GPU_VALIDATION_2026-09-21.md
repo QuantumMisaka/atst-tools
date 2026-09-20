@@ -287,3 +287,47 @@ P5 的大 band/真实 GPU 负载下按矩阵验证。
 
 边界：单张 RTX 2070 SUPER（WSL2）、3 内部图、6 步短程 NEB、单次测量；
 不构成 V100/生产结论，也不改变 P5 的重复与矩阵要求。
+
+## 14. FT²DP P5 预演：并发/线程矩阵与预算（本地，非 P5 结论）
+
+用 P5 的科学模型（FT²DP 单头 100k）与 66 原子 H2-Au relax（`fmax 0.05`、
+8 步、`dp.force_calls = 9`）预演 P5 前两项验收的测量形状；命令与产物在
+`~/scratch/atst-p5-staging-20260921/batch-ft2dp/`（wheel 安装方式，
+`atst_tools 2.2.6`，pytest 之外的独立 venv）。
+
+**14.1 计时扫描（`slots 1/2/3` × 2 repeats，无 per-case 采样）**
+
+| 变体 | makespan 中位 | 成功 | 卡时中位 |
+| --- | --- | --- | --- |
+| slots=1 | 26.23 s | 4/4 | 26.19 |
+| slots=2 | 13.69 s | 4/4 | 27.07 |
+| slots=3 | 13.49 s | 4/4 | 26.89 |
+
+两个 case（threads 1 与 4）在 slots=2 下几乎完美重叠（批次墙钟 ≈ 单 case 墙钟）；
+slots=3 不再改善——清单只有 2 个 case，可并发度上限即 2。
+
+**14.2 证据 pass（`slots 1/2`，`--case-telemetry`）**
+
+| 变体 | case | attempt | `dp.force_calls` | GPU util mean/max | 显存峰值 |
+| --- | --- | --- | --- | --- | --- |
+| slots=1 | t1 | 10.83 s | 9 | 13.7% / 29% | 3996 MiB |
+| slots=1 | t4 | 10.04 s | 9 | 7.7% / 15% | 3379 MiB |
+| slots=2 | t1 | 10.52 s | 9 | 9.8% / 20% | 4803 MiB |
+| slots=2 | t4 | 10.54 s | 9 | 9.8% / 20% | 4803 MiB |
+
+单 case 墙钟几乎不随并发变化（±5%）；显存峰值由 ~3.4–4.0 GiB 升到 4803 MiB
+（两个 SeZM 模型同时驻留）；利用率仍 ≤29%，与 §9/§12 的"该规模远未饱和"一致。
+threads 1→4 在该模型/该规模上只差 ~7%（每 worker ≈5 s 模型加载固定成本主导）。
+
+**14.3 顺带修掉的证据完整性缺陷**：首轮预演发现两个 case 若共享同一
+`workdir` 值，会在同一 (variant, repeat) 内互相覆盖 sidecar/traj/结果文件。
+`bench/harness.py` 现在拒绝重复的非空 `workdir`（错误信息列出冲突值与
+case id），示例模板与单测同步更新；本节数据即用修复后的版本重跑。
+
+**14.4 归档记录**：`batch-ft2dp/bench_record.json`（`atst-bench-record-v1`）记录
+解释器/依赖、GPU 清单（2070S UUID）、manifest 与 FT²DP 权重 sha256、结果目录
+全树哈希与显式 null 的操作者字段；由于从 wheel 运行，`revision` 三键为 null ——
+登台手册因此改为在 SAI 克隆 git bundle，使 P5 记录携带真实 `head/branch/dirty`。
+
+边界：单张消费级卡、2 个 case、2 repeats；P5 仍须在 V100 上按 ≥3 次交替重复
+执行并覆盖 ABACUS 通道，本节的数字只证明测量形状与工具链可用。

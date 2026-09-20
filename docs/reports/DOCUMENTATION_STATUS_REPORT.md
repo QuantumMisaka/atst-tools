@@ -70,6 +70,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（HEAD 复核快照）：`d8cd59c` 上 `tests/unit` 1016 passed / 0 failed（2 documented skips）、`ATST_RUN_MPI_TESTS=1 tests/integration` 22 passed（真实 MPI，48.5 s）；wheel clean-install 公开 API 门在 `b9722d7` 复跑通过（src 自 `acc791a` 未变）。P5 执行仍待维护者授权与 fixture/容差/预算裁决。
 
+- 2026-09-21（FT²DP P5 预演）：以 P5 科学模型（FT²DP 单头 100k）+ 66 原子 H2-Au relax 在本地走通 P5 首两项测量的形状——计时扫描 slots 1/2/3（makespan 26.23 → 13.69 → 13.49 s，4/4 成功；两 case 在 slots=2 下完全重叠）与证据 pass（util ≤29%、显存峰值 3.4→4.8 GiB、threads 1/4 差异 ~7%）；生成 `atst-bench-record-v1` 归档（wheel 运行 → revision 为 null，故登台包新增 git bundle 以携带真实 revision）。顺带修复：harness 现在拒绝共享非空 `workdir` 的 manifest（预防证据互相覆盖，含单测与模板说明）；全量单测 1017 passed / 2 skipped。详见验证报告 §14。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
