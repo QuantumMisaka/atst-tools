@@ -173,7 +173,7 @@ runtime:
 
 现状（2026-09-21 更新）：`sidereus/.worktrees/constant-potential-plan-review` 的 atst 子模块位于本地分支 `feature/constant-potential-integration`；其 29 个在途文件已经维护者指示提交为 **checkpoint `7bc3f92`**（提交时验证：CP 相关单测 105 passed、`check_docs_governance.py` 通过；工作树已 clean）。该 checkpoint 是安全存档，不等于已审查/已合入 main——合入 main 仍由恒电势 owner 决定。共享文件（GPU 侧 P1–P2 要碰的）：`utils/config_schema.py`（+304）、`api/services.py`、`calculators/factory.py`、`scripts/main.py`、`utils/neb_endpoints.py`、`utils/abacus_io.py`，以及用户文档 `docs/user/PYTHON_API_REFERENCE.md`、`docs/user/CONFIG_REFERENCE.md`、`docs/user/CLI_REFERENCE.md`、`docs/user/USER_GUIDE_CN.md`、`docs/index.md`、`examples/README.md`、`README.md`、`docs/reports/FEATURE_STATUS_MATRIX.md`、`docs/reports/DOCUMENTATION_STATUS_REPORT.md`。
 
-GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（新）、`scripts/cli.py`（入口推迟）、`api/runner.py`（lazy import + 选项）、`utils/config_docs.py` 与 `docs/user/YAML_INPUT_VARIABLES.md`（`runtime` 是否进入生成参数表：**进入**，需扩展 `config_docs.py` 顶层字段遍历与 `tests/unit/test_config_governance.py` 覆盖）、`workflows/md.py`（OMP 写入点，见 §6）。
+GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（新）、`src/atst_tools/bench/*` 与 `examples/runtime_batch_cases.example.json`（P3 参考 harness，新增、无重叠）、`scripts/cli.py`（轻入口壳）+ `src/atst_tools/scripts/cli_impl.py`（旧实现迁入）、`api/runner.py`（lazy import + 选项）、`utils/config_docs.py` 与 `docs/user/YAML_INPUT_VARIABLES.md`（`runtime` 进入生成参数表：已实现）、`workflows/md.py`（OMP 写入点，见 §6）。
 
 建议顺序：
 

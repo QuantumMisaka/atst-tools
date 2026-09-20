@@ -22,6 +22,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P2 第二片）：进程级计数器 `src/atst_tools/runtime/counters.py`（线程安全、默认关闭、session 请求时启用）：DP 计算器的构建/复用与力调用（`dp.calculator_built/reused`、`dp.force_calls`）、ABACUS 计算器构建与子进程调用（`abacus.calculator_built/force_calls`）；sidecar 增加 `counters` 与 `counters_scope=process`（MPI 逐 rank、ABACUS 子进程内 SCF 不可观测的局限已在 docstring 标注）。测试 958 项通过。
 
+- 2026-09-21（P3 首片）：独立 case 参考 harness `src/atst_tools/bench/harness.py`（manifest → 有限 case 队列；设备槽位（`slots_per_device` 默认 1）与 CPU 线程预算共同限流；每 case 独立目录、独立 worker 进程与 `harness_case.json`；OOM/超时/取消/跳过分类且不隐式重试；单例 `HostSampler`；`harness_summary.json` 保留全部任务与卡时；`SIGINT/SIGTERM` 有界终止进程组）。模板 `examples/runtime_batch_cases.example.json`；测试 `tests/unit/test_bench_harness.py`（6 项，替身 worker：槽位时序、超时整组回收、取消、停止策略、环境与目录隔离）。全量 968 项通过。真实 SAI 作业运行与并发曲线留 P5。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

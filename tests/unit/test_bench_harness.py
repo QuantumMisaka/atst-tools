@@ -1,0 +1,247 @@
+"""Tests for the finite-case batch harness (P3) with a stand-in worker."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import sys
+import threading
+import time
+
+import pytest
+
+from atst_tools.bench import harness
+
+STANDIN_SOURCE = """\
+import json, os, subprocess, sys, time
+from pathlib import Path
+
+mode = os.environ.get("STANDIN_MODE", "ok")
+workdir = Path.cwd()
+facts = {
+    "cuda": os.environ.get("CUDA_VISIBLE_DEVICES"),
+    "attempt": os.environ.get("ATST_ATTEMPT"),
+    "threads": os.environ.get("OMP_NUM_THREADS"),
+    "cache": os.environ.get("NUMBA_CACHE_DIR"),
+    "pid": os.getpid(),
+}
+(workdir / "env.json").write_text(json.dumps(facts))
+log = Path(os.environ["HARNESS_LOG"])
+
+
+def note(text):
+    with log.open("a", encoding="utf-8") as handle:
+        handle.write(text + "\\n")
+        handle.flush()
+
+
+note("start %s" % os.getpid())
+if mode == "sleep":
+    child = subprocess.Popen(["sleep", "120"])
+    (workdir / "child.pid").write_text(str(child.pid))
+    time.sleep(120)
+elif mode == "fail_oom":
+    sys.stderr.write("CUDA out of memory. Tried to allocate 2.00 GiB")
+    sys.stderr.flush()
+    time.sleep(0.05)
+    note("end %s" % os.getpid())
+    sys.exit(3)
+elif mode == "fail":
+    time.sleep(0.02)
+    note("end %s" % os.getpid())
+    sys.exit(4)
+else:
+    (workdir / "atst_api_result.json").write_text("{}")
+    note("end %s" % os.getpid())
+    sys.exit(0)
+"""
+
+
+def _standin(tmp_path: Path) -> Path:
+    path = tmp_path / "standin_worker.py"
+    path.write_text(STANDIN_SOURCE, encoding="utf-8")
+    return path
+
+
+def _factory(script: Path):
+    def build(case, workdir, devices):
+        del workdir, devices
+        return [sys.executable, str(script)]
+
+    return build
+
+
+def _case(case_id: str, mode: str = "ok") -> dict:
+    return {
+        "case_id": case_id,
+        "config": f"{case_id}.yaml",
+        "env": {"STANDIN_MODE": mode},
+    }
+
+
+def test_cases_run_in_slots_with_isolated_dirs_and_reports(tmp_path, monkeypatch):
+    script = _standin(tmp_path)
+    log = tmp_path / "log.txt"
+    monkeypatch.setenv("HARNESS_LOG", str(log))
+    summary = harness.run_manifest(
+        {"cases": [_case("alpha"), _case("beta")]},
+        harness.HarnessOptions(
+            devices=("2",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+
+    assert summary["status"] == "complete"
+    assert summary["cases_total"] == 2
+    assert summary["succeeded"] == 2
+    assert summary["gpu_seconds_total"] > 0
+    for case_id in ("alpha", "beta"):
+        workdir = tmp_path / "out" / case_id
+        facts = json.loads((workdir / "env.json").read_text(encoding="utf-8"))
+        assert facts["cuda"] == "2"
+        assert facts["attempt"] == "1"
+        assert Path(facts["cache"]).is_dir()
+        report = json.loads(
+            (workdir / harness.CASE_REPORT).read_text(encoding="utf-8")
+        )
+        assert report["status"] == "succeeded"
+        assert report["result_json"] is not None
+    events = [line.split()[0] for line in log.read_text(encoding="utf-8").splitlines()]
+    assert events == ["start", "end", "start", "end"]
+
+
+def test_failure_keeps_evidence_and_stop_on_failure_skips_the_rest(tmp_path, monkeypatch):
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    summary = harness.run_manifest(
+        {"cases": [_case("ok"), _case("bad", "fail_oom"), _case("later")]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+            continue_on_failure=False,
+        ),
+    )
+
+    assert summary["succeeded"] == 1
+    assert summary["failed"] == 1
+    assert summary["skipped"] == 1
+    bad = json.loads(
+        (tmp_path / "out" / "bad" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert bad["classification"] == "oom"
+    assert bad["exit_code"] == 3
+    later = json.loads(
+        (tmp_path / "out" / "later" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert later["status"] == "skipped"
+    assert later["classification"] == "stopped_after_failure"
+    ids = {row["case_id"] for row in summary["cases"]}
+    assert ids == {"ok", "bad", "later"}
+
+
+def test_timeout_terminates_the_whole_worker_group(tmp_path, monkeypatch):
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    case = _case("slow", "sleep")
+    case["timeout_s"] = 0.4
+    summary = harness.run_manifest(
+        {"cases": [case]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+
+    assert summary["timed_out"] == 1
+    report = json.loads(
+        (tmp_path / "out" / "slow" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert report["status"] == "timeout"
+    assert report["wall_s"] < 10
+    child_pid = int((tmp_path / "out" / "slow" / "child.pid").read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
+
+
+def test_cancel_marks_remaining_cases_and_writes_the_summary(tmp_path, monkeypatch):
+    script = _standin(tmp_path)
+    log = tmp_path / "log.txt"
+    monkeypatch.setenv("HARNESS_LOG", str(log))
+    stop_event = threading.Event()
+    results: list[dict] = []
+    failures: list[BaseException] = []
+
+    def run():
+        try:
+            results.append(
+                harness.run_manifest(
+                    {"cases": [_case("slow-1", "sleep"), _case("slow-2", "sleep")]},
+                    harness.HarnessOptions(
+                        devices=("0",),
+                        output_dir=tmp_path / "out",
+                        worker_factory=_factory(script),
+                        telemetry=False,
+                        stop_event=stop_event,
+                    ),
+                )
+            )
+        except BaseException as exc:  # SystemExit("batch cancelled")
+            failures.append(exc)
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if log.exists() and "start" in log.read_text(encoding="utf-8"):
+            break
+        time.sleep(0.05)
+    stop_event.set()
+    worker.join(timeout=30)
+
+    assert not worker.is_alive()
+    assert results == [] and failures
+    summary = json.loads(
+        (tmp_path / "out" / harness.SUMMARY_REPORT).read_text(encoding="utf-8")
+    )
+    assert summary["status"] == "cancelled"
+    statuses = {row["case_id"]: row["status"] for row in summary["cases"]}
+    assert set(statuses) == {"slow-1", "slow-2"}
+    assert statuses["slow-2"] in {"skipped", "timeout", "failed"}
+    assert summary["succeeded"] == 0
+
+
+def test_manifest_validation_rejects_bad_rows(tmp_path):
+    options = harness.HarnessOptions(devices=("0",), output_dir=tmp_path)
+    with pytest.raises(ValueError):
+        harness.load_cases({"cases": []}, options)
+    with pytest.raises(ValueError):
+        harness.load_cases({"cases": [{"case_id": "", "config": "x.yaml"}]}, options)
+    with pytest.raises(ValueError):
+        harness.load_cases(
+            {"cases": [_case("a"), _case("a")]}, options
+        )
+
+
+def test_case_environment_merges_case_specific_values(tmp_path):
+    case = harness.CaseSpec.from_mapping(
+        {
+            "case_id": "case",
+            "config": "config.yaml",
+            "threads": 4,
+            "env": {"MY_FLAG": "1"},
+        }
+    )
+    env = harness.case_environment(
+        case, ("3",), base={"PATH": "/usr/bin"}, attempt=2, workdir=tmp_path
+    )
+    assert env["CUDA_VISIBLE_DEVICES"] == "3"
+    assert env["OMP_NUM_THREADS"] == "4"
+    assert env["ATST_ATTEMPT"] == "2"
+    assert env["MY_FLAG"] == "1"

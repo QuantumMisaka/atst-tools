@@ -1,0 +1,28 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 7200
+  },
+  "cases": [
+    {
+      "case_id": "neb-parallel-cypt",
+      "config": "examples/13_neb_parallel_Cy-Pt/config.yaml",
+      "slots": 1,
+      "threads": 8
+    },
+    {
+      "case_id": "autoneb-parallel-cypt",
+      "config": "examples/14_autoneb_parallel_Cy-Pt/config.yaml",
+      "slots": 1,
+      "threads": 8
+    },
+    {
+      "case_id": "d2s-cypt",
+      "config": "examples/08_d2s_Cy-Pt/config.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 10800
+    }
+  ]
+}
