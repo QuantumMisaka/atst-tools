@@ -10,6 +10,9 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 ## 1. 核心结论
 
+- 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
+
+
 - 2026-09-17（发布后记录）：2.2.6 已从 release commit
   `a633f06b9375e3f34dbd87f90f40ec6271b29cd4` 推送并发布。GitHub
   [Tests](https://github.com/QuantumMisaka/atst-tools/actions/runs/35206052859)、

@@ -145,7 +145,7 @@ def test_neb_energy_profile_skips_barrier_annotation_when_disabled(
     assert recording_pyplot.figures[0].axes.annotate_calls == []
 
 
-def test_sella_energy_curve_plots_energy_vs_step(recording_pyplot, tmp_path):
+def test_sella_energy_curve_plots_energy_vs_frame(recording_pyplot, tmp_path):
     traj = tmp_path / "sella.traj"
     _write_trajectory(traj, [0.5, 0.3, 0.2, 0.15])
     output = tmp_path / "sella.png"
@@ -156,9 +156,9 @@ def test_sella_energy_curve_plots_energy_vs_step(recording_pyplot, tmp_path):
     axes = recording_pyplot.figures[0].axes
     assert axes.plot_calls[0][0][0] == [0, 1, 2, 3]
     assert axes.plot_calls[0][0][1] == [0.5, 0.3, 0.2, 0.15]
-    assert axes.xlabel == "Step"
+    assert axes.xlabel == "Frame"
     assert axes.ylabel == "Energy (eV)"
-    assert axes.title == "Sella convergence (E vs step)"
+    assert axes.title == "Sella convergence (E vs frame)"
     assert recording_pyplot.figures[0].savefig_calls[0][1]["dpi"] == 100
 
 

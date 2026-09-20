@@ -2060,7 +2060,8 @@ def test_abacus_sella_passes_order_eta_fmax_and_steps(monkeypatch, tmp_path):
     assert calls[1] == ("sella", calc, "FakeTrajectory", 0.01, 2)
     assert calls[2] == ("run", 0.03, 12)
     assert json.loads(manifest.read_text(encoding="utf-8"))["artifacts"] == [
-        {"role": "trajectory", "path": str(tmp_path / "sella.traj")}
+        {"role": "trajectory", "path": str(tmp_path / "sella.traj")},
+        {"role": "optimizer_events", "path": str(tmp_path / "sella.events.jsonl")},
     ]
 
 
@@ -2099,7 +2100,10 @@ def test_abacus_sella_writes_durable_convergence_record(
 
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     assert manifest["workflow"] == "sella"
-    assert manifest["artifacts"] == [{"role": "trajectory", "path": "sella.traj"}]
+    assert manifest["artifacts"] == [
+        {"role": "trajectory", "path": "sella.traj"},
+        {"role": "optimizer_events", "path": "sella.events.jsonl"},
+    ]
     assert manifest["stages"] == [
         {
             "name": "sella",
@@ -3017,6 +3021,7 @@ def test_d2s_sella_refinement_writes_only_the_top_level_manifest(
     manifest = json.loads(Path("atst_artifacts.json").read_text(encoding="utf-8"))
     assert manifest["workflow"] == "d2s"
     assert {"role": "single_ended_trajectory", "path": "sella.traj"} in manifest["artifacts"]
+    assert {"role": "optimizer_events", "path": "sella.events.jsonl"} in manifest["artifacts"]
     stages = {stage["name"]: stage for stage in manifest["stages"]}
     assert stages["sella"] == {
         "name": "sella",

@@ -313,6 +313,24 @@ J. Chem. Theory Comput. **18** (8), 4914-4930 (2022). <https://doi.org/10.1021/a
 | `fmax` | float | `0.05` | Force convergence threshold. |
 | `max_steps` | int/null | `null` | Maximum optimizer steps; null lets Sella run until convergence. |
 | `directory` | string | `sella_run` | Calculator working directory. |
+| `record_events` | bool | `true` | Write a flushed JSONL sidecar beside the trajectory (`sella.events.jsonl` by default); false disables event recording. No extra energy/force evaluations. |
+| `hessian_progress` | bool | `false` | Enable native Sella numerical-Hessian text progress, independently of JSONL recording. Explicit true requires runtime support. |
+
+A Sella trajectory includes force-evaluation geometries, including finite-difference
+probes; its frame count is **not** the optimizer step count. The event sidecar
+records the initial state separately from completed optimizer steps, and links
+observed numerical-Hessian probes to native zero-based trajectory IDs when
+available. Unmapped frames remain unclassified. These hooks cover numerical
+Hessian diagonalization, not every possible Hessian construction path or failed
+force evaluation. Missing runtime capabilities are recorded explicitly.
+
+Read-only trajectory summaries expose frame indices and actual optimizer steps
+separately. Missing, truncated, or mismatched sidecars do not establish convergence
+or a complete frame mapping. Geometry-only restart begins a new event sequence;
+it does not restore optimizer state. Recording can be disabled with
+`calculation.record_events: false`; older ATST runtimes reject these new keys,
+so upgrade the runtime before setting them explicitly.
+
 
 ### 2.6 CCQN (Cone-Shaped Constrained Quasi-Newton)
 **Type**: `ccqn`

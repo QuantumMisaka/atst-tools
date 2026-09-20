@@ -76,6 +76,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.sella.max_steps | calculation.type=sella | `int \| NoneType` | `null` | Maximum optimizer steps. |
 | calculation.sella.eta | calculation.type=sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.sella.order | calculation.type=sella | `int` | `1` | Saddle-point order. |
+| calculation.sella.record_events | calculation.type=sella | `bool` | `True` | Write a JSONL sidecar separating Hessian probes from optimizer steps. |
+| calculation.sella.hessian_progress | calculation.type=sella | `bool` | `False` | Enable Sella's human-readable numerical-Hessian progress messages. |
 | calculation.sella.directory | calculation.type=sella | `str` | `'sella_run'` | Calculator working directory. |
 | calculation.ccqn.type | calculation.type=ccqn | `'ccqn'` | `required` | Select the standalone CCQN saddle-point workflow. |
 | calculation.ccqn.init_structure | calculation.type=ccqn | `str` | `required` | Initial transition-state guess. |
@@ -166,6 +168,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.sella.directory | calculation.d2s.sella | `str \| NoneType` | `null` | Sella calculator directory. |
 | calculation.d2s.sella.eta | calculation.d2s.sella | `float` | `0.005` | Sella eta parameter. |
 | calculation.d2s.sella.order | calculation.d2s.sella | `int` | `1` | Saddle-point order. |
+| calculation.d2s.sella.record_events | calculation.d2s.sella | `bool` | `True` | Write a JSONL sidecar separating Hessian probes from optimizer steps. |
+| calculation.d2s.sella.hessian_progress | calculation.d2s.sella | `bool` | `False` | Enable Sella's human-readable numerical-Hessian progress messages. |
 | calculation.d2s.ccqn | calculation.type=d2s | `dict` | `schema defaults` | CCQN refinement configuration. |
 | calculation.d2s.ccqn.fmax | calculation.d2s.ccqn | `float` | `0.05` | CCQN force threshold. |
 | calculation.d2s.ccqn.max_steps | calculation.d2s.ccqn | `int \| NoneType` | `200` | CCQN maximum steps. |

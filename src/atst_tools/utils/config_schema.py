@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import UnionType
 from typing import Annotated, Any, Dict, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, TypeAdapter, field_validator, model_validator
 
 VALID_CALCULATION_TYPES = (
     "neb",
@@ -204,6 +204,14 @@ class SellaCalculation(StrictConfig):
     max_steps: int | None = Field(default=None, gt=0, description="Maximum optimizer steps.")
     eta: float = Field(default=0.005, gt=0, description="Sella eta parameter.")
     order: int = Field(default=1, gt=0, description="Saddle-point order.")
+    record_events: StrictBool = Field(
+        default=True,
+        description="Write a JSONL sidecar separating Hessian probes from optimizer steps.",
+    )
+    hessian_progress: StrictBool = Field(
+        default=False,
+        description="Enable Sella's human-readable numerical-Hessian progress messages.",
+    )
     directory: str = Field(default="sella_run", description="Calculator working directory.")
 
 
@@ -445,6 +453,14 @@ class D2SSellaConfig(StrictConfig):
     directory: str | None = Field(default=None, description="Sella calculator directory.")
     eta: float = Field(default=0.005, gt=0, description="Sella eta parameter.")
     order: int = Field(default=1, gt=0, description="Saddle-point order.")
+    record_events: StrictBool = Field(
+        default=True,
+        description="Write a JSONL sidecar separating Hessian probes from optimizer steps.",
+    )
+    hessian_progress: StrictBool = Field(
+        default=False,
+        description="Enable Sella's human-readable numerical-Hessian progress messages.",
+    )
 
 
 class D2SCCQNConfig(StrictConfig):

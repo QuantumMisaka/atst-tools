@@ -1,10 +1,11 @@
+import hashlib
 import json
 
 import numpy as np
 import pytest
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
-from ase.io import write
+from ase.io import read, write
 
 from atst_tools.utils.summary import (
     summarize_artifact_manifest,
@@ -72,6 +73,290 @@ def test_trajectory_summary_reports_latest_energy_and_fmax(tmp_path):
     assert summary["latest"]["energy_eV"] == pytest.approx(-1.5)
     assert summary["latest"]["max_force_eV_per_A"] == pytest.approx(0.05)
     assert [frame["step"] for frame in summary["frames"]] == [0, 1]
+
+
+def _write_sella_events(path, *, trajectory, actual_steps=2, converged=True):
+    """Write the small stable event vocabulary used by the Sella producer."""
+    records = [
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_start",
+            "trajectory": trajectory.name,
+            "capabilities": {
+                "frame_ids": True,
+                "hessian_progress": True,
+                "optimizer_checkpoints": True,
+            },
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "initial_state",
+            "optimizer_step": 0,
+            "frame_index": 0,
+            "converged": False,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "hessian_start",
+            "cycle": 1,
+            "optimizer_step": 0,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "hessian_evaluation",
+            "cycle": 1,
+            "optimizer_step": 0,
+            "frame_index": 1,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "hessian_done",
+            "cycle": 1,
+            "optimizer_step": 0,
+            "evaluations": 1,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "optimizer_step",
+            "optimizer_step": 1,
+            "frame_index": 2,
+            "converged": False,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "optimizer_step",
+            "optimizer_step": actual_steps,
+            "frame_index": 4,
+            "converged": converged,
+        },
+    ]
+    trajectory_frames = len(read(str(trajectory), index=":"))
+    records.append(
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_end",
+            "actual_steps": actual_steps,
+            "converged": converged,
+            "trajectory_sha256": hashlib.sha256(trajectory.read_bytes()).hexdigest(),
+            "trajectory_frames": trajectory_frames,
+        }
+    )
+    path.write_text(
+        "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+    )
+
+
+def test_trajectory_summary_distinguishes_sella_frames_and_optimizer_steps(tmp_path):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(float(index), x=index) for index in range(5)])
+    _write_sella_events(traj.with_suffix(".events.jsonl"), trajectory=traj)
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["n_frames"] == 5
+    assert summary["status"]["complete"] is True
+    assert summary["status"]["actual_steps"] == 2
+    assert summary["status"]["converged"] is True
+    assert summary["status"]["events"]["status"] == "complete"
+    assert [frame["step"] for frame in summary["frames"]] == [0, 1, 2, 3, 4]
+    assert summary["frames"][0]["frame_kind"] == "optimizer_state"
+    assert summary["frames"][0]["optimizer_step"] == 0
+    assert summary["frames"][1]["frame_kind"] == "hessian_probe"
+    assert summary["frames"][1]["optimizer_step"] == 0
+    assert summary["frames"][2]["frame_kind"] == "optimizer_state"
+    assert summary["frames"][2]["optimizer_step"] == 1
+    assert summary["frames"][4]["optimizer_step"] == 2
+
+
+def test_trajectory_summary_keeps_local_events_but_rejects_truncated_sidecar(tmp_path):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(float(index), x=index) for index in range(3)])
+    events = traj.with_suffix(".events.jsonl")
+    events.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {"schema_version": "sella-events-v1", "event": "run_start"}
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "sella-events-v1",
+                        "event": "optimizer_step",
+                        "optimizer_step": 1,
+                        "frame_index": 2,
+                        "converged": False,
+                    }
+                ),
+            ]
+        )
+        + "\n{",
+        encoding="utf-8",
+    )
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["events"]["status"] == "partial_unverified"
+    assert summary["status"]["complete"] is True
+    assert summary["status"]["events_complete"] is False
+    assert summary["status"]["events"]["complete"] is False
+    assert summary["status"]["actual_steps"] is None
+    assert summary["status"]["converged"] is None
+    assert summary["frames"][2]["frame_kind"] == "unclassified_evaluation"
+    assert any("invalid JSON" in item for item in summary["status"]["events"]["diagnostics"])
+
+
+def test_trajectory_summary_rejects_sidecar_for_a_different_trajectory(tmp_path):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(float(index), x=index) for index in range(3)])
+    events = traj.with_suffix(".events.jsonl")
+    events.write_text(
+        "\n".join(
+            [
+                json.dumps({"schema_version": "sella-events-v1", "event": "run_start"}),
+                json.dumps(
+                    {
+                        "schema_version": "sella-events-v1",
+                        "event": "optimizer_step",
+                        "optimizer_step": 1,
+                        "frame_index": 2,
+                        "converged": True,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "schema_version": "sella-events-v1",
+                        "event": "run_end",
+                        "actual_steps": 1,
+                        "converged": True,
+                        "trajectory_sha256": "0" * 64,
+                        "trajectory_frames": 3,
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["events"]["status"] == "invalid"
+    assert summary["status"]["complete"] is True
+    assert summary["status"]["events_complete"] is False
+    assert summary["status"]["actual_steps"] is None
+    assert summary["status"]["converged"] is None
+    assert summary["frames"][2]["frame_kind"] == "unclassified_evaluation"
+
+
+def test_trajectory_summary_rejects_missing_optimizer_checkpoint(tmp_path):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(float(index), x=index) for index in range(5)])
+    events = traj.with_suffix(".events.jsonl")
+    _write_sella_events(events, trajectory=traj)
+    events.write_text(
+        events.read_text(encoding="utf-8").replace('"actual_steps": 2', '"actual_steps": 3'),
+        encoding="utf-8",
+    )
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["events"]["status"] == "invalid"
+    assert summary["status"]["actual_steps"] is None
+    assert any(
+        "checkpoints do not cover" in item
+        for item in summary["status"]["events"]["diagnostics"]
+    )
+
+
+def test_trajectory_summary_keeps_step_fact_when_frame_ids_are_unavailable(tmp_path):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(0.0), _atoms(-0.2)])
+    events = traj.with_suffix(".events.jsonl")
+    records = [
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_start",
+            "capabilities": {"frame_ids": False, "optimizer_checkpoints": True},
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "initial_state",
+            "optimizer_step": 0,
+            "converged": False,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "optimizer_step",
+            "optimizer_step": 1,
+            "converged": True,
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_end",
+            "actual_steps": 1,
+            "converged": True,
+            "trajectory_sha256": hashlib.sha256(traj.read_bytes()).hexdigest(),
+            "trajectory_frames": 2,
+        },
+    ]
+    events.write_text(
+        "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+    )
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["events"]["status"] == "complete"
+    assert summary["status"]["actual_steps"] == 1
+    assert summary["status"]["events"]["step_count_verified"] is True
+    assert all(frame["frame_kind"] == "unclassified_evaluation" for frame in summary["frames"])
+
+
+@pytest.mark.parametrize("terminal_value", [None, "invalid", "missing"])
+def test_trajectory_summary_rejects_untrusted_terminal_convergence_without_frame_ids(
+    tmp_path, terminal_value
+):
+    traj = tmp_path / "sella.traj"
+    write(traj, [_atoms(0.0), _atoms(-0.2)])
+    events = traj.with_suffix(".events.jsonl")
+    terminal = {
+        "schema_version": "sella-events-v1",
+        "event": "optimizer_step",
+        "optimizer_step": 1,
+        "converged": terminal_value,
+    }
+    if terminal_value == "missing":
+        terminal.pop("converged")
+    records = [
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_start",
+            "capabilities": {"trajectory_frame_id": False, "optimizer_checkpoints": True},
+        },
+        {
+            "schema_version": "sella-events-v1",
+            "event": "initial_state",
+            "optimizer_step": 0,
+            "converged": False,
+        },
+        terminal,
+        {
+            "schema_version": "sella-events-v1",
+            "event": "run_end",
+            "actual_steps": 1,
+            "converged": True,
+            "trajectory_sha256": hashlib.sha256(traj.read_bytes()).hexdigest(),
+            "trajectory_frames": 2,
+        },
+    ]
+    events.write_text(
+        "".join(json.dumps(record) + "\n" for record in records), encoding="utf-8"
+    )
+
+    summary = summarize_trajectory(traj, workflow="sella")
+
+    assert summary["status"]["events"]["status"] == "invalid"
+    assert summary["status"]["actual_steps"] is None
+    assert any("converged" in item for item in summary["status"]["events"]["diagnostics"])
 
 
 def test_d2s_summary_marks_missing_stages_and_reads_present_rough_neb(tmp_path, monkeypatch):

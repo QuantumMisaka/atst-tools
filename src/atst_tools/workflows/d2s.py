@@ -84,6 +84,7 @@ class D2SWorkflow:
         self._rough_candidate_index = None
         self._endpoint_records: list[StageRecord] = []
         self._single_ended_stage_record: StageRecord | None = None
+        self._single_ended_events_file: str | None = None
 
         if self.method not in {"dimer", "sella", "ccqn"}:
             raise ValueError("D2S method must be 'dimer', 'sella', or 'ccqn'")
@@ -426,6 +427,7 @@ class D2SWorkflow:
             Path of the refinement trajectory.
         """
         print(f"=== Step 4: Running Single-Ended Search ({self.method.upper()}) ===")
+        self._single_ended_events_file = None
 
         if self.method == "dimer":
             idx_before = max(0, max_idx - 1)
@@ -530,6 +532,7 @@ class D2SWorkflow:
         )
         sella.run()
         self._single_ended_stage_record = getattr(sella, "last_stage_record", None)
+        self._single_ended_events_file = getattr(sella, "last_events_file", None)
         return sella_traj
 
     def _vibration_indices(self, neb_chain, vib_config):
@@ -645,6 +648,8 @@ class D2SWorkflow:
         single_traj = self.run_single_ended(neb_chain, max_idx, ts_guess)
         self.run_vibration(neb_chain, ts_guess, single_traj)
         artifacts = [*self._rough_stage_artifacts, {"role": "single_ended_trajectory", "path": single_traj}]
+        if self._single_ended_events_file is not None:
+            artifacts.append({"role": "optimizer_events", "path": self._single_ended_events_file})
         vibration_config = self.calc_config.get("vibration", {})
         if vibration_config.get("enabled"):
             artifacts.append({"role": "vibration_results", "path": vibration_config["results_file"]})

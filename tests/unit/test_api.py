@@ -783,7 +783,10 @@ def test_run_workflow_preserves_a_fresh_runner_written_manifest(monkeypatch, tmp
 
 @pytest.mark.parametrize(
     ("workflow", "roles"),
-    (("relax", ["trajectory", "log", "final_structure"]), ("sella", ["trajectory"])),
+    (
+        ("relax", ["trajectory", "log", "final_structure"]),
+        ("sella", ["trajectory", "optimizer_events"]),
+    ),
 )
 def test_run_workflow_preserves_a_workflow_written_manifest(
     monkeypatch, tmp_path, workflow, roles

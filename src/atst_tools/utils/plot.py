@@ -11,8 +11,10 @@ is imported lazily inside ``_pyplot`` so that importing this module or
 ``atst_tools.api`` never requires it; when it is absent the helpers raise a
 clear :class:`ImportError` and the CLI reports the same message and exits 1.
 
-The Sella/CCQN curves consume step energies directly from the trajectory
-frames (frame index == step), independent of any progress-event stream.
+The Sella/CCQN curves consume energies directly from the trajectory frames.
+The Sella x-axis is labeled ``Frame`` because finite-difference Hessian probes
+can add frames without adding optimizer steps, including for older runs that
+do not have an event sidecar.
 """
 
 from __future__ import annotations
@@ -192,10 +194,11 @@ def sella_energy_curve(
     title: str | None = None,
     dpi: int = 300,
 ) -> Path:
-    """Render a Sella E-vs-step convergence curve from its trajectory as a PNG.
+    """Render a Sella E-vs-frame convergence curve as a PNG.
 
-    Each trajectory frame corresponds to one optimizer step; frame energies are
-    read from frozen calculator results (or ``atoms.info["energy"]``).
+    The x-axis is explicitly labeled ``Frame`` because finite-difference
+    Hessian probes can add frames without adding optimizer steps.  Energies
+    are read from frozen calculator results (or ``atoms.info["energy"]``).
 
     Args:
         traj: Sella trajectory path, ``Trajectory`` object, or frame sequence.
@@ -216,8 +219,8 @@ def sella_energy_curve(
         list(range(len(frames))),
         energies,
         output_png,
-        title=title if title is not None else "Sella convergence (E vs step)",
-        xlabel="Step",
+        title=title if title is not None else "Sella convergence (E vs frame)",
+        xlabel="Frame",
         ylabel="Energy (eV)",
         dpi=dpi,
         marker_style="-",
@@ -274,7 +277,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m atst_tools.utils.plot",
         description=(
             "Render transition-state energy plots: NEB/AutoNEB energy profile "
-            "(E vs image) and Sella/CCQN convergence curves (E vs step)."
+            "(E vs image), Sella convergence (E vs frame), and CCQN "
+            "convergence (E vs step)."
         ),
     )
     subparsers = parser.add_subparsers(
@@ -304,7 +308,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     for kind, help_text, default_output in (
-        ("sella", "Sella convergence curve (E vs step)", "sella_energy_curve.png"),
+        ("sella", "Sella convergence curve (E vs frame)", "sella_energy_curve.png"),
         ("ccqn", "CCQN convergence curve (E vs step)", "ccqn_energy_curve.png"),
     ):
         subparser = subparsers.add_parser(kind, help=help_text)

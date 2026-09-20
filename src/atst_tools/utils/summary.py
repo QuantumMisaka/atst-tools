@@ -12,6 +12,7 @@ from ase.mep.neb import NEBTools
 
 from atst_tools.utils.config import ConfigLoader
 from atst_tools.utils.restart_helpers import check_cache_files, read_autoneb_final_chain
+from atst_tools.utils.sella_event_summary import read_sella_events
 
 SCHEMA_VERSION = "atst-summary-v1"
 
@@ -180,23 +181,57 @@ def summarize_autoneb(
 
 
 def summarize_trajectory(traj_file: str | Path, *, workflow: str, tail: int | None = None) -> dict[str, Any]:
-    """Summarize a generic optimization trajectory."""
+    """Summarize a generic optimization trajectory.
+
+    Sella writes an optional ``<trajectory>.events.jsonl`` sidecar.  When it
+    is present, frame numbers and optimizer step numbers are kept as separate
+    fields.  Frames without a direct event mapping remain
+    ``unclassified_evaluation``; the reader never treats finite-difference
+    Hessian frames as optimizer iterations.  Older trajectories without the
+    sidecar keep their existing numeric summary and are fully readable.
+    """
     frames = read(str(traj_file), index=":")
-    frame_summaries = [
-        {
+    is_sella = workflow.lower() == "sella"
+    event_summary = (
+        read_sella_events(traj_file, n_frames=len(frames))
+        if is_sella
+        else None
+    )
+    frame_summaries = []
+    for index, atoms in enumerate(frames):
+        frame = {
             "step": index,
             "energy_eV": energy(atoms),
             "max_force_eV_per_A": max_force(atoms),
         }
-        for index, atoms in enumerate(frames)
-    ]
+        if event_summary is not None:
+            mapping = event_summary["frame_map"].get(index, {})
+            frame.update(
+                {
+                    "frame_index": index,
+                    "frame_kind": mapping.get("frame_kind", "unclassified_evaluation"),
+                    "optimizer_step": mapping.get("optimizer_step"),
+                    "converged": mapping.get("converged"),
+                }
+            )
+        frame_summaries.append(frame)
     selected = frame_summaries[-tail:] if tail and tail > 0 else frame_summaries
     latest = dict(frame_summaries[-1]) if frame_summaries else {}
+    status = {"n_frames": len(frames), "complete": bool(frames)}
+    if event_summary is not None:
+        status["events"] = {
+            key: value
+            for key, value in event_summary.items()
+            if key not in {"events", "frame_map"}
+        }
+        status["actual_steps"] = event_summary["actual_steps"]
+        status["converged"] = event_summary["converged"]
+        status["events_complete"] = event_summary["complete"]
     return {
         "schema_version": SCHEMA_VERSION,
         "workflow": workflow,
         "source": str(traj_file),
-        "status": {"n_frames": len(frames), "complete": bool(frames)},
+        "status": status,
         "latest": latest,
         "frames": selected,
     }
