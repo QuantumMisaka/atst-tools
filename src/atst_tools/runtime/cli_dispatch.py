@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from atst_tools.runtime import devices as _devices
+from atst_tools.runtime import errors as _errors
 from atst_tools.runtime import launch
 from atst_tools.runtime.errors import RuntimeBindingError
 
@@ -53,6 +54,16 @@ def _has_runtime_options(parsed: argparse.Namespace) -> bool:
         or parsed.telemetry is not None
         or parsed.telemetry_interval is not None
     )
+
+
+def _reject_unknown_options(extras: Sequence[str]) -> None:
+    """Fail closed when unknown options would be dropped by the isolation path."""
+    if extras:
+        joined = " ".join(sorted(set(extras)))
+        raise _errors.RuntimeConfigError(
+            "unsupported option(s) combined with runtime requests: "
+            f"{joined}; remove them or run without runtime options"
+        )
 
 
 def _cli_parser() -> argparse.ArgumentParser:
@@ -146,8 +157,10 @@ def plan_runtime_launch(
     if not args or args[0] != CLI_SUBCOMMAND:
         return None
     parsed, extras = _cli_parser().parse_known_args(args[1:])
-    if extras and not _has_runtime_options(parsed):
-        return None
+    if extras:
+        if not _has_runtime_options(parsed):
+            return None
+        _reject_unknown_options(extras)
     if parsed.dry_run or parsed.list_types or parsed.show_template or parsed.check_input:
         return None
     config_path = Path(parsed.config).resolve() if parsed.config else None
@@ -204,8 +217,10 @@ def plan_runner_launch(
     if not args:
         return None
     parsed, extras = _runner_parser().parse_known_args(args)
-    if extras and not _has_runtime_options(parsed):
-        return None
+    if extras:
+        if not _has_runtime_options(parsed):
+            return None
+        _reject_unknown_options(extras)
     if parsed.dry_run:
         return None
     if parsed.config is None:

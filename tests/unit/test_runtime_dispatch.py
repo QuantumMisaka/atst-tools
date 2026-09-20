@@ -38,6 +38,28 @@ def test_cli_plan_is_none_for_legacy_invocations(tmp_path, monkeypatch):
     )
 
 
+def test_unknown_options_with_runtime_requests_fail_closed(tmp_path, monkeypatch):
+    """An option the isolation path cannot forward must not be dropped."""
+    import pytest
+
+    from atst_tools.runtime.errors import RuntimeConfigError
+
+    config = _write_config(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(RuntimeConfigError) as caught:
+        cli_dispatch.plan_runtime_launch(
+            ["run", "--mystery-flag", str(config), "--devices", "0"],
+            environ={"CUDA_VISIBLE_DEVICES": "2,3"},
+        )
+    assert "--mystery-flag" in str(caught.value)
+
+    with pytest.raises(RuntimeConfigError):
+        cli_dispatch.plan_runner_launch(
+            ["--config", str(config), "--mystery-flag", "--devices", "0"],
+            environ={"CUDA_VISIBLE_DEVICES": "2,3"},
+        )
+
+
 def test_cli_plan_binds_explicit_devices_for_the_worker(tmp_path, monkeypatch):
     config = _write_config(tmp_path)
     monkeypatch.chdir(tmp_path)
