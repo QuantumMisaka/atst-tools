@@ -77,6 +77,7 @@ def test_public_api_has_only_the_supported_contract():
         "sella_energy_curve",
         "ccqn_energy_curve",
         "build_config_from_abacus_dir",
+        "RuntimeBindingError",
     ]
 
 

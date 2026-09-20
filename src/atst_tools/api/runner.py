@@ -5,14 +5,35 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 import json
+import logging
 import os
 from pathlib import Path
+import sys
 import tempfile
 import traceback
 from typing import Iterator, Sequence
 
-from atst_tools.api import RunOptions, run_workflow
 from atst_tools.api.models import ATSTAPIError
+
+_LOG_LEVEL_ENV = "ATST_LOG_LEVEL"
+
+
+def _api_attr(name: str):
+    """Resolve one public API attribute lazily (PEP 562 keeps import light)."""
+    value = globals().get(name)
+    if value is None:
+        import atst_tools.api as api
+
+        value = getattr(api, name)
+        globals()[name] = value
+    return value
+
+
+def __getattr__(name: str):
+    """Expose the lazily resolved public API names on this module."""
+    if name in ("RunOptions", "run_workflow"):
+        return _api_attr(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -62,6 +83,41 @@ def build_parser() -> argparse.ArgumentParser:
             "Render the workflow energy plot PNG and record its relative path "
             "in the result document and artifact manifest"
         ),
+    )
+    parser.add_argument(
+        "--devices",
+        default=None,
+        help="Request 0-based logical device indices or full GPU UUIDs (runtime.devices).",
+    )
+    parser.add_argument(
+        "--binding",
+        default=None,
+        choices=("inherit", "round_robin"),
+        help="Per-rank device binding mode for MPI launches.",
+    )
+    parser.add_argument(
+        "--threads",
+        default=None,
+        help="Process thread budget applied before the scientific stack is imported.",
+    )
+    parser.add_argument(
+        "--telemetry",
+        dest="telemetry",
+        action="store_true",
+        default=None,
+        help="Enable the runtime evidence sidecar and GPU host sampling.",
+    )
+    parser.add_argument(
+        "--no-telemetry",
+        dest="telemetry",
+        action="store_false",
+        help="Explicitly disable runtime telemetry.",
+    )
+    parser.add_argument(
+        "--telemetry-interval",
+        dest="telemetry_interval",
+        default=None,
+        help="Host sampling interval in seconds (default 1.0).",
     )
     return parser
 
@@ -125,12 +181,18 @@ def _error_document(error: ATSTAPIError) -> dict[str, object]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run one configuration workflow and return its stable process exit code."""
-    args = build_parser().parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(arguments)
     workdir = Path(args.workdir).resolve()
     config_path = Path(args.config).resolve()
     result_path = _result_path(args.result_json, workdir)
     is_root = _process_rank() == 0
-    options = RunOptions(
+    level = os.environ.get(_LOG_LEVEL_ENV)
+    if level:
+        logging.basicConfig(
+            level=getattr(logging, level.upper(), logging.INFO), format="%(message)s"
+        )
+    options = _api_attr("RunOptions")(
         dry_run=args.dry_run,
         restart=args.restart,
         check_input=args.check_input,
@@ -143,7 +205,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         with _working_directory(workdir):
-            result = run_workflow(config_path, options)
+            from atst_tools.runtime.cli_dispatch import plan_runner_launch
+
+            plan = plan_runner_launch(arguments, workdir=workdir)
+            if plan is not None:  # pragma: no cover - replaces the process
+                plan.execute()
+            result = _api_attr("run_workflow")(config_path, options)
             if is_root:
                 _write_json_atomic(result_path, result.to_document(workdir))
     except ATSTAPIError as error:

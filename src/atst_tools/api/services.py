@@ -719,6 +719,14 @@ def _run_workflow(
     _synchronize_rank_failure(world, "configuration", config_failure)
     assert config is not None
     workflow = config["calculation"]["type"]
+    contract_failure = None
+    try:
+        from atst_tools.runtime.launch import ensure_runtime_contract
+
+        ensure_runtime_contract(config, workflow=workflow)
+    except ATSTAPIError as exc:
+        contract_failure = exc
+    _synchronize_rank_failure(world, workflow, contract_failure)
     if int(world.rank) == 0:
         _emit_workflow_start(options, workflow)
     if options.dry_run:

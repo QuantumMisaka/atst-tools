@@ -360,13 +360,13 @@ def test_atst_run_invalid_dry_run_does_not_log_configuration_valid(monkeypatch, 
 
 def test_config_validate_delegates_to_public_validation_service(monkeypatch, capsys):
     """The config command consumes normalization from the public API service."""
-    from atst_tools.scripts import cli
+    from atst_tools.scripts import cli, cli_impl
 
     normalized = {
         "calculation": {"type": "relax", "restart": False},
         "calculator": {"name": "abacus"},
     }
-    monkeypatch.setattr(cli, "validate_config", lambda source: normalized)
+    monkeypatch.setattr(cli_impl, "validate_config", lambda source: normalized)
 
     cli.main(["config", "validate", "config.yaml"])
 
@@ -937,10 +937,10 @@ def test_abacus_collect_writes_read_only_summary(tmp_path):
 
 
 def test_neb_make_delegates_to_generate(monkeypatch):
-    from atst_tools.scripts import cli
+    from atst_tools.scripts import cli, cli_impl
 
     calls = []
-    monkeypatch.setattr(cli, "generate", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(cli_impl, "generate", lambda **kwargs: calls.append(kwargs))
 
     cli.main(["neb", "make", "init.stru", "final.stru", "8", "-o", "chain.traj", "--method", "linear"])
 
@@ -1069,7 +1069,7 @@ He
 
 
 def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
-    from atst_tools.scripts import cli
+    from atst_tools.scripts import cli, cli_impl
 
     calls = []
 
@@ -1093,8 +1093,8 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
         def view_neb_bands(self, traj_file="neb.traj"):
             calls.append(("view", traj_file))
 
-    monkeypatch.setattr(cli, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0), _atoms(0.2)])
-    monkeypatch.setattr(cli, "NEBPost", FakeNEBPost)
+    monkeypatch.setattr(cli_impl, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0), _atoms(0.2)])
+    monkeypatch.setattr(cli_impl, "NEBPost", FakeNEBPost)
     monkeypatch.setattr(
         cli,
         "get_displacement_analysis",
@@ -1108,7 +1108,7 @@ def test_neb_post_runs_barrier_ts_and_vibration_analysis(monkeypatch, capsys):
 
 
 def test_neb_post_prints_energy_profile_and_uses_plot_label(monkeypatch, capsys):
-    from atst_tools.scripts import cli
+    from atst_tools.scripts import cli, cli_impl
 
     calls = []
 
@@ -1133,8 +1133,8 @@ def test_neb_post_prints_energy_profile_and_uses_plot_label(monkeypatch, capsys)
                 {"image": 1, "energy_eV": 3.0, "rel_energy_eV": 1.0, "max_force_eV_per_A": 0.2},
             ]
 
-    monkeypatch.setattr(cli, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0)])
-    monkeypatch.setattr(cli, "NEBPost", FakeNEBPost)
+    monkeypatch.setattr(cli_impl, "read", lambda filename, index=None: [_atoms(0.0), _atoms(1.0)])
+    monkeypatch.setattr(cli_impl, "NEBPost", FakeNEBPost)
 
     cli.main([
         "neb",
@@ -1349,7 +1349,7 @@ def test_relax_post_help_mentions_ts_restart(capsys):
 
 
 def test_vibration_post_writes_results(monkeypatch, tmp_path):
-    from atst_tools.scripts import cli
+    from atst_tools.scripts import cli, cli_impl
 
     class FakeVibrations:
         def __init__(self, atoms, indices=None, delta=None, nfree=None, name=None):
@@ -1382,8 +1382,8 @@ def test_vibration_post_writes_results(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli.ConfigLoader, "load", lambda path: config)
     monkeypatch.setattr(cli.ConfigLoader, "validate", lambda config: True)
-    monkeypatch.setattr(cli, "read_structure", lambda path: _atoms())
-    monkeypatch.setattr(cli, "Vibrations", FakeVibrations)
+    monkeypatch.setattr(cli_impl, "read_structure", lambda path: _atoms())
+    monkeypatch.setattr(cli_impl, "Vibrations", FakeVibrations)
 
     cli.main(["vibration", "post", "config.yaml"])
 

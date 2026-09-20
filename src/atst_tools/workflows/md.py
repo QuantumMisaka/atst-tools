@@ -275,7 +275,8 @@ class AbacusNativeMDRunner:
 
     def _start_process(self):
         abacus = _abacus_section(self.config)
-        os.environ["OMP_NUM_THREADS"] = str(int(abacus.get("omp", 1)))
+        if abacus.get("omp") is not None:
+            os.environ["OMP_NUM_THREADS"] = str(int(abacus["omp"]))
         stdout_path = self.run_dir / "atst_abacus_native_md.out"
         stderr_path = self.run_dir / "atst_abacus_native_md.err"
         stdout = stdout_path.open("w", encoding="utf-8")

@@ -74,6 +74,29 @@ def _build_abacus_command(command: str, mpi: int) -> str:
     return command or "abacus"
 
 
+def _effective_omp(abacus_config: Dict[str, Any], omp_override: int | None) -> int:
+    """Return the ABACUS OMP budget without clobbering a runtime thread budget.
+
+    An explicit ``calculator.abacus.omp`` (argument or YAML) always wins.  When
+    it is absent, an inherited ``OMP_NUM_THREADS`` (for example set by
+    ``runtime.threads`` before the scientific stack was imported) is preserved;
+    without one the historical default of 1 is written to the environment.
+    """
+    explicit = omp_override if omp_override is not None else abacus_config.get("omp")
+    if explicit is not None:
+        value = int(explicit)
+        os.environ["OMP_NUM_THREADS"] = str(value)
+        return value
+    inherited = os.environ.get("OMP_NUM_THREADS", "").strip()
+    if inherited:
+        try:
+            return int(inherited)
+        except ValueError:
+            pass
+    os.environ["OMP_NUM_THREADS"] = "1"
+    return 1
+
+
 def _effective_abacus_executable(command: str) -> str:
     parts = shlex.split(command)
     if not parts:
@@ -163,12 +186,11 @@ class AbacusFactory:
         orbital_dir = _resolve_directory(parameters.pop("orbital_dir", None))
 
         mpi = int(mpi if mpi is not None else abacus_config.get("mpi", 1))
-        omp = int(omp if omp is not None else abacus_config.get("omp", 1))
+        omp = _effective_omp(abacus_config, omp)
         directory = directory or abacus_config.get("directory", ".")
         command = _build_abacus_command(abacus_config.get("command", "abacus"), mpi)
         version_command = abacus_config.get("version_command")
 
-        os.environ["OMP_NUM_THREADS"] = str(omp)
         profile = ATSTAbacusProfile(
             command=command,
             pseudo_dir=pseudo_dir,
