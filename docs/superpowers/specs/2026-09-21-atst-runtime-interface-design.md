@@ -188,6 +188,15 @@ GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（�
 
 字段归属：恒电势拥有 `calculation.type: constant_potential` 与 `calculator.constant_potential`；GPU 拥有 `runtime`；两者都只增可选字段，联合验收至少包含一条“同时启用仍严格校验”的测试（SPEC §7A）。`utils/abacus_io.py` 被恒电势分支占用（CP 语义校验），GPU 侧当前无重叠改动，合并时按恒电势版本为准。
 
+### 8.1 合并预演（2026-09-21，只读）
+
+用 `git merge-tree --write-tree` 对 `feature/gpu-node-tuning`（26 提交）与恒电势 checkpoint `7bc3f92`（1 提交）做预演：**无冲突**，合并树可提交（`6bd6487`，临时对象），且在合并树上运行 `tests/unit` 只有两项失败，均已确认在恒电势分支**单独**同样失败（与 GPU 侧无关）：
+
+1. `test_examples_reference_results.py::test_reference_results_cover_current_examples` —— `examples/19_constant_potential_Pt/` 缺 `examples/reference_results.json` 条目；
+2. `test_abacuslite_snapshot_ci.py::test_snapshot_checker_normalizes_registered_core_and_keeps_comment_churn` —— vendored `abacuslite/core.py` 的 CP 补丁使该归一化测试的前提失效，需随快照一起更新测试或注册。
+
+这两项是**恒电势分支合入 main 的前置门禁**（其 owner 处理）；其工作树当时另有 8 个未提交文件，可能已含修复，以 owner 提交为准。预演工作树已清理；本仓保留只读引用 `rehearsal-cp` 便于复演。
+
 ## 9. P0 验收对照表
 
 | 场景 | 期望行为 |
