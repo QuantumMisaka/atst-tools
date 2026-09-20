@@ -114,3 +114,22 @@ def test_record_copies_run_time_revisions_and_flags_mismatch(tmp_path: Path) -> 
     assert payload["atst"]["run_time_consistent"] is True
     assert payload["results"][0]["revision"]["head"] == head
     assert payload["warnings"] == []
+
+
+def test_record_reports_gpu_inventory_failure_instead_of_guessing(monkeypatch):
+    """A missing nvidia-smi is recorded as an explicit error, not as 'no GPU'."""
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("nvidia-smi")
+
+    monkeypatch.setattr(record.subprocess, "run", missing)
+    facts = record._host_facts()
+    assert facts["gpu_inventory"] == []
+    assert "could not be executed" in facts["gpu_inventory_error"]
+
+    def failing(*args, **kwargs):
+        return type("Result", (), {"returncode": 9, "stdout": ""})()
+
+    monkeypatch.setattr(record.subprocess, "run", failing)
+    facts = record._host_facts()
+    assert facts["gpu_inventory"] == []
+    assert "status 9" in facts["gpu_inventory_error"]
