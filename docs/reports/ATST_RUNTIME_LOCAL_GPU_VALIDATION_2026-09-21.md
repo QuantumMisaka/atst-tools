@@ -178,3 +178,19 @@ test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧
 记录的 105 原子 120–184 ms/call 属更小模型世代，两者不可直接比较。P5 必须
 在 V100 与 FT²DP/科学 fixture 上重测该剖面，并记录 `DP_INFER_BATCH_SIZE`
 与线程档位。
+
+## 10. TF 后端维度：本地不可达（已定位原因）
+
+计划 P2 要求“DP 按 TF/PT 后端分别验证线程、加载和显存”。本机现状：
+
+- `atst-dev` 同时具备 `tensorflow 2.19.1`、`torch` 与 `deepmd.tf`（导入成功），
+  故 **TF 运行时可用**；PT 路径已由 §4/§6/§7 验证。
+- 缺少 TF 格式模型制品。尝试用 `dp --pt convert-backend DPA-3.1-3M.pt x.pb`
+  现场产出时失败：`KeyError: 'type_map'`，栈底为
+  `deepmd/pt/model/model/__init__.py:250 get_standard_model`——该转换入口按
+  标准（DPA-1/2 风格）PT 模型解析，不支持 DPA-3.1 多任务模型类；与 FT²DP
+  记录中 `.pt2` freeze/转换工具的历史缺陷一致。
+
+结论：TF 后端验证需要 TF 原生制品（例如来自科研侧 freeze 流程），本地无法
+由现有 `.pt` 制品派生；列为 P5 站点侧的可选项（若届时存在 TF 模型），
+本轮不做未经验证的 TF 声明。

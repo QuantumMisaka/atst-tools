@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 from atst_tools.runtime import cli_dispatch
@@ -59,7 +60,7 @@ def test_cli_plan_binds_explicit_devices_for_the_worker(tmp_path, monkeypatch):
     config = _write_config(tmp_path)
     monkeypatch.chdir(tmp_path)
     plan = cli_dispatch.plan_runtime_launch(
-        ["run", str(config), "--devices", "0", "--threads", "6"],
+        ["run", str(config), "--devices", "0", "--threads", "6", "--log-level", "WARNING"],
         environ={"CUDA_VISIBLE_DEVICES": "2,3", "PATH": "/usr/bin"},
     )
     assert plan is not None
@@ -67,6 +68,7 @@ def test_cli_plan_binds_explicit_devices_for_the_worker(tmp_path, monkeypatch):
     assert plan.environment[runtime_devices.RUNTIME_BOUND_ENV] == "1"
     assert plan.environment[runtime_devices.INHERITED_DEVICES_ENV] == "2,3"
     assert plan.environment[runtime_launch.THREAD_ENV_KEYS[0]] == "6"
+    assert plan.environment[runtime_launch.LOG_LEVEL_ENV] == "WARNING"
     assert plan.command[1:3] == ["-m", runtime_launch.WORKER_MODULE]
     assert str(config) in plan.command
     assert plan.resolution.effective == ("2",)
@@ -167,3 +169,40 @@ def test_dry_run_with_runtime_options_still_binds_and_validates(tmp_path, monkey
     assert runner_plan is not None
     assert "--dry-run" in runner_plan.command
     assert runner_plan.environment["CUDA_VISIBLE_DEVICES"] == "3"
+
+
+def _option_strings(parser: argparse.ArgumentParser) -> set[str]:
+    return {
+        option
+        for action in parser._actions
+        for option in action.option_strings
+    }
+
+
+def test_mirror_parsers_know_every_real_option():
+    """The isolation planners must not drift behind the real CLI surfaces.
+
+    A new `atst run` or runner option that the mirror does not know would make
+    runtime-requested invocations fail closed as "unsupported option", so the
+    mirrors are checked structurally here.
+    """
+    from atst_tools.api import runner as api_runner
+    from atst_tools.scripts import cli_impl
+
+    cli_parser = cli_impl.build_parser()
+    subparsers = next(
+        action
+        for action in cli_parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    run_options = _option_strings(subparsers.choices["run"])
+    mirror_options = _option_strings(cli_dispatch._cli_parser())
+    missing_cli = run_options - mirror_options - {"-h", "--help"}
+    assert not missing_cli, f"atst run options missing from the mirror: {sorted(missing_cli)}"
+
+    runner_options = _option_strings(api_runner.build_parser())
+    runner_mirror = _option_strings(cli_dispatch._runner_parser())
+    missing_runner = runner_options - runner_mirror - {"-h", "--help"}
+    assert not missing_runner, (
+        f"runner options missing from the mirror: {sorted(missing_runner)}"
+    )

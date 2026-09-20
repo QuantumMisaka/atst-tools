@@ -48,6 +48,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（阶段耗时首版）：sidecar 新增 `phases`（`dispatch_s` 科学 dispatch 墙钟、`attempt_s` worker 总墙钟）；`ensure_runtime_contract` 在 YAML 无 devices 时回退 CLI 记录的设备事实做一致性校验（隔离 dry-run 形状）。本地验证：`atst run --dry-run --devices 0` 结果文档带 `runtime.status=dry-run` 与绑定事实、不写 sidecar；legacy dry-run 仍不写任何文件。测试：`tests/unit` 全绿、集成 21 项通过、wheel 门通过。
 
+- 2026-09-21（TF 维度定位 + 镜像解析器防漂移）：验证报告 §10——本机 TF 运行时可用（tensorflow 2.19.1、`deepmd.tf` 可导入）但无 TF 制品，`dp --pt convert-backend` 对 DPA-3.1-3M 失败（`KeyError: 'type_map'`，标准模型解析路径），TF 维度留待有制品时补测；新增镜像解析器防漂移测试（`tests/unit/test_runtime_dispatch.py` 结构比对 `atst run`/runner 的全部选项，缺一即失败）与 `--log-level` 转发断言。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
