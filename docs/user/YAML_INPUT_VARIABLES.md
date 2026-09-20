@@ -323,3 +323,9 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.dmf.type | calculation.type=dmf | `'dmf'` | `required` | Select the experimental standalone Direct MaxFlux workflow. |
 | calculation.dmf.init_file | calculation.type=dmf | `str` | `required` | Initial-state structure file. |
 | calculation.dmf.final_file | calculation.type=dmf | `str` | `required` | Final-state structure file. |
+| runtime.devices | runtime | `Any` | `null` | Requested 0-based logical device indices or full GPU UUIDs inside the inherited visible set. |
+| runtime.binding | runtime | `str` | `'inherit'` | Per-rank device binding mode for MPI launches: inherit or round_robin. |
+| runtime.threads | runtime | `int \| NoneType` | `null` | Process thread budget applied before the scientific stack is imported. |
+| runtime.telemetry | runtime | `dict` | `null` | Runtime evidence sidecar switch (boolean shorthand or object). |
+| runtime.telemetry.enabled | runtime.telemetry | `bool` | `False` | Enable host GPU sampling and the runtime evidence sidecar. |
+| runtime.telemetry.interval_s | runtime.telemetry | `float` | `1.0` | Host sampling interval in seconds. |

@@ -20,6 +20,7 @@ from atst_tools.utils.config_schema import (
     MDCalculation,
     NEBCalculation,
     RelaxCalculation,
+    RuntimeConfig,
     SellaCalculation,
     VibrationCalculation,
 )
@@ -141,6 +142,7 @@ def generate_yaml_variable_markdown() -> str:
     for model in CALCULATION_MODELS:
         calc_type = get_args(model.model_fields["type"].annotation)[0]
         _collect_model_rows(model, f"calculation.{calc_type}", f"calculation.type={calc_type}", rows)
+    _collect_model_rows(RuntimeConfig, "runtime", "runtime", rows)
 
     lines = [
         "# YAML Input Variables",

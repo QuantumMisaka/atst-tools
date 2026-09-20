@@ -1079,11 +1079,100 @@ class CalculatorConfig(StrictConfig):
         return self
 
 
+class RuntimeTelemetryConfig(StrictConfig):
+    """Runtime telemetry controls for the optional evidence sidecar."""
+
+    enabled: StrictBool = Field(
+        default=False,
+        description="Enable host GPU sampling and the runtime evidence sidecar.",
+    )
+    interval_s: float = Field(
+        default=1.0, gt=0, description="Host sampling interval in seconds."
+    )
+
+
+class RuntimeConfig(StrictConfig):
+    """Optional runtime device, thread and telemetry controls."""
+
+    devices: Any = Field(
+        default=None,
+        description=(
+            "Requested 0-based logical device indices or full GPU UUIDs inside "
+            "the inherited visible set."
+        ),
+    )
+    binding: str = Field(
+        default="inherit",
+        description="Per-rank device binding mode for MPI launches: inherit or round_robin.",
+    )
+    threads: int | None = Field(
+        default=None,
+        description="Process thread budget applied before the scientific stack is imported.",
+    )
+    telemetry: bool | RuntimeTelemetryConfig | None = Field(
+        default=None,
+        description="Runtime evidence sidecar switch (boolean shorthand or object).",
+    )
+
+    @field_validator("devices")
+    @classmethod
+    def _validate_devices(cls, value: Any) -> Any:
+        """Validate the device request with the frozen runtime messages."""
+        if value is None:
+            return None
+        from atst_tools.runtime.devices import parse_device_tokens
+        from atst_tools.runtime.errors import RuntimeConfigError
+
+        try:
+            parse_device_tokens(value)
+        except RuntimeConfigError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
+
+    @field_validator("threads", mode="before")
+    @classmethod
+    def _validate_threads(cls, value: Any) -> Any:
+        """Reject non-positive and boolean thread budgets."""
+        if value is None:
+            return None
+        from atst_tools.runtime.devices import THREADS_MESSAGE
+
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(THREADS_MESSAGE)
+        return value
+
+    @field_validator("binding", mode="before")
+    @classmethod
+    def _validate_binding(cls, value: Any) -> Any:
+        """Reject unknown binding modes with the frozen message."""
+        from atst_tools.runtime.devices import BINDING_MESSAGE
+
+        mode = "inherit" if value is None else value
+        if mode not in ("inherit", "round_robin"):
+            raise ValueError(BINDING_MESSAGE.format(mode=mode))
+        return mode
+
+    @field_validator("telemetry", mode="before")
+    @classmethod
+    def _validate_telemetry(cls, value: Any) -> Any:
+        """Keep telemetry a boolean or a mapping instead of coercing strings."""
+        if value is None or isinstance(value, bool):
+            return value
+        if isinstance(value, dict):
+            return value
+        raise ValueError(
+            "runtime.telemetry must be a boolean or a mapping with 'enabled'"
+        )
+
+
 class ATSTConfig(StrictConfig):
     """Top-level ATST-Tools YAML configuration."""
 
     calculation: CalculationConfig = Field(description="Workflow configuration.")
     calculator: CalculatorConfig = Field(description="Calculator configuration.")
+    runtime: RuntimeConfig | None = Field(
+        default=None, description="Optional runtime device, thread and telemetry controls."
+    )
 
     @model_validator(mode="after")
     def _validate_cross_section_rules(self) -> "ATSTConfig":
