@@ -114,3 +114,18 @@ def test_runner_plan_rebinds_only_when_unbound(tmp_path, monkeypatch):
     assert "--result-json" in plan.command
     assert "handoff.json" in plan.command
     assert "--devices" not in plan.command
+
+
+def test_runner_plan_uses_absolute_paths_for_the_reexec(tmp_path, monkeypatch):
+    """The worker replaces the process image, so paths must not stay relative."""
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "config.yaml"
+    config.write_text("runtime:\n  devices: [0]\n", encoding="utf-8")
+    plan = cli_dispatch.plan_runner_launch(
+        ["--config", "config.yaml", "--workdir", "runs/one", "--devices", "0"],
+        environ={"CUDA_VISIBLE_DEVICES": "2,3"},
+    )
+    assert plan is not None
+    assert str(config) in plan.command
+    assert str((tmp_path / "runs" / "one").resolve()) in plan.command
+    assert "config.yaml" not in plan.command

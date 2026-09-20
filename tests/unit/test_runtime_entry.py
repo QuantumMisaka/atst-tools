@@ -242,3 +242,53 @@ def test_omp_defaults_to_one_without_any_budget(monkeypatch):
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     assert _effective_omp({}, None) == 1
     assert os.environ["OMP_NUM_THREADS"] == "1"
+
+
+def test_runner_direct_entry_resolves_paths_from_the_caller_directory(tmp_path):
+    """A relative --config/--workdir pair must survive the worker re-exec.
+
+    The worker replaces the process image before entering the workflow
+    directory, so the config must be found relative to the caller's directory.
+    Regression: it used to be resolved inside the workdir and failed with
+    "Configuration file .../<workdir>/config.yaml not found".
+    """
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: missing_input.traj\n"
+        "calculator:\n"
+        "  name: abacus\n"
+        "  abacus:\n"
+        "    parameters: {}\n",
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(SRC_ROOT)
+    environment["CUDA_VISIBLE_DEVICES"] = "0"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "atst_tools.api.runner",
+            "--config",
+            "config.yaml",
+            "--workdir",
+            "run",
+            "--result-json",
+            "result.json",
+            "--devices",
+            "0",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert completed.returncode == 2, completed.stderr
+    payload = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    message = payload["error"]["message"]
+    assert "config.yaml not found" not in message
+    assert "missing_input.traj" in message
+    assert not (tmp_path / "run" / "run").exists()

@@ -150,7 +150,7 @@ def plan_runtime_launch(
         return None
     if parsed.dry_run or parsed.list_types or parsed.show_template or parsed.check_input:
         return None
-    config_path = Path(parsed.config) if parsed.config else None
+    config_path = Path(parsed.config).resolve() if parsed.config else None
     request = launch.merge_runtime_request(
         cli_devices=parsed.devices,
         cli_binding=parsed.binding,
@@ -210,7 +210,7 @@ def plan_runner_launch(
         return None
     if parsed.config is None:
         return None
-    config_path = Path(parsed.config)
+    config_path = Path(parsed.config).resolve()
     request = launch.merge_runtime_request(
         cli_devices=parsed.devices,
         cli_binding=parsed.binding,
@@ -227,7 +227,10 @@ def plan_runner_launch(
         if workdir is not None
         else Path(parsed.workdir or ".").resolve()
     )
-    command = [command_part for command_part in _runner_command_from(parsed, config_path)]
+    command = [
+        command_part
+        for command_part in _runner_command_from(parsed, config_path, resolved_workdir)
+    ]
     return _build_plan(
         config_path=config_path,
         request=request,
@@ -238,11 +241,18 @@ def plan_runner_launch(
     )
 
 
-def _runner_command_from(parsed: argparse.Namespace, config_path: Path) -> list[str]:
-    """Rebuild the worker argv from the parsed runner surface (no runtime flags)."""
+def _runner_command_from(
+    parsed: argparse.Namespace, config_path: Path, workdir: Path
+) -> list[str]:
+    """Rebuild the worker argv with absolute paths (no runtime flags).
+
+    The worker replaces this process image while the coordinator may already
+    sit inside the workflow directory, so relative paths would resolve against
+    the wrong base in the child.
+    """
     command = launch.build_worker_command(
         config_path,
-        workdir=parsed.workdir,
+        workdir=workdir,
         restart=bool(parsed.restart),
         abacus_executable=parsed.abacus_executable,
     )

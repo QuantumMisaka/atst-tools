@@ -30,6 +30,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（本地真实 GPU 验证）：`docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md`——RTX 2070 SUPER + DPA-3.1-3M 上以隔离路径完成 relax（−203.7575 eV，≈31.5 s），`runtime_evidence.json`（status=complete）记录 requested/inherited/effective、线程预算与 affinity、`dp.calculator_built=1`/`dp.force_calls=3`、26 个宿主采样与真实显存占用；manifest 携带 `runtime_evidence` 引用。另修复 `python -m atst_tools.scripts.cli` 缺少 `__main__` 入口（模块执行静默无操作）并新增回归测试。SAI V100/ABACUS/MPI 仍属 P5。
 
+- 2026-09-21（DP image-parallel NEB 首跑）：同一报告 §6——本地 MPICH 3 ranks 完成 DP + `mpi4py` 图像并行 NEB（`world.size == interior_images`，`status=success`），证据记录 `mpi.world_size=3`、rank 0 计数（`dp.calculator_built/reused/force_calls`）与 45 个采样（峰值 3.2 GiB / 8 GiB）；与串行对照逐帧等价（max |ΔE| 1.4e-06 eV、|ΔF| 1.9e-06 eV/Å）。另修复 runner 直接入口 re-exec 的相对路径缺陷与 plan 构建晚于 chdir 的基准缺陷（均带回归测试）。P4 至此全部闭合；站点 OpenMPI/SIF 与收益曲线留 P5。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

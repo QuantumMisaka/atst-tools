@@ -61,3 +61,36 @@ cache: .atst_cache/attempt-1（每 attempt 独立可写目录）
   范围（整卡）值，进程归属在当前环境不可用；未测量并发/吞吐。
 - 后续：SAI 4V100 的并发曲线、NEB 图数×卡数映射、DP image-parallel NEB
   E2E 与 ABACUS 侧基准按计划 P5 执行（需维护者确认 fixture/容差/预算）。
+
+## 6. MPI image-parallel DP NEB（同日追加）
+
+P0 复核指出的“DP 模型的 mpi4py 并行 NEB 从未运行”在本机首次打通：
+同一模型、5 帧链（3 内部图）、MPICH 拉起 3 个 rank，每 rank 走
+`runtime` 绑定路径（`--devices 0`，单设备池）后运行 NEB：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 mpiexec -n 3 python -m atst_tools.api.runner \
+  --config config.yaml --workdir runD --result-json result.json \
+  --devices 0 --telemetry --threads 4
+```
+
+结果（`runD`）：`status=success`，FIRE 6 步（`max_steps=6`，未达 `fmax=0.5`
+收敛判据，按配置有界结束并给出英文警示），轨迹 35 帧；`runtime_evidence.json`
+记录 `mpi.world_size=3`/`local_rank=0`、`bound=true`、
+`requested=["0"]/inherited=["0"]/effective=["0"]`、rank 0 进程计数
+（`dp.calculator_built=2`、`dp.calculator_reused=1`、`dp.force_calls=9`）
+与 45 个宿主采样（峰值 3219/8192 MiB，3 个 rank 共享一卡）。
+
+串行等价对照（同配置 `mpiexec -n 1`，串行回退告警可见）：35 帧逐帧比较
+`max |ΔE| = 1.4e-06 eV`、`max |ΔF| = 1.9e-06 eV/Å`，即与串行数值等价。
+
+本轮同时修复两个真实缺陷（均带回归测试）：
+
+1. runner 直接入口 re-exec 时把相对 `--config`/`--workdir` 传给了子进程，
+   子进程在工作目录内解析导致 “Configuration file …/<workdir>/config.yaml
+   not found” 并产出嵌套目录；
+2. plan 构建发生在 chdir 之后，路径基准错误（现已按调用者目录解析为绝对路径，
+   且在进入工作目录之前完成 plan）。
+
+局限：3 ranks 共享单张消费级 GPU，未测吞吐/加速比，也未涉及站点 OpenMPI、
+SIF、ABACUS 与 4×V100；这些仍按计划 P5 执行。

@@ -204,12 +204,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     try:
-        with _working_directory(workdir):
-            from atst_tools.runtime.cli_dispatch import plan_runner_launch
+        from atst_tools.runtime.cli_dispatch import plan_runner_launch
 
-            plan = plan_runner_launch(arguments, workdir=workdir)
-            if plan is not None:  # pragma: no cover - replaces the process
-                plan.execute()
+        # Plan before entering the workflow directory: the re-executed worker
+        # resolves its paths from the caller's directory, and the child enters
+        # the workdir itself.
+        plan = plan_runner_launch(arguments, workdir=workdir)
+        if plan is not None:  # pragma: no cover - replaces the process
+            plan.execute()
+        with _working_directory(workdir):
             result = _api_attr("run_workflow")(config_path, options)
             if is_root:
                 _write_json_atomic(result_path, result.to_document(workdir))

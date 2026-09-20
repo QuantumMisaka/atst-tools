@@ -80,6 +80,10 @@ def environment_facts(environ: Mapping[str, str]) -> dict[str, Any]:
         "threads": threads,
         "threads_source": environ.get(_launch.THREADS_SOURCE_ENV),
         "cpu_affinity_count": _launch.cpu_affinity_count(),
+        "mpi": {
+            "world_size": _devices.mpi_world_facts(environ)[0],
+            "local_rank": _devices.mpi_world_facts(environ)[1],
+        },
     }
 
 
