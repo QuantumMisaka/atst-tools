@@ -261,3 +261,67 @@ def test_start_session_failure_does_not_break_the_workflow(monkeypatch, tmp_path
 
     assert result.status == "complete"
     assert "runtime evidence unavailable" in capsys.readouterr().err
+
+
+class _FakeCalculator:
+    """Minimal ASE-like calculator used to exercise the counter wrapper."""
+
+    def calculate(self, atoms=None, properties=None, system_changes=None):
+        return "energy"
+
+
+def test_counters_track_builds_and_force_calls_only_when_enabled():
+    from atst_tools.runtime import counters
+
+    counters.reset()
+    counters.set_enabled(False)
+    instrumented = counters.instrument_calculator(
+        _FakeCalculator(),
+        build_key="dp.calculator_built",
+        call_key="dp.force_calls",
+    )
+    instrumented.calculate()
+    assert counters.snapshot() == {}
+
+    counters.set_enabled(True)
+    instrumented = counters.instrument_calculator(
+        _FakeCalculator(),
+        build_key="dp.calculator_built",
+        call_key="dp.force_calls",
+    )
+    instrumented.calculate()
+    instrumented.calculate()
+    assert counters.snapshot() == {"dp.calculator_built": 1, "dp.force_calls": 2}
+    counters.reset()
+    counters.set_enabled(False)
+
+
+def test_evidence_payload_includes_process_counters(tmp_path):
+    from atst_tools.runtime import counters
+
+    counters.reset()
+    session = runtime_evidence.start_session(
+        workflow_dir=tmp_path,
+        workflow="relax",
+        config_runtime={"telemetry": {"enabled": False}},
+        environ={},
+        rank=0,
+    )
+    assert session is not None
+    assert counters.is_enabled() is True
+    counters.instrument_calculator(
+        _FakeCalculator(),
+        build_key="abacus.calculator_built",
+        call_key="abacus.force_calls",
+    ).calculate()
+    session.finish("complete")
+    payload = json.loads(
+        (tmp_path / runtime_evidence.EVIDENCE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert payload["counters"] == {
+        "abacus.calculator_built": 1,
+        "abacus.force_calls": 1,
+    }
+    assert payload["counters_scope"] == "process"
+    counters.reset()
+    counters.set_enabled(False)

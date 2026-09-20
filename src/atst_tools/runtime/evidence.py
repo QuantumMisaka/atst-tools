@@ -22,6 +22,7 @@ import threading
 from typing import Any, Mapping, Sequence
 
 from atst_tools.runtime import devices as _devices
+from atst_tools.runtime import counters as _counters
 from atst_tools.runtime import launch as _launch
 
 EVIDENCE_FILENAME = "runtime_evidence.json"
@@ -219,6 +220,8 @@ class EvidenceSession:
             "finished_at": _now(),
             "environment": environment_facts(self.environ),
             "devices": device_facts(self.config_runtime, self.environ),
+            "counters": _counters.snapshot(),
+            "counters_scope": "process",
             "telemetry": {
                 "enabled": self.telemetry_enabled,
                 "interval_s": self.telemetry_interval_s,
@@ -328,7 +331,9 @@ def start_session(
 ) -> EvidenceSession | None:
     """Return a started evidence session, or ``None`` when it is not requested."""
     env = os.environ if environ is None else environ
-    if rank != 0 or not evidence_requested(config_runtime, env):
+    requested = evidence_requested(config_runtime, env)
+    _counters.set_enabled(requested)
+    if rank != 0 or not requested:
         return None
     enabled, interval = telemetry_settings(config_runtime, env)
     session = EvidenceSession(

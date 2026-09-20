@@ -18,6 +18,7 @@ from atst_tools.calculators.constant_potential import (
     fixed_hamiltonian_identity_for_config,
 )
 from atst_tools.calculators.dp import DeepPotentialFactory
+from atst_tools.runtime import counters as runtime_counters
 from atst_tools.utils.mpi import mpi_launcher_detected
 
 
@@ -198,7 +199,12 @@ class AbacusFactory:
             omp_num_threads=omp,
             version_command=version_command,
         )
-        return Abacus(directory=directory, profile=profile, **parameters)
+        calculator = Abacus(directory=directory, profile=profile, **parameters)
+        return runtime_counters.instrument_calculator(
+            calculator,
+            build_key="abacus.calculator_built",
+            call_key="abacus.force_calls",
+        )
 
 
 class CalculatorFactory:

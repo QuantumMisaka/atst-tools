@@ -8,6 +8,8 @@ from typing import Any, Dict, Hashable
 
 from ase.calculators.calculator import Calculator
 
+from atst_tools.runtime import counters as runtime_counters
+
 
 def is_dp_calculator(name: str) -> bool:
     """Return whether a calculator name refers to the DeepMD-kit adapter."""
@@ -104,9 +106,15 @@ class DeepPotentialFactory:
 
         key = _cache_key(model_file, constructor_params)
         if share and key in DeepPotentialFactory._instances:
+            runtime_counters.increment("dp.calculator_reused")
             return DeepPotentialFactory._instances[key]
 
         calc = DP(model=model_file, **constructor_params)
+        runtime_counters.instrument_calculator(
+            calc,
+            build_key="dp.calculator_built",
+            call_key="dp.force_calls",
+        )
         if share:
             DeepPotentialFactory._instances[key] = calc
         return calc
