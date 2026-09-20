@@ -515,6 +515,7 @@ def _ensure_completed_manifest(
     world: Any,
     previous_signature: tuple[int, int, int, int] | None = None,
     plots: Sequence[str] = (),
+    runtime_evidence: str | None = None,
 ) -> None:
     """Guarantee that a completed API outcome has an accurate durable manifest.
 
@@ -538,22 +539,28 @@ def _ensure_completed_manifest(
                 manifest_path, workflow
             )
             if not (runner_wrote_manifest and matching_manifest):
+                metadata = {"manifest_source": "api_synthesized"}
+                if runtime_evidence:
+                    metadata["runtime_evidence"] = runtime_evidence
                 write_artifact_manifest(
                     manifest_path,
                     workflow=workflow,
                     artifacts=_synthesized_artifacts(config, value),
                     stages=[StageRecord(name=workflow).to_manifest()],
-                    metadata={"manifest_source": "api_synthesized"},
+                    metadata=metadata,
                     plots=plots,
                 )
-            elif plots:
+            elif plots or runtime_evidence:
                 manifest = _read_manifest(manifest_path)
+                metadata = dict(manifest.get("metadata", {}))
+                if runtime_evidence:
+                    metadata["runtime_evidence"] = runtime_evidence
                 write_artifact_manifest(
                     manifest_path,
                     workflow=manifest.get("workflow", workflow),
                     artifacts=manifest.get("artifacts", []),
                     stages=manifest.get("stages", []),
-                    metadata=manifest.get("metadata", {}),
+                    metadata=metadata,
                     plots=plots,
                 )
         except Exception as exc:
@@ -727,69 +734,99 @@ def _run_workflow(
     except ATSTAPIError as exc:
         contract_failure = exc
     _synchronize_rank_failure(world, workflow, contract_failure)
-    if int(world.rank) == 0:
-        _emit_workflow_start(options, workflow)
-    if options.dry_run:
-        preflight = None
-        preflight_failure = None
+    evidence = None
+    if not options.dry_run:
+        from atst_tools.runtime.evidence import start_session
+
         try:
-            preflight = _run_abacus_check_input_preflight(
-                config, config_source, options, base_dir=preflight_base_dir
+            evidence = start_session(
+                workflow_dir=Path.cwd(),
+                workflow=workflow,
+                config_runtime=config.get("runtime"),
+                rank=int(world.rank),
             )
-        except WorkflowExecutionError as exc:
-            preflight_failure = exc
         except Exception as exc:
-            preflight_failure = WorkflowExecutionError(str(exc), workflow=workflow)
-            preflight_failure.__cause__ = exc
-        _synchronize_rank_failure(world, workflow, preflight_failure)
-        result = _validated_result(config, world)
-        if preflight is not None:
-            result.metadata["check_input_preflight"] = preflight
-        return result
-    previous_signature = None
-    if ensure_completed_manifest:
-        manifest_path = config["calculation"].get(
-            "artifact_manifest", "atst_artifacts.json"
-        )
-        manifest_inspection_failure = None
-        try:
-            previous_signature = _manifest_signature(manifest_path)
-        except OSError as exc:
-            manifest_inspection_failure = WorkflowExecutionError(
-                "Unable to inspect the workflow artifact manifest.", workflow=workflow
-            )
-            manifest_inspection_failure.__cause__ = exc
-        _synchronize_rank_failure(world, workflow, manifest_inspection_failure)
-    value = None
-    failure = None
+            evidence = None
+            print(f"runtime evidence unavailable: {exc}", file=sys.stderr)
     try:
-        value = _dispatch_normalized(config, options)
-    except ATSTAPIError as exc:
-        failure = exc
-    except Exception as exc:
-        dependency = _optional_dependency_name(exc)
-        if dependency is not None:
-            failure = UnsupportedDependencyError(
-                str(exc), workflow=workflow, context={"dependency": dependency}
+        if int(world.rank) == 0:
+            _emit_workflow_start(options, workflow)
+        if options.dry_run:
+            preflight = None
+            preflight_failure = None
+            try:
+                preflight = _run_abacus_check_input_preflight(
+                    config, config_source, options, base_dir=preflight_base_dir
+                )
+            except WorkflowExecutionError as exc:
+                preflight_failure = exc
+            except Exception as exc:
+                preflight_failure = WorkflowExecutionError(str(exc), workflow=workflow)
+                preflight_failure.__cause__ = exc
+            _synchronize_rank_failure(world, workflow, preflight_failure)
+            result = _validated_result(config, world)
+            if preflight is not None:
+                result.metadata["check_input_preflight"] = preflight
+            return result
+        previous_signature = None
+        if ensure_completed_manifest:
+            manifest_path = config["calculation"].get(
+                "artifact_manifest", "atst_artifacts.json"
             )
-        else:
-            failure = WorkflowExecutionError(str(exc), workflow=workflow)
-        failure.__cause__ = exc
-    _synchronize_rank_failure(world, workflow, failure)
-    profiles = ()
-    plots = ()
-    if int(world.rank) == 0:
-        _emit_image_step_events(config, value, options)
-        profiles = _workflow_profiles(config, value, options)
-        plots = _workflow_plots(config, value, options)
-    if not ensure_completed_manifest:
-        return _result_without_manifest(config, world, "complete")
-    _ensure_completed_manifest(
-        config, value, world, previous_signature, plots=plots
-    )
-    return _result_from_manifest(
-        config, value, world, "complete", profiles=profiles
-    )
+            manifest_inspection_failure = None
+            try:
+                previous_signature = _manifest_signature(manifest_path)
+            except OSError as exc:
+                manifest_inspection_failure = WorkflowExecutionError(
+                    "Unable to inspect the workflow artifact manifest.", workflow=workflow
+                )
+                manifest_inspection_failure.__cause__ = exc
+            _synchronize_rank_failure(world, workflow, manifest_inspection_failure)
+        value = None
+        failure = None
+        try:
+            value = _dispatch_normalized(config, options)
+        except ATSTAPIError as exc:
+            failure = exc
+        except Exception as exc:
+            dependency = _optional_dependency_name(exc)
+            if dependency is not None:
+                failure = UnsupportedDependencyError(
+                    str(exc), workflow=workflow, context={"dependency": dependency}
+                )
+            else:
+                failure = WorkflowExecutionError(str(exc), workflow=workflow)
+            failure.__cause__ = exc
+        _synchronize_rank_failure(world, workflow, failure)
+        profiles = ()
+        plots = ()
+        if int(world.rank) == 0:
+            _emit_image_step_events(config, value, options)
+            profiles = _workflow_profiles(config, value, options)
+            plots = _workflow_plots(config, value, options)
+        if not ensure_completed_manifest:
+            return _result_without_manifest(config, world, "complete")
+        evidence_reference = (
+            evidence.finish("complete") if evidence is not None else None
+        )
+        _ensure_completed_manifest(
+            config,
+            value,
+            world,
+            previous_signature,
+            plots=plots,
+            runtime_evidence=evidence_reference,
+        )
+        return _result_from_manifest(
+            config, value, world, "complete", profiles=profiles
+        )
+    finally:
+        if evidence is not None:
+            failure_value = sys.exc_info()[1]
+            evidence.finish(
+                "partial" if failure_value is not None else "complete",
+                reason=str(failure_value) if failure_value is not None else None,
+            )
 
 
 def run_workflow(
