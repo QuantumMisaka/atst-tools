@@ -17,6 +17,16 @@ def test_parse_device_tokens_accepts_scalars_lists_and_uuids():
     assert [t.uuid for t in runtime_devices.parse_device_tokens(UUID_A)] == [UUID_A]
     tokens = runtime_devices.parse_device_tokens([0, UUID_A])
     assert [t.raw for t in tokens] == ["0", UUID_A]
+    comma_separated = runtime_devices.parse_device_tokens("0, 1")
+    assert [token.ordinal for token in comma_separated] == [0, 1]
+    mixed = runtime_devices.parse_device_tokens(f"0,{UUID_A}")
+    assert [token.raw for token in mixed] == ["0", UUID_A]
+
+
+def test_parse_device_tokens_rejects_malformed_comma_separated_specs():
+    for value in ("0,,1", "0,", ",1", "0,x"):
+        with pytest.raises(runtime_errors.RuntimeConfigError):
+            runtime_devices.parse_device_tokens(value)
 
 
 @pytest.mark.parametrize(

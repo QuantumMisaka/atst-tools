@@ -133,9 +133,16 @@ def parse_device_tokens(value: Any) -> tuple[DeviceToken, ...]:
         if not items:
             raise RuntimeConfigError(DEVICES_EMPTY_MESSAGE)
     elif isinstance(value, str):
-        if value.strip() == "":
+        text = value.strip()
+        if text == "":
             raise RuntimeConfigError(DEVICES_EMPTY_MESSAGE)
-        items = [value]
+        if "," in text:
+            parts = [part.strip() for part in text.split(",")]
+            if any(part == "" for part in parts):
+                raise RuntimeConfigError(DEVICES_ENTRY_MESSAGE.format(token=text))
+            items = list(parts)
+        else:
+            items = [text]
     elif isinstance(value, (int, float, bool)):
         items = [value]
     else:
@@ -255,6 +262,15 @@ def mpi_world_facts(environ: Mapping[str, str]) -> tuple[int, int | None]:
     return size, local_rank
 
 
+def declared_node_count(environ: Mapping[str, str]) -> int:
+    """Return the node count declared by the launcher environment (default 1)."""
+    for key in ("SLURM_JOB_NUM_NODES", "SLURM_NNODES", "ATST_NODES"):
+        value = environ.get(key)
+        if value is not None and value.strip().isdigit():
+            return max(int(value.strip()), 1)
+    return 1
+
+
 def _apply_round_robin(
     resolution: DeviceResolution, environ: Mapping[str, str]
 ) -> DeviceResolution:
@@ -263,6 +279,12 @@ def _apply_round_robin(
     if size <= 1:
         raise RuntimeBindingError(
             "runtime.binding 'round_robin' requires an MPI world with more than one rank"
+        )
+    nodes = declared_node_count(environ)
+    if nodes > 1:
+        raise RuntimeBindingError(
+            "runtime.binding 'round_robin' requires a verified single-node device "
+            f"pool; the launcher declares {nodes} nodes"
         )
     if local_rank is None:
         raise RuntimeBindingError(

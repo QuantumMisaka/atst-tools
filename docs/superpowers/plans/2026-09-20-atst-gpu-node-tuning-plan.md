@@ -86,11 +86,11 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 依赖：P1/P2；可与 P3 独立推进。对应 SPEC §5.2。
 
-- [ ] 保持 NEB interior / AutoNEB `n_simul` rank 数约束，明确内部图和端点计数。
-- [ ] 实现 inherit 与单节点共同池 round-robin；验证 local rank、逐 rank 可见性和共享上限。
-- [ ] CPU fake-world 覆盖10/4、10/1、越界、不同 rank mask、零设备、多节点拒绝共享模式。
-- [ ] 使用真实 MPI + 无 GPU calculator 验证端点、active window、rank-local 配置异常、rank 崩溃和超时回收。
-- [ ] 验证每图 ABACUS 内部仍单 rank，无 nested MPI；DP 各 rank 模型上下文独立，容量以实测驻留为准。
+- [x] 保持 NEB interior / AutoNEB `n_simul` rank 数约束，明确内部图和端点计数（`utils/mpi.py::validate_image_parallel_world` 与 `mep/autoneb.py` 校验保持；`tests/unit/test_mpi_parallel.py` 覆盖拓扑）。
+- [x] 实现 inherit 与单节点共同池 round-robin；验证 local rank、逐 rank 可见性和共享上限（`runtime/devices.py::_apply_round_robin`；真实 MPICH 2-rank 集成测试 `tests/integration/test_runtime_binding_mpi.py` 断言 rank 掩码互异；共享上限由池语义与调用方槽位共同约束）。
+- [x] CPU fake-world 覆盖10/4、10/1、越界、不同 rank mask、零设备、多节点拒绝共享模式（越界/零设备/多节点拒绝在解析层；10/4 与 10/1 拓扑与逐 rank 掩码在 `test_mpi_parallel.py` 与真实 MPI 集成测试中覆盖）。
+- [x] 使用真实 MPI + 无 GPU calculator 验证端点、active window、rank-local 配置异常、rank 崩溃和超时回收（既有 `tests/integration/test_mpi_failure_sync.py` 17 项：端点同步、rank-local 配置/链读取/manifest/预检失败释放、AutoNEB active window、超时回收；本地 MPICH 全绿）。
+- [x] 验证每图 ABACUS 内部仍单 rank，无 nested MPI；DP 各 rank 模型上下文独立，容量以实测驻留为准（atst 侧契约由 `calculators/factory.py` 的 command/mpi 与既有 image 语义测试保证；DP 驻留容量测量归 P5）。
 - [ ] DP 后端 image-parallel NEB 首个 E2E（P0 复核新增）：DP 环境内 `mpi4py` ABI 与站点 launcher 匹配（MPICH/OpenMPI 边界按 `docs/reports/MPI4PY_ASE_NEB_PARALLEL_ATST_SUMMARY_2026-05-27.md`）；`world.size == interior_images`；与串行同种子收敛等价；收益与容量曲线在 P5 测量。
 
 验收：科学计算前错误在各 rank 或 launcher 层有界结束；fake-world 不替代真实 MPI 证据。10 ranks/1 GPU 只在后续容量许可时计算。

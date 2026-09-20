@@ -24,6 +24,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P3 首片）：独立 case 参考 harness `src/atst_tools/bench/harness.py`（manifest → 有限 case 队列；设备槽位（`slots_per_device` 默认 1）与 CPU 线程预算共同限流；每 case 独立目录、独立 worker 进程与 `harness_case.json`；OOM/超时/取消/跳过分类且不隐式重试；单例 `HostSampler`；`harness_summary.json` 保留全部任务与卡时；`SIGINT/SIGTERM` 有界终止进程组）。模板 `examples/runtime_batch_cases.example.json`；测试 `tests/unit/test_bench_harness.py`（6 项，替身 worker：槽位时序、超时整组回收、取消、停止策略、环境与目录隔离）。全量 968 项通过。真实 SAI 作业运行与并发曲线留 P5。
 
+- 2026-09-21（P4 首片）：逐 rank 运行时绑定——CLI/env 逗号分隔设备规格解析修正（真实 MPI 集成测试暴露并修复 `parse_device_tokens('0,1')`）；`round_robin` 增加多节点拒绝（`declared_node_count`，`SLURM_JOB_NUM_NODES`/`SLURM_NNODES`/`ATST_NODES`）；新增 `tests/integration/test_runtime_binding_mpi.py`（真实 MPICH 2-rank：rank 掩码互异、coordinator 逐 rank 生成隔离 worker 计划）；既有 17 项真实 MPI 失败同步回归本地全绿。P4 除“DP 后端 image-parallel NEB 首个 E2E”外各项已具备本地证据；站点 OpenMPI/SIF 与 DP 并行 E2E 留 P5。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

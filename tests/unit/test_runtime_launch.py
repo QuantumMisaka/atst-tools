@@ -205,3 +205,20 @@ def test_round_robin_is_fail_closed_until_a_verified_pool_exists():
     assert resolution.child_mask == "3"
     assert "round_robin_rank_device" in resolution.notes
     assert resolution.requested == ("0", "1")
+
+
+def test_round_robin_refuses_multi_node_launcher_shapes():
+    with pytest.raises(RuntimeBindingError) as caught:
+        runtime_devices.resolve_devices(
+            runtime_devices.parse_device_tokens([0, 1]),
+            binding="round_robin",
+            environ={
+                "CUDA_VISIBLE_DEVICES": "2,3",
+                "OMPI_COMM_WORLD_SIZE": "4",
+                "OMPI_COMM_WORLD_LOCAL_RANK": "1",
+                "SLURM_NNODES": "2",
+            },
+        )
+    assert "single-node device pool" in str(caught.value)
+    assert runtime_devices.declared_node_count({"SLURM_JOB_NUM_NODES": "3"}) == 3
+    assert runtime_devices.declared_node_count({}) == 1
