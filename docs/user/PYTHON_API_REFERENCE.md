@@ -46,13 +46,14 @@ responsibility.
 
 ## Stable imports
 
-Only these nine names are stable root imports in this release:
+These ten names are stable root imports in the current source tree:
 
 ```python
 from atst_tools.api import (
     CCQNOptions,
     RunOptions,
     WorkflowResult,
+    build_config_from_abacus_dir,
     ccqn_energy_curve,
     neb_energy_profile,
     run_ccqn,
@@ -65,6 +66,39 @@ from atst_tools.api import (
 Workflow, calculator, MEP, and vendored implementation packages are not stable
 integration surfaces. Do not couple an application to their constructors or
 helper functions; use the names above instead.
+
+### `build_config_from_abacus_dir(abacus_run_dir, *, workflow="neb", init_structure=None, final_structure=None, n_images=5, gate_dirs=None)`
+
+Read an existing ABACUS run directory and return a calculator/calculation
+configuration mapping. This helper prepares configuration only; it does not
+launch ABACUS or write a YAML file. The current implementation supports
+`workflow="neb"` only and rejects other workflow names.
+
+It reads `INPUT` and `STRU`, derives K points from `gamma_only`, `kspacing`,
+or `KPT`, and rejects line-mode K points for force evaluation. Calculator
+parameters are inherited with `calculation="scf"` and `cal_force=1`;
+`pseudo_dir` and `orbital_dir` are resolved relative to the source directory.
+`cal_stress` is not forcibly overwritten. LCAO structures need orbital filenames.
+When supplied, `gate_dirs` requires parseable energy and forces in each endpoint
+directory. Missing source directories raise `FileNotFoundError`; explicit
+input checks raise `ValueError`. Underlying parser exceptions are propagated.
+
+```python
+from atst_tools.api import build_config_from_abacus_dir, validate_config
+
+config = build_config_from_abacus_dir(
+    "relaxed_initial",
+    final_structure="relaxed_product/STRU",
+    gate_dirs=["relaxed_initial", "relaxed_product"],
+)
+config = validate_config(config)
+```
+
+The default NEB configuration is image-parallel; callers choose runtime resources
+and may adjust the mapping before validation/execution. Both endpoint structures
+default to the source `STRU`, so a reaction calculation needs an explicit product.
+This root export is the supported integration entry; the helpers under
+`atst_tools.utils.reverse_config` remain implementation details.
 
 ### `validate_config(config_source)`
 
@@ -128,7 +162,7 @@ print(result.status, result.artifact_manifest)
 
 An external host that needs a process boundary, stable exit status, and a
 machine-readable handoff can use the installed runner. It is not a
-seventh stable root import and it does not replace the `atst` CLI:
+separate stable root import and it does not replace the `atst` CLI:
 
 ```bash
 python -m atst_tools.api.runner \
@@ -342,7 +376,9 @@ Backend delegation has four invariants:
 
 ## Errors and support boundary
 
-Public API failures derive from `ATSTAPIError`. The companion model component
+Workflow execution and validation API failures derive from `ATSTAPIError`.
+The configuration-building helper above retains its documented filesystem and
+input exceptions. The companion model component
 defines `ConfigValidationError` for schema/path problems,
 `UnsupportedDependencyError` for unavailable optional runtime dependencies
 (including DeePMD-kit's `deepmd` component, MPI launcher's `mpi4py` requirement,
@@ -352,7 +388,7 @@ and DMF's `cyipopt`/IPOPT requirement),
 optional workflow name and diagnostic context; the original failure is chained
 as its cause where available. These error types are available from
 `atst_tools.api.models`; they are intentionally not additional stable root
-imports beyond the nine names listed above. The CLI unwraps them to retain its
+imports beyond the ten names listed above. The CLI unwraps them to retain its
 existing exception and message surface.
 
 DMF remains experimental. `run_workflow()` preserves its current dependency
@@ -363,7 +399,7 @@ or calculator-embedding API.
 
 This release is additive: existing CLI commands, YAML fields/defaults, output
 names, relative-path behavior, MPI rules, and exit contracts remain unchanged.
-Only the nine root imports in this document receive the stable API
+Only the ten root imports in this document receive the stable API
 compatibility promise. The 2.2.1 additions (progress events, plotting helpers,
 and the `profiles`/`plots` result extensions) are optional and do not change
 any existing document or behavior. A future removal or incompatible behavior
