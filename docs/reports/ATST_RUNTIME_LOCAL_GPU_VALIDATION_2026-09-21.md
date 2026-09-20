@@ -245,3 +245,45 @@ FT²DP/ABACUS fixture，并把 `DP_INFER_BATCH_SIZE`、线程档位与仓库快�
 DPA-3.1-3M fixture 的 sha256、两个结果目录的摘要（sweep 变体中位 44.582 /
 29.507 s，均为 6/6 成功）以及显式为 null 的操作者字段（job/partition/QOS/
 卡时/sacct/批准人），供 P5 站点运行时逐项补齐。
+
+## 13. FT²DP 单头 100k 本地接入（2026-09-21 追加；非 P5 结论）
+
+P5 的 DP 科研候选（FT²DP 单头 100k，sha256 `13b74797…`，62 MB）在本机做了
+三层验证，全部通过后可作为 P5 的加载基线。
+
+**13.1 运行时兼容性（DPA4/SeZM）**。该 checkpoint 是 DPA4/SeZM 类模型：
+
+- `deepmd-kit 3.1.2`（`atst-dev`）加载即失败：`RuntimeError: Unknown model type: dpa4`；
+- `deepmd-kit 3.2.0b1.dev62+gac8e4301b`（`dpa4-dpmd-v100`）与
+  `3.2.0b1.dev67+g73de44b1f`（`dpeva-dpa4`）均可加载（加载时提示 missing keys，
+  均为 checkpoint 旧字段），同一结构单点一致：Fe4O6_bulk_10at 上
+  E = −127.61422944 / −127.61423707 eV、Fmax = 0.70834083 / 0.70833883 eV/Å
+  （ΔE = 7.6e-06 eV、ΔF = 2.0e-06 eV/Å）。
+
+**13.2 atst 隔离路径冒烟**。以 `dpa4-dpmd-v100` 为底座建 venv
+（`--system-site-packages`，补装 `ase 3.29.0`、`pydantic 2.13.4`、`sella`、
+`mpi4py 4.1.2`），`PYTHONPATH=src`、`CUDA_VISIBLE_DEVICES=0` 下跑 66 原子
+H2-Au relax（`fmax 0.5`）：`status=success`、E = −3498.0803 eV、
+`attempt_s = 10.25`、`counters.dp.force_calls = 1`；sidecar
+`atst-runtime-evidence-v1` 状态 `complete`（设备事实 inherited/effective
+`["0"]`、线程 4、`dp.calculator_built = 1`）。
+
+环境注意（P5 运行手册已并入）：SeZM 内建近邻表需要可见 `libcuda.so`
+（WSL 为 `/usr/lib/wsl/lib`，缺失时报 `failed to compute neighbors`）；
+relax 工作流需要 `sella`；mpi4py 需要与 launcher 一致的 `libmpi`。
+
+**13.3 FT²DP + mpi4py 图像并行 NEB**（chain5：3 内部图、6 步、
+`endpoint_singlepoint: always`）：
+
+| 变体 | 墙钟 | `dp.force_calls` | 备注 |
+| --- | --- | --- | --- |
+| 串行（`parallel: false`，1 rank） | 16.61 s | 62（rank 0） | 单 calculator 复用 |
+| 图像并行（`parallel: true`，3 ranks） | 20.56 s | 23（`counters_mpi` rank 求和） | 每 rank 建模型 |
+
+35 帧逐帧对照：**max |ΔE| = 2.97e-05 eV、max |ΔF| = 1.27e-05 eV/Å**，
+即该模型在图像并行下与串行等价。小 band 上并行反而慢 24%：每 rank 有
+≈5 s 模型加载固定成本，与 §9 的墙钟构成一致；"图数 ≤ 卡数"的收益必须在
+P5 的大 band/真实 GPU 负载下按矩阵验证。
+
+边界：单张 RTX 2070 SUPER（WSL2）、3 内部图、6 步短程 NEB、单次测量；
+不构成 V100/生产结论，也不改变 P5 的重复与矩阵要求。

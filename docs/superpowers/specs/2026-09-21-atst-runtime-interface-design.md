@@ -158,7 +158,7 @@ runtime:
 ### 7.1 Fixture 候选（P5 定稿）
 
 - DP 通用回归：`examples/dp_model_manifest.json` 的 `DPA-3.1-3M`（head `Omat24`，sha256 `86dd3a80…`）；本 checkout 无本地权重，P5 前经 `scripts/download_dp_model.py` 下载并按 `tests/unit/test_dp_model_manifest.py` 固定 url/sha256/size 校验。
-- DP 科研候选（只读）：FT²DP 单头 100k。本机副本 `scratch_atp_upload/model.ckpt-100000.pt`（sha256 `13b74797…` 已实测一致）；SAI 钉版路径为 `$R/models/ft2dp-v2.2/FT2DPv2.2-dpa4-air-zbl-single100k-v20260919/checkpoints/`。EMA `45667e7f…`（20 MB）本机无文件（2026-09-21 复核：本机仅有 `model/ft2dp-v2.2/FT2DPv2.2-dpa4-air-zbl-multi200k-v20260920/` 的 regular+EMA 包），且该 SAI 路径在 `galileouser02` 下不可读——EMA 需科研侧提供后复核，或改用 multi200k 包（待维护者裁决）。使用前回读模型 manifest 核验 head/type map/单位/精度/格式；不得当作恒电势模型使用。
+- DP 科研候选（只读）：FT²DP 单头 100k。本机副本 `scratch_atp_upload/model.ckpt-100000.pt`（sha256 `13b74797…` 已实测一致）；SAI 钉版路径（pin 文档）为 `$R/models/ft2dp-v2.2/DPA4-Air-ZBL-FT2DPv2.2-single100k-v20260919/checkpoints/`。该模型为 DPA4/SeZM 类：`deepmd-kit 3.1.2` 加载报 `Unknown model type: dpa4`，需 3.2.0 级构建（本地 3.2.0b1.dev62/dev67 加载且单点一致，ΔE 7.6e-06 eV；SeZM 内建近邻表需可见 `libcuda.so`）。EMA `45667e7f…`（20 MB）本机无文件（2026-09-21 复核：本机仅有 `model/ft2dp-v2.2/FT2DPv2.2-dpa4-air-zbl-multi200k-v20260920/` 的 regular+EMA 包），且该 SAI 路径在 `galileouser02` 下不可读——EMA 需科研侧提供后复核，或改用 multi200k 包（待维护者裁决）；pin 记分卡记 EMA ≈ regular。使用前回读模型 manifest 核验 head/type map/单位/精度/格式；不得当作恒电势模型使用。
 - 历史接入记录（atst 2.1.1 + deepmd `3.2.1.dev0+g687b5107`）来源：`ft2dp-dpeva/docs/superpowers/plans/2026-09-19-ft2dp-v2.2-model-validation.md:78`（未独立复核）。
 - ABACUS 候选（按规模）：`examples/01_neb_Li-Si`、`02_neb_H2-Au`、`03_autoneb_Cy-Pt`、`08_d2s_Cy-Pt`、`06_relax_H2-Au`；原子数与输入身份在 P5 基线实测登记。
 - 原稿作业证据待补：DP `1422694/1422849/1423160`、ABACUS `1423179` 的日志/输入/卡时（SAI 侧 `sacct`，本机不可达）；复核结论见 [P0 复核](2026-09-21-atst-gpu-node-tuning-p0-review.md)。

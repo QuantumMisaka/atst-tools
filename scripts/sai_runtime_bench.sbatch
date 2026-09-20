@@ -5,6 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --time=02:00:00
+# #SBATCH --qos=rush-1o2gpu   # site: 1-day wall limit, <=2 GPUs; pick at submission
 #
 # Reference template for the P3 batch harness on SAI (GPU node tuning P5).
 #
@@ -36,8 +37,17 @@ CPU_BUDGET="${ATST_BATCH_CPU_BUDGET:-$(nproc)}"
 DRY_RUN="${DRY_RUN:-0}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-source /etc/profile.d/modules.sh 2>/dev/null || true
-# module load abacus/LTSv3.10.1-sm70-auto   # uncomment after site review
+# Site facts from the 2026-09-21 read-only reconnaissance (plan P5 prep):
+# Lmod lives under /opt/modules/lmod/9.2.4 with modulefiles in
+# /opt/modules/modulefiles/{devtools,apps}; there is no system conda. The DP
+# runtime must be DPA4/SeZM-capable (deepmd-kit/3.2.0; 3.1.2 fails with
+# "Unknown model type: dpa4") and needs an MPI module so mpi4py finds libmpi.
+# The maintainer still reviews these lines before the first real run.
+source /opt/modules/lmod/9.2.4/init/bash 2>/dev/null || source /etc/profile.d/modules.sh 2>/dev/null || true
+module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps 2>/dev/null || true
+module load deepmd-kit/3.2.0 2>/dev/null || true
+module load openmpi/5.0.8-nvhpc25.7-gnu-auto 2>/dev/null || true
+# module load abacus/LTSv3.10.1-sm70-auto   # ABACUS channel only; loads the same OpenMPI
 
 mkdir -p "${OUT_DIR}"
 

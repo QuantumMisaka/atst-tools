@@ -120,12 +120,25 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 **SAI 只读勘察结果（2026-09-21，账号 `galileouser02`；未写入远端、未提交作业）**：
 
 - ABACUS：`module load abacus/LTSv3.10.1-sm70-auto`（NVHPC 25.7 GNU-branch / CUDA 12.9.1 / OpenMPI 5.0.8 / ELPA 2025.06；`ABACUS_HOME=/opt/apps/abacus/abacus-develop-LTSv3.10.1`，可执行在 `bin_sm70_avx512`，与 4V100 的 sm70 匹配）。
-- Python/DP：`module load deepmd-kit/3.1.2` → `/opt/apps/conda_env/deepmd-kit-3.1.2`（Python 3.12.12、deepmd-kit 3.1.2、torch 2.8.0、mpi4py 4.1.1、numpy 2.4.0；**无 ase/pydantic**）；`module load conda/anaconda3`（conda 24.9.2，base 只读，用户 env 目录 `~/.conda/envs`）。P5 环境计划：以 deepmd env 为底座建 venv（`--system-site-packages`）或新建 conda env，再装 `ase`、`pydantic` 与本分支 wheel（登台包见下）。
+- Python/DP：**须选 DPA4/SeZM 可加载的构建**——`deepmd-kit/3.1.2` 对 FT²DP 单头 100k 报 `Unknown model type: dpa4`（本地实测）；`module load deepmd-kit/3.2.0` → `/opt/apps/conda_env/deepmd-kit-3.2.0`（Python 3.12.12、deepmd-kit 3.2.0、torch 2.13.0+cu126、mpi4py、numpy；**无 ase/pydantic**）。Lmod 入口实测为 `source /opt/modules/lmod/9.2.4/init/bash; module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps`（`/etc/profile.d/modules.sh` 不生效）；`conda/anaconda3` 24.9.2 为只读 base，用户 env 目录 `~/.conda/envs`。MPI 配对：加载 `openmpi/5.0.8-nvhpc25.7-gnu-auto` 后该 env 的 mpi4py 可用（实测 `from mpi4py import MPI` → Open MPI 5.0.8）；`mpiexec` 同目录。P5 环境计划：以 3.2.0 env 为底座建 venv（`--system-site-packages`），pip 安装 `ase`、`pydantic`、`sella` 与本分支 wheel（登台包见下）。
 - MPI/容器：模块化 OpenMPI（默认 `5.0.10-nvhpc26.3-gnu-cuda12-auto`，ABACUS 模块自载 `5.0.8-nvhpc25.7-gnu-auto`）、宿主 `/usr/mpi/openmpi-4.1.7rc1`；`module load apptainer/1.4.4`。
 - 分区/QOS（现场快照）：4V100 35 节点（15 idle / 7 alloc / 13 mix）、8V100V0 14（11 idle）、16V100 80（8 idle，多数 alloc）；`rush-cpu` MaxWall 2 天、`improper-gpu` 30 天、`rush-gpu`/`rush-4gpu`/`rush-1o2gpu` 1 天（gres/gpu 16/4/2）、`flood-gpu`/`flood-1o2gpu` 4 小时。账号当前有 2 个恒电势作业占 4V100（QOS `rush-1o2gpu`）；P5 排期需避让同一 QOS 额度。
 - 可达性：家目录可写；**`/org/pku-jianghong/liuzhaoqing`（FT²DP `$R`）在本账号下不可读**，组共享（`share/data*`、`share/demo-data`）无 DP 权重，家目录无 `.pt`。→ P5 权重与 fixture 需单向上传。
 - 既有镜像：`~/abacus-sif-builds/20260920-toolbox-atst/abacus-adam-sai-toolbox-atst.sif`（1.5 GB，2026-09-20，ATST-free Toolbox 构建）可供 P5 的 SIF 通道；镜像构建使用 QOS `improper-gpu`。家目录中的 atst-tools 副本为 v2.2.3 普通拷贝（无 git、无 `runtime/`），不可作 P5 源。
-- 登台包（本地已备，授权后单向拷贝）：`~/scratch/atst-p5-staging-20260921/`——`wheel/atst_tools-2.2.6-py3-none-any.whl`（sha256 `6f43cca2…`）与 `atst-tools-gpu-node-tuning-e85aa90.tar.gz`（sha256 `af43a3dc…`）；权重 regular 单头 100k（`ft2dp-dpeva/scratch_atp_upload/model.ckpt-100000.pt`，62 MB，sha256 `13b74797…`；`mission_20260920/FT2DPv2.2-single100k-model.ckpt-100000.pt` 为同一文件）；EMA 单头 100k（pin `45667e7f…`）本机仍无（本机另有 multi200k regular+EMA 包，可提请替代）；通用回归模型 `temp_repos/dp_model/DPA-3.1-3M.pt` 已在本地（sha256 `86dd3a80…`）。
+- 登台包（本地已备，授权后单向拷贝）：`~/scratch/atst-p5-staging-20260921/`——`wheel/atst_tools-2.2.6-py3-none-any.whl`（sha256 `6f43cca2…`）与 `atst-tools-gpu-node-tuning-e85aa90.tar.gz`（sha256 `af43a3dc…`）；权重 regular 单头 100k（`ft2dp-dpeva/scratch_atp_upload/model.ckpt-100000.pt`，62 MB，sha256 `13b74797…`；`mission_20260920/FT2DPv2.2-single100k-model.ckpt-100000.pt` 为同一文件）；EMA 单头 100k（pin `45667e7f…`）本机仍无（pin 记分卡记 EMA ≈ regular，故默认 regular-only、EMA 复核后补；本机另有 multi200k regular+EMA 包，可提请替代）；通用回归模型 `temp_repos/dp_model/DPA-3.1-3M.pt` 已在本地（sha256 `86dd3a80…`）。
+
+**本地 FT²DP 接入证据（2026-09-21，非 P5 结论；详见验证报告 §13）**：在 `deepmd-kit 3.2.0b1.dev62` 底座 venv（补装 ase/pydantic/sella/mpi4py）上经 atst 隔离 runtime 完成——① 66 原子 H2-Au relax 冒烟：`status=success`、E=−3498.0803 eV、`attempt_s=10.25`、`dp.force_calls=1`、sidecar `complete`；② **FT²DP + mpi4py 图像并行 NEB**（chain5，3 内部图 × 6 步）：串行 16.61 s / 3-rank 20.56 s，逐帧等价 max|ΔE|=2.97e-05 eV、max|ΔF|=1.27e-05 eV/Å；小 band 上并行更慢（每 rank ≈5 s 模型加载），P5 的图数×卡数矩阵需在大 band/真实负载下验证；③ 跨 3.2.0 dev 构建单点一致（ΔE 7.6e-06 eV、ΔF 2.0e-06 eV/Å）。环境注意：SeZM 内建近邻表需可见 `libcuda.so`（本地 WSL 为 `/usr/lib/wsl/lib`；SAI 由 driver/module 提供）；relax 需 `sella`；mpi4py 需与 launcher 一致的 `libmpi`。
+
+**P5 开跑前待裁决（拟值，可直接批注）**：
+
+| 决策点 | 拟值 | 依据 |
+| --- | --- | --- |
+| DP fixture | FT²DP 单头 100k regular × 66 原子 H2-Au；可选加 Fe4O6/Fe5C2 科学夹具 | §13 本地已通；EMA ≈ regular |
+| ABACUS fixture | `examples/06_relax_H2-Au`（cusolver/LCAO）+ `examples/01_neb_Li-Si`（image-parallel） | 站点 module LTSv3.10.1 与既有示例 |
+| 数值容差 | DP 并行等价 max\|ΔE\| ≤ 1e-4 eV、max\|ΔF\| ≤ 1e-4 eV/Å；ABACUS host/SIF 阈值开跑前另定 | §13 实测 2.97e-05 / 1.27e-05（余量 ≥3×） |
+| 时长/卡时 | 首轮单作业 ≤2 h、QOS `rush-1o2gpu`（≤2 GPU）；`SLOTS=1,2,3 × REPEATS=3`，NEB 矩阵按 4/8 图逐步扩展 | 4V100 现场 15 idle；避让 CP 作业 |
+| 停止条件 | OOM、数值门禁失败、或"成功 case/hour 不升且卡时/成功案上升"即停该分支 | 计划原停止条件 |
+| 记录 | job/QOS/sacct/批准人写入 `bench_record.json` 操作者字段 | record 生成器已支持 |
 
 并发/重复矩阵入口：`python -m atst_tools.bench.sweep --manifest cases.json --out runs --devices 0,1 --slots 1,2,3 --repeats 3 [--cpu-budget N]`（变体间交替顺序、每 (variant,repeat) 独立目录、汇总 `sweep_summary.json`；默认不产 per-case sidecar 以避免采样噪声，`--case-telemetry` 显式开启；本地已用 3 repeats × slots 1,2 实测，见验证报告 §12）。
 
