@@ -335,3 +335,55 @@ def test_case_environment_merges_case_specific_values(tmp_path):
     assert env["OMP_NUM_THREADS"] == "4"
     assert env["ATST_ATTEMPT"] == "2"
     assert env["MY_FLAG"] == "1"
+
+
+def test_case_launcher_and_extra_args_prefix_the_worker(tmp_path):
+    case = harness.CaseSpec.from_mapping(
+        {
+            "case_id": "mpi",
+            "config": "config.yaml",
+            "launcher": "mpiexec -n 3",
+            "args": ["--dry-run"],
+        }
+    )
+    assert case.launcher == ("mpiexec", "-n", "3")
+    command = harness.worker_command(case, tmp_path, ("0",), result_json=tmp_path / "r.json")
+    assert command[:3] == ["mpiexec", "-n", "3"]
+    assert command[-1] == "--dry-run"
+    assert str(tmp_path / "r.json") in command
+
+    listed = harness.CaseSpec.from_mapping(
+        {"case_id": "list", "config": "c.yaml", "launcher": ["mpiexec", "-n", "2"]}
+    )
+    assert listed.launcher == ("mpiexec", "-n", "2")
+    with pytest.raises(ValueError):
+        harness.CaseSpec.from_mapping(
+            {"case_id": "bad", "config": "c.yaml", "launcher": [1, 2]}
+        )
+
+
+def test_missing_worker_binary_fails_the_case_without_killing_the_batch(
+    tmp_path, monkeypatch
+):
+    """A spawn error is recorded evidence, not a batch crash."""
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+
+    def missing_binary(case, workdir, devices):
+        del workdir, devices
+        return ["/nonexistent/atst-worker"]
+
+    summary = harness.run_manifest(
+        {"cases": [_case("broken")]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=missing_binary,
+            telemetry=False,
+        ),
+    )
+    assert summary["failed"] == 1
+    report = json.loads(
+        (tmp_path / "out" / "broken" / harness.CASE_REPORT).read_text(encoding="utf-8")
+    )
+    assert report["status"] == "failed"
+    assert report["classification"].startswith("spawn_error")

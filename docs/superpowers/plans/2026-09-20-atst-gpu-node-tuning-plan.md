@@ -128,7 +128,7 @@ harness 语义：case 默认在配置文件所在目录运行（ATST 相对路�
 | DP 单 case | 1 卡 × 线程档位（`runtime.threads` 1/4/auto） | 冷/热启动、`dp.force_calls`、wall、GPU 利用率/显存样本 |
 | DP 独立批 | 每卡 1/2/3 进程（容量允许再到 4–6） | 成功 case/hour、卡时/成功案、OOM/unknown 分类、并发曲线 |
 | ABACUS 独立批 | 串行队列 vs 四卡各一 case | E/F 一致性、wall、实际卡时 |
-| MPI NEB | 串行 vs 10 ranks/4 卡 vs 10 ranks/1 卡 | 单 band 延迟、模型复制/内存、`world.size == interior_images` |
+| MPI NEB | 串行 vs 10 ranks/4 卡 vs 10 ranks/1 卡 | 单 band 延迟、模型复制/内存、`world.size == interior_images`（本地模板已通：case 级 `launcher: [mpiexec,-n,3]` + `slots: 1`，见报告 §8） |
 | AutoNEB | inherit / 已验证共享布局 | active window 正确性、端点阶段 |
 | 容器 | host/SIF 成对 | 环境/mapping/观测一致性 |
 

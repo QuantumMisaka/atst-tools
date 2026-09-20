@@ -120,3 +120,24 @@ P3 harness 以**真实 worker**（非替身）在本机跑同一清单两遍：`
 目录**运行（ATST 相对 YAML 路径按 cwd 解析）；显式 `workdir`（相对批量输出
 目录）用于隔离并发场景；报告、worker 日志与 `atst_api_result.json` 一律写入
 `<out>/<case_id>/`。
+
+## 8. harness 驱动的 MPI 图像并行 case（P3×P4 组合，本地）
+
+用 P3 harness 直接驱动 §6 的 3-rank DP NEB（case 级 `launcher:
+["mpiexec","-n","3"]`、`slots: 1`、隔离 `workdir`）：
+
+```bash
+python -m atst_tools.bench.harness --manifest cases.json --out runs \
+  --devices 0 --slots 1 --cpu-budget 16
+```
+
+结果：`succeeded`，wall 60.0 s、`gpu_seconds=60.0`（1 卡槽 × wall）、
+`atst_api_result.json` 由 rank 0 写出；sidecar 记录 `mpi.world_size=3`、
+rank 0 计数（`dp.calculator_built=2`、`dp.calculator_reused=1`、
+`dp.force_calls=9`）与 79 个采样。
+
+实现侧同步补齐（均带测试）：case 级 `launcher`/`args`（`"mpiexec -n 3"` 或
+列表皆可）；worker 启动失败（缺 launcher/二进制）记为该 case 的
+`spawn_error` 失败证据，而不是让整批崩溃；`tests/integration/
+test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧注意：
+`launcher` 需要绝对路径或已 `module load`（P5 现场按 `$sai-user-guide` 填写）。

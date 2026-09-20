@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shlex
 import signal
 import subprocess
 import sys
@@ -69,6 +70,8 @@ class CaseSpec:
     timeout_s: float | None = None
     workdir: str | None = None
     env: Mapping[str, str] = field(default_factory=dict)
+    launcher: tuple[str, ...] = ()
+    args: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "CaseSpec":
@@ -85,6 +88,20 @@ class CaseSpec:
         env = payload.get("env") or {}
         if not isinstance(env, Mapping):
             raise ValueError(f"case {case_id}: env must be a mapping")
+        launcher = payload.get("launcher") or ()
+        if isinstance(launcher, str):
+            launcher = tuple(shlex.split(launcher))
+        if isinstance(launcher, (list, tuple)) and not all(
+            isinstance(item, str) for item in launcher
+        ):
+            raise ValueError(f"case {case_id}: launcher entries must be strings")
+        args = payload.get("args") or ()
+        if isinstance(args, str):
+            args = tuple(shlex.split(args))
+        if isinstance(args, (list, tuple)) and not all(
+            isinstance(item, str) for item in args
+        ):
+            raise ValueError(f"case {case_id}: args entries must be strings")
         return cls(
             case_id=case_id,
             config=config,
@@ -93,6 +110,8 @@ class CaseSpec:
             timeout_s=None if timeout is None else float(timeout),
             workdir=payload.get("workdir"),
             env={str(key): str(value) for key, value in env.items()},
+            launcher=tuple(launcher),
+            args=tuple(args),
         )
 
 
@@ -155,11 +174,17 @@ def worker_command(
     result_json: Path | None = None,
     factory: Callable[[CaseSpec, Path, tuple[str, ...]], Sequence[str]] | None = None,
 ) -> list[str]:
-    """Return the worker argv for one case (the API runner by default)."""
+    """Return the worker argv for one case (the API runner by default).
+
+    A case-level launcher (for example ``mpiexec -n 3``) is prefixed so
+    image-parallel cases keep the harness slot, timeout and reporting
+    contracts.
+    """
     if factory is not None:
         return list(factory(case, workdir, devices))
     del devices
-    return [
+    command = [
+        *case.launcher,
         sys.executable,
         "-m",
         _launch.WORKER_MODULE,
@@ -170,6 +195,8 @@ def worker_command(
         "--result-json",
         str(result_json) if result_json is not None else DEFAULT_RESULT_JSON,
     ]
+    command += list(case.args)
+    return command
 
 
 def case_workdir(case: CaseSpec, output_dir: Path) -> Path:
@@ -312,6 +339,8 @@ def _case_report_payload(
         "wall_s": round(wall_s, 3),
         "gpu_seconds": round(wall_s * len(running.devices), 3),
         "config": running.case.config,
+        "launcher": list(running.case.launcher),
+        "args": list(running.case.args),
         "workdir": str(running.workdir),
         "result_json": (
             str(running.report_dir / DEFAULT_RESULT_JSON)
@@ -341,6 +370,41 @@ def _record_skipped(
         "wall_s": 0.0,
         "gpu_seconds": 0.0,
         "config": case.config,
+        "launcher": list(case.launcher),
+        "args": list(case.args),
+        "workdir": str(case_workdir(case, output_dir)),
+        "result_json": None,
+        "stdout": None,
+        "stderr": None,
+    }
+    case_dir = output_dir / case.case_id
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / CASE_REPORT).write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return payload
+
+
+def _record_spawn_failure(
+    case: CaseSpec, output_dir: Path, message: str
+) -> dict[str, Any]:
+    """Write and return the record of a case whose worker could not start."""
+    payload = {
+        "schema": SCHEMA,
+        "case_id": case.case_id,
+        "attempt": 1,
+        "status": STATUS_FAILED,
+        "classification": f"spawn_error: {message}",
+        "exit_code": None,
+        "devices": [],
+        "threads": case.threads,
+        "started_at": None,
+        "finished_at": _now(),
+        "wall_s": 0.0,
+        "gpu_seconds": 0.0,
+        "config": case.config,
+        "launcher": list(case.launcher),
+        "args": list(case.args),
         "workdir": str(case_workdir(case, output_dir)),
         "result_json": None,
         "stdout": None,
@@ -440,20 +504,30 @@ def run_manifest(
                 stderr_path = report_dir / "harness_worker.err"
                 stdout_handle = stdout_path.open("w", encoding="utf-8")
                 stderr_handle = stderr_path.open("w", encoding="utf-8")
-                process = subprocess.Popen(
-                    worker_command(
-                        case,
-                        workdir,
-                        devices,
-                        result_json=report_dir / DEFAULT_RESULT_JSON,
-                        factory=options.worker_factory,
-                    ),
-                    env=env,
-                    cwd=workdir,
-                    stdout=stdout_handle,
-                    stderr=stderr_handle,
-                    start_new_session=True,
-                )
+                try:
+                    process = subprocess.Popen(
+                        worker_command(
+                            case,
+                            workdir,
+                            devices,
+                            result_json=report_dir / DEFAULT_RESULT_JSON,
+                            factory=options.worker_factory,
+                        ),
+                        env=env,
+                        cwd=workdir,
+                        stdout=stdout_handle,
+                        stderr=stderr_handle,
+                        start_new_session=True,
+                    )
+                except OSError as exc:
+                    stdout_handle.close()
+                    stderr_handle.close()
+                    pool.release(case.case_id)
+                    reports.append(
+                        _record_spawn_failure(case, output_dir, str(exc))
+                    )
+                    pending.remove(case)
+                    continue
                 stdout_handle.close()
                 stderr_handle.close()
                 running[case.case_id] = _RunningCase(
