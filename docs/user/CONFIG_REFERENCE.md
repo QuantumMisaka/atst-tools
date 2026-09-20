@@ -38,7 +38,15 @@ calculation:
 calculator:
   name: <engine_name> # Required. Options: abacus, dp
   # ... engine specific parameters ...
+
+runtime:              # Optional: device binding, thread budget and run evidence
+  devices: [0]
+  binding: inherit
+  threads: auto
+  telemetry: false
 ```
+
+The optional `runtime` section is described in [section 4](#4-runtime-section).
 
 Useful CLI checks:
 
@@ -799,7 +807,46 @@ provide a separate backend selector. Multi-head DPA/DPA3 models should set
 
 ---
 
-## 4. Configuration Maintenance
+## 4. Runtime Section
+
+`runtime` is optional. Without it, `atst run` keeps the legacy in-process
+behavior and writes no additional files. Any runtime request (a `runtime`
+section, a runtime CLI option, or `ATST_VISIBLE_DEVICES`) switches the run to
+the isolated worker path: devices and thread budgets are applied before the
+scientific stack is imported, and telemetry writes `runtime_evidence.json`
+next to the artifact manifest.
+
+```yaml
+runtime:
+  devices: [0]        # 0-based indices inside the inherited visible set, or full GPU UUIDs
+  binding: inherit    # inherit | round_robin
+  threads: auto       # positive integer, or "auto" to follow the CPU affinity mask
+  telemetry:          # boolean shorthand, or {enabled: true, interval_s: 1.0}
+    enabled: false
+    interval_s: 1.0
+```
+
+Semantics:
+
+- `devices` is a request, never a way to widen the visible set. It is resolved
+  against `CUDA_VISIBLE_DEVICES` (the caller's binding) together with the
+  trusted allocation facts in `ATST_ALLOCATION_DEVICES` (`count=N` or a token
+  list). Explicit selection is refused when the whole node is visible and no
+  trusted allocation is available; MIG device selection is not supported.
+- `binding` defaults to `inherit`. `round_robin` maps `local_rank` onto the
+  resolved device pool and fails closed for multi-node launcher shapes,
+  unknown local ranks, or pools that are not caller-bound.
+- `threads` is applied to the worker environment before the scientific stack
+  is imported (`OMP_NUM_THREADS` and its BLAS siblings). An explicit
+  `calculator.abacus.omp` still wins for ABACUS runs and the override is
+  recorded in the evidence document.
+- `telemetry` enables `runtime_evidence.json`: the environment triple, device
+  facts, per-process counters (`dp.*`, `abacus.*` builds and force calls) and
+  host GPU samples taken by a single sampler on rank 0. Missing tools or
+  permissions degrade to `unavailable`; measurement never masks a workflow
+  result.
+
+## 5. Configuration Maintenance
 
 Installed-package schemas reject unknown `calculation`, strict CP, and DP
 calculator fields. ABACUS INPUT variables belong under
@@ -808,7 +855,7 @@ decorator itself remains strict. Maintainers changing schema fields or
 generated parameter documentation should follow the
 [developer handover](../developer/HANDOVER.md).
 
-## 5. Example Configuration
+## 6. Example Configuration
 
 See `examples/` directory for full working examples of each calculation type.
 

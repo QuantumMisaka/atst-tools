@@ -27,6 +27,9 @@ atst run --show-template neb --calculator abacus
 atst run --show-template ccqn --calculator abacus
 atst run --show-template irc --calculator abacus
 atst run --show-template md --calculator abacus
+atst run config.yaml --devices 0,1 --threads auto
+atst run config.yaml --binding round_robin      # MPI launches only
+atst run config.yaml --telemetry --telemetry-interval 2
 ```
 
 `atst run` executes YAML-driven workflows. `--dry-run` validates the
@@ -48,6 +51,22 @@ restrictions, failure artifacts, and the distinction between the legacy
 The command adapter preserves established workflow filesystem behavior. In
 particular, it does not create or replace an artifact manifest for workflows
 that did not previously write one themselves.
+
+The optional runtime options bind devices and thread budgets before the
+scientific stack is imported:
+
+| Option | Meaning |
+| --- | --- |
+| `--devices <spec>` | Comma-separated 0-based indices inside the inherited visible set, or full GPU UUIDs. The `runtime.devices` YAML field and `ATST_VISIBLE_DEVICES` accept the same syntax; CLI wins over YAML, YAML wins over the environment. |
+| `--binding inherit\|round_robin` | `round_robin` assigns `local_rank % pool` inside a verified single-node pool and fails closed otherwise. |
+| `--threads <n\|auto>` | Worker thread budget; `auto` follows the CPU affinity mask. An explicit `calculator.abacus.omp` still wins for ABACUS. |
+| `--telemetry / --no-telemetry`, `--telemetry-interval <sec>` | Write `runtime_evidence.json` and enable host sampling (default off). |
+
+Requesting any of these switches `atst run` to the isolated worker path
+(`python -m atst_tools.api.runner`); without them the legacy in-process path
+is unchanged, including exit codes and the absence of `atst_api_result.json`.
+`python -m atst_tools.api.runner` accepts the same runtime options and rebinds
+itself before running the workflow.
 
 ## Configuration Tools
 

@@ -259,6 +259,19 @@ atst prepare run_dir --workflow neb --init-structure init/STRU --final-structure
 
 更多命令见 [CLI_REFERENCE.md](CLI_REFERENCE.md)。
 
+GPU 工作站上的设备绑定与运行证据（可选，不影响旧调用）：
+
+```bash
+atst run config.yaml --devices 0,1 --threads auto      # 绑定设备与线程预算
+atst run config.yaml --telemetry                        # 额外写出 runtime_evidence.json
+```
+
+等价写法是 YAML 里的 `runtime` 段（`devices` / `binding` / `threads` /
+`telemetry`，语义见 [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) 第 4 节）。
+`devices` 的整数是"当前可见集合内"的逻辑序号，不是物理卡号；没有
+`runtime` 段、也没有运行时选项时，`atst run` 行为与过去完全一致。
+`python -m atst_tools.api.runner` 接受同样的选项，并会在运行工作流前完成绑定。
+
 ## 7. 参数文档入口
 
 - 手写语义参考：[CONFIG_REFERENCE.md](CONFIG_REFERENCE.md)。用于理解常见配置组合、
