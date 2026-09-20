@@ -182,7 +182,7 @@ class EvidenceSession:
     config_runtime: Mapping[str, Any] | None
     telemetry_enabled: bool
     telemetry_interval_s: float
-    sampler: "_Sampler | None" = None
+    sampler: "HostSampler | None" = None
     written_path: Path | None = None
     started_at: str = field(default_factory=_now)
     started_monotonic: float = field(default_factory=lambda: __import__("time").monotonic())
@@ -195,7 +195,7 @@ class EvidenceSession:
     def start(self) -> None:
         """Start the single host sampler when telemetry is enabled."""
         if self.telemetry_enabled and self.sampler is None:
-            self.sampler = _Sampler(self.telemetry_interval_s)
+            self.sampler = HostSampler(self.telemetry_interval_s)
             self.sampler.start()
 
     def finish(self, status: str, reason: str | None = None) -> str | None:
@@ -243,7 +243,7 @@ class EvidenceSession:
         return self.path.name
 
 
-class _Sampler:
+class HostSampler:
     """One background host sampler with a bounded sample buffer."""
 
     def __init__(self, interval_s: float) -> None:
