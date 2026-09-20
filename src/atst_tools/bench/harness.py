@@ -174,6 +174,19 @@ def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[Cas
             raise ValueError(f"duplicate case_id {case.case_id!r}")
         seen.add(case.case_id)
         cases.append(case)
+    shared: dict[str, list[str]] = {}
+    for case in cases:
+        if case.workdir is not None:
+            shared.setdefault(case.workdir, []).append(case.case_id)
+    clashes = {value: ids for value, ids in shared.items() if len(ids) > 1}
+    if clashes:
+        detail = "; ".join(
+            f"{value!r} is shared by {', '.join(ids)}" for value, ids in clashes.items()
+        )
+        raise ValueError(
+            f"cases must use distinct workdir values so evidence cannot be "
+            f"overwritten ({detail})"
+        )
     return cases
 
 

@@ -1,6 +1,6 @@
 {
   "schema": "atst-bench-cases-v1",
-  "notes": "Cases run inside their configuration directory by default, because ATST resolves relative YAML paths from the process working directory. Add an explicit 'workdir' to a case when it should run in an isolated batch directory instead.",
+  "notes": "Cases run inside their configuration directory by default, because ATST resolves relative YAML paths from the process working directory. Add an explicit 'workdir' to a case when it should run in an isolated batch directory instead. Give every case its own workdir value: duplicated non-null workdirs are rejected so concurrent or repeated cases cannot overwrite each other's evidence.",
   "defaults": {
     "threads": 4,
     "timeout_s": 7200

@@ -319,6 +319,24 @@ def test_manifest_validation_rejects_bad_rows(tmp_path):
         )
 
 
+def test_manifest_rejects_shared_case_workdirs(tmp_path):
+    """Two cases sharing one workdir would overwrite each other's evidence."""
+    options = harness.HarnessOptions(devices=("0",), output_dir=tmp_path)
+    shared = [dict(_case("a"), workdir="work"), dict(_case("b"), workdir="work")]
+    with pytest.raises(ValueError, match="distinct workdir values"):
+        harness.load_cases({"cases": shared}, options)
+    distinct = [dict(_case("a"), workdir="work-a"), dict(_case("b"), workdir="work-b")]
+    assert [case.workdir for case in harness.load_cases({"cases": distinct}, options)] == [
+        "work-a",
+        "work-b",
+    ]
+    absent = harness.load_cases(
+        {"cases": [{"case_id": "a", "config": "a.yaml"}, {"case_id": "b", "config": "b.yaml"}]},
+        options,
+    )
+    assert [case.workdir for case in absent] == [None, None]
+
+
 def test_case_environment_merges_case_specific_values(tmp_path):
     case = harness.CaseSpec.from_mapping(
         {
