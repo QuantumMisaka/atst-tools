@@ -29,10 +29,10 @@
 | --- | --- | --- |
 | launcher 形态 | `--gres=gpu:2 --ntasks=2 --qos=rush-1o2gpu`；循环内 `CUDA_VISIBLE_DEVICES=$((i%2))`；`CONC` 默认 2，**每进程独占 1 卡** | `validation-pipeline/reaction/run_d2s_campaign.sbatch:2-14,44-59` |
 | NEB 并行 | `DyNEB(..., parallel=False)`（脚本内原样） | `validation-pipeline/reaction/d2s_run.py:123` |
-| atst 侧配置 | 生产与烟测配置均 `parallel: false` | `runs/CH_CH/neb.yaml:14`；`runs/CH_CH/neb.smoke.yaml` |
-| 并发断言 | “multiple cases can share the 2 GPUs and the wall time scales with CONC, not with the GPU count” | `run_d2s_campaign.sbatch:26-27`（注释，**无量化证据**） |
+| atst 侧配置 | 生产与烟测配置均 `parallel: false` | `validation-pipeline/reaction/runs/CH_CH/neb.yaml:15`；`validation-pipeline/reaction/runs/CH_CH/neb.smoke.yaml:15` |
+| 并发断言 | “multiple cases can share the 2 GPUs and the wall time scales with CONC, not with the GPU count” | `validation-pipeline/reaction/run_d2s_campaign.sbatch:28-30`（注释，**无量化证据**） |
 | 单反应墙钟 | 2–7 min（端点松弛 → IDPP(8) → 粗糙 NEB(1.0) → Sella(0.05) → 振动） | `STATUS.md:23`；`docs/tasks/ft2dp-v2.2.md:1516` |
-| 体系规模 | 实测 `runs/{CH_CH,TS1_2H_to_CHCv_H,CCH2_CCH3}/IS.xyz` = **119 / 118 / 120 原子** | 本机实测（2026-09-21） |
+| 体系规模 | 实测 `validation-pipeline/reaction/runs/{CH_CH,TS1_2H_to_CHCv_H,CCH2_CCH3}/IS.xyz` = **119 / 118 / 120 原子** | 本机实测（2026-09-21） |
 | 逐案 `wall_s` | **无本地留档**（`meta.json` 在 SAI 侧 `d2s_runs/`） | 本机 `find` 无结果 |
 
 ### 2.3 ABACUS 单点成本（对照原稿“118 原子 6–13 min”）

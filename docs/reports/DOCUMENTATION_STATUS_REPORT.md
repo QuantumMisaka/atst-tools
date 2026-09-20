@@ -14,7 +14,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P0 复核）：[性能前提与 DP 并行 NEB 证据审查](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)（取证源 `ft2dp-dpeva`）：原稿“118 原子单点 6–13 min”无本地记录支持（同规模 median ≈20.19 min，n=43）；DP 模型的 mpi4py 并行 NEB 从未运行（DP NEB 全为 `parallel: false`，image-parallel E2E 仅 ABACUS 后端）；推理侧无 GPU 利用率/显存采样。结论：高性能前提未证实；P4 增加“DP image-parallel NEB 首个 E2E”，P5 增加 DP 推理并发曲线、NEB 图数×卡数映射与推理侧采样三项验收。
 
-- 2026-09-21（独立设计审查）：接口冻结文档经独立审查（同族、独立上下文）结论 **block**：3 blocker（worker/嵌入 API 语义冲突；`atst run` 进程模型破坏旧调用兼容；过度暴露判定两表互斥且 allocation 命名空间未定义）与 7 major（入口生效时机、隐式 omp 覆盖、错误分类、UUID 透传、共享文件清单、生成参数表、`round_robin` 静默降级）。已按清单修订为 rev.2 并新增 SPEC §11 R5/R6；待复审。
+- 2026-09-21（独立设计审查）：接口冻结文档经独立审查（同族、独立上下文）两轮：首轮 **block**（3 blocker：worker/嵌入 API 语义冲突、`atst run` 进程模型破坏旧调用兼容、过度暴露判定两表互斥且 allocation 命名空间未定义；7 major：入口生效时机、隐式 omp 覆盖、错误分类、UUID 透传、共享文件清单、生成参数表、`round_robin` 静默降级）；修订后复审结论 **approve with required changes**，其 N1–N10（runner 直接入口 re-exec 规则、env 通道 trigger、一致性校验基准、count-only allocation 边界、bool 校验、重依赖清单等）已在 rev.3 全部闭合。新增 SPEC §11 R5/R6；P0 交付完成，P1 入口工作项需先落 N1 规则。
 
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 

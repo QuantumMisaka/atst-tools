@@ -85,7 +85,7 @@ GPU runtime、backend 适配、独立 harness、双后端验收和 atst 发布�
 
 例如继承 mask `2,3`，请求逻辑 `[0]` 应选第一个继承设备，在相同命名空间内解析为 `2` 或其完整 UUID，不能写成物理 `0`。容器/MPS 重映射时使用当前执行边界实际解析出的标识，禁止把宿主序号未经核验塞进容器。[CUDA 枚举规则](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/environment-variables.html)明确可见列表决定逻辑序号。
 
-无 mask 不代表无卡；显式空 mask 不当作缺失。需要枚举时由短命 helper 获取当前可见设备标识，不在 coordinator 初始化 CUDA 后再 fork。只有卡数没有身份时，不从卡数猜宿主编号。已知可见设备数超过可信 allocation 且无法确定获配设备身份时，新运行模式必须拒绝，不能 inherit 或任选第一卡；adapter 有可信身份时才可收窄。无冲突证据但身份未知时，standalone 的 inherit 仅原样沿用调用者启动环境、标记 allocation 身份未验证，不宣称调度隔离已验收；需要重绑定/共享池的请求仍拒绝。平台 adapter 若要求可信身份，则由平台明确提供后才能进入新模式。旧模式兼容不扩张新模式的权限。
+无 mask 不代表无卡；显式空 mask 不当作缺失。需要枚举时由短命 helper 获取当前可见设备标识，不在 coordinator 初始化 CUDA 后再 fork。只有卡数没有身份时，不从卡数猜宿主编号。已知可见设备数超过可信 allocation 且无法确定获配设备身份时，新运行模式必须拒绝，不能 inherit 或任选第一卡；adapter 有可信身份时才可收窄。无冲突证据但身份未知时，standalone 的 inherit 仅原样沿用调用者启动环境、标记 allocation 身份未验证，不宣称调度隔离已验收；需要重绑定/共享池的请求仍拒绝。平台 adapter 若要求可信身份，则由平台明确提供后才能进入新模式。旧模式兼容不扩张新模式的权限。（可采性、错误类型与校验基准以 §11.2 R5 和 [runtime 接口冻结设计](2026-09-21-atst-runtime-interface-design.md) §4 为准。）
 
 ### 4.2 进程入口与嵌入 API
 
@@ -280,4 +280,4 @@ DP fixture 建议两层：atst 已有 `examples/dp_model_manifest.json` 的通�
 - **R3（线程优先级）** `calculator.*.omp` 显式设置时按其执行（保持 Toolbox 已验证契约）；`runtime.threads` 仅在该 calculator 未设置 `omp` 时作为进程默认，冲突以证据 fact 记录、不静默覆盖用户科学配置。依据：§4.3 与 P2 的“不静默覆盖用户已有科学配置”。错了的代价：若反转优先级，平台既有 `omp=ABACUS_CORES_PER_GPU` 行为会被新 runtime 默认值改变。
 - **R4（共享文件顺序）** 与恒电势在途分支的共享文件清单与建议顺序见接口文档 §8：GPU 侧先做新增模块与文档，`config_schema.py`、`scripts/main.py`、`api/services.py`、`calculators/factory.py` 的共享改动在恒电势分支提交合入后串行落地。错了的代价：并行提交会在同一区域反复冲突并产生不可审阅的合并。
 - **R5（设备请求可采性）** 显式 `devices` 的可采性由接口文档 §4 的单一权威表裁决：可信 allocation 下允许收窄；allocation 未知时仅允许对 caller-bound 掩码做集合内收窄；整机可见且无 allocation 事实时显式选择拒绝（不猜获配设备）；UUID 采 fail-closed。`ATST_ALLOCATION_DEVICES` 使用宿主命名空间 token 或 `count=<N>`。错了的代价：过宽会越过他人 allocation（错卡），过严会让 standalone 单卡用户无法 pin 设备（可退回复用外层 env 绑定）。
-- **R6（进程模型分流）** 未请求 runtime 的既有 `atst run` 维持进程内 legacy 路径（不合成 manifest、不写 `atst_api_result.json`、退出码不变）；仅当存在 runtime 段或选项时进入隔离 worker 模式，worker 经 `ATST_RUNTIME_BOUND` 标记做一致性校验而非重绑定。错了的代价：若把 legacy 路径也切到隔离模式，会破坏旧调用兼容与既有回归测试（`tests/unit/test_cli.py` 的 manifest 断言、runner 退出码契约）。
+- **R6（进程模型分流）** 未请求 runtime 的既有 `atst run` 维持进程内 legacy 路径（不合成 manifest、不写 `atst_api_result.json`、退出码不变）；仅当存在 runtime 请求时进入隔离模式——触发口径为 YAML `runtime` 段、CLI runtime 选项或 `ATST_VISIBLE_DEVICES` 任一出现。最终工作进程必带 `ATST_RUNTIME_BOUND=1`（`atst run` coordinator 与 runner 直接入口均经绑定后 re-exec 实现），worker 经该标记做一致性校验而非重绑定。错了的代价：若把 legacy 路径也切到隔离模式，会破坏旧调用兼容与既有回归测试（`tests/unit/test_cli.py` 的 manifest 断言、runner 退出码契约）。
