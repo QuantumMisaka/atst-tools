@@ -129,6 +129,8 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 **本地 FT²DP 接入证据（2026-09-21，非 P5 结论；详见验证报告 §13）**：在 `deepmd-kit 3.2.0b1.dev62` 底座 venv（补装 ase/pydantic/sella/mpi4py）上经 atst 隔离 runtime 完成——① 66 原子 H2-Au relax 冒烟：`status=success`、E=−3498.0803 eV、`attempt_s=10.25`、`dp.force_calls=1`、sidecar `complete`；② **FT²DP + mpi4py 图像并行 NEB**（chain5，3 内部图 × 6 步）：串行 16.61 s / 3-rank 20.56 s，逐帧等价 max|ΔE|=2.97e-05 eV、max|ΔF|=1.27e-05 eV/Å；小 band 上并行更慢（每 rank ≈5 s 模型加载），P5 的图数×卡数矩阵需在大 band/真实负载下验证；③ 跨 3.2.0 dev 构建单点一致（ΔE 7.6e-06 eV、ΔF 2.0e-06 eV/Å）。环境注意：SeZM 内建近邻表需可见 `libcuda.so`（本地 WSL 为 `/usr/lib/wsl/lib`；SAI 由 driver/module 提供）；relax 需 `sella`；mpi4py 需与 launcher 一致的 `libmpi`。
 
+**NEB 图数 × rank 数本地压力测试（2026-09-21，非 P5 结论；详见报告 §15）**：FT²DP 科学体系（χ-Fe₅C₂ 118 原子，`TS1_IS/FS` 插值出 `chain6`=4 内部图、`chain10`=8 内部图，已入登台 fixtures）——串行 16.97 s / 20.37 s，单卡 4 rank 69.20 s、8 rank 136.83 s（4.1×/7.7× 负收益），显存峰值 7.6–7.7 GiB 逼近 8 GiB；并行侧 Σforce_calls 反而更少（18/26 vs 46/66）。→ P5 的"10 ranks / 1 卡"按压力边界记录、不预设收益；"图数 ≤ 卡数"收益只在多卡现场验证。
+
 **P5 开跑前待裁决（拟值，可直接批注）**：
 
 | 决策点 | 拟值 | 依据 |
@@ -157,7 +159,7 @@ harness 语义：case 默认在配置文件所在目录运行（ATST 相对路�
 | DP 单 case | 1 卡 × 线程档位（`runtime.threads` 1/4/auto） | 冷/热启动、`dp.force_calls`、wall、GPU 利用率/显存样本 |
 | DP 独立批 | 每卡 1/2/3 进程（容量允许再到 4–6） | 成功 case/hour、卡时/成功案、OOM/unknown 分类、并发曲线 |
 | ABACUS 独立批 | 串行队列 vs 四卡各一 case | E/F 一致性、wall、实际卡时 |
-| MPI NEB | 串行 vs 10 ranks/4 卡 vs 10 ranks/1 卡 | 单 band 延迟、模型复制/内存、`world.size == interior_images`（本地模板已通：case 级 `launcher: [mpiexec,-n,3]` + `slots: 1`，见报告 §8） |
+| MPI NEB | 串行 vs 10 ranks/4 卡 vs 10 ranks/1 卡 | 单 band 延迟、模型复制/内存、`world.size == interior_images`（本地模板已通：case 级 `launcher: [mpiexec,-n,3]` + `slots: 1`，见报告 §8；单卡多 rank 本地为负收益，见 §15：'10 ranks/1 卡' 按压力边界记录） |
 | AutoNEB | inherit / 已验证共享布局 | active window 正确性、端点阶段 |
 | 容器 | host/SIF 成对 | 环境/mapping/观测一致性 |
 
