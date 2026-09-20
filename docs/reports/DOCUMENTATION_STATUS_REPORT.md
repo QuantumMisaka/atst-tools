@@ -82,6 +82,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（验收表覆盖加固）：对接口冻结 §9 验收对照表逐行核对测试覆盖，补上三处断言/用例——越界 UUID 的 fail-closed 消息（`explicit device selection is refused: '<uuid>' is not part of the inherited visible set`）、worker 失配的两条路径（replay 分支消息 + `resolved`/`recorded_effective` context）、`ATST_VISIBLE_DEVICES=""`/空白串的显式空请求与未设置=inherit。`tests/unit` 1021 passed / 2 skipped。
 
+- 2026-09-21（sidecar 峰值字段落实现）：接口 §7.2 / SPEC §6 要求的"显存峰值标记 `sampled_peak`"此前无对应字段（19 份本地 sidecar 均无 `sampled_peak`）——现 `telemetry.sampler.memory_peak_mib = {value, source}`：有样本时 `value=max(memory_used_mib)`、`source="sampled_peak"`；无样本/遥测禁用时二者均为 null（不填 0），并有单测覆盖两种状态。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

@@ -361,6 +361,7 @@ class EvidenceSession:
             "sample_count": 0,
             "coverage_s": 0.0,
             "samples": [],
+            "memory_peak_mib": {"value": None, "source": None},
         }
         payload = {
             "schema": EVIDENCE_SCHEMA,
@@ -439,6 +440,12 @@ class HostSampler:
         if self._thread is not None:
             self._thread.join(timeout=max(self.interval_s, 5.0))
         coverage = __import__("time").monotonic() - self._started
+        peak = None
+        for sample in self._samples:
+            for device in sample.get("devices") or []:
+                value = device.get("memory_used_mib")
+                if isinstance(value, (int, float)) and (peak is None or value > peak):
+                    peak = value
         return {
             "status": self._last_status,
             "reason": self._reason,
@@ -446,6 +453,10 @@ class HostSampler:
             "sample_count": len(self._samples),
             "coverage_s": round(coverage, 3),
             "samples": self._samples,
+            "memory_peak_mib": {
+                "value": peak,
+                "source": "sampled_peak" if peak is not None else None,
+            },
         }
 
 

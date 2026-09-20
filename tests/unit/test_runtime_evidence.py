@@ -150,6 +150,10 @@ def test_session_writes_once_and_marks_partial_failures(tmp_path):
     assert payload["reason"] == "boom"
     assert payload["attempt"] == 2
     assert payload["telemetry"]["sampler"]["status"] == "disabled"
+    assert payload["telemetry"]["sampler"]["memory_peak_mib"] == {
+        "value": None,
+        "source": None,
+    }
     assert session.finish("complete") == "runtime_evidence.json"
     assert (
         json.loads((tmp_path / "runtime_evidence.json").read_text(encoding="utf-8"))[
@@ -199,6 +203,7 @@ def test_sampler_collects_host_samples(monkeypatch, tmp_path):
     assert sampler["status"] == "observed"
     assert sampler["sample_count"] >= 1
     assert sampler["samples"][0]["devices"][0]["uuid"] == UUID_A
+    assert sampler["memory_peak_mib"] == {"value": 512.0, "source": "sampled_peak"}
 
 
 def _relax_config(**runtime):

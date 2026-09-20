@@ -167,7 +167,7 @@ runtime:
 
 - 触发：任一 runtime 维度出现请求（`runtime` 段、CLI runtime 选项或 `ATST_VISIBLE_DEVICES`）或 `telemetry.enabled=true` 时写出；缺省调用不新增文件、结果文档逐字节不变。
 - 产物：同目录 `runtime_evidence.json`；manifest metadata 键 `runtime_evidence`（相对路径）；`atst-api-result-v1` 增加可选 `runtime` 摘要对象（只增字段）。
-- 字段分层按 SPEC §6：workflow/stage、rank/worker、GPU device、process（可得）、allocation/batch。状态 `disabled | unavailable | partial | observed` 加 `reason/source`；缺失 = null，不填 0；显存峰值标记 `sampled_peak`。
+- 字段分层按 SPEC §6：workflow/stage、rank/worker、GPU device、process（可得）、allocation/batch。状态 `disabled | unavailable | partial | observed` 加 `reason/source`；缺失 = null，不填 0；显存峰值标记 `sampled_peak`（实现：`telemetry.sampler.memory_peak_mib = {value, source}`；有样本时 `source="sampled_peak"`，无样本时二者均为 null）。
 - 采样所有权：**每 job 仅 local rank 0 启动一个宿主采样器**（其余 rank 不复制），默认关闭；`nvidia-smi` 缺失或权限不足时状态 `unavailable`。
 - 实现状态（P2 首片，2026-09-21）：sidecar（schema `atst-runtime-evidence-v1`）、manifest 引用、环境/设备事实与宿主采样（rank 0 单例、默认关闭）已实现；计量写失败只写 stderr 警告、**不阻断科学运行**。结果 envelope 的 `runtime` 摘要对象、阶段耗时明细与力调用/模型构建计数留待 P2 后续片。
 
