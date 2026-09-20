@@ -194,3 +194,21 @@ test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧
 结论：TF 后端验证需要 TF 原生制品（例如来自科研侧 freeze 流程），本地无法
 由现有 `.pt` 制品派生；列为 P5 站点侧的可选项（若届时存在 TF 模型），
 本轮不做未经验证的 TF 声明。
+
+## 11. 装包路径（wheel）直连 runner 的端到端复核
+
+用干净安装的 wheel（`pip install <wheel>` 到独立 venv）直连
+`python -m atst_tools.api.runner --devices 0 --telemetry --threads 2`
+跑 66 原子 DP relax（YAML 同时给 `calculator.dp.omp: 4`）：
+
+- 结果文档 `status=success` 且 `runtime.status=complete`、`evidence` 指向 sidecar；
+- sidecar：`counters.dp.calculator_built=1`、`dp.force_calls=3`、
+  **`runtime_threads_overridden=1`** 与 gauge `runtime_threads_effective=4.0`
+  （显式 `dp.omp=4` 覆盖 runtime 预算 2，冻结 §6 的记录要求在此路径落地），
+  `environment.threads.OMP_NUM_THREADS=4`、`threads_source=explicit`；
+- 另有一次故意用错相对输入路径的对照运行：错误以 `status=error` 文档 + 退出码
+  2 呈现（错误路径行为正确）。
+
+该复核发现的 DP `omp` 覆盖未记账缺口已修复（`runtime/launch.py::
+apply_explicit_omp`，DP 工厂改用；ABACUS/MD 走 `resolve_calculator_omp`），
+并新增两条工厂级测试（覆盖记账、无 `omp` 时保留继承预算）。

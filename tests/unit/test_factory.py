@@ -296,6 +296,53 @@ def test_dp_factory_sets_omp_threads(monkeypatch):
     assert os.environ["OMP_NUM_THREADS"] == "4"
 
 
+def test_dp_factory_records_an_omp_override_of_the_runtime_budget(monkeypatch):
+    """An explicit dp.omp that beats runtime.threads is visible in evidence."""
+    from atst_tools.runtime import counters
+
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    monkeypatch.setenv("ATST_THREADS_SOURCE", "explicit")
+    factory.DeepPotentialFactory._instances.clear()
+    counters.reset()
+    counters.set_enabled(True)
+
+    config = {"calculator": {"name": "dp", "dp": {"model": "model.pt", "omp": 4}}}
+    factory.CalculatorFactory.get_calculator("dp", config)
+
+    assert os.environ["OMP_NUM_THREADS"] == "4"
+    assert counters.snapshot().get("runtime_threads_overridden") == 1
+    assert counters.gauge_snapshot().get("runtime_threads_effective") == 4.0
+    counters.reset()
+    counters.set_enabled(False)
+
+
+def test_dp_factory_without_omp_keeps_the_inherited_budget(monkeypatch):
+    """The DP factory never wrote a thread default; it must not start now."""
+    class FakeDP:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    calculator = types.ModuleType("deepmd.calculator")
+    calculator.DP = FakeDP
+    monkeypatch.setitem(sys.modules, "deepmd", types.ModuleType("deepmd"))
+    monkeypatch.setitem(sys.modules, "deepmd.calculator", calculator)
+    monkeypatch.setenv("OMP_NUM_THREADS", "6")
+    factory.DeepPotentialFactory._instances.clear()
+
+    config = {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}}
+    factory.CalculatorFactory.get_calculator("dp", config)
+
+    assert os.environ["OMP_NUM_THREADS"] == "6"
+
+
 def test_dp_factory_cache_key_includes_head(monkeypatch):
     class FakeDP:
         def __init__(self, **kwargs):

@@ -91,6 +91,29 @@ def cpu_affinity_count() -> int:
         return max(os.cpu_count() or 1, 1)
 
 
+def apply_explicit_omp(value: Any, *, environ: Mapping[str, str] | None = None) -> int:
+    """Write one explicit ``calculator.*.omp`` and record any runtime override.
+
+    Only the explicit branch is handled here: calculators whose ``omp`` is
+    absent keep their historical behaviour (the DP factory never wrote a
+    default, the ABACUS factory writes 1 through
+    :func:`resolve_calculator_omp`), and none of them clobber a runtime budget.
+    """
+    env = os.environ if environ is None else environ
+    resolved = int(value)
+    inherited = env.get("OMP_NUM_THREADS", "").strip()
+    if inherited and inherited.lstrip("+-").isdigit() and int(inherited) != resolved:
+        _counters.increment("runtime_threads_overridden")
+        _counters.set_gauge("runtime_threads_effective", resolved)
+        logging.getLogger(__name__).warning(
+            "calculator omp=%s overrides the inherited OMP_NUM_THREADS=%s",
+            resolved,
+            inherited,
+        )
+    os.environ["OMP_NUM_THREADS"] = str(resolved)
+    return resolved
+
+
 def resolve_calculator_omp(
     explicit: Any, *, environ: Mapping[str, str] | None = None
 ) -> int:
@@ -98,23 +121,11 @@ def resolve_calculator_omp(
 
     An explicit ``calculator.*.omp`` always wins; an inherited budget set by
     ``runtime.threads`` survives implicit defaults; without either the legacy
-    default of 1 is written.  An override of a runtime budget is recorded in
-    the run evidence.
+    default of 1 is written.
     """
     env = os.environ if environ is None else environ
     if explicit is not None:
-        value = int(explicit)
-        inherited = env.get("OMP_NUM_THREADS", "").strip()
-        if inherited and inherited.lstrip("+-").isdigit() and int(inherited) != value:
-            _counters.increment("runtime_threads_overridden")
-            _counters.set_gauge("runtime_threads_effective", value)
-            logging.getLogger(__name__).warning(
-                "calculator omp=%s overrides the inherited OMP_NUM_THREADS=%s",
-                value,
-                inherited,
-            )
-        os.environ["OMP_NUM_THREADS"] = str(value)
-        return value
+        return apply_explicit_omp(explicit, environ=env)
     inherited = env.get("OMP_NUM_THREADS", "").strip()
     if inherited and env.get(THREADS_SOURCE_ENV):
         try:

@@ -9,6 +9,7 @@ from typing import Any, Dict, Hashable
 from ase.calculators.calculator import Calculator
 
 from atst_tools.runtime import counters as runtime_counters
+from atst_tools.runtime import launch as runtime_launch
 
 
 def is_dp_calculator(name: str) -> bool:
@@ -93,7 +94,7 @@ class DeepPotentialFactory:
 
         omp = dp_params.pop("omp", None)
         if omp is not None:
-            os.environ["OMP_NUM_THREADS"] = str(int(omp))
+            runtime_launch.apply_explicit_omp(omp)
 
         share = dp_share_calculator(config) if shared is None else bool(shared)
         dp_params.pop("share_calculator", None)
