@@ -37,7 +37,7 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 - [x] 读取实施工作树的 AGENTS 与文档入口，记录 atst/DP/ABACUS/ASE/MPI/JAX 实际版本（2026-09-21：接口文档 §1 记录 `atst-dev`、`dpa4-dpmd-v100` 实测清单与“解释器、包路径、dist 版本”三元组要求）。
 - [x] atst 维护者选定实际基线（2026-09-21 复核各树 pin 后裁定 `2cf5b7e6`，SPEC §11 R1）；runner/schema/model manifest 差异已按该基线核对。
-- [ ] 与恒电势 owner 约定共享文件合入顺序和字段归属（清单与建议顺序见接口文档 §8；等待其分支提交后确认）。
+- [x] 与恒电势约定共享文件合入顺序和字段归属：清单与顺序见接口文档 §8；29 个在途文件已由维护者指示 checkpoint 提交（`7bc3f92`，验证 105 passed + 治理通过）；**合入 main 仍由恒电势 owner 决定**，GPU 侧共享文件改动在其后串行落地。
 - [x] 定义参数类型、CLI/YAML/env 优先级、inherit/空值/UUID/非法 ordinal 行为；概念字段转成唯一 schema（接口文档 §2–§4）。
 - [x] 定义 CLI 和 runner bootstrap 的一次性 exec/child 路径，核查包导入链；嵌入 API 保持不隐式启动进程（接口文档 §5）。
 - [x] 选 DP 模型/backend/head 和 ABACUS fixture；列出原稿 job 证据待补项，不把假设写为基线（接口文档 §7）。
