@@ -135,6 +135,8 @@ def test_worker_child_environment_carries_bound_facts(tmp_path):
     assert payload[runtime_devices.INHERITED_DEVICES_ENV] == "2,3"
     assert payload[runtime_devices.EFFECTIVE_DEVICES_ENV] == "2"
     assert payload["OMP_NUM_THREADS"] == "5"
+    # The frozen contract: all four process-level thread keys carry one value.
+    assert {payload[key] for key in runtime_launch.THREAD_ENV_KEYS} == {"5"}
     assert payload["argv"] == ["config.yaml"]
     assert (tmp_path / ".atst_cache" / "attempt-1").is_dir()
     assert dict(os.environ) == parent_env
