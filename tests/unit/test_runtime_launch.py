@@ -8,7 +8,7 @@ import pytest
 
 from atst_tools.runtime import devices as runtime_devices
 from atst_tools.runtime import launch as runtime_launch
-from atst_tools.runtime.errors import RuntimeBindingError
+from atst_tools.runtime.errors import RuntimeBindingError, RuntimeConfigError
 
 UUID_A = "GPU-12345678-1234-1234-1234-123456789abc"
 
@@ -190,10 +190,31 @@ def test_ensure_runtime_contract_verifies_bound_facts():
         {"runtime": {"devices": [0], "threads": 4}}, environ=bound
     )
     mismatched = dict(bound, **{runtime_devices.CUDA_VISIBLE_DEVICES: "3"})
-    with pytest.raises(RuntimeBindingError):
+    with pytest.raises(RuntimeBindingError) as caught:
         runtime_launch.ensure_runtime_contract(
             {"runtime": {"devices": [0]}}, environ=mismatched
         )
+    assert (
+        "the worker CUDA_VISIBLE_DEVICES does not match the recorded effective set"
+        in str(caught.value)
+    )
+
+
+def test_verify_bound_devices_replays_the_recorded_request():
+    """A worker whose request re-resolves to another card is refused."""
+    environ = {
+        runtime_devices.RUNTIME_BOUND_ENV: "1",
+        runtime_devices.INHERITED_DEVICES_ENV: "2,3",
+        runtime_devices.EFFECTIVE_DEVICES_ENV: "3",
+        runtime_devices.CUDA_VISIBLE_DEVICES: "3",
+    }
+    with pytest.raises(RuntimeBindingError) as caught:
+        runtime_devices.verify_bound_devices(
+            runtime_devices.parse_device_tokens([0]), environ=environ
+        )
+    text = str(caught.value)
+    assert "the worker environment does not match the resolved device request" in text
+    assert caught.value.context == {"resolved": "2", "recorded_effective": "3"}
 
 
 def test_round_robin_is_fail_closed_until_a_verified_pool_exists():
@@ -303,3 +324,20 @@ def test_telemetry_interval_uses_the_frozen_message_for_bad_values():
             "runtime.telemetry.interval_s must be a positive number"
             in str(caught.value)
         ), kwargs
+
+
+def test_empty_visible_devices_env_is_an_explicit_empty_request():
+    """ATST_VISIBLE_DEVICES="" requests an empty set; unset keeps inherit."""
+    for blank in ("", "   "):
+        with pytest.raises(RuntimeConfigError) as caught:
+            runtime_launch.merge_runtime_request(
+                environ={"ATST_VISIBLE_DEVICES": blank}
+            )
+        assert (
+            "runtime.devices must not be empty; omit the field to inherit all "
+            "visible devices"
+        ) in str(caught.value)
+    inherit = runtime_launch.merge_runtime_request(environ={})
+    assert inherit.requested is False
+    assert inherit.devices is None
+    assert inherit.devices_source is None

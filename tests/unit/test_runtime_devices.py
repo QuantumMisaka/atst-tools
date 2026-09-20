@@ -136,11 +136,15 @@ def test_resolve_rejects_ordinal_outside_inherited_set():
 
 
 def test_resolve_rejects_uuid_not_present_in_inherited_mask():
-    with pytest.raises(runtime_errors.RuntimeBindingError):
+    with pytest.raises(runtime_errors.RuntimeBindingError) as caught:
         runtime_devices.resolve_devices(
             runtime_devices.parse_device_tokens([UUID_A]),
             environ={"CUDA_VISIBLE_DEVICES": UUID_B},
         )
+    assert (
+        f"explicit device selection is refused: '{UUID_A}' is not part of the "
+        "inherited visible set"
+    ) in str(caught.value)
 
 
 def test_resolve_refuses_explicit_selection_when_whole_node_visible_and_unbound():
