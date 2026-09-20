@@ -337,6 +337,53 @@ def test_case_environment_merges_case_specific_values(tmp_path):
     assert env["MY_FLAG"] == "1"
 
 
+def test_case_environment_requests_per_case_evidence_by_default(tmp_path):
+    case = harness.CaseSpec.from_mapping({"case_id": "c", "config": "c.yaml"})
+    env = harness.case_environment(
+        case, ("0",), base={}, attempt=1, workdir=tmp_path
+    )
+    assert env["ATST_TELEMETRY_ENABLED"] == "1"
+    quiet = harness.case_environment(
+        case, ("0",), base={}, attempt=1, workdir=tmp_path, case_telemetry=False
+    )
+    assert "ATST_TELEMETRY_ENABLED" not in quiet
+
+
+def test_slot_pool_hands_out_distinct_devices_for_multi_slot_cases():
+    pool = harness._SlotPool(("0", "1"), 2)
+    assert pool.acquire("multi", 2) == ("0", "1")
+    pool.release("multi")
+    single_device = harness._SlotPool(("0",), 2)
+    assert single_device.acquire("multi", 2) is None
+    assert single_device.acquire("one", 1) == ("0",)
+
+
+def test_stalled_batch_stops_the_sampler_before_raising(monkeypatch, tmp_path):
+    from atst_tools.runtime import evidence as runtime_evidence
+
+    stopped: list[bool] = []
+    original_stop = runtime_evidence.HostSampler.stop
+
+    def recording_stop(self):
+        stopped.append(True)
+        return original_stop(self)
+
+    monkeypatch.setattr(runtime_evidence.HostSampler, "stop", recording_stop)
+    case = _case("too-big")
+    case["slots"] = 2
+    with pytest.raises(RuntimeError):
+        harness.run_manifest(
+            {"cases": [case]},
+            harness.HarnessOptions(
+                devices=("0",),
+                output_dir=tmp_path / "out",
+                telemetry=True,
+                sampler_interval_s=0.1,
+            ),
+        )
+    assert stopped == [True]
+
+
 def test_case_launcher_and_extra_args_prefix_the_worker(tmp_path):
     case = harness.CaseSpec.from_mapping(
         {

@@ -232,6 +232,7 @@ def test_runtime_thread_budget_survives_an_implicit_calculator_default(monkeypat
     from atst_tools.calculators.factory import _effective_omp
 
     monkeypatch.setenv("OMP_NUM_THREADS", "8")
+    monkeypatch.setenv("ATST_THREADS_SOURCE", "explicit")
     assert _effective_omp({}, None) == 8
     assert os.environ["OMP_NUM_THREADS"] == "8"
 
@@ -239,9 +240,35 @@ def test_runtime_thread_budget_survives_an_implicit_calculator_default(monkeypat
 def test_omp_defaults_to_one_without_any_budget(monkeypatch):
     from atst_tools.calculators.factory import _effective_omp
 
+    monkeypatch.delenv("ATST_THREADS_SOURCE", raising=False)
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     assert _effective_omp({}, None) == 1
     assert os.environ["OMP_NUM_THREADS"] == "1"
+
+
+def test_legacy_shell_omp_is_not_inherited_without_a_runtime_budget(monkeypatch):
+    """Legacy runs keep the historical default of 1 (review F8)."""
+    from atst_tools.calculators.factory import _effective_omp
+
+    monkeypatch.delenv("ATST_THREADS_SOURCE", raising=False)
+    monkeypatch.setenv("OMP_NUM_THREADS", "8")
+    assert _effective_omp({}, None) == 1
+    assert os.environ["OMP_NUM_THREADS"] == "1"
+
+
+def test_explicit_omp_override_is_recorded_in_the_evidence(monkeypatch):
+    from atst_tools.calculators.factory import _effective_omp
+    from atst_tools.runtime import counters
+
+    counters.reset()
+    counters.set_enabled(True)
+    monkeypatch.setenv("OMP_NUM_THREADS", "8")
+    monkeypatch.setenv("ATST_THREADS_SOURCE", "explicit")
+    assert _effective_omp({"omp": 2}, None) == 2
+    assert counters.snapshot().get("runtime_threads_overridden") == 1
+    assert counters.gauge_snapshot().get("runtime_threads_effective") == 2.0
+    counters.reset()
+    counters.set_enabled(False)
 
 
 def test_runner_direct_entry_resolves_paths_from_the_caller_directory(tmp_path):

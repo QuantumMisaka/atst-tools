@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import os
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 import sys
 
 from atst_tools.runtime import devices as _devices
+from atst_tools.runtime import counters as _counters
 from atst_tools.runtime.errors import RuntimeBindingError
 
 CACHE_ENV_KEYS = (
@@ -87,6 +89,40 @@ def cpu_affinity_count() -> int:
         return max(len(os.sched_getaffinity(0)), 1)
     except AttributeError:  # pragma: no cover - non-Linux platforms
         return max(os.cpu_count() or 1, 1)
+
+
+def resolve_calculator_omp(
+    explicit: Any, *, environ: Mapping[str, str] | None = None
+) -> int:
+    """Apply the frozen OMP precedence for one calculator construction.
+
+    An explicit ``calculator.*.omp`` always wins; an inherited budget set by
+    ``runtime.threads`` survives implicit defaults; without either the legacy
+    default of 1 is written.  An override of a runtime budget is recorded in
+    the run evidence.
+    """
+    env = os.environ if environ is None else environ
+    if explicit is not None:
+        value = int(explicit)
+        inherited = env.get("OMP_NUM_THREADS", "").strip()
+        if inherited and inherited.lstrip("+-").isdigit() and int(inherited) != value:
+            _counters.increment("runtime_threads_overridden")
+            _counters.set_gauge("runtime_threads_effective", value)
+            logging.getLogger(__name__).warning(
+                "calculator omp=%s overrides the inherited OMP_NUM_THREADS=%s",
+                value,
+                inherited,
+            )
+        os.environ["OMP_NUM_THREADS"] = str(value)
+        return value
+    inherited = env.get("OMP_NUM_THREADS", "").strip()
+    if inherited and env.get(THREADS_SOURCE_ENV):
+        try:
+            return int(inherited)
+        except ValueError:
+            pass
+    os.environ["OMP_NUM_THREADS"] = "1"
+    return 1
 
 
 def _resolve_threads(value: Any) -> tuple[int | None, str | None]:
@@ -233,6 +269,7 @@ def build_child_environment(
             token.raw for token in request.devices
         )
         env[_devices.REQUESTED_SOURCE_ENV] = request.devices_source or "runtime.devices"
+    env[_devices.BINDING_ENV] = resolution.binding
     if log_level:
         env[LOG_LEVEL_ENV] = str(log_level)
     if request.telemetry_enabled:
@@ -282,7 +319,23 @@ def ensure_runtime_contract(
     """
     env = os.environ if environ is None else environ
     section = config.get("runtime")
+    bound = env.get(_devices.RUNTIME_BOUND_ENV) == "1"
     if not isinstance(section, Mapping):
+        if not bound:
+            return
+        # A bound worker still verifies against the coordinator's recorded
+        # request and binding, so CLI-driven launches get the same check.
+        requested_fact = env.get(_devices.REQUESTED_DEVICES_ENV)
+        tokens = (
+            None
+            if requested_fact is None or not requested_fact.strip()
+            else _devices.parse_device_tokens(requested_fact)
+        )
+        _devices.verify_bound_devices(
+            tokens,
+            environ=env,
+            binding=_devices.parse_binding(env.get(_devices.BINDING_ENV)),
+        )
         return
     devices_value = section.get("devices")
     tokens = (
@@ -290,11 +343,14 @@ def ensure_runtime_contract(
         if devices_value is None
         else _devices.parse_device_tokens(devices_value)
     )
-    binding = _devices.parse_binding(section.get("binding"))
+    section_binding = section.get("binding")
+    binding = _devices.parse_binding(
+        section_binding if section_binding is not None else env.get(_devices.BINDING_ENV)
+    )
     threads = _devices.parse_threads(section.get("threads"))
     rebinds = tokens is not None or threads is not None or binding == "round_robin"
-    if not rebinds:
+    if not rebinds and not bound:
         return
-    if env.get(_devices.RUNTIME_BOUND_ENV) != "1":
+    if not bound:
         raise RuntimeBindingError(EMBEDDED_REFUSAL, workflow=workflow)
-    _devices.verify_bound_devices(tokens, environ=env)
+    _devices.verify_bound_devices(tokens, environ=env, binding=binding)

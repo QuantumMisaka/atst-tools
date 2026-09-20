@@ -121,14 +121,24 @@ def device_facts(
         "inherited": _split(environ.get(_devices.INHERITED_DEVICES_ENV)),
         "effective": _split(environ.get(_devices.EFFECTIVE_DEVICES_ENV)),
         "caller_bound": environ.get(_devices.CUDA_VISIBLE_DEVICES) is not None,
-        "allocation_identity": (
-            "verified"
-            if environ.get(_devices.ALLOCATION_DEVICES_ENV)
-            else "unverified"
-        ),
+        "allocation_identity": _allocation_identity(environ),
         "binding": section.get("binding", "inherit"),
         "threads": threads,
     }
+
+
+def _allocation_identity(environ: Mapping[str, str]) -> str:
+    """Report identity as verified only when the allocation names devices."""
+    raw = environ.get(_devices.ALLOCATION_DEVICES_ENV)
+    if not raw:
+        return "unverified"
+    try:
+        facts = _devices.parse_allocation_value(raw)
+    except Exception:
+        return "unverified"
+    if facts is None or facts.tokens is None:
+        return "unverified"
+    return "verified"
 
 
 def _split(value: str | None) -> list[str]:

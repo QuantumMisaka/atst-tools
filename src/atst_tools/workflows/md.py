@@ -21,6 +21,7 @@ from ase.md.nvtberendsen import NVTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary, ZeroRotation
 
 from atst_tools.calculators.factory import CalculatorFactory, _build_abacus_command
+from atst_tools.runtime.launch import resolve_calculator_omp
 from atst_tools.utils.abacus_io import _as_mp_kpts, _input_parameters, _merged_abacus_parameters
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.convergence import StageRecord
@@ -275,8 +276,7 @@ class AbacusNativeMDRunner:
 
     def _start_process(self):
         abacus = _abacus_section(self.config)
-        if abacus.get("omp") is not None:
-            os.environ["OMP_NUM_THREADS"] = str(int(abacus["omp"]))
+        resolve_calculator_omp(abacus.get("omp"))
         stdout_path = self.run_dir / "atst_abacus_native_md.out"
         stderr_path = self.run_dir / "atst_abacus_native_md.err"
         stdout = stdout_path.open("w", encoding="utf-8")

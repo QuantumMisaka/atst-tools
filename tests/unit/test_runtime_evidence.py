@@ -13,6 +13,7 @@ from atst_tools.runtime import evidence as runtime_evidence
 from atst_tools.runtime import launch as runtime_launch
 
 UUID_A = "GPU-12345678-1234-1234-1234-123456789abc"
+UUID_B = "GPU-abcdefab-cdef-abcd-efab-cdefabcdefab"
 
 
 def _observed_sample():
@@ -94,6 +95,15 @@ def test_environment_and_device_facts_use_the_recorded_values():
     assert from_coordinator["requested"] == ["1"]
     assert from_coordinator["requested_source"] == "--devices"
     assert from_coordinator["threads"] == 6
+
+    counted = runtime_evidence.device_facts(
+        None, {runtime_devices.ALLOCATION_DEVICES_ENV: "count=4"}
+    )
+    assert counted["allocation_identity"] == "unverified"
+    listed = runtime_evidence.device_facts(
+        None, {runtime_devices.ALLOCATION_DEVICES_ENV: f"{UUID_A},{UUID_B}"}
+    )
+    assert listed["allocation_identity"] == "verified"
 
 
 def test_compute_process_sampling_reports_rows_and_permission_failures(monkeypatch):

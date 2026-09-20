@@ -106,6 +106,7 @@ def test_child_environment_sets_mask_threads_cache_and_facts(tmp_path):
     assert env[runtime_devices.EFFECTIVE_DEVICES_ENV] == "2"
     assert env[runtime_devices.REQUESTED_DEVICES_ENV] == "0"
     assert env[runtime_devices.REQUESTED_SOURCE_ENV] == "--devices"
+    assert env[runtime_devices.BINDING_ENV] == "inherit"
     assert env[runtime_launch.THREADS_SOURCE_ENV] == "explicit"
     assert env[runtime_launch.LOG_LEVEL_ENV] == "WARNING"
     assert env[runtime_launch.TELEMETRY_ENV] == "1"
@@ -243,3 +244,31 @@ def test_round_robin_refuses_multi_node_launcher_shapes():
     assert "single-node device pool" in str(caught.value)
     assert runtime_devices.declared_node_count({"SLURM_JOB_NUM_NODES": "3"}) == 3
     assert runtime_devices.declared_node_count({}) == 1
+
+
+def test_round_robin_survives_the_worker_contract_check():
+    """YAML round_robin and the bound worker must agree (review F1)."""
+    environ = {
+        "CUDA_VISIBLE_DEVICES": "2,3",
+        "OMPI_COMM_WORLD_SIZE": "2",
+        "OMPI_COMM_WORLD_LOCAL_RANK": "1",
+    }
+    request = runtime_launch.merge_runtime_request(
+        cli_devices="0,1", cli_binding="round_robin", environ=environ
+    )
+    resolution = runtime_devices.resolve_devices(
+        request.devices, binding=request.binding, environ=environ
+    )
+    assert resolution.effective == ("3",)
+    child_env = runtime_launch.build_child_environment(request, resolution, base=environ)
+    assert child_env[runtime_devices.BINDING_ENV] == "round_robin"
+
+    yaml_section = {"runtime": {"devices": [0, 1], "binding": "round_robin"}}
+    runtime_launch.ensure_runtime_contract(yaml_section, environ=child_env)
+    runtime_launch.ensure_runtime_contract({}, environ=child_env)
+
+    wrong_mask = dict(
+        child_env, **{runtime_devices.CUDA_VISIBLE_DEVICES: "2"}
+    )
+    with pytest.raises(RuntimeBindingError):
+        runtime_launch.ensure_runtime_contract({}, environ=wrong_mask)

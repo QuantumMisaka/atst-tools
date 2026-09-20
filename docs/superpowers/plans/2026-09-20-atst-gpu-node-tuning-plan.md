@@ -115,7 +115,7 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 ### P5 预备（草案，2026-09-21；真实运行前仍待维护者裁决 fixture/容差/预算）
 
-启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（P3 harness，站点 QOS/module 行按 `$sai-user-guide` 现场填写）；清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（telemetry 开启时）+ `harness_summary.json`。
+启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（P3 harness，站点 QOS/module 行按 `$sai-user-guide` 现场填写）；清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（harness 默认注入 `ATST_TELEMETRY_ENABLED`，可用 `--no-case-telemetry` 关闭）+ 批次 `harness_summary.json`。
 
 harness 语义：case 默认在配置文件所在目录运行（ATST 相对路径按 cwd 解析），显式 `workdir` 则相对批量输出目录解析；报告/日志/`atst_api_result.json` 一律在 `<out>/<case_id>/`。实时站点快照（2026-09-21 只读查询）：4V100 35 节点（13 mix / 10 alloc / 12 idle，队列 56 作业）、8V100V0 队列 2、16V100 队列 525（拥堵）；`rush-1o2gpu`/`rush-gpu` MaxWall 1 天、gres/gpu=16、MaxJobsPU 10，`flood-1o2gpu` MaxWall 4 小时。
 

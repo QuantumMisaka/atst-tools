@@ -19,6 +19,7 @@ from atst_tools.calculators.constant_potential import (
 )
 from atst_tools.calculators.dp import DeepPotentialFactory
 from atst_tools.runtime import counters as runtime_counters
+from atst_tools.runtime import launch as runtime_launch
 from atst_tools.utils.mpi import mpi_launcher_detected
 
 
@@ -76,26 +77,14 @@ def _build_abacus_command(command: str, mpi: int) -> str:
 
 
 def _effective_omp(abacus_config: Dict[str, Any], omp_override: int | None) -> int:
-    """Return the ABACUS OMP budget without clobbering a runtime thread budget.
+    """Return the ABACUS OMP budget through the frozen precedence rules.
 
-    An explicit ``calculator.abacus.omp`` (argument or YAML) always wins.  When
-    it is absent, an inherited ``OMP_NUM_THREADS`` (for example set by
-    ``runtime.threads`` before the scientific stack was imported) is preserved;
-    without one the historical default of 1 is written to the environment.
+    Delegates to :func:`atst_tools.runtime.launch.resolve_calculator_omp`: an
+    explicit ``calculator.abacus.omp`` always wins, a runtime budget survives
+    implicit defaults, and the legacy default of 1 is written otherwise.
     """
     explicit = omp_override if omp_override is not None else abacus_config.get("omp")
-    if explicit is not None:
-        value = int(explicit)
-        os.environ["OMP_NUM_THREADS"] = str(value)
-        return value
-    inherited = os.environ.get("OMP_NUM_THREADS", "").strip()
-    if inherited:
-        try:
-            return int(inherited)
-        except ValueError:
-            pass
-    os.environ["OMP_NUM_THREADS"] = "1"
-    return 1
+    return runtime_launch.resolve_calculator_omp(explicit)
 
 
 def _effective_abacus_executable(command: str) -> str:

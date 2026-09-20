@@ -112,6 +112,8 @@ P3 harness 以**真实 worker**（非替身）在本机跑同一清单两遍：`
 - 每 case 报告（`harness_case.json` + `atst_api_result.json`）与 sidecar
   （`runtime_evidence.json`，含 `dp.calculator_built`/`dp.force_calls` 与
   `dp.cached_instances` gauge）齐全；批次汇总保留全部 case 与卡时。
+  （复跑确认：harness 默认注入 `ATST_TELEMETRY_ENABLED`，即使 case 的 YAML
+  没有 `runtime` 段也会写出 sidecar——审查 F3 的修复验证。）
 - **边界（不可外推）**：单张 RTX 2070 SUPER、66 原子、12 步短程 relax、
   2 slots、单次重复、无 ABACUS。它只支持"P5 值得测每卡多进程"这一假设，
   不构成 V100/生产体系或并发默认值的结论；P5 仍按矩阵做 ≥3 次交替重复。

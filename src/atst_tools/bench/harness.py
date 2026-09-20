@@ -128,6 +128,7 @@ class HarnessOptions:
     continue_on_failure: bool = True
     sampler_interval_s: float = 1.0
     telemetry: bool = True
+    case_telemetry: bool = True
     worker_factory: Callable[["CaseSpec", Path, tuple[str, ...]], Sequence[str]] | None = None
     stop_event: threading.Event | None = None
 
@@ -221,6 +222,7 @@ def case_environment(
     base: Mapping[str, str],
     attempt: int,
     workdir: Path,
+    case_telemetry: bool = True,
 ) -> dict[str, str]:
     """Build the isolated environment of one case (caller-bound devices)."""
     env = dict(base)
@@ -232,6 +234,8 @@ def case_environment(
     cache_dir.mkdir(parents=True, exist_ok=True)
     for key in _launch.CACHE_ENV_KEYS:
         env[key] = str(cache_dir)
+    if case_telemetry:
+        env.setdefault(_launch.TELEMETRY_ENV, "1")
     env.update(case.env)
     return env
 
@@ -263,9 +267,24 @@ class _SlotPool:
 
     def acquire(self, case_id: str, slots: int) -> tuple[str, ...] | None:
         """Reserve ``slots`` device slots atomically, or return ``None``."""
-        if len(self._free) < slots:
-            return None
-        taken = [self._free.pop(0) for _ in range(slots)]
+        if slots <= 1:
+            if not self._free:
+                return None
+            taken = [self._free.pop(0)]
+        else:
+            taken = []
+            seen: list[str] = []
+            for pair in self._free:
+                if pair[0] in seen:
+                    continue
+                seen.append(pair[0])
+                taken.append(pair)
+                if len(taken) == slots:
+                    break
+            if len(taken) < slots:
+                return None
+            for pair in taken:
+                self._free.remove(pair)
         self._held[case_id] = taken
         return tuple(device for device, _ in taken)
 
@@ -468,131 +487,135 @@ def run_manifest(
         pool.release(running_case.case.case_id)
         threads_in_use -= running_case.case.threads
 
-    while pending or running:
-        if not running and pending:
-            admissible = any(
-                case.slots <= pool.free_count and case.threads <= cpu_limit
-                for case in pending
-            )
-            if not admissible and not stop.is_set():
-                blocked = ", ".join(case.case_id for case in pending)
-                raise RuntimeError(
-                    f"no case can start with {len(options.devices)} device "
-                    f"slot(s) and a CPU budget of {cpu_limit}: {blocked}"
+    sampler_summary: dict[str, Any] | None = None
+    try:
+        while pending or running:
+            if not running and pending:
+                admissible = any(
+                    case.slots <= pool.free_count and case.threads <= cpu_limit
+                    for case in pending
                 )
-        if stop.is_set() and not cancelled:
-            cancelled = True
-            for item in list(running.values()):
-                _terminate_group(item.process)
-        if not cancelled:
-            for case in list(pending):
-                if stop.is_set():
-                    break
-                if threads_in_use + case.threads > cpu_limit:
-                    continue
-                devices = pool.acquire(case.case_id, case.slots)
-                if devices is None:
-                    continue
-                report_dir = output_dir / case.case_id
-                report_dir.mkdir(parents=True, exist_ok=True)
-                workdir = case_workdir(case, output_dir)
-                workdir.mkdir(parents=True, exist_ok=True)
-                env = case_environment(
-                    case, devices, base=os.environ, attempt=1, workdir=workdir
-                )
-                stdout_path = report_dir / "harness_worker.out"
-                stderr_path = report_dir / "harness_worker.err"
-                stdout_handle = stdout_path.open("w", encoding="utf-8")
-                stderr_handle = stderr_path.open("w", encoding="utf-8")
-                try:
-                    process = subprocess.Popen(
-                        worker_command(
-                            case,
-                            workdir,
-                            devices,
-                            result_json=report_dir / DEFAULT_RESULT_JSON,
-                            factory=options.worker_factory,
-                        ),
-                        env=env,
-                        cwd=workdir,
-                        stdout=stdout_handle,
-                        stderr=stderr_handle,
-                        start_new_session=True,
+                if not admissible and not stop.is_set():
+                    blocked = ", ".join(case.case_id for case in pending)
+                    raise RuntimeError(
+                        f"no case can start with {len(options.devices)} device "
+                        f"slot(s) and a CPU budget of {cpu_limit}: {blocked}"
                     )
-                except OSError as exc:
+            if stop.is_set() and not cancelled:
+                cancelled = True
+                for item in list(running.values()):
+                    _terminate_group(item.process)
+            if not cancelled:
+                for case in list(pending):
+                    if stop.is_set():
+                        break
+                    if threads_in_use + case.threads > cpu_limit:
+                        continue
+                    devices = pool.acquire(case.case_id, case.slots)
+                    if devices is None:
+                        continue
+                    report_dir = output_dir / case.case_id
+                    report_dir.mkdir(parents=True, exist_ok=True)
+                    workdir = case_workdir(case, output_dir)
+                    workdir.mkdir(parents=True, exist_ok=True)
+                    env = case_environment(
+                        case, devices, base=os.environ, attempt=1, workdir=workdir
+                    )
+                    stdout_path = report_dir / "harness_worker.out"
+                    stderr_path = report_dir / "harness_worker.err"
+                    stdout_handle = stdout_path.open("w", encoding="utf-8")
+                    stderr_handle = stderr_path.open("w", encoding="utf-8")
+                    try:
+                        process = subprocess.Popen(
+                            worker_command(
+                                case,
+                                workdir,
+                                devices,
+                                result_json=report_dir / DEFAULT_RESULT_JSON,
+                                factory=options.worker_factory,
+                            ),
+                            env=env,
+                            cwd=workdir,
+                            stdout=stdout_handle,
+                            stderr=stderr_handle,
+                            start_new_session=True,
+                        )
+                    except OSError as exc:
+                        stdout_handle.close()
+                        stderr_handle.close()
+                        pool.release(case.case_id)
+                        reports.append(
+                            _record_spawn_failure(case, output_dir, str(exc))
+                        )
+                        pending.remove(case)
+                        continue
                     stdout_handle.close()
                     stderr_handle.close()
-                    pool.release(case.case_id)
-                    reports.append(
-                        _record_spawn_failure(case, output_dir, str(exc))
+                    running[case.case_id] = _RunningCase(
+                        case=case,
+                        process=process,
+                        devices=devices,
+                        workdir=workdir,
+                        report_dir=report_dir,
+                        stdout_path=stdout_path,
+                        stderr_path=stderr_path,
+                        started_monotonic=time.monotonic(),
+                        started_at=_now(),
                     )
+                    threads_in_use += case.threads
                     pending.remove(case)
-                    continue
-                stdout_handle.close()
-                stderr_handle.close()
-                running[case.case_id] = _RunningCase(
-                    case=case,
-                    process=process,
-                    devices=devices,
-                    workdir=workdir,
-                    report_dir=report_dir,
-                    stdout_path=stdout_path,
-                    stderr_path=stderr_path,
-                    started_monotonic=time.monotonic(),
-                    started_at=_now(),
-                )
-                threads_in_use += case.threads
-                pending.remove(case)
-        if not running and not pending:
-            break
-        time.sleep(0.05)
-        for case_id, item in list(running.items()):
-            case = item.case
-            timeout = case.timeout_s
-            rc = item.process.poll()
-            if rc is not None:
-                status, _ = classify_exit(
-                    rc,
-                    ""
-                    if not item.stderr_path.exists()
-                    else item.stderr_path.read_text(
-                        encoding="utf-8", errors="replace"
-                    )[-20000:],
-                )
-                _record(item, status, rc)
-                del running[case_id]
-                continue
-            if timeout is not None and (
-                time.monotonic() - item.started_monotonic
-            ) > timeout:
-                _terminate_group(item.process)
+            if not running and not pending:
+                break
+            time.sleep(0.05)
+            for case_id, item in list(running.items()):
+                case = item.case
+                timeout = case.timeout_s
                 rc = item.process.poll()
-                _record(item, STATUS_TIMEOUT, rc)
-                del running[case_id]
-                continue
-            if cancelled:
-                _terminate_group(item.process)
-                _record(item, STATUS_SKIPPED, item.process.poll())
-                del running[case_id]
-        if cancelled and not running:
-            for case in pending:
-                reports.append(_record_skipped(case, output_dir, "cancelled"))
-            pending.clear()
-        if (
-            not options.continue_on_failure
-            and reports
-            and reports[-1]["status"] in {STATUS_FAILED, STATUS_TIMEOUT}
-            and pending
-        ):
-            for case in list(pending):
-                reports.append(
-                    _record_skipped(case, output_dir, "stopped_after_failure")
-                )
-            pending.clear()
-        if stop.is_set() and not running and not pending:
-            break
+                if rc is not None:
+                    status, _ = classify_exit(
+                        rc,
+                        ""
+                        if not item.stderr_path.exists()
+                        else item.stderr_path.read_text(
+                            encoding="utf-8", errors="replace"
+                        )[-20000:],
+                    )
+                    _record(item, status, rc)
+                    del running[case_id]
+                    continue
+                if timeout is not None and (
+                    time.monotonic() - item.started_monotonic
+                ) > timeout:
+                    _terminate_group(item.process)
+                    rc = item.process.poll()
+                    _record(item, STATUS_TIMEOUT, rc)
+                    del running[case_id]
+                    continue
+                if cancelled:
+                    _terminate_group(item.process)
+                    _record(item, STATUS_SKIPPED, item.process.poll())
+                    del running[case_id]
+            if cancelled and not running:
+                for case in pending:
+                    reports.append(_record_skipped(case, output_dir, "cancelled"))
+                pending.clear()
+            if (
+                not options.continue_on_failure
+                and reports
+                and reports[-1]["status"] in {STATUS_FAILED, STATUS_TIMEOUT}
+                and pending
+            ):
+                for case in list(pending):
+                    reports.append(
+                        _record_skipped(case, output_dir, "stopped_after_failure")
+                    )
+                pending.clear()
+            if stop.is_set() and not running and not pending:
+                break
 
-    sampler_summary = sampler.stop() if sampler is not None else None
+    finally:
+        if sampler is not None:
+            sampler_summary = sampler.stop()
     succeeded = [row for row in reports if row["status"] == STATUS_SUCCEEDED]
     summary = {
         "schema": SCHEMA,
@@ -644,6 +667,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--no-telemetry", action="store_true", help="Disable the batch host sampler"
     )
+    parser.add_argument(
+        "--no-case-telemetry",
+        action="store_true",
+        help="Do not request per-case runtime evidence sidecars",
+    )
     args = parser.parse_args(argv)
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     stop_event = threading.Event()
@@ -664,6 +692,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             default_timeout_s=args.timeout,
             continue_on_failure=not args.stop_on_failure,
             telemetry=not args.no_telemetry,
+            case_telemetry=not args.no_case_telemetry,
             stop_event=stop_event,
         ),
     )

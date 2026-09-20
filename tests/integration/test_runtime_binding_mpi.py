@@ -122,6 +122,67 @@ with out.open("a", encoding="utf-8") as handle:
 """
 
 
+BOUND_WORKER_SNIPPET = """\
+import json, os, sys
+from pathlib import Path
+from atst_tools.runtime import cli_dispatch, launch
+
+out = Path(sys.argv[1])
+config = Path(sys.argv[2])
+plan = cli_dispatch.plan_runner_launch(
+    ["--config", str(config), "--devices", "0,1", "--binding", "round_robin"],
+    environ=dict(os.environ),
+)
+if plan is None:
+    raise SystemExit("expected a launch plan under MPI")
+# The worker half of the contract: the recorded facts must verify against the
+# rank-local rotation (regression: YAML/fact round-robin used to fail here).
+launch.ensure_runtime_contract({}, environ=plan.environment)
+launch.ensure_runtime_contract(
+    {"runtime": {"devices": [0, 1], "binding": "round_robin"}},
+    environ=plan.environment,
+)
+payload = {
+    "mask": plan.environment["CUDA_VISIBLE_DEVICES"],
+    "binding": plan.environment.get("ATST_BINDING"),
+    "effective": plan.environment.get("ATST_EFFECTIVE_DEVICES"),
+    "inherited": plan.environment.get("ATST_INHERITED_DEVICES"),
+}
+with out.open("a", encoding="utf-8") as handle:
+    handle.write(json.dumps(payload) + "\\n")
+"""
+
+
+def test_bound_worker_verifies_round_robin_facts_under_mpi(tmp_path: Path) -> None:
+    """Each rank's bound facts pass the worker contract check (review F1)."""
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+    script = tmp_path / "bound_worker.py"
+    script.write_text(BOUND_WORKER_SNIPPET, encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "calculation:\n  type: relax\n  init_structure: init.traj\n"
+        "calculator:\n  name: abacus\n  abacus:\n    parameters: {}\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "facts.jsonl"
+    environment = _environment()
+    environment["CUDA_VISIBLE_DEVICES"] = "0,1"
+
+    completed = _run_mpi(
+        [_launcher(), "-n", "2", sys.executable, str(script), str(out), str(config)],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    assert completed.returncode == 0, completed.stderr
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 2
+    assert sorted(row["mask"] for row in rows) == ["0", "1"]
+    assert all(row["binding"] == "round_robin" for row in rows)
+    assert all(row["inherited"] == "0,1" for row in rows)
+    assert sorted(row["effective"] for row in rows) == ["0", "1"]
+
+
 def test_cli_dispatch_plans_rank_local_masks_under_mpi(tmp_path: Path) -> None:
     """The coordinator path hands each MPI rank its own bound worker command."""
     if not _mpi_test_enabled():

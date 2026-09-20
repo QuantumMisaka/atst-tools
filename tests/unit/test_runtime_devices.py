@@ -177,6 +177,17 @@ def test_resolve_narrows_inside_count_only_allocation_covering_visible_set():
     assert resolution.notes == ("allocation_count_covers_visible_set",)
 
 
+def test_count_only_allocation_covers_enumeration_without_caller_binding():
+    """count=N >= visible set is admissible even on an unbound whole node."""
+    resolution = runtime_devices.resolve_devices(
+        runtime_devices.parse_device_tokens([0]),
+        environ={"ATST_ALLOCATION_DEVICES": "count=4"},
+        enumerate_devices=lambda: (UUID_A, UUID_B),
+    )
+    assert resolution.effective == (UUID_A,)
+    assert resolution.allocation_identity == "unverified"
+
+
 def test_resolve_refuses_count_only_allocation_smaller_than_visible_set():
     with pytest.raises(runtime_errors.RuntimeBindingError) as caught:
         runtime_devices.resolve_devices(
@@ -239,4 +250,25 @@ def test_verify_bound_devices_rejects_mismatched_mask_and_missing_facts():
     with pytest.raises(runtime_errors.RuntimeBindingError):
         runtime_devices.verify_bound_devices(
             runtime_devices.parse_device_tokens([0]), environ={}
+        )
+
+
+def test_verify_bound_devices_replays_round_robin_rotation():
+    environ = {
+        "ATST_INHERITED_DEVICES": "2,3",
+        "ATST_EFFECTIVE_DEVICES": "3",
+        "CUDA_VISIBLE_DEVICES": "3",
+        "OMPI_COMM_WORLD_SIZE": "2",
+        "OMPI_COMM_WORLD_LOCAL_RANK": "1",
+    }
+    runtime_devices.verify_bound_devices(None, environ=environ, binding="round_robin")
+    runtime_devices.verify_bound_devices(
+        runtime_devices.parse_device_tokens([0, 1]),
+        environ=environ,
+        binding="round_robin",
+    )
+    wrong_rank = dict(environ, **{"ATST_EFFECTIVE_DEVICES": "2", "CUDA_VISIBLE_DEVICES": "2"})
+    with pytest.raises(runtime_errors.RuntimeBindingError):
+        runtime_devices.verify_bound_devices(
+            None, environ=wrong_rank, binding="round_robin"
         )

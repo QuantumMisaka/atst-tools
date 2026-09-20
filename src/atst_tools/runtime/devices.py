@@ -21,6 +21,7 @@ INHERITED_DEVICES_ENV = "ATST_INHERITED_DEVICES"
 EFFECTIVE_DEVICES_ENV = "ATST_EFFECTIVE_DEVICES"
 REQUESTED_DEVICES_ENV = "ATST_REQUESTED_DEVICES"
 REQUESTED_SOURCE_ENV = "ATST_REQUESTED_SOURCE"
+BINDING_ENV = "ATST_BINDING"
 RUNTIME_BOUND_ENV = "ATST_RUNTIME_BOUND"
 
 _UUID_PATTERN = re.compile(
@@ -420,7 +421,7 @@ def resolve_devices(
             resolved.append(host)
         identity = "verified"
     elif allocation is not None:
-        if not caller_bound or allocation.count < len(inherited):
+        if allocation.count < len(inherited):
             raise RuntimeBindingError(
                 f"{REFUSED_PREFIX}: {REASON_OVEREXPOSED}",
                 context={
@@ -470,6 +471,7 @@ def verify_bound_devices(
     requested: Sequence[DeviceToken] | None,
     *,
     environ: Mapping[str, str],
+    binding: str = "inherit",
 ) -> None:
     """Verify an already-bound worker against its recorded facts.
 
@@ -496,7 +498,7 @@ def verify_bound_devices(
     )
 
     if requested is None:
-        resolved = basis_tokens
+        pool = basis_tokens
     else:
         resolved_list: list[str] = []
         for token in requested:
@@ -504,7 +506,20 @@ def verify_bound_devices(
             if host is None:
                 raise _entry_outside_inherited(token, basis_tokens)
             resolved_list.append(host)
-        resolved = tuple(resolved_list)
+        pool = tuple(resolved_list)
+
+    if binding == "round_robin":
+        # Replay the rank-local rotation the coordinator applied, so the check
+        # compares like with like instead of failing every round-robin worker.
+        size, local_rank = mpi_world_facts(environ)
+        if size <= 1 or local_rank is None or not pool:
+            raise RuntimeBindingError(
+                "runtime.binding 'round_robin' requires a detectable local rank "
+                "and a non-empty device pool"
+            )
+        resolved = (pool[local_rank % len(pool)],)
+    else:
+        resolved = pool
 
     if resolved != expected_tokens:
         raise RuntimeBindingError(

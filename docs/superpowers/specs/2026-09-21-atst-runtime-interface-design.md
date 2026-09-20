@@ -97,7 +97,7 @@ runtime:
 | allocation | inherited | 请求 | 行为 |
 | --- | --- | --- | --- |
 | token 列表（身份可验证） | 任意 | 显式 devices | 允许；收窄到 inherited ∩ allocation；越界或 token 不在可信集合内 → 拒绝 |
-| 仅 `count=N` 且 `N >= 继承集合规模` | 任意 | 显式 devices | 放行：允许在继承集合内收窄（effective = 解析后的子集）；身份不可验证时记 `unverified`，不猜测宿主编号 |
+| 仅 `count=N` 且 `N >= 继承集合规模` | 任意 | 显式 devices | 放行：允许在继承集合内收窄（effective = 解析后的子集）；身份不可验证时记 `unverified`，不猜测宿主编号；可见集合未知且无法枚举时按 token 解析失败拒绝 |
 | 仅 `count=N` 且 `N < 继承集合规模` | 任意 | 显式 devices / 共享 / 重绑定 | 拒绝：`explicit device selection is refused: the visible device set exceeds the trusted allocation and device identity is unverified` |
 | unknown | caller-bound | 显式 devices（继承集合内收窄） | 允许；记录 `allocation_identity: "unverified"` |
 | unknown | caller-bound | 请求出现继承集合之外的 token | 拒绝（fail-closed）：`... is not part of the inherited visible set` |
@@ -148,6 +148,8 @@ runtime:
 | 缺省 | 缺省 | 不写 OMP，保持现状 | — |
 
 进程级键：`OMP_NUM_THREADS`、`OPENBLAS_NUM_THREADS`、`MKL_NUM_THREADS`、`NUMEXPR_NUM_THREADS` 取同一值。
+
+实现细化（rev.5，独立审查 F7/F8 后）：显式 `omp` 覆盖继承预算时写 `runtime_threads_overridden` 计数 + `runtime_threads_effective` gauge 并输出英文 warning；**legacy 路径（无 runtime 请求）仍写旧默认 `1`**，只有 runtime 请求的 worker（`ATST_THREADS_SOURCE` 存在）才保留继承预算，避免改变无新键的旧调用行为。
 
 现有 `OMP_NUM_THREADS` 写入点（完整清单）：`calculators/dp.py:92-94`、`calculators/factory.py:165`、`workflows/md.py:278`（另有 `utils/abacus_io.py:232` 仅用于 `--check-input` 子进程）。其中 `factory.py:159-165` 与 `md.py:278` 会把**缺省** omp 隐式写成 `1`，与上行第三行冲突——**P1 必须修改**：仅当 `calculator.*.omp` 为用户显式给出时才写 `omp` 值；缺省不得写（不得以“隐式默认 + fact 记录”的方式保留覆盖），保证 `runtime.threads` 不被静默覆盖。
 

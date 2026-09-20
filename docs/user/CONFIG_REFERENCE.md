@@ -838,8 +838,11 @@ Semantics:
   unknown local ranks, or pools that are not caller-bound.
 - `threads` is applied to the worker environment before the scientific stack
   is imported (`OMP_NUM_THREADS` and its BLAS siblings). An explicit
-  `calculator.abacus.omp` still wins for ABACUS runs and the override is
-  recorded in the evidence document.
+  `calculator.abacus.omp` still wins for ABACUS runs; an override of the
+  runtime budget is recorded as the `runtime_threads_overridden` counter and
+  the `runtime_threads_effective` gauge in the evidence document (plus an
+  English warning). Runs without any runtime request keep the historical
+  behaviour, including the default thread value of 1.
 - `telemetry` enables `runtime_evidence.json`: the environment triple, device
   facts, per-process counters (`dp.*`, `abacus.*` builds and force calls) and
   host GPU samples taken by a single sampler on rank 0. Missing tools or
