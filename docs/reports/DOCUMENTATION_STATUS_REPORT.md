@@ -18,6 +18,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P1 实施）：runtime 层落地——设备请求解析与可采性（`src/atst_tools/runtime/devices.py`，含短命枚举 helper 与 `round_robin` fail-closed）、child 环境与 worker 计划（`runtime/launch.py`）、轻入口分流（`runtime/cli_dispatch.py`）、`runtime` YAML 段（`config_schema.py` + 重新生成的 `docs/user/YAML_INPUT_VARIABLES.md`）、`atst`/runner 入口（`cli.py` 轻壳 + `cli_impl.py`、`api` PEP 562 惰性导出、runner 惰性导入与绑定后 re-exec）、OMP 优先级修正（`factory.py`/`workflows/md.py` 的隐式默认不再覆盖 `runtime.threads`）。验证：`tests/unit` 951 项通过（新增 ~74 项行为测试：设备语义、可采性矩阵、child env 事实、入口 smoke、legacy 兼容、嵌入拒绝）；`check_docs_governance.py` 通过。用户可见文档与 SIF/平台内容按接口文档 §8 的合并顺序在恒电势合入后更新；真实 GPU 身份验收留 P5；未推送。
 
+- 2026-09-21（P2 首片）：运行证据 sidecar（`src/atst_tools/runtime/evidence.py`，schema `atst-runtime-evidence-v1`）：环境三元组与依赖版本、设备/分配事实、`runtime.telemetry` 开关与 rank 0 单例宿主采样（`nvidia-smi` 缺失/失败记 `unavailable`，缺失值 null 不填 0）；成功时 manifest metadata 增加 `runtime_evidence` 引用并进入 API 结果元数据，失败保留 `partial` sidecar；计量写失败只警告、不阻断科学运行。测试 958 项通过（新增 9 项）。剩余：阶段耗时明细、力调用/模型构建计数、结果 envelope 的 `runtime` 摘要（P2 后续片）。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
