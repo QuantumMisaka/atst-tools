@@ -370,6 +370,9 @@ P5 矩阵的 AutoNEB 行（"inherit / 已验证共享布局"）在本地用 FT²
   非收敛提示属于 maxsteps 限制，不是错误）。
 - 产物：每图轨迹 `run_autoneb_smoke00{0..3}.traj`、`AutoNEB_iter_smoke/`、
   `atst_api_result.json` 与 `atst-runtime-evidence-v1` sidecar（`complete`）。
+- 并行路径冒烟：`parallel: true` + `mpiexec -n 2` → `status=success`、20.13 s（rank 数与
+  `n_simul` 的校验通过、`counters_mpi.dp.force_calls=10`）；较串行 16.25 s 略慢，
+  与 §15 的单卡结论一致（此处只证明并行 AutoNEB 代码路径可用，不作为收益结论）。
 - 登台同步：SAI 路径版 AutoNEB case（`configs/dp_autoneb_h2au.yaml`）与
   `fixtures/endpoints_H2Au.traj` 已加入 P5 清单草案（现 6 个 case）。
 
