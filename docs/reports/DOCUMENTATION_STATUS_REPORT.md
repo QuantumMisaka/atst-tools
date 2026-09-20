@@ -62,6 +62,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P5 一键入口 + MPI 超时回收回归）：`scripts/sai_runtime_bench.sbatch` 升级为"计时 sweep（默认 slots 1,2,3 × 3 repeats，无 per-case 采样）→ 证据 pass（--case-telemetry，产每 case sidecar）→ bench_record.json（自动带 SLURM/模型哈希）"，支持 `DRY_RUN=1` 自检与 `SLOTS/REPEATS/EVIDENCE_PASS/MODEL` 覆盖；本地用真实 DP case 完整跑通该链路（sweep/evidence/record 三件产物齐全、run_time 修订一致、无 warnings）。新增真实 MPI 回归 `test_harness_terminates_every_mpi_rank_on_timeout`（2-rank 超时后无残留 rank，补第二轮复核指出的测试缺口）。集成套件 22 项通过。
 
+- 2026-09-21（恒电势共享顺序复核）：P0→P1 门的"恒电势共享文件顺序确认"完成复核——29 个在途文件的 checkpoint `7bc3f92`（40 个文件条目 = 21 新增 + 19 修改，含接口文档 §8 清单的全部共享文件）已落地；当前端点 `feature/gpu-node-tuning` `eaa7e22`（38 提交）× `7bc3f92` 的 merge-tree 预演**仍无冲突**（合并树 `bfa6e5c4`），合并树共享面聚焦五个测试文件 141 项中仅 §8.1 记录的两项 CP 侧前置门禁失败。CP 工作树 checkpoint 后另有 8 个在途改动（属恒电势 owner，截至 2026-09-21 02:07）；合入 main 仍由其决定。详见接口文档 §8.2。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。

@@ -37,12 +37,12 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 - [x] 读取实施工作树的 AGENTS 与文档入口，记录 atst/DP/ABACUS/ASE/MPI/JAX 实际版本（2026-09-21：接口文档 §1 记录 `atst-dev`、`dpa4-dpmd-v100` 实测清单与“解释器、包路径、dist 版本”三元组要求）。
 - [x] atst 维护者选定实际基线（2026-09-21 复核各树 pin 后裁定 `2cf5b7e6`，SPEC §11 R1）；runner/schema/model manifest 差异已按该基线核对。
-- [x] 与恒电势约定共享文件合入顺序和字段归属：清单与顺序见接口文档 §8；29 个在途文件已由维护者指示 checkpoint 提交（`7bc3f92`，验证 105 passed + 治理通过）；**合入 main 仍由恒电势 owner 决定**，GPU 侧共享文件改动在其后串行落地。
+- [x] 与恒电势约定共享文件合入顺序和字段归属：清单与顺序见接口文档 §8；29 个在途文件已由维护者指示 checkpoint 提交（`7bc3f92`，验证 105 passed + 治理通过）；**合入 main 仍由恒电势 owner 决定**，共享面落点仍按 §8 顺序（恒电势先、GPU 后）。2026-09-21 复核（接口文档 §8.2）：`feature/gpu-node-tuning` `eaa7e22`（38 提交）× `7bc3f92` 的 merge-tree 预演仍无冲突，合并树共享面聚焦 141 项仅 §8.1 的两项 CP 侧门禁失败。
 - [x] 定义参数类型、CLI/YAML/env 优先级、inherit/空值/UUID/非法 ordinal 行为；概念字段转成唯一 schema（接口文档 §2–§4）。
 - [x] 定义 CLI 和 runner bootstrap 的一次性 exec/child 路径，核查包导入链；嵌入 API 保持不隐式启动进程（接口文档 §5）。
 - [x] 选 DP 模型/backend/head 和 ABACUS fixture；列出原稿 job 证据待补项，不把假设写为基线（接口文档 §7）。
 - [x] 双后端 fixture 均进入验收清单；DP 包含通用回归与只读 FT²DP 钉版 `.pt` 候选，回读模型 manifest 核实身份和运行兼容（接口文档 §7；权重回读在执行阶段完成）。沿用科研目录只读输入，新结果单独存放，不将普通 FT²DP 势标为恒电势模型。
-- [ ] 准备现有 legacy API/CLI/YAML 基线和代码 owner 测试；相称独立设计审查后进入 P1。基线套件已执行（`PYTHONPATH=src` + `atst-dev`，877 collected、exit 0）；独立设计审查 2026-09-21 完成，结论 **block**（3 blocker + 7 major），接口冻结文档已按其清单修订为 **rev.2**（SPEC §11 R5/R6），待复审通过后进入 P1。
+- [x] 准备现有 legacy API/CLI/YAML 基线和代码 owner 测试；相称独立设计审查后进入 P1。基线套件已执行（`PYTHONPATH=src` + `atst-dev`，877 collected、exit 0）；独立设计审查 2026-09-21 完成：**block**（3 blocker + 7 major）→ rev.2 修订（SPEC §11 R5/R6）→ 复审 **approve with required changes**，N1–N10 已在 rev.3 全部闭合；P1 已在其后实施（实施记录见账本）。
 
 验收：开发者能明确处理 `CUDA_VISIBLE_DEVICES=2,3` + 逻辑0、显式空掩码、过度暴露、已初始化 API、自定义 communicator/callback，无需临场决定产品语义（逐场景对照表见接口文档 §9）。P0 只做本地静态设计，不需要运行 GPU。
 

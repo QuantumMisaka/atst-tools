@@ -203,6 +203,14 @@ GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（�
 
 这两项是**恒电势分支合入 main 的前置门禁**（其 owner 处理）；其工作树当时另有 8 个未提交文件，可能已含修复，以 owner 提交为准。预演工作树已清理；本仓保留只读引用 `rehearsal-cp` 便于复演。
 
+### 8.2 复核（2026-09-21，GPU 侧 38 提交）
+
+以当前端点复演（`feature/gpu-node-tuning` = `eaa7e22`，38 提交；CP checkpoint = `7bc3f92`）：`git merge-tree --write-tree` 仍**无冲突**（合并树 `bfa6e5c4`，临时提交 `7e976d5`，预演工作树事后已清理）。在合并树上运行共享面聚焦测试五个文件（`test_examples_reference_results`、`test_abacuslite_snapshot_ci`、`test_config`、`test_runtime_schema`、`test_constant_potential`，共 141 项）：仅 §8.1 记录的两项 CP 侧前置门禁失败，其余全部通过——GPU 的 `runtime` 字段与恒电势字段在同一棵树上互不破坏。
+
+与 R4 的差异：GPU 侧共享改动（`utils/config_schema.py`、`api/services.py`、`calculators/factory.py`）已在本分支提前预置（未推送、未合入 main），上述预演证明与恒电势改动无文本冲突。合入 main 的次序仍按 §8：恒电势先合入，GPU 随其后，文档最后合并。
+
+后续：CP 工作树在 checkpoint 之后另有 8 个在途改动（截至 2026-09-21 02:07：constant-potential restart 事实、IDPP、`workflows/relax.py`、`scripts/main.py` 与 CLI/CONFIG 文档），属恒电势 owner 在途工作，未进入本次预演；owner 提交后需再复演一次。两项前置门禁仍待恒电势 owner 处理。
+
 ## 9. P0 验收对照表
 
 | 场景 | 期望行为 |

@@ -267,7 +267,7 @@ DP fixture 建议两层：atst 已有 `examples/dp_model_manifest.json` 的通�
 | `workplace/app-tools` `main` | main @ac6ff02e | `a633f06` = v2.2.6 | — |
 | `workplace/app-tools-forge` | `forge-integration` @c25f1bc2 | `4c96691` = v2.2.5 | ABACUS 侧 phonon 在途 |
 | `sidereus/app-tools`（实施工作区） | main @a72264846 | `2cf5b7e` = origin/main | clean |
-| `sidereus/.worktrees/constant-potential-plan-review` | `review/constant-potential-plan-20260920` | `2cf5b7e`，子模块在本地分支 `feature/constant-potential-integration` | 29 个未提交文件（恒电势实现在途） |
+| `sidereus/.worktrees/constant-potential-plan-review` | `review/constant-potential-plan-20260920` | `2cf5b7e` + checkpoint `7bc3f92`（子模块本地分支 `feature/constant-potential-integration`） | 29 个在途文件已存档为 `7bc3f92`；其后另有 8 个在途改动（2026-09-21 02:07，属恒电势 owner） |
 | `sidereus/.worktrees/gate-ablation-20260919` | `refactor/manifest-gate-ablation-20260919` | `0fa1d81` | clean |
 | `sidereus/.worktrees/sella-observability` | `fix/ccqn-user700-p0` | `2cf5b7e` | clean |
 | `sidereus/.worktrees/transition-entry-surface-reduction` | `transition-entry-surface-reduction` | `da7cfd0` | clean |
