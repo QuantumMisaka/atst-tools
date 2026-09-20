@@ -64,6 +64,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（恒电势共享顺序复核）：P0→P1 门的"恒电势共享文件顺序确认"完成复核——29 个在途文件的 checkpoint `7bc3f92`（40 个文件条目 = 21 新增 + 19 修改，含接口文档 §8 清单的全部共享文件）已落地；当前端点 `feature/gpu-node-tuning` `eaa7e22`（38 提交）× `7bc3f92` 的 merge-tree 预演**仍无冲突**（合并树 `bfa6e5c4`），合并树共享面聚焦五个测试文件 141 项中仅 §8.1 记录的两项 CP 侧前置门禁失败。CP 工作树 checkpoint 后另有 8 个在途改动（属恒电势 owner，截至 2026-09-21 02:07）；合入 main 仍由其决定。详见接口文档 §8.2。
 
+- 2026-09-21（P5 前置：SAI 只读勘察）：`galileouser02` 下确认站点 ABACUS `abacus/LTSv3.10.1-sm70-auto`（NVHPC 25.7 GNU-branch / CUDA 12.9.1 / OpenMPI 5.0.8 / ELPA）与 DP 离线 env `deepmd-kit/3.1.2`（Python 3.12.12 + torch 2.8.0 + mpi4py 4.1.1；**无 ase/pydantic**，P5 需以 venv/conda env 补齐）；分区/QOS 现场快照（4V100 15 idle、16V100 多数 alloc；`rush-*` 1 天、`flood-*` 4 小时、`improper-gpu` 30 天）；`/org/pku-jianghong/liuzhaoqing`（FT²DP `$R`）不可读、家目录无 `.pt` → P5 权重与 fixture 需单向上传。本机登台包已备（wheel sha256 `6f43cca2…`、源码 tarball `af43a3dc…`、FT²DP 单头 100k `13b74797…`、DPA-3.1-3M `86dd3a80…`；单头 EMA 仍缺）。**未提交作业、未写入远端**；计划 P5 预备段登记。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
