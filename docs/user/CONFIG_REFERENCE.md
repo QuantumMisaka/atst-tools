@@ -333,6 +333,11 @@ so upgrade the runtime before setting them explicitly.
 
 
 ### 2.6 CCQN (Cone-Shaped Constrained Quasi-Newton)
+
+PRFO evaluates the completed displacement against its previous quadratic model
+(before the TS-BFGS Hessian update), then updates the trust radius before solving
+the next step. This corrects the earlier one-step delay and use of the updated
+Hessian in that comparison; existing radius thresholds are unchanged.
 **Type**: `ccqn`
 
 Reference: Wu, Y.; Wang, H. *Cone-Shaped Constrained Quasi-Newton Method:
@@ -348,7 +353,7 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 | `product_file` | string/null | `None` | Required for standalone `interp`; product-like structure with matching atom order. |
 | `align_product_indices` | bool | `false` | Reorder `product_file` atom indices to match the initial structure before interpolation. |
 | `auto_reactive_bonds` | dict | disabled | Enumerate ranked molecule-surface reactive bond candidates for `ic` mode. |
-| `mode_manifest` | string | `ccqn_mode_manifest.json` | JSON manifest for enumerated and selected CCQN modes. |
+| `mode_manifest` | string | `ccqn_mode_manifest.json` | JSON manifest for enumerated and selected CCQN modes, including the effective current-structure bonds/elements, direction method/source, index base, and structure identity. |
 | `diagnostics_file` | string/null | `ccqn_diagnostics.json` | Step-level CCQN diagnostics JSON. |
 | `ic_mode` | string | `democratic` | `democratic` normalizes each bond contribution; `sum` uses raw projected contributions. |
 | `cos_phi` | float | `0.5` | Cosine of the cone half angle. |
@@ -365,6 +370,8 @@ J. Chem. Theory Comput. (2025). <https://doi.org/10.1021/acs.jctc.5c01015>
 | `directory` | string | `ccqn_run` | Calculator working directory. |
 
 CCQN is a single-ended transition-state optimizer. In `ic` mode, the user supplies chemically meaningful reactive bonds or enables `auto_reactive_bonds`. In `interp` mode the cone axis is built from `product_file`, and `interp_direction` selects the target: `product` uses the displacement from the current structure to the product configuration, while `midpoint` follows eq. 18 of the CCQN paper and points at the midpoint (`path[len(path) // 2]`) of an IDPP path generated between the current structure and the product (seven inner images, tolerance `0.05`). The path is re-solved from the current geometry at every uphill step, which costs seconds of pure geometry work per step for medium systems, so `product` remains the default. `accept_initial_converged` is intended for final-TS confirmation examples that start from a separately verified saddle point; keep it false for ordinary searches.
+
+The mode manifest keeps the legacy v1 shape and adds audit facts without introducing required configuration: `effective_bonds` is 1-based in the consumed structure and `effective_elements` gives the endpoint symbols in the same order; `method` and `selection_source` identify the direction path; `structure_identity` records the configured `init_structure` when present, atom count, the ordered-symbol digest, and a digest of the initial positions, cell, and periodic-boundary flags. The legacy `selected_mode.reactive_bonds` remains an internal 0-based field and is labelled accordingly. These facts are also copied into the `metadata` object of `artifact_manifest` for summary consumers.
 
 Midpoint semantics and the IDPP budget: `x_mid` is the centre frame of the IDPP path **as produced inside the solver's fixed iteration budget** (2000 iterations), not of a fully relaxed path. When the solver reports `Failed`, the path was truncated and `x_mid` is the centre frame of that truncated path. This is recorded as a fact and never upgraded into a hard failure: CCQN keeps stepping, and the first unconverged path of a run prints one English advisory (`stage=ccqn_interp_path`, with the observed and budgeted iteration counts). Per-step provenance for `midpoint` runs is written to `diagnostics_file`, where every uphill step carries `idpp_path_status` (`Converged`/`Failed`), `idpp_iterations`, `idpp_final_S_IDPP` and `idpp_max_force`; `product` and `ic` runs carry no `idpp_*` fields, so their diagnostics are unchanged.
 

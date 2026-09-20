@@ -9,8 +9,9 @@ References:
 
 from __future__ import annotations
 
-import os
+import hashlib
 import json
+import os
 from typing import Any
 
 import numpy as np
@@ -661,7 +662,21 @@ class CCQNOptimizer(Optimizer):
             return -np.linalg.pinv(np.diag(lambdas), rcond=1e-15) @ gradient
         return vectors[:dim, index] / scale * alpha
 
-    def _solve_prfo(self, gradient, eigvals, eigvecs, energy) -> np.ndarray:
+    def _solve_prfo(self, gradient, eigvals, eigvecs, energy, *, previous_prediction=None) -> np.ndarray:
+        # Assess the completed step before choosing the next restricted step.
+        if self.prev_positions is not None and self.prev_gradient is not None and self.prev_energy is not None:
+            prev_step = self.atoms.get_positions().flatten() - self.prev_positions
+            predicted = previous_prediction
+            if predicted is None:
+                predicted = float(self.prev_gradient @ prev_step + 0.5 * prev_step @ self.hessian_matrix @ prev_step)
+            actual = float(energy - self.prev_energy)
+            rho = actual / predicted if abs(predicted) > 1e-8 else 1.0
+            old_radius = self.trust_radius_saddle
+            if rho < 0.2 or rho > 5.0:
+                self.trust_radius_saddle = max(self.trust_radius_saddle_min, old_radius * np.sqrt(0.65))
+            elif (1.0 / 1.035) < rho < 1.035 and abs(np.linalg.norm(prev_step) - old_radius) < 1e-3:
+                self.trust_radius_saddle = min(self.trust_radius_saddle_max, old_radius * np.sqrt(1.15))
+
         g_tilde = eigvecs.T @ gradient
         unc_max = -np.linalg.pinv(np.diag(eigvals[:1]), rcond=1e-15) @ g_tilde[:1]
         unc_min = -np.linalg.pinv(np.diag(eigvals[1:]), rcond=1e-15) @ g_tilde[1:]
@@ -685,16 +700,6 @@ class CCQNOptimizer(Optimizer):
             except ValueError:
                 step = step_unc * (self.trust_radius_saddle / max(np.linalg.norm(step_unc), 1e-15))
 
-        if self.prev_positions is not None and self.prev_gradient is not None and self.prev_energy is not None:
-            prev_step = self.atoms.get_positions().flatten() - self.prev_positions
-            predicted = float(self.prev_gradient @ prev_step + 0.5 * prev_step @ self.hessian_matrix @ prev_step)
-            actual = float(energy - self.prev_energy)
-            rho = actual / predicted if abs(predicted) > 1e-8 else 1.0
-            old_radius = self.trust_radius_saddle
-            if rho < 0.2 or rho > 5.0:
-                self.trust_radius_saddle = max(self.trust_radius_saddle_min, old_radius * np.sqrt(0.65))
-            elif (1.0 / 1.035) < rho < 1.035 and abs(np.linalg.norm(prev_step) - old_radius) < 1e-3:
-                self.trust_radius_saddle = min(self.trust_radius_saddle_max, old_radius * np.sqrt(1.15))
         return step
 
     def step(self, forces=None) -> None:
@@ -706,8 +711,15 @@ class CCQNOptimizer(Optimizer):
         positions = self.atoms.get_positions().flatten()
         energy = float(self.atoms.get_potential_energy())
 
+        previous_prediction = None
         if self.prev_positions is not None and self.prev_gradient is not None:
             step_prev = positions - self.prev_positions
+            # Eq. 19 uses B_k, before the secant update to B_{k+1}. Use the
+            # actual displacement, including any ASE constraint adjustments.
+            previous_prediction = float(
+                self.prev_gradient @ step_prev
+                + 0.5 * step_prev @ self.hessian_matrix @ step_prev
+            )
             gradient_delta = gradient - self.prev_gradient
             if np.linalg.norm(step_prev) > 1e-8:
                 self.hessian_matrix = self._hessian_manager.update(
@@ -727,7 +739,10 @@ class CCQNOptimizer(Optimizer):
             e_vec = self._calculate_e_vector(forces)
             step = self._solve_uphill(gradient, e_vec)
         else:
-            step = self._solve_prfo(gradient, eigvals, eigvecs, energy)
+            step = self._solve_prfo(
+                gradient, eigvals, eigvecs, energy,
+                previous_prediction=previous_prediction,
+            )
 
         self.atoms.set_positions((positions + step).reshape(-1, 3))
         self._record_diagnostics(energy=energy, gradient=gradient, step=step, eigvals=eigvals)
@@ -774,19 +789,97 @@ class AbacusCCQN:
         self.traj_file = traj_file
         self.product_atoms = product_atoms
         self.calculator = calculator
+        self.mode_manifest_facts: dict[str, Any] = {}
 
-    def _write_mode_manifest(self, modes: list[dict[str, Any]], selected: dict[str, Any] | None) -> None:
+    @staticmethod
+    def _mode_bond_elements(atoms, bonds: list[tuple[int, int]]) -> list[list[str]]:
+        """Return endpoint elements for internal 0-based bond pairs.
+
+        The optimizer consumes 0-based pairs internally, while the manifest is
+        an agent-facing audit artifact.  Keeping the element labels beside the
+        effective pairs makes a converted structure's endpoint identity
+        inspectable without asking a reader to infer it from atom numbers.
+        """
+        symbols = atoms.get_chemical_symbols()
+        return [[symbols[left], symbols[right]] for left, right in bonds]
+
+    def _structure_identity(self, atoms) -> dict[str, Any]:
+        """Return stable identity facts for the structure consumed by CCQN."""
+        symbols = atoms.get_chemical_symbols()
+        ordered_symbols = "\x00".join(symbols).encode("utf-8")
+        geometry = {
+            "positions_A": np.asarray(atoms.get_positions(), dtype=np.float64).tolist(),
+            "cell_A": np.asarray(atoms.get_cell(), dtype=np.float64).tolist(),
+            "pbc": [bool(value) for value in atoms.get_pbc()],
+        }
+        source = self.calc_config.get("init_structure")
+        return {
+            "source": str(source) if source is not None else None,
+            "natoms": len(atoms),
+            "ordered_symbols_sha256": hashlib.sha256(ordered_symbols).hexdigest(),
+            "geometry_sha256": hashlib.sha256(
+                json.dumps(geometry, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
+        }
+
+    def _write_mode_manifest(
+        self,
+        modes: list[dict[str, Any]],
+        selected: dict[str, Any] | None,
+        *,
+        atoms,
+        effective_bonds: list[tuple[int, int]],
+        selection_source: str,
+    ) -> None:
         manifest_file = self.calc_config.get("mode_manifest")
-        if not manifest_file:
-            return
+        method = str(self.calc_config.get("e_vector_method", "ic")).strip().lower()
+        interp_direction = str(self.calc_config.get("interp_direction", "product")).strip().lower()
+        effective_bonds_1based = [[left + 1, right + 1] for left, right in effective_bonds]
+        effective_elements = self._mode_bond_elements(atoms, effective_bonds)
+        structure_identity = self._structure_identity(atoms)
+
+        # Preserve the v1 manifest shape and selected-mode fields while adding
+        # explicit, current-structure facts.  These fields are intentionally
+        # derived after any auto selection and before the 0-based optimizer
+        # handoff, so they describe what CCQN actually consumes.
+        annotated_modes = []
+        for mode in modes:
+            annotated = dict(mode)
+            mode_bonds = [tuple(pair) for pair in mode.get("reactive_bonds", [])]
+            annotated["effective_elements"] = self._mode_bond_elements(atoms, mode_bonds)
+            annotated.setdefault("reactive_bonds_index_base", 0)
+            annotated_modes.append(annotated)
+        if selected is not None:
+            selected = dict(selected)
+            selected.setdefault("effective_elements", effective_elements)
+            selected.setdefault("selection_source", selection_source)
+            selected.setdefault("method", method)
+            if "reactive_bonds" in selected:
+                selected.setdefault("reactive_bonds_index_base", 0)
+
         payload = {
             "schema_version": "atst-ccqn-mode-manifest-v1",
+            "method": method,
+            "selection_source": interp_direction if method == "interp" else selection_source,
+            "effective_index_base": 1,
+            "effective_bonds": effective_bonds_1based,
+            "effective_elements": effective_elements,
+            "structure_identity": structure_identity,
             "selected_mode": selected,
-            "modes": modes,
+            "modes": annotated_modes,
         }
-        os.makedirs(os.path.dirname(manifest_file) or ".", exist_ok=True)
-        with open(manifest_file, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2)
+        self.mode_manifest_facts = {
+            "method": method,
+            "selection_source": payload["selection_source"],
+            "effective_index_base": 1,
+            "effective_bonds": effective_bonds_1based,
+            "effective_elements": effective_elements,
+            "structure_identity": structure_identity,
+        }
+        if manifest_file:
+            os.makedirs(os.path.dirname(manifest_file) or ".", exist_ok=True)
+            with open(manifest_file, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2)
 
     def set_calculator(self):
         """Return the supplied calculator or create a workflow-local one."""
@@ -828,11 +921,24 @@ class AbacusCCQN:
         if product_atoms is not None and self.calc_config.get("align_product_indices"):
             product_atoms = align_atom_indices(atoms, product_atoms)
 
-        reactive_bonds = parse_reactive_bonds(self.calc_config.get("reactive_bonds"), natoms=len(atoms))
+        configured_reactive_bonds = parse_reactive_bonds(
+            self.calc_config.get("reactive_bonds"), natoms=len(atoms)
+        )
+        reactive_bonds = configured_reactive_bonds
         modes = []
         selected_mode = None
         auto_config = self.calc_config.get("auto_reactive_bonds") or {}
-        if self.calc_config.get("e_vector_method", "ic") == "ic" and not reactive_bonds and auto_config.get("enabled"):
+        method = str(self.calc_config.get("e_vector_method", "ic")).strip().lower()
+        selection_source = "not_applicable"
+        if method == "interp":
+            selection_source = str(self.calc_config.get("interp_direction", "product")).strip().lower()
+        if method == "ic" and reactive_bonds:
+            selection_source = "explicit"
+            selected_mode = {
+                "reactive_bonds": [list(pair) for pair in reactive_bonds],
+                "reactive_bonds_1based": [[left + 1, right + 1] for left, right in reactive_bonds],
+            }
+        if method == "ic" and not reactive_bonds and auto_config.get("enabled"):
             modes = enumerate_reactive_bond_modes(
                 atoms,
                 molecule_indices=auto_config.get("molecule_indices"),
@@ -847,8 +953,16 @@ class AbacusCCQN:
                 raise ValueError("auto_reactive_bonds found no candidate reactive modes")
             selected_mode = modes[0]
             reactive_bonds = [tuple(pair) for pair in selected_mode["reactive_bonds"]]
-        if modes or self.calc_config.get("mode_manifest"):
-            self._write_mode_manifest(modes, selected_mode)
+            selection_source = "auto"
+        elif method == "ic" and not reactive_bonds:
+            selection_source = "none"
+        self._write_mode_manifest(
+            modes,
+            selected_mode,
+            atoms=atoms,
+            effective_bonds=reactive_bonds if method == "ic" else [],
+            selection_source=selection_source,
+        )
         optimizer = CCQNOptimizer(
             atoms,
             logfile=self.calc_config.get("logfile", "ccqn.log"),
@@ -904,5 +1018,6 @@ class AbacusCCQN:
                 workflow="ccqn",
                 artifacts=artifacts,
                 stages=[stage_record.to_manifest()],
+                metadata=self.mode_manifest_facts,
             )
         return atoms

@@ -48,6 +48,23 @@ def test_ic_e_vector_follows_force_projected_reactive_bond_direction():
     np.testing.assert_allclose(e_vec.reshape(2, 3), expected)
 
 
+def test_ic_e_vector_accumulates_a_shared_hydrogen_endpoint_with_mic():
+    from atst_tools.mep.ccqn import ccqn_ic_e_vector
+
+    atoms = Atoms(
+        "OHO",
+        positions=[[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+        cell=[4.0, 4.0, 4.0],
+        pbc=True,
+    )
+    forces = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+
+    e_vec = ccqn_ic_e_vector(atoms, forces, [(0, 1), (1, 2)], ic_mode="democratic")
+
+    expected = np.array([[1.0, 0.0, 0.0], [-2.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) / np.sqrt(6)
+    np.testing.assert_allclose(e_vec.reshape(3, 3), expected)
+
+
 def test_interp_e_vector_uses_mic_direction_to_product():
     from atst_tools.mep.ccqn import ccqn_interp_e_vector
 
@@ -273,6 +290,58 @@ def test_ccqn_convergence_requires_prfo_mode():
     assert opt.converged(forces)
 
 
+def test_prfo_next_step_uses_radius_updated_from_previous_step():
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms = Atoms("H", positions=[[0.1, 0.0, 0.0]])
+    optimizer = CCQNOptimizer(atoms, logfile=None, trust_radius_saddle_initial=0.1,
+                              e_vector_method="interp", product_atoms=atoms.copy())
+    optimizer.hessian_matrix = np.diag([-1.0, 2.0, 3.0])
+    optimizer.prev_positions = np.zeros(3)
+    optimizer.prev_gradient = np.zeros(3)
+    optimizer.prev_energy = 0.0
+    step = optimizer._solve_prfo(
+        np.array([0.5, 1.0, 1.0]), np.array([-1.0, 2.0, 3.0]), np.eye(3), 1.0
+    )
+    expected_radius = 0.1 * np.sqrt(0.65)
+    assert optimizer.trust_radius_saddle == pytest.approx(expected_radius)
+    assert np.linalg.norm(step) == pytest.approx(expected_radius)
+
+
+def test_prfo_radius_evaluates_previous_step_with_previous_hessian():
+    from ase.calculators.singlepoint import SinglePointCalculator
+    from atst_tools.mep.ccqn import CCQNOptimizer
+
+    atoms = Atoms("H", positions=[[0.1, 0.0, 0.0]])
+    atoms.calc = SinglePointCalculator(atoms, energy=0.11, forces=[[-11.0, 0.0, 0.0]])
+    optimizer = CCQNOptimizer(atoms, logfile=None, trust_radius_saddle_initial=0.1,
+                              e_vector_method="interp", product_atoms=atoms.copy())
+    optimizer.mode = "prfo"
+    optimizer.hessian_matrix = np.diag([2.0, -1.0, 3.0])
+    optimizer.eigvals, optimizer.eigvecs = np.linalg.eigh(optimizer.hessian_matrix)
+    optimizer.prev_positions = np.zeros(3)
+    optimizer.prev_gradient = np.array([1.0, 0.0, 0.0])
+    optimizer.prev_energy = 0.0
+    optimizer.step()
+    assert optimizer.hessian_matrix[0, 0] == pytest.approx(100.0)
+    assert optimizer.trust_radius_saddle == pytest.approx(0.1 * np.sqrt(1.15))
+
+
+def test_ts_bfgs_update_satisfies_the_gradient_secant_and_symmetry():
+    from atst_tools.mep.ccqn import _HessianManager
+
+    atoms = Atoms("H", positions=[[0.0, 0.0, 0.0]])
+    manager = _HessianManager(atoms)
+    hessian = np.diag([2.0, -1.0, 3.0])
+    step = np.array([0.2, -0.1, 0.3])
+    gradient_delta = np.array([0.7, -0.4, 0.9])
+
+    updated = manager.update(hessian, step, gradient_delta)
+
+    np.testing.assert_allclose(updated @ step, gradient_delta, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(updated, updated.T, rtol=1e-12, atol=1e-12)
+
+
 def test_ccqn_can_accept_initial_converged_ts_when_requested():
     from atst_tools.mep.ccqn import CCQNOptimizer
 
@@ -373,6 +442,7 @@ def test_abacus_ccqn_forwards_interp_direction_and_defaults_to_product(monkeypat
         "type": "ccqn",
         "e_vector_method": "interp",
         "artifact_manifest": None,
+        "mode_manifest": "ccqn_mode_manifest.json",
         "final_structure": None,
     }
 
@@ -388,6 +458,10 @@ def test_abacus_ccqn_forwards_interp_direction_and_defaults_to_product(monkeypat
         product_atoms=product,
     ).run()
     assert selected["interp_direction"] == "midpoint"
+    midpoint_manifest = json.loads((tmp_path / "ccqn_mode_manifest.json").read_text(encoding="utf-8"))
+    assert midpoint_manifest["method"] == "interp"
+    assert midpoint_manifest["selection_source"] == "midpoint"
+    assert midpoint_manifest["effective_bonds"] == []
 
     ccqn.AbacusCCQN(
         atoms.copy(),
@@ -397,6 +471,10 @@ def test_abacus_ccqn_forwards_interp_direction_and_defaults_to_product(monkeypat
         product_atoms=product,
     ).run()
     assert selected["interp_direction"] == "product"
+    product_manifest = json.loads((tmp_path / "ccqn_mode_manifest.json").read_text(encoding="utf-8"))
+    assert product_manifest["method"] == "interp"
+    assert product_manifest["selection_source"] == "product"
+    assert product_manifest["effective_elements"] == []
 
 
 def test_abacus_ccqn_aligns_product_and_writes_mode_outputs(monkeypatch, tmp_path):
@@ -445,8 +523,76 @@ def test_abacus_ccqn_aligns_product_and_writes_mode_outputs(monkeypatch, tmp_pat
     assert selected["reactive_bonds"] == [(0, 1)]
     np.testing.assert_allclose(selected["product_atoms"].get_positions(), [[1.0, 0.0, 0.0], [6.0, 0.0, 0.0]])
     manifest = json.loads((tmp_path / "ccqn_mode_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["method"] == "ic"
+    assert manifest["selection_source"] == "auto"
+    assert manifest["effective_index_base"] == 1
+    assert manifest["effective_bonds"] == [[1, 2]]
+    assert manifest["effective_elements"] == [["H", "O"]]
+    assert manifest["structure_identity"]["natoms"] == 2
+    assert manifest["structure_identity"]["source"] is None
+    assert len(manifest["structure_identity"]["ordered_symbols_sha256"]) == 64
+    assert len(manifest["structure_identity"]["geometry_sha256"]) == 64
     assert manifest["selected_mode"]["reactive_bonds_1based"] == [[1, 2]]
+    assert manifest["selected_mode"]["reactive_bonds_index_base"] == 0
+    assert manifest["selected_mode"]["effective_elements"] == [["H", "O"]]
+    assert manifest["modes"][0]["effective_elements"] == [["H", "O"]]
+    artifact_manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert artifact_manifest["metadata"]["selection_source"] == "auto"
+    assert artifact_manifest["metadata"]["effective_index_base"] == 1
+    assert artifact_manifest["metadata"]["effective_bonds"] == [[1, 2]]
     assert selected["diagnostics_file"] == "ccqn_diagnostics.json"
+
+
+def test_abacus_ccqn_manifest_records_explicit_effective_mode(monkeypatch, tmp_path):
+    from atst_tools.mep import ccqn
+
+    selected = {}
+
+    class FakeOptimizer:
+        def __init__(self, atoms, **kwargs):
+            selected.update(kwargs)
+
+        def run(self, fmax=None, steps=None):
+            return None
+
+    atoms = Atoms("OH", positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ccqn.CalculatorFactory, "get_calculator", lambda *args, **kwargs: DoubleWellCalculator())
+    monkeypatch.setattr(ccqn, "CCQNOptimizer", FakeOptimizer)
+
+    runner = ccqn.AbacusCCQN(
+        atoms,
+        {"calculator": {"name": "dp", "dp": {"model": "model.pb"}}},
+        "dp",
+        {
+            "type": "ccqn",
+            "e_vector_method": "ic",
+            "reactive_bonds": "1-2",
+            "mode_manifest": "ccqn_mode_manifest.json",
+            "final_structure": None,
+        },
+    )
+    runner.run()
+
+    assert selected["reactive_bonds"] == [(0, 1)]
+    manifest = json.loads((tmp_path / "ccqn_mode_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["method"] == "ic"
+    assert manifest["selection_source"] == "explicit"
+    assert manifest["effective_index_base"] == 1
+    assert manifest["effective_bonds"] == [[1, 2]]
+    assert manifest["effective_elements"] == [["O", "H"]]
+    identity = manifest["structure_identity"]
+    shifted = atoms.copy()
+    shifted.positions[1, 0] += 0.25
+    assert runner._structure_identity(shifted)["geometry_sha256"] != identity["geometry_sha256"]
+    assert manifest["selected_mode"]["reactive_bonds_1based"] == [[1, 2]]
+    assert manifest["selected_mode"]["reactive_bonds_index_base"] == 0
+    assert manifest["selected_mode"]["effective_elements"] == [["O", "H"]]
+    artifact_manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    assert artifact_manifest["metadata"]["method"] == "ic"
+    assert artifact_manifest["metadata"]["selection_source"] == "explicit"
+    assert artifact_manifest["metadata"]["effective_elements"] == [["O", "H"]]
+    assert artifact_manifest["metadata"]["structure_identity"] == identity
 
 
 def test_ccqn_optimizer_writes_json_diagnostics(tmp_path):

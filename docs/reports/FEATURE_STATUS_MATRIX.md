@@ -13,6 +13,12 @@ publication and the official no-cache clean-install verification passed;
 SIF/SAI/platform runtime evidence has not been performed. The 2.2.5 release
 evidence stays in the 2.2.5 release notes.
 
+Unreleased development (2026-09-20): CCQN now records effective bond endpoints,
+direction provenance and initial-structure identity. PRFO evaluates the previous
+step with its original Hessian and applies the updated radius to the next step.
+Local unit validation: 875 passed, 2 skipped; no DFT or deployment claim.
+See the CCQN section of [CONFIG_REFERENCE](../user/CONFIG_REFERENCE.md).
+
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
 | **Relax** | ✅ Supported | Geometry Optimization | Uses ASE optimizers. |
