@@ -19,9 +19,9 @@
 | 主要证据 | [P0 复核](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)；[本地 GPU 验证报告](ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md) §4–§16 |
 | 账本 | [DOCUMENTATION_STATUS_REPORT.md](DOCUMENTATION_STATUS_REPORT.md)（每次变更登记） |
 
-门禁现状（2026-09-21 实测）：`tests/unit` **1017 passed / 2 documented skips**；
-`ATST_RUN_MPI_TESTS=1 tests/integration` **22 passed**（真实 MPI）；
-`scripts/verify_wheel_api.py --mpi-smoke` 在 `b22523e` 通过；
+门禁现状（2026-09-21 对 `5346fa9` 复测）：`tests/unit` **1097 passed / 2 documented skips**
+（共 1099 项收集）；`ATST_RUN_MPI_TESTS=1 tests/integration` **23 passed**（真实 MPI）；
+`scripts/verify_wheel_api.py --mpi-smoke` 通过；
 `scripts/check_docs_governance.py` 通过。复现命令见 §5。
 
 ## 2. 提交分组（主题）
@@ -60,6 +60,15 @@
 | SAI 环境勘察与 P5 登台 | 计划 P5 预备段；`~/scratch/atst-p5-staging-20260921/RUNBOOK.md` |
 
 **第三轮外部审查（2026-09-21，对 `f03b3e6`）**：8 项（P1×4、P2×4）已全部复现并修复，逐条处置见接口文档 §7.3；修复提交随后按"直接合入 main"惯例落地。
+
+**第四轮：复核方复验 + 维护者独立核对（2026-09-21）**：复核方对第三轮修复复验通过。维护者随后做三项独立核对——
+① 格式与导入卫生按仓内 pin 的 black 23.9.1 / isort 5.12.0 归一（本分支新增模块与测试共 18 个文件，含 5 处未用导入；
+AST 级比对确认除被删导入外无行为变化），并在 `examples/README.md` 补登 `runtime_batch_cases.example.json` 模板（`5346fa9`）；
+② 路径引用审计：`src/`、`tests/`、`examples/`、`scripts/` 对本机与站点绝对路径 **零命中**；`docs/` 内命中仅出现在
+运行记录（本机 `~/scratch`、本机 ABACUS/DP 模块路径）与归档证据 JSON（SAI 作业与工作目录）中，与该仓既有做法一致
+（`docs/reports/data/convergence_fixtures_20260917/`、`docs/superpowers/**` 的既有 spec/plan 同样记录工作机路径）；
+③ 仓级建议（未改代码）：`.pre-commit-config.yaml` 的 isort 未带 `--profile black` / `line-length 88`，
+与 black 的 88 列不一致，故 pre-commit 在该仓无法整体全绿——属仓库级配置缺口，非本分支引入。
 
 ## 4. 已知开放门（不属本分支完成范围）
 

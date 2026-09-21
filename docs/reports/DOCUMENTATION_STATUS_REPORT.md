@@ -112,9 +112,11 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（**合入 main**）：按维护者指示，`feature/gpu-node-tuning`（71 提交，含 runtime 绑定/证据层、bench 工具链、契约修复与 P5 现场证据）以 **fast-forward 直接合入 `main`**（未建 PR）；`origin/main` 同步更新。后续开放项不变：host/SIF 成对、8 图×8 卡、8 ranks/1 卡压力行、站点 MPI re-exec 挂起问题的站点/上游确认。
 
-- 2026-09-21（第三轮外部复核修复）：对 `f03b3e6` 的 8 项审查（P1×4、P2×4）逐条复现并修复——round_robin inherit 补 allocation 约束；runner 的 MPI 初始化推迟到重绑定 exec 之后（SAI OpenMPI 挂起根因）；进程组清理升级为 SIGKILL + 组空确认；manifest 按实际运行目录判重；`threads: auto` 与 CLI 绑定覆盖在 worker 侧修正；`case_telemetry` 透传；新增 `allocation.gpu_seconds` 指标（与 per-case `gpu_seconds` 分开）；证据切片 JSON 移入版本控制（`.gitignore` 例外）。验证：unit 1099 passed / 2 skipped、integration 23（含真实 MPI 入口冒烟）、治理通过。接口文档 §7.3 记录逐条处置。
+- 2026-09-21（第三轮外部复核修复）：对 `f03b3e6` 的 8 项审查（P1×4、P2×4）逐条复现并修复——round_robin inherit 补 allocation 约束；runner 的 MPI 初始化推迟到重绑定 exec 之后（SAI OpenMPI 挂起根因）；进程组清理升级为 SIGKILL + 组空确认；manifest 按实际运行目录判重；`threads: auto` 与 CLI 绑定覆盖在 worker 侧修正；`case_telemetry` 透传；新增 `allocation.gpu_seconds` 指标（与 per-case `gpu_seconds` 分开）；证据切片 JSON 移入版本控制（`.gitignore` 例外）。验证：unit 1097 passed / 2 skipped（共 1099 收集）、integration 23（含真实 MPI 入口冒烟）、治理通过。接口文档 §7.3 记录逐条处置。
 
 - 2026-09-21（修复后现场复验）：SAI 重跑此前挂起的 `mpiexec -n 4 + round_robin` 四卡用例（1434302）——22 s 完成、1/1 ×2，rank0 `bound=true`/`effective=['0']`/`world_size=4`、`counters_mpi` Σ38 次力调用；P1-2（runner MPI 初始化顺序）与 P1-1（allocation 约束）在站点闭环。修复提交 `0668d61` 已推送并 fast-forward 合入 `main`。
+
+- 2026-09-21（复核方复验 + 成熟度/治理核对）：复核方对第三轮修复复验通过后，维护者做三项独立核对——① 格式与导入卫生按仓内 pin 的 black 23.9.1 / isort 5.12.0 归一（本分支新增模块与测试共 18 文件、5 处未用导入；AST 比对确认除被删导入外无行为变化），并在 `examples/README.md` 补登 `runtime_batch_cases.example.json` 模板（`5346fa9`）；② 路径引用审计：`src/`、`tests/`、`examples/`、`scripts/` 对本机与站点绝对路径零命中，`docs/` 命中只出现在运行记录与归档证据中（与该仓既有 `docs/reports/data/**`、`docs/superpowers/**` 做法一致）；③ 仓级建议（未改代码）：`.pre-commit-config.yaml` 的 isort 缺 `--profile black`、与 black 88 列不一致，故 pre-commit 在本仓无法整体全绿，属仓库级配置缺口。门禁复测：unit 1097 passed / 2 skipped、integration 23 passed、`check_docs_governance.py` 通过、`verify_wheel_api.py --mpi-smoke` 通过。成熟度结论：主体功能与双后端实测证据完整，**仍不按“开发完成/可验收关闭”处理**，开放项见审阅地图 §4。
 
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
@@ -232,7 +234,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | 文档 | 当前职责 |
 | :--- | :--- |
 | `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` | 隔离运行路径在本地真实 GPU（RTX 2070 SUPER + DPA-3.1-3M）的 end-to-end 证据：设备请求/绑定、线程预算、DP 推理计数、宿主采样与 manifest 引用；SAI V100/ABACUS/MPI 仍属 P5。 |
-| `docs/reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md` | GPU 节点调优分支（`feature/gpu-node-tuning`，49 提交）审阅地图：提交分组、证据索引、开放门与复现命令；面向 reviewer 与后续合入/PR。 |
+| `docs/reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md` | GPU 节点调优分支审阅地图（已 fast-forward 合入 `main`）：提交分组、证据索引、开放门与复现命令，含第三轮外部审查/第四轮复验与治理核对的留痕。 |
 | `docs/reports/ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md` | P5 现场验收（SAI 4V100）：冒烟三连、DP 矩阵（12/12）与 ABACUS 双示例（4/4）、站点问题与修复、证据清单与后续（host/SIF、多卡、每卡 4 进程）。 |
 | `docs/reports/DP_VALIDATION_2.0.0.md` | DP/DPA 示例级 SAI 验证和相关边界证据。 |
 | `docs/reports/DPA3_DP_EXAMPLES_VALIDATION_2026-05-28.md` | DPA-3.1 DP examples 全量 config_dp runtime 验证、模型来源和 checksum 证据。 |
