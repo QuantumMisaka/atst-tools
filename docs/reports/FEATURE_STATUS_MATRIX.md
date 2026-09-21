@@ -1,11 +1,17 @@
 # ATST-Tools Feature Status Matrix
 
-**Version**: 2.2.6
+**Version**: 2.2.7
 **Last Updated**: 2026-09-21
-**Status**: Published (PyPI clean-install verified)
+**Status**: Release candidate (not published)
 **Owner**: ATST-Tools maintainers
 
-The 2.2.6 package was published from tag `v2.2.6` at commit
+The 2.2.7 candidate adds shared-GPU-node resource binding and run evidence (the
+`runtime` section, worker isolation, `runtime_evidence.json`), the benchmark
+toolchain (`atst_tools.bench`), the ABACUS `omp`/manifest thread-budget fixes and
+the constant-potential development candidate. Full local validation, the
+documentation gate and the clean-wheel API gate passed; tag, CI, PyPI and the
+platform runtime evidence remain pending. The 2.2.6 package was published from
+tag `v2.2.6` at commit
 `a633f06b9375e3f34dbd87f90f40ec6271b29cd4`. It records optimizer convergence
 facts across workflows, writes owner manifests for Sella/Relax/AutoNEB, and
 unifies runtime diagnostics to English. GitHub Tests, abacuslite, PyPI
@@ -32,7 +38,7 @@ for fields, artifacts, and failure semantics.
 | Feature | Status | Description | Notes |
 | :--- | :--- | :--- | :--- |
 | **Relax** | ✅ Supported | Geometry Optimization | Uses ASE optimizers. |
-| **Constant-potential** | 🧪 Unreleased candidate | ABACUS-only fixed-electron electronic-number loop and fixed-geometry serial scan; fixed-cell `relax`/`neb` may use the explicit compensated-gate boundary. | `reference_fcp` is reference-only; compensated targets use custom `mu` in eV and same-run gate/dipole density facts. No cell-relax/stress, AutoNEB, D2S, MD, two-Fermi, or explicit `nupdown` scope. The candidate is not published and the public Paimon chain remains pending. |
+| **Constant-potential** | 🧪 Unreleased candidate | ABACUS-only fixed-electron electronic-number loop and fixed-geometry serial scan; fixed-cell `relax`/`neb` may use the explicit compensated-gate boundary. | `reference_fcp` is reference-only; compensated targets use custom `mu` in eV and same-run gate/dipole density facts. No cell-relax/stress, AutoNEB, D2S, MD, two-Fermi, or explicit `nupdown` scope. It ships as a development candidate in the 2.2.7 line; the public Paimon chain remains pending. |
 | **Vibration** | ✅ Supported | Frequency Analysis and TS validation | Finite difference method with JSON results, TS validation, and artifact manifest support. |
 | **NEB** | ✅ Supported | Nudged Elastic Band | CI-NEB, two-stage NEB, endpoint single-point repair, optional endpoint relaxation, native ASE selector, artifact manifest, ABACUS STRU inputs for `atst neb make`, and MPI image-level parallelism are supported. |
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling, native ASE selector, endpoint single-point repair, and MPI image-level parallelism are supported. |
@@ -53,7 +59,7 @@ for fields, artifacts, and failure semantics.
 | **Result Profiles/Plots Extensions** | ✅ Supported | Opt-in result-envelope fields | `RunOptions(profiles=True)` / `--profiles` and `RunOptions(plots=True)` / `--plots` add optional per-image/per-step summaries and plot PNG paths to `atst-api-result-v1` documents without changing the established fields. |
 | **Image-Level MPI Parallelism** | ✅ Supported | ASE NEB/AutoNEB image parallelism | Requires MPI-launched Python and compatible `mpi4py`; ABACUS nested MPI remains site-launcher dependent. |
 | **Portable MPI Diagnostics** | ✅ Supported | Recovery guidance for missing `mpi4py` in image-parallel launches | Names the explicit `parallel` extra and site-compatible `MPICC` source rebuild; does not promise arbitrary MPI ABI compatibility. New in 2.2.4; additive diagnostic/documentation change. |
-| **Runtime Device Binding & Evidence** | ✅ Supported | Optional device selection, thread budgets and run evidence | The optional `runtime` YAML section plus `--devices/--binding/--threads/--telemetry` on `atst run` and the API runner: requests are resolved against the caller's binding and trusted allocation facts (`ATST_ALLOCATION_DEVICES`), `round_robin` is fail-closed for unverified pools, and `runtime_evidence.json` records the environment triple, device facts, process-scope counters, host samples and the sampled memory peak. Legacy calls without runtime keys are unchanged. Local real-GPU evidence exists, and the SAI V100 P5 first round completed on 2026-09-21 (DP matrix 12/12, ABACUS examples 4/4; see the SAI validation report); the remaining P5 rows - host/SIF pairs, 8 graphs x 8 GPU cards, 8 ranks on one card - stay open. A 2026-09-21 joint run with the constant-potential workflow passed on SAI; it also showed that the schema still fixes `calculator.abacus.omp` to 1, so `runtime.threads` does not reach the ABACUS backend yet (tracked in the GPU tuning review map). New in the unreleased 2.2.7 line; additive. |
+| **Runtime Device Binding & Evidence** | ✅ Supported | Optional device selection, thread budgets and run evidence | The optional `runtime` YAML section plus `--devices/--binding/--threads/--telemetry` on `atst run` and the API runner: requests are resolved against the caller's binding and trusted allocation facts (`ATST_ALLOCATION_DEVICES`), `round_robin` is fail-closed for unverified pools, and `runtime_evidence.json` records the environment triple, device facts, process-scope counters, host samples and the sampled memory peak. Legacy calls without runtime keys are unchanged. Local real-GPU evidence exists, and the SAI V100 P5 first round completed on 2026-09-21 (DP matrix 12/12, ABACUS examples 4/4; see the SAI validation report); the remaining P5 rows - host/SIF pairs, 8 graphs x 8 GPU cards, 8 ranks on one card - stay open. A 2026-09-21 joint run with the constant-potential workflow passed on SAI; it also showed that the schema still fixes `calculator.abacus.omp` to 1, so `runtime.threads` does not reach the ABACUS backend yet (tracked in the GPU tuning review map). New in 2.2.7; additive. |
 | **atst prepare** | ✅ Supported | Reverse config generation from an ABACUS run directory | `atst prepare` and `atst_tools.api.build_config_from_abacus_dir` generate runnable transition YAML (currently NEB) from `INPUT`/`STRU`/`KPT`/`PP`/`ORB`. User-controlled ABACUS values are kept verbatim with three technical floors (`calculation`→`scf`, `cal_force`→`1`, KPT line-mode rejected) and an optional endpoint energy+forces gate (`--no-gate` skips it). New in 2.2.3; backward-compatible. |
 | **Trajectory Stress Retention** | ✅ Supported | NEB/AutoNEB trajectories carry per-image stress when the ABACUS calculator requests it | `cal_stress=1` retains per-image stress on NEB/AutoNEB trajectories (serial and image-parallel); `cal_stress=0` behavior is identical to 2.2.x. New in 2.2.3; additive. |
 | **GA** | ❌ Not Supported | Genetic Algorithm | ASE 3.28.0 moved GA implementation to the standalone `ase-ga` project; ATST-Tools does not expose GA workflows. |

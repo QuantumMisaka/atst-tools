@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.2.6-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.2.7-blue)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -28,14 +28,14 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 
 ## At A Glance
 
-| Area | Current 2.2.6 status (published; PyPI clean-install verified) |
+| Area | Current 2.2.7 status (release candidate; publication pending) |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Release | `2.2.6`, published from tag `v2.2.6` at commit `a633f06b9375e3f34dbd87f90f40ec6271b29cd4`; official PyPI clean-install, CLI/API, and dependency checks passed as recorded in the [release notes](docs/releases/RELEASE_NOTES_2.2.6.md). |
+| Release | `2.2.7` release candidate; publication, tag, automated validation, and PyPI evidence are pending in the [release notes](docs/releases/RELEASE_NOTES_2.2.7.md). |
 
 ## What You Can Run
 
@@ -53,8 +53,8 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 | `md` | Molecular dynamics | ASE-driven MD with ABACUS/DP calculators, or ABACUS native MD input/run/output orchestration. |
 | `dmf` | Direct MaxFlux | Experimental TS candidate/path optimizer; non-periodic first and not a validated TS result. |
 
-The `constant_potential` workflow is an unreleased development candidate and is
-not part of the published 2.2.6 package. The current ATST scope is ABACUS-only
+The `constant_potential` workflow is a development candidate shipped with the
+2.2.7 line; it carries no Paimon/public tool-chain or platform acceptance claim. The current ATST scope is ABACUS-only
 fixed-geometry single-point/serial scans plus fixed-cell `relax`/`neb` with the
 explicit `compensated_gate` boundary. The legacy `reference_fcp` boundary is
 reference-only and is rejected for optimization workflows; no Paimon/public

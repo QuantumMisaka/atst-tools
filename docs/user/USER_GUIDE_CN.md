@@ -3,15 +3,14 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.2.6 版本已发布（详见
-[release notes](../releases/RELEASE_NOTES_2.2.6.md)）；官方无缓存 clean-install
-复核已通过；包升级不会自动更新既有部署环境。此前已发布的 2.2.5 保留为历史版本。
+当前 2.2.7 版本为发布候选（详见
+[release notes](../releases/RELEASE_NOTES_2.2.7.md)）；发布与官方无缓存 clean-install
+复核仍在进行；包升级不会自动更新既有部署环境。此前已发布的 2.2.5 保留为历史版本。
 当前版本把原 main branch 的脚本集合整理为可安装 Python package，
 统一通过 `atst` 命令和 YAML 配置运行 NEB、AutoNEB、Dimer、Sella、CCQN、
 D2S、结构优化、振动分析、IRC、MD，以及实验性的 DMF 候选路径任务。
-开发分支另有尚未发布的 ABACUS 恒电势候选能力；它的边界和验收状态见
-[功能状态矩阵](../reports/FEATURE_STATUS_MATRIX.md)，不属于当前 2.2.6
-PyPI 发布内容。
+本版本同时携带 ABACUS 恒电势**开发候选**（`calculation.type: constant_potential`）；它的边界和验收状态见
+[功能状态矩阵](../reports/FEATURE_STATUS_MATRIX.md)，按"开发候选"使用，尚无平台/公共工具链验收声明。
 
 ATST-Tools 的边界是工作流编排、配置校验、calculator 构造、轨迹命名、
 重启辅助、ABACUS 常见前后处理和示例文档。ABACUS、DeePMD-kit、ASE、Sella
@@ -45,7 +44,7 @@ pip install atst-tools
 atst --version
 ```
 
-从源代码安装当前 2.2.6：
+从源代码安装当前 2.2.7：
 
 ```bash
 git clone https://github.com/QuantumMisaka/atst-tools.git

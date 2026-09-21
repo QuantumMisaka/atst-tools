@@ -16,12 +16,12 @@ The release workflow lives at `.github/workflows/publish-pypi.yml`.
 
 - Primary trigger: pushing a `v*` tag.
 - Manual trigger: `workflow_dispatch` with the `tag` input naming an
-  already-created exact tag such as the published `v2.2.6`; arbitrary
+  already-created exact tag such as the published `v2.2.7`; arbitrary
   branches, commits, and refs are not accepted.
 - Release guard: the workflow requires the tag to match
   `pyproject.toml` `[project].version`, resolves it under `refs/tags/`, and
   checks after checkout that it points to `HEAD`. The current repository state
-  records the published `2.2.6` release at commit
+  records the published `2.2.7` release at commit
   `a633f06b9375e3f34dbd87f90f40ec6271b29cd4`; its exact tag, CI runs, and PyPI
   artifact are recorded in the release notes. The official no-cache
   clean-install, CLI/API, and dependency verification passed. The previously

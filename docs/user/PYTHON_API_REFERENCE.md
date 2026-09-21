@@ -19,7 +19,7 @@ or a calculator runtime. For command syntax, see the maintained
 [CLI reference](CLI_REFERENCE.md). For project installation, examples, and
 source, see the [repository README](../../README.md) and the
 [ATST-Tools repository](https://github.com/QuantumMisaka/atst-tools).
-This reference tracks the current 2.2.6 release. The published package's
+This reference tracks the current 2.2.7 release. The published package's
 official PyPI no-cache clean-install, CLI/API, and dependency checks passed.
 Additions since 2.2.0
 (progress events, plotting helpers, and the profiles/plots result extensions)
@@ -165,8 +165,8 @@ schema as the CLI; it does not add a new stable root import. It is currently
 limited to fixed-geometry serial evaluations/scans and fixed-cell
 `compensated_gate` `relax`/`neb` calls. The legacy `reference_fcp` boundary is
 reference-only and cannot be used for those optimization workflows. This
-development candidate is not part of the published 2.2.6 package and has no
-Paimon/public tool-chain acceptance claim.
+development candidate ships with the 2.2.7 line and has no Paimon/public
+tool-chain acceptance claim.
 
 ### Process runner for external hosts
 
