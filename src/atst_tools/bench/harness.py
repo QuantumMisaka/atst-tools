@@ -292,6 +292,11 @@ def case_environment(
     env[_devices.CUDA_VISIBLE_DEVICES] = ",".join(devices)
     for key in _launch.THREAD_ENV_KEYS:
         env[key] = str(case.threads)
+    # The manifest budget is an explicit caller request, not an implicit
+    # default: mark it so the ABACUS factory keeps it instead of falling back to
+    # the legacy single thread.  A case config carrying its own
+    # ``runtime.threads`` overwrites this marker in the worker environment.
+    env[_launch.THREADS_SOURCE_ENV] = "harness"
     env[_launch.ATTEMPT_ENV] = str(attempt)
     cache_dir = _launch.child_cache_dir(workdir, attempt)
     cache_dir.mkdir(parents=True, exist_ok=True)

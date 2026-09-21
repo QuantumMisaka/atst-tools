@@ -151,6 +151,8 @@ runtime:
 
 实现细化（rev.5，独立审查 F7/F8 后）：显式 `omp` 覆盖继承预算时写 `runtime_threads_overridden` 计数 + `runtime_threads_effective` gauge 并输出英文 warning；**legacy 路径（无 runtime 请求）仍写旧默认 `1`**，只有 runtime 请求的 worker（`ATST_THREADS_SOURCE` 存在）才保留继承预算，避免改变无新键的旧调用行为。
 
+**实现细化（rev.6，2026-09-21 P5 收尾裁定）**：批量 harness 的 per-case `threads` 属调用者显式预算——`bench/harness.py::case_environment` 现在同时写 `ATST_THREADS_SOURCE=harness`，于是 manifest 给出的线程数会真正到达 ABACUS（此前缺该标记，未带 `runtime` 段的用例按 legacy 1 线程运行，P5 的 ABACUS 计时即为单线程数字）。带 `runtime.threads` 的用例仍由 worker 覆盖该标记为 `explicit`/`auto`。**注意**：该改动改变了与 P5 既有 ABACUS 数字的可比性，修复后基线必须重测并在报告中标明（见 SAI 报告 §5b）。
+
 现有 `OMP_NUM_THREADS` 写入点（完整清单）：`calculators/dp.py:92-94`、`calculators/factory.py:165`、`workflows/md.py:278`（另有 `utils/abacus_io.py:232` 仅用于 `--check-input` 子进程）。其中 `factory.py:159-165` 与 `md.py:278` 会把**缺省** omp 隐式写成 `1`，与上行第三行冲突——**P1 必须修改**：仅当 `calculator.*.omp` 为用户显式给出时才写 `omp` 值；缺省不得写（不得以“隐式默认 + fact 记录”的方式保留覆盖），保证 `runtime.threads` 不被静默覆盖。
 
 ## 7. Fixture 与运行证据

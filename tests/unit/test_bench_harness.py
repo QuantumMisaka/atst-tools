@@ -411,8 +411,28 @@ def test_case_environment_merges_case_specific_values(tmp_path):
     )
     assert env["CUDA_VISIBLE_DEVICES"] == "3"
     assert env["OMP_NUM_THREADS"] == "4"
+    assert env["ATST_THREADS_SOURCE"] == "harness"
     assert env["ATST_ATTEMPT"] == "2"
     assert env["MY_FLAG"] == "1"
+
+
+def test_manifest_thread_budget_reaches_the_abacus_factory(tmp_path, monkeypatch):
+    """The per-case manifest budget must survive the calculator's OMP rules.
+
+    P5 measured ABACUS with a single thread even though the manifest asked for
+    four, because the harness wrote the thread keys without marking them as a
+    caller budget (see the GPU node tuning review map).
+    """
+    from atst_tools.calculators.factory import _effective_omp
+
+    case = harness.CaseSpec.from_mapping(
+        {"case_id": "case", "config": "config.yaml", "threads": 4}
+    )
+    env = harness.case_environment(case, ("0",), base={}, attempt=1, workdir=tmp_path)
+    monkeypatch.setenv("OMP_NUM_THREADS", env["OMP_NUM_THREADS"])
+    monkeypatch.setenv("ATST_THREADS_SOURCE", env["ATST_THREADS_SOURCE"])
+    assert _effective_omp({}, None) == 4
+    assert os.environ["OMP_NUM_THREADS"] == "4"
 
 
 def test_case_environment_requests_per_case_evidence_by_default(tmp_path):
