@@ -24,6 +24,12 @@
 #                      off so samplers cannot perturb makespan)
 #   MODEL=/path/model.pt  fixture hashed into the benchmark record
 #   DRY_RUN=1          print the commands instead of executing them
+#   ABACUS_MODULE=1    additionally load abacus/LTSv3.10.1-sm70-auto (ABACUS cases)
+#
+# Site note (2026-09-21): a Slurm allocation grants one task slot per --ntasks,
+# and the site's OpenMPI counts those slots; case launchers and the ABACUS
+# calculator's inner `mpirun -np N` therefore need --ntasks >= N (or
+# --oversubscribe) on the sbatch line.
 #
 set -euo pipefail
 
@@ -60,6 +66,9 @@ if [ -f /opt/modules/lmod/9.2.4/init/bash ]; then
   source /opt/modules/lmod/9.2.4/init/bash
   module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps
   module load deepmd-kit/3.2.0
+  if [ "${ABACUS_MODULE:-0}" = "1" ]; then
+    module load abacus/LTSv3.10.1-sm70-auto
+  fi
   module list 2>&1 | sed -n '1,8p'
   set -u
   if ! "${PYTHON_BIN}" -c "from mpi4py import MPI" >/dev/null 2>&1; then
