@@ -101,6 +101,12 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 孤儿进程后停滞约 1 h（无输出、workdir 为空），取消后补跑 1432820 正常——该停滞
 与孤儿 MPI 进程同期出现，列为站点观察项。
 
+**修复后现场复验（2026-09-21，作业 1434302）**：第三轮审查修复后重跑同一
+`mpiexec --oversubscribe -n 4` + `runtime.binding: round_robin` 用例（4 卡）——
+**22 s 完成、两遍 1/1**；rank0 证据 `bound=true`、`binding=round_robin`、
+`inherited=['0','1','2','3']`、`effective=['0']`、`world_size=4`、
+`counters_mpi` Σ`dp.force_calls=38`。此前 1431646 的挂起确认为入口顺序缺陷所致，已闭环。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：

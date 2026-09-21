@@ -194,7 +194,7 @@ MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`
 7. **“卡时”语义（P2）**：`gpu_seconds` 明确为 per-case 设备秒；新增 `allocation.{devices,wall_s,gpu_seconds}`（分配卡数 × 批次墙钟），sweep 汇总同步聚合。
 8. **证据切片未被 Git 跟踪（P2）**：`.gitignore` 增加归档例外并补提交 JSON（records/汇总/sidecar）。
 
-验证：`tests/unit` 1099 passed / 2 skipped、`ATST_RUN_MPI_TESTS=1 tests/integration` 23 passed（新增 1 项）。
+验证：`tests/unit` 1099 passed / 2 skipped、`ATST_RUN_MPI_TESTS=1 tests/integration` 23 passed（新增 1 项）；并在 SAI 复验：此前挂起的 `mpiexec -n 4 + round_robin` 四卡用例（1434302）22 s 完成，`world_size=4`、`bound=true`。
 
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）
 
