@@ -1,0 +1,5 @@
+[flake8]
+# Align flake8 with the pinned black/isort versions in .pre-commit-config.yaml:
+# black's 88-column layout and its known E203 slice-spacing conflict.
+max-line-length = 88
+extend-ignore = E203,W503

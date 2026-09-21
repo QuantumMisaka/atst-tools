@@ -46,3 +46,10 @@ markers = [
     "integration: local integration-style fixture tests that do not submit Slurm jobs",
     "slurm: opt-in tests that may require ABACUS/DeePMD and a Slurm allocation",
 ]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+line_length = 88

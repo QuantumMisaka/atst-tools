@@ -288,7 +288,8 @@ def test_round_robin_survives_the_worker_contract_check():
 
 
 def test_worker_verifies_the_merged_cli_request_not_the_raw_yaml():
-    """CLI wins over YAML, so the worker must not reject that combination (review F7)."""
+    """CLI wins over YAML, so the worker must not reject that
+    combination (review F7)."""
     environ = {"CUDA_VISIBLE_DEVICES": "2,3"}
     request = runtime_launch.merge_runtime_request(
         cli_devices="0", yaml_section={"devices": [1]}, environ=environ

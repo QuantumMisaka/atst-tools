@@ -317,7 +317,8 @@ def _apply_round_robin(
     size, local_rank = mpi_world_facts(environ)
     if size <= 1:
         raise RuntimeBindingError(
-            "runtime.binding 'round_robin' requires an MPI world with more than one rank"
+            "runtime.binding 'round_robin' requires an MPI world with more "
+            "than one rank"
         )
     nodes = declared_node_count(environ)
     if nodes > 1:
@@ -332,7 +333,8 @@ def _apply_round_robin(
     pool = resolution.effective
     if not resolution.caller_bound or not pool:
         raise RuntimeBindingError(
-            "runtime.binding 'round_robin' requires a caller-bound single-node device pool"
+            "runtime.binding 'round_robin' requires a caller-bound single-node "
+            "device pool"
         )
     chosen = pool[local_rank % len(pool)]
     return DeviceResolution(
@@ -458,7 +460,8 @@ def resolve_devices(
                 raise _entry_outside_inherited(token, inherited)
             if host not in trusted:
                 raise RuntimeBindingError(
-                    f"{REFUSED_PREFIX}: {REASON_OUTSIDE_ALLOCATION.format(token=token.raw)}",
+                    f"{REFUSED_PREFIX}: "
+                    f"{REASON_OUTSIDE_ALLOCATION.format(token=token.raw)}",
                     context={"requested": token.raw, "allocation": allocation.raw},
                 )
             resolved.append(host)

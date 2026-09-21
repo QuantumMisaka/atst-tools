@@ -79,15 +79,18 @@ def test_runtime_section_uses_the_frozen_interface_messages():
         ),
         (
             {"devices": True},
-            "runtime.devices entry 'True' is not a valid 0-based device index or full GPU UUID",
+            "runtime.devices entry 'True' is not a valid 0-based device "
+            "index or full GPU UUID",
         ),
         (
             {"devices": [1.5]},
-            "runtime.devices entry '1.5' is not a valid 0-based device index or full GPU UUID",
+            "runtime.devices entry '1.5' is not a valid 0-based device "
+            "index or full GPU UUID",
         ),
         (
             {"devices": []},
-            "runtime.devices must not be empty; omit the field to inherit all visible devices",
+            "runtime.devices must not be empty; omit the field to inherit "
+            "all visible devices",
         ),
         (
             {"devices": [0, 0]},
