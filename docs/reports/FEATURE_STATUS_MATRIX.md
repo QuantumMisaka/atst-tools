@@ -2,15 +2,16 @@
 
 **Version**: 2.2.7
 **Last Updated**: 2026-09-21
-**Status**: Release candidate (not published)
+**Status**: Published (PyPI clean-install verified)
 **Owner**: ATST-Tools maintainers
 
-The 2.2.7 candidate adds shared-GPU-node resource binding and run evidence (the
+The 2.2.7 package was published from tag `v2.2.7` at commit
+`af9c8fa6b82386a52055a5b3dced82eb3d8f4ef2`. It adds shared-GPU-node resource binding and run evidence (the
 `runtime` section, worker isolation, `runtime_evidence.json`), the benchmark
 toolchain (`atst_tools.bench`), the ABACUS `omp`/manifest thread-budget fixes and
-the constant-potential development candidate. Full local validation, the
-documentation gate and the clean-wheel API gate passed; tag, CI, PyPI and the
-platform runtime evidence remain pending. The 2.2.6 package was published from
+the constant-potential development candidate. Local validation, the
+documentation gate, the clean-wheel API gate and the GitHub release preflight
+passed; platform runtime evidence remains pending. The 2.2.6 package was published from
 tag `v2.2.6` at commit
 `a633f06b9375e3f34dbd87f90f40ec6271b29cd4`. It records optimizer convergence
 facts across workflows, writes owner manifests for Sella/Relax/AutoNEB, and

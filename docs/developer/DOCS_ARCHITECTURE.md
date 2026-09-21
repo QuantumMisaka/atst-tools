@@ -83,6 +83,6 @@ docs/
 - 功能矩阵：[FEATURE_STATUS_MATRIX.md](../reports/FEATURE_STATUS_MATRIX.md)
 - 文档治理账本：[DOCUMENTATION_STATUS_REPORT.md](../reports/DOCUMENTATION_STATUS_REPORT.md)
 - 发布说明：[RELEASE_NOTES_2.2.7.md](../releases/RELEASE_NOTES_2.2.7.md)，记录当前
-  2.2.7 候选及其 tag/CI/PyPI 与 clean-install 证据（发布后更新为已发布状态）。
+  已发布的 2.2.7 及其 tag/CI/PyPI 与 clean-install 证据。
   此前已发布的 [2.2.5 release notes](../releases/RELEASE_NOTES_2.2.5.md) 与
   [2.2.4 release notes](../releases/RELEASE_NOTES_2.2.4.md) 保留为历史发布记录。

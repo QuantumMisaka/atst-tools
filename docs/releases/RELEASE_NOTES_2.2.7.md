@@ -2,9 +2,9 @@
 
 **Version**: 2.2.7
 **Date**: 2026-09-21
-**Status**: Release candidate (not published)
-**Branch**: candidate working tree; no release tag yet
-**Tag**: pending maintainer publication
+**Status**: Published (PyPI clean-install verified)
+**Branch**: `main`
+**Tag**: `v2.2.7` → `af9c8fa6b82386a52055a5b3dced82eb3d8f4ef2`
 
 ## Summary
 
