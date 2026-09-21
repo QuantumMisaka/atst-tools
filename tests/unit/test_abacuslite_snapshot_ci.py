@@ -237,6 +237,10 @@ def test_snapshot_checker_rejects_unregistered_helper_bodies(tmp_path, capsys, h
     ("atol=atol, rtol=0.0", "atol=atol, rtol=1.0"),
     ("if symbols != expected['symbols']:", "if False:"),
     ("cmd_ = [*self._split_command, '--version']", "cmd_ = ['wrong-command']"),
+    (
+        'efermi = results.get("efermi", results.get("fermi_level"))',
+        'efermi = None',
+    ),
 ])
 def test_snapshot_checker_rejects_mutated_registered_core(tmp_path, capsys, before, after):
     """Registered patch normalization must not erase semantic changes."""

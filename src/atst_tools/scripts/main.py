@@ -27,7 +27,10 @@ from atst_tools.utils.config import VALID_CALCULATION_TYPES
 from atst_tools.utils.config_schema import apply_calculation_defaults
 from atst_tools.utils.abacus_io import run_abacus_check_input_dry_run
 from atst_tools.calculators.factory import CalculatorFactory
-from atst_tools.calculators.constant_potential import constant_potential_identity_for_config
+from atst_tools.calculators.constant_potential import (
+    constant_potential_identity_for_config,
+    constant_potential_restart_initial_electrons_for_config,
+)
 from atst_tools.calculators.dp import is_dp_calculator, should_share_calculator
 from atst_tools.mep.neb import AbacusNEB
 from atst_tools.mep.autoneb import AutoNEBRunner
@@ -477,11 +480,14 @@ def _relax_neb_endpoints(init_chain, config, calc_name, calc_config, base_dir, o
                 )
             )
             continue
-        atoms.calc = _get_workflow_calculator(
-            calc_name,
-            config,
-            directory=f"{base_dir}/endpoint_{label}_relax",
-        )
+        calculator_kwargs = {"directory": f"{base_dir}/endpoint_{label}_relax"}
+        if calc_config.get("restart"):
+            initial_electrons = constant_potential_restart_initial_electrons_for_config(
+                atoms, config, allow_recompute=True
+            )
+            if initial_electrons is not None:
+                calculator_kwargs["constant_potential_initial"] = initial_electrons
+        atoms.calc = _get_workflow_calculator(calc_name, config, **calculator_kwargs)
         opt = optimizer_class(atoms, trajectory=f"endpoint_{label}_relax.traj")
         stage_converged = opt.run(fmax=endpoint_fmax, steps=endpoint_steps)
         freeze_current_results(atoms, status=ENDPOINT_OPTIMIZED)
@@ -713,20 +719,25 @@ def run_neb(config, calc_name, calc_config, world=None):
                 if rank_owns_local_image(world, i):
                     # Determine directory logic
                     image_dir = f"{base_dir}/image_{i + 1:03d}"
-                    image.calc = _get_workflow_calculator(
-                        calc_name,
-                        config,
-                        shared=False,
-                        directory=image_dir,
-                    )
+                    calculator_kwargs = {"shared": False, "directory": image_dir}
+                    if restart:
+                        initial_electrons = constant_potential_restart_initial_electrons_for_config(
+                            image, config
+                        )
+                        if initial_electrons is not None:
+                            calculator_kwargs["constant_potential_initial"] = initial_electrons
+                    image.calc = _get_workflow_calculator(calc_name, config, **calculator_kwargs)
             elif shared_calc is not None:
                 image.calc = shared_calc
             else:
-                image.calc = _get_workflow_calculator(
-                    calc_name,
-                    config,
-                    directory=f"{base_dir}/image_{i + 1:03d}",
-                )
+                calculator_kwargs = {"directory": f"{base_dir}/image_{i + 1:03d}"}
+                if restart:
+                    initial_electrons = constant_potential_restart_initial_electrons_for_config(
+                        image, config
+                    )
+                    if initial_electrons is not None:
+                        calculator_kwargs["constant_potential_initial"] = initial_electrons
+                image.calc = _get_workflow_calculator(calc_name, config, **calculator_kwargs)
 
     def construct_neb():
         return neb_class(

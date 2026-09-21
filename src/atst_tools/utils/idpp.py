@@ -109,6 +109,10 @@ def robust_interpolate(start_atoms: Atoms, end_atoms: Atoms, nimages: int) -> Li
         alpha = i / total_steps
         current_scaled_pos = scaled_start + alpha * delta_scaled_mic
         image = start_atoms.copy()
+        # Preserve the historical linear geometry.  Fast_IDPPSolver anchors
+        # each constrained image at this initial position before its first
+        # projected update, so a constrained endpoint pair with different
+        # coordinates does not acquire a start-to-end jump at the last frame.
         image.set_scaled_positions(current_scaled_pos)
         path.append(image)
     path.append(end_atoms.copy())
@@ -168,6 +172,14 @@ class Fast_IDPPSolver:
         self.natoms = len(self.start_atoms)
         self.cell = self.start_atoms.get_cell()
         self.images = images
+        self._constraint_images = [image.copy() for image in images[1:-1]]
+        self._has_constraints = any(image.constraints for image in self._constraint_images)
+        if self._has_constraints:
+            for image in self._constraint_images:
+                image.set_positions(image.get_positions(), apply_constraint=True)
+            distance_images = [images[0], *self._constraint_images, images[-1]]
+        else:
+            distance_images = images
 
         #: Self-reported outcome of the last :meth:`run` call.  ``None`` means
         #: the solver has not run yet; the remaining fields mirror the
@@ -194,11 +206,30 @@ class Fast_IDPPSolver:
         factors = np.linspace(0, 1, self.nimages + 2)[1:-1]
         self.target_dists = d_start[None, :, :] + factors[:, None, None] * (d_end - d_start)[None, :, :]
 
-        initial_distances = np.array([img.get_all_distances(mic=self.mic) for img in images[1:-1]])
+        initial_distances = np.array(
+            [img.get_all_distances(mic=self.mic) for img in distance_images[1:-1]]
+        )
         avg_dists = (self.target_dists + initial_distances) / 2.0
         self.weights = 1.0 / (avg_dists**4 + np.eye(self.natoms)[None, :, :] * 1e-8)
-        self.translations = self._build_translations(images)
-        self.initial_positions = np.array([img.get_positions() for img in images[1:-1]])
+        self.translations = self._build_translations(distance_images)
+        self.initial_positions = np.array([img.get_positions() for img in distance_images[1:-1]])
+
+    def _project_positions(self, coords: np.ndarray) -> None:
+        """Apply each intermediate image's ASE position constraints in place."""
+        for image_index, image in enumerate(self._constraint_images, start=1):
+            image.set_positions(coords[image_index], apply_constraint=True)
+            coords[image_index] = image.get_positions()
+
+    def _project_forces(self, coords: np.ndarray, forces: np.ndarray) -> np.ndarray:
+        """Apply each intermediate image's ASE force constraints."""
+        projected = np.array(forces, dtype=float, copy=True)
+        for image_index, image in enumerate(self._constraint_images, start=1):
+            image.set_positions(coords[image_index], apply_constraint=False)
+            for constraint in image.constraints:
+                adjust_forces = getattr(constraint, "adjust_forces", None)
+                if adjust_forces is not None:
+                    adjust_forces(image, projected[image_index - 1])
+        return projected
 
     def _mic_tie_tolerance(self) -> float:
         """Return the tie tolerance of the reference nearest-image scan.
@@ -393,6 +424,8 @@ class Fast_IDPPSolver:
     ):
         print(f"  [IDPP] Starting NEB-like optimization ({self.nimages} intermediate images)...")
         coords = np.array([img.get_positions() for img in self.images])
+        if self._has_constraints:
+            self._project_positions(coords)
         old_funcs = np.zeros(self.nimages, dtype=float)
         final_funcs = old_funcs.copy()
         max_force = np.inf
@@ -401,10 +434,14 @@ class Fast_IDPPSolver:
         for step in range(maxiter):
             funcs, true_forces = self._get_funcs_and_forces(coords)
             total_forces = self._get_total_forces(coords, true_forces, spring_const=spring_const)
+            if self._has_constraints:
+                total_forces = self._project_forces(coords, total_forces)
 
             disp = step_size * total_forces
             disp = np.where(np.abs(disp) > max_disp, np.sign(disp) * max_disp, disp)
             coords[1 : self.nimages + 1] += disp
+            if self._has_constraints:
+                self._project_positions(coords)
 
             max_force = float(np.abs(total_forces).max())
             residual = float(np.sum(np.abs(old_funcs - funcs)))
@@ -441,7 +478,10 @@ class Fast_IDPPSolver:
         final_images = []
         for i, image in enumerate(self.images):
             new_image = image.copy()
-            new_image.set_positions(coords[i], apply_constraint=False)
+            new_image.set_positions(
+                coords[i],
+                apply_constraint=self._has_constraints and 0 < i < len(coords) - 1,
+            )
             final_images.append(new_image)
         return final_images
 
@@ -463,7 +503,11 @@ def set_fix_for_Atoms(atoms: Atoms, fix_height: float=0, fix_dir: int=1,):
     mask = atoms.get_scaled_positions()[:, fix_dir] <= fix_height
     fix = FixAtoms(mask=mask)
     print(f"Fix Atoms below {fix_height} in direction {direction[fix_dir]}")
-    atoms.set_constraint(fix)
+    if not any(
+        isinstance(existing, FixAtoms) and np.array_equal(existing.index, fix.index)
+        for existing in atoms.constraints
+    ):
+        atoms.set_constraint([*atoms.constraints, fix])
 
 def set_magmom_for_Atoms(atoms: Atoms, mag_ele: list=[], mag_num: list=[]):
     """Set Atoms Object magmom by element"""
@@ -641,6 +685,16 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
     else:
         print("⚠️ Skipping atom index alignment.")
 
+    # IDPP must see the optional fixed-height rule while it optimizes the
+    # path.  Prepare private endpoint copies so the public endpoint frames
+    # retain their input constraints and positions.
+    interpolation_start = is_atom.copy()
+    interpolation_end = fs_atom.copy()
+    interpolation_ts = None
+    if fix_height is not None:
+        set_fix_for_Atoms(interpolation_start, fix_height, fix_dir)
+        set_fix_for_Atoms(interpolation_end, fix_height, fix_dir)
+
     # 3. Generate Path
     print(f'Generating path, number of images: {n_images}')
     print(f'Optimizing path using {method} method')
@@ -650,13 +704,21 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
         ts_atom = read_structure(ts_file, format=format, parallel=False)
         if not no_align:
             ts_atom = align_atom_indices(is_atom, ts_atom)
+        interpolation_ts = ts_atom.copy()
+        if fix_height is not None:
+            set_fix_for_Atoms(interpolation_ts, fix_height, fix_dir)
         left_count = n_images // 2
         right_count = n_images - left_count
-        left_path = _interpolate(method, is_atom, ts_atom, left_count, tol)
-        right_path = _interpolate(method, ts_atom, fs_atom, right_count, tol)
+        left_path = _interpolate(method, interpolation_start, interpolation_ts, left_count, tol)
+        right_path = _interpolate(method, interpolation_ts, interpolation_end, right_count, tol)
         ase_path = left_path[:-1] + right_path
     else:
-        ase_path = _interpolate(method, is_atom, fs_atom, n_images, tol)
+        ase_path = _interpolate(method, interpolation_start, interpolation_end, n_images, tol)
+
+    # Restore endpoint objects exactly as read.  The temporary copies above
+    # exist only to carry generation constraints into IDPP.
+    ase_path[0] = is_atom.copy()
+    ase_path[-1] = fs_atom.copy()
     
     # 4. Post-processing: Add Calculator, Fix, Magmom
     _apply_image_metadata(

@@ -4,6 +4,9 @@
 import os
 from ase.io import write
 from ase.optimize import FIRE, BFGS, LBFGS, QuasiNewton
+from atst_tools.calculators.constant_potential import (
+    constant_potential_restart_initial_electrons_for_config,
+)
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.artifacts import write_artifact_manifest
 from atst_tools.utils.config_schema import apply_calculation_defaults
@@ -109,10 +112,17 @@ class RelaxWorkflow:
              # Fallback to old config location if present
              directory = self.config['abacus'].get('directory', directory)
         
+        calculator_kwargs = {"directory": directory}
+        if self.restart:
+            initial_electrons = constant_potential_restart_initial_electrons_for_config(
+                atoms, self.config
+            )
+            if initial_electrons is not None:
+                calculator_kwargs["constant_potential_initial"] = initial_electrons
         atoms.calc = CalculatorFactory.get_calculator(
-            self.calc_name, 
-            self.config, 
-            directory=directory
+            self.calc_name,
+            self.config,
+            **calculator_kwargs,
         )
 
         # 3. Setup Optimizer

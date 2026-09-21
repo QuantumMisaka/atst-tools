@@ -231,6 +231,14 @@
       "forward_barrier_eV": null,
       "transition_state_structure": null,
       "validation_status": "P3 staging harness for DMF candidate comparison against existing 01_neb_Li-Si and 02_neb_H2-Au ABACUS/DP references; runtime validation report not yet complete"
+    },
+    "19_constant_potential_Pt": {
+      "reference_type": "experimental_constant_potential_fixture",
+      "workflow": "constant_potential",
+      "transition_state_index": null,
+      "forward_barrier_eV": null,
+      "transition_state_structure": null,
+      "validation_status": "Pt gate-compensation fixture with materialization and bounded derivative/force diagnostics; real validation evidence remains maintainer-scoped and does not establish a production barrier or universal scientific acceptance"
     }
   }
 }

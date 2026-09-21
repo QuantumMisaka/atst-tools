@@ -609,6 +609,16 @@ uses a custom target chemical potential, and is the only CP boundary accepted by
 fixed-cell `relax` and ordinary `neb`. Those optimization workflows require one
 scalar target and do not support a target list, cell relaxation, or CP stress.
 
+For CP `relax` and `neb`, restart reads the last complete trajectory frame or
+band. Each restarted calculator uses the corresponding frame's last evaluated
+electron count only after validating its persisted CP facts, geometry, target,
+fixed Hamiltonian, and current residual tolerance. Missing or mismatched facts
+fail closed for the relaxation frame and NEB interior images. The configured
+NEB endpoint policy still governs endpoint recomputation. This resumes from a
+completed electronic evaluation; it does not resume a partially completed SCF
+or restore the optimizer's Hessian, velocities, or electronic fitting history.
+Each new evaluation gets a fresh directory, preserving earlier SCF evidence.
+
 On success, the workflow writes `constant_potential_results.json`,
 `constant_potential.log`, `constant_potential_checkpoint.json`,
 `constant_potential_run/point_####_<target>/result.json`,

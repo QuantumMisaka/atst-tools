@@ -307,7 +307,7 @@ _FRAME_PATCH_AST_SHA256: dict[str, str] = {
     "_select_scf_frame_for_structure": "323658e049187dc24457c23b9427f66f9d4dcb330fd10c3e19d569afd131864f",
     "AbacusTemplate.__init__": "41ac3effaf36d311c1044495dcd81912f2f32b3b3bd246e8db4fbcf9a5e749e1",
     "AbacusTemplate.write_input": "e753df35247641fa68ed8886d317ef6af26a5c405de382bdbe0122f30fcdb838",
-    "AbacusTemplate.read_results": "78a1c15eeb494156defa53f8d6224a6042bc68524ca1db18f2a6719ba518c82f",
+    "AbacusTemplate.read_results": "cf83d601b9e0faa05252b12ce7ca4a202ee628bb29802f0262144a8a371fc555",
 }
 
 

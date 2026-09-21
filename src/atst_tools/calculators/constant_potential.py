@@ -606,6 +606,89 @@ def read_constant_potential_facts(atoms: Any) -> dict[str, Any] | None:
     return copy.deepcopy(dict(payload))
 
 
+def constant_potential_restart_initial_electrons(
+    atoms: Any,
+    expected_identity: Mapping[str, Any],
+    potential_tolerance_v: float,
+    *,
+    allow_recompute: bool = False,
+) -> float | None:
+    """Return the last evaluated electron count for a matching CP frame.
+
+    A structure trajectory is a nuclear checkpoint; it does not serialize the
+    calculator's custom result fields.  This helper consumes the durable facts
+    envelope copied into ``Atoms.info`` and therefore only returns an electron
+    count after validating the complete SCF/CP result, geometry, fixed
+    Hamiltonian identity, target, and current residual tolerance.  A missing or
+    stale envelope may be treated as an explicit recomputation when
+    ``allow_recompute`` is true; otherwise restart fails closed.
+
+    The returned value is the completed evaluation's ``nelec``.  It never uses
+    a Newton candidate or a partially written history record.
+    """
+    if not isinstance(expected_identity, Mapping):
+        raise ConstantPotentialError("constant-potential restart identity is missing or malformed")
+    try:
+        tolerance = float(potential_tolerance_v)
+    except (TypeError, ValueError) as exc:
+        raise ConstantPotentialError("constant-potential restart tolerance is malformed") from exc
+    if not np.isfinite(tolerance) or tolerance <= 0:
+        raise ConstantPotentialError("constant-potential restart tolerance must be positive and finite")
+
+    has_payload = atoms is not None and hasattr(atoms, "info") and CP_FACTS_INFO_KEY in atoms.info
+    if not has_payload:
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError("constant-potential restart checkpoint is missing")
+    raw_payload = atoms.info.get(CP_FACTS_INFO_KEY)
+    validation_error = _constant_potential_facts_error(atoms, raw_payload)
+    payload = read_constant_potential_facts(atoms)
+    if validation_error is not None or payload is None:
+        if allow_recompute:
+            return None
+        detail = validation_error or "constant-potential facts could not be read"
+        raise ConstantPotentialError(
+            f"constant-potential restart checkpoint is stale or malformed: {detail}"
+        )
+
+    identity = payload.get("identity")
+    if not isinstance(identity, Mapping) or not _mapping_contains(identity, expected_identity):
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError(
+            "constant-potential restart checkpoint identity does not match the requested calculation"
+        )
+    facts = payload.get("facts")
+    if not isinstance(facts, Mapping):
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError("constant-potential restart checkpoint facts are malformed")
+
+    residual_key = "residual_mu" if facts.get("energy_boundary") == "compensated_gate" else "residual_v"
+    try:
+        residual = float(facts[residual_key])
+        nelec = float(facts["nelec"])
+    except (KeyError, TypeError, ValueError) as exc:
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError(
+            "constant-potential restart checkpoint is missing its evaluated residual or electron count"
+        ) from exc
+    if not np.isfinite(residual) or not np.isfinite(nelec) or nelec < 0:
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError(
+            "constant-potential restart checkpoint has a non-finite or negative evaluated electron count"
+        )
+    if abs(residual) > tolerance:
+        if allow_recompute:
+            return None
+        raise ConstantPotentialError(
+            "constant-potential restart checkpoint residual exceeds the current tolerance"
+        )
+    return nelec
+
+
 def _first_finite(mapping: Mapping[str, Any], keys: tuple[str, ...]) -> float | None:
     """Return the first finite scalar found under ``keys``."""
     for key in keys:
@@ -1554,6 +1637,43 @@ def constant_potential_identity_for_config(
     return identity
 
 
+def constant_potential_restart_initial_electrons_for_config(
+    atoms: Any,
+    config: Mapping[str, Any],
+    *,
+    allow_recompute: bool = False,
+) -> float | None:
+    """Resolve a CP restart electron count from a workflow configuration.
+
+    Relax and NEB workflows use a scalar target and a single current
+    potential/chemical-potential tolerance.  This adapter derives the same
+    identity the calculator factory uses, then delegates all durable-envelope
+    validation to :func:`constant_potential_restart_initial_electrons`.
+    """
+    if not isinstance(config, Mapping):
+        return None
+    calculator = config.get("calculator")
+    cp = calculator.get("constant_potential") if isinstance(calculator, Mapping) else None
+    if not isinstance(cp, Mapping):
+        return None
+    boundary = str(cp.get("energy_boundary", "reference_fcp"))
+    target_key = "target_mu_ev" if boundary == "compensated_gate" else "potential_v"
+    target = cp.get(target_key)
+    if target is None:
+        raise ConstantPotentialError(
+            f"constant-potential restart requires scalar {target_key} for this workflow"
+        )
+    expected_identity = constant_potential_identity_for_config(config, target=float(target))
+    if expected_identity is None:
+        raise ConstantPotentialError("constant-potential restart identity could not be constructed")
+    return constant_potential_restart_initial_electrons(
+        atoms,
+        expected_identity,
+        cp.get("potential_tolerance_v", 0.01),
+        allow_recompute=allow_recompute,
+    )
+
+
 __all__ = [
     "ConstantPotential",
     "ConstantPotentialCalculator",
@@ -1567,6 +1687,8 @@ __all__ = [
     "constant_potential_geometry_fingerprint",
     "fixed_hamiltonian_identity_for_config",
     "constant_potential_identity_for_config",
+    "constant_potential_restart_initial_electrons",
+    "constant_potential_restart_initial_electrons_for_config",
     "publish_constant_potential_facts",
     "read_constant_potential_facts",
 ]
