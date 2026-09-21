@@ -95,6 +95,12 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 在批量输出目录内；已改为登台绝对路径副本（`configs/abacus_relax_h2au.yaml`、
 `configs/abacus_neb_li_si.yaml`）。
 
+**候选点重复（≥3 次）**：NEB 三次（750.2 s @1431647 r1、712.7 / 709.8 s @1432820），
+中位 ≈712.7 s（~11.9 min），离散 ~5%；relax 四点（172.8 / 171.0 s @1431200，
+171.7 / 172.6 s @1431647），中位 ≈172 s。1431647 的 repeat-2 NEB 曾在同节点出现
+孤儿进程后停滞约 1 h（无输出、workdir 为空），取消后补跑 1432820 正常——该停滞
+与孤儿 MPI 进程同期出现，列为站点观察项。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：
@@ -116,7 +122,7 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 
 ## 7. 证据清单
 
-- 作业：1430846（失败，留档）、1430966、1431010、1431119、1431648（slots=4）、1431955/1432107（多卡 NEB 对照）、1432043（srun/mpiexec 探针）；ABACUS：1431200（成功）、1431647（三次重复，运行中）；1431188/1431190（时序/路径问题取消或失败，留档）；1431952/1431646（挂起与孤儿，留档）。
+- 作业：1430846（失败，留档）、1430966、1431010、1431119、1431648（slots=4）、1431955/1432107（多卡 NEB 对照）、1432043（srun/mpiexec 探针）；ABACUS：1431200（成功）、1431647（三次重复；repeat-2 NEB 停滞取消）、1432820（NEB 补跑 ×2 成功）；1431188/1431190（时序/路径问题取消或失败，留档）；1431952/1431646（挂起与孤儿，留档）。
 - 站点路径：`~/atst-p5-20260921/work/{smoke,smoke2,smoke3,dp-matrix,dp-matrix2,abacus2}/runs/`
   （`sweep/`、`evidence/`、`bench_record.json`），日志 `~/atst-p5-20260921/slurm-<job>.out`。
 - 记录：`bench_record.json`（`atst-bench-record-v1`）含修订 `4d77fee`、fixture 哈希、
@@ -126,6 +132,6 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 
 单节点 ×2 GPU、66 原子级 case、DP 矩阵 repeats=3；ABACUS 通道为单次有界跑
 （完整示例 NEB 约 19 min/次）。后续：host/SIF 成对、8-rank/1 卡压力行（`mpiexec --oversubscribe`，注意
-用 srun+pmix 方案避开重绑定挂起）、ABACUS 候选点 ≥3 次交替重复（1431647 已在跑）。
+用 srun+pmix 方案避开重绑定挂起）。
 站点 `mpiexec` 重绑定挂起问题需与站点/上游（PRRTE/PMIx + exec）进一步确认。ABACUS 作业的 record
 fixture 当前传入了 DP 模型哈希（`MODEL` 变量），后续应按通道传入对应输入。
