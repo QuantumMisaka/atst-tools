@@ -129,7 +129,7 @@ P3 harness 以**真实 worker**（非替身）在本机跑同一清单两遍：`
 ["mpiexec","-n","3"]`、`slots: 1`、隔离 `workdir`）：
 
 ```bash
-python -m atst_tools.bench.harness --manifest cases.json --out runs \
+python -m atst_tools.bench.batch_runner --manifest cases.json --out runs \
   --devices 0 --slots 1 --cpu-budget 16
 ```
 
@@ -147,7 +147,7 @@ rank 0 计数（`dp.calculator_built=2`、`dp.calculator_reused=1`、
 实现侧同步补齐（均带测试）：case 级 `launcher`/`args`（`"mpiexec -n 3"` 或
 列表皆可）；worker 启动失败（缺 launcher/二进制）记为该 case 的
 `spawn_error` 失败证据，而不是让整批崩溃；`tests/integration/
-test_bench_harness_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧注意：
+test_bench_batch_runner_mpi.py` 覆盖真实 launcher 下的 dry-run case。站点侧注意：
 `launcher` 需要绝对路径或已 `module load`（P5 现场按 `$sai-user-guide` 填写）。
 
 ## 9. DP 单次推理成本剖面（本地微测量；回答"谁主导墙钟"）
@@ -321,7 +321,7 @@ threads 1→4 在该模型/该规模上只差 ~7%（每 worker ≈5 s 模型加�
 
 **14.3 顺带修掉的证据完整性缺陷**：首轮预演发现两个 case 若共享同一
 `workdir` 值，会在同一 (variant, repeat) 内互相覆盖 sidecar/traj/结果文件。
-`bench/harness.py` 现在拒绝重复的非空 `workdir`（错误信息列出冲突值与
+`bench/batch_runner.py` 现在拒绝重复的非空 `workdir`（错误信息列出冲突值与
 case id），示例模板与单测同步更新；本节数据即用修复后的版本重跑。
 
 **14.4 归档记录**：`batch-ft2dp/bench_record.json`（`atst-bench-record-v1`）记录

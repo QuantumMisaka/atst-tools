@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from atst_tools.bench import harness, sweep
+from atst_tools.bench import batch_runner, sweep
 
 STANDIN_SOURCE = """\
 import json, os, time
@@ -62,7 +62,7 @@ def test_sweep_runs_every_variant_with_alternating_order(tmp_path):
     for slots in (1, 2):
         for repeat in (1, 2):
             run_dir = tmp_path / "sweep" / f"slots-{slots}" / f"repeat-{repeat}"
-            assert (run_dir / harness.SUMMARY_REPORT).is_file()
+            assert (run_dir / batch_runner.SUMMARY_REPORT).is_file()
     assert set(summary["variants"]) == {"1", "2"}
     for aggregate in summary["variants"].values():
         assert aggregate["runs"] == 2

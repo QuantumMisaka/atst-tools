@@ -6,14 +6,14 @@ fixtures, with which result directories, and which operator-owned fields (job
 identifier, partition, QOS, allocated GPU-hours) are still to be filled in.
 This module writes that record next to the results: it hashes the referenced
 summary documents and the whole run tree, captures the revision facts at
-record time and copies the run-time revisions recorded by the harness/sweep
+record time and copies the run-time revisions recorded by the batch runner/sweep
 documents, and lists every missing input as a warning (with a non-zero exit
 code) instead of pretending the reference exists.
 
 Usage::
 
     python -m atst_tools.bench.record --manifest cases.json --out record.json \\
-        --sweep-dir runs/sweep --harness-dir runs/single
+        --run-dir runs/sweep --run-dir runs/single
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ def _tree_digest(root: Path) -> dict[str, Any]:
 
 
 def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
-    """Summarize one harness or sweep directory by its summary document."""
+    """Summarize one batch-runner or sweep directory by its summary document."""
     if not run_dir.is_dir():
         return {
             "dir": str(run_dir.resolve()),
@@ -238,7 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--run-dir",
         action="append",
         default=[],
-        help="Harness or sweep output directory (repeatable)",
+        help="Batch-runner or sweep output directory (repeatable)",
     )
     parser.add_argument(
         "--fixture",

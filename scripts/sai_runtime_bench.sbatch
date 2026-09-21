@@ -7,7 +7,7 @@
 #SBATCH --time=02:00:00
 # #SBATCH --qos=rush-1o2gpu   # site: 1-day wall limit, <=2 GPUs; pick at submission
 #
-# Reference template for the P3 batch harness on SAI (GPU node tuning P5).
+# Reference template for the P3 batch runner + sweep + record on SAI (GPU node tuning P5).
 #
 # Site facts (partition, QOS, module lines, CPU/memory shape) are NOT frozen
 # here: fill them from $sai-user-guide at submission time and let the

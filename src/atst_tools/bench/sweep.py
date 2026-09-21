@@ -1,8 +1,8 @@
-"""Variant sweep driver for the batch harness (GPU tuning P5 matrix).
+"""Variant sweep driver for the batch runner (GPU tuning P5 matrix).
 
 The frozen benchmark matrix asks for repeated, alternating comparisons of the
 same case list (for example per-device concurrency 1/2/3 with at least three
-repeats).  This driver runs the harness once per (variant, repeat) pair into a
+repeats).  This driver runs the batch runner once per (variant, repeat) pair into a
 separate directory, alternates the variant order between repeats, and writes
 one ``sweep_summary.json`` with per-variant makespan/throughput aggregates so a
 reviewer can see the raw rows and the derived numbers side by side.
@@ -25,7 +25,7 @@ from pathlib import Path
 from statistics import median
 from typing import Any, Callable, Mapping, Sequence
 
-from atst_tools.bench import harness
+from atst_tools.bench import batch_runner
 
 SWEEP_SCHEMA = "atst-bench-sweep-v1"
 SWEEP_SUMMARY = "sweep_summary.json"
@@ -34,7 +34,7 @@ MIN_MEANINGFUL_REPEATS = 3
 
 @dataclass
 class SweepOptions:
-    """Sweep-level controls; harness options are derived per variant."""
+    """Sweep-level controls; batch-runner options are derived per variant."""
 
     devices: tuple[str, ...]
     output_dir: Path
@@ -48,7 +48,7 @@ class SweepOptions:
     telemetry: bool = True
     case_telemetry: bool = False
     worker_factory: (
-        Callable[[harness.CaseSpec, Path, tuple[str, ...]], Sequence[str]] | None
+        Callable[[batch_runner.CaseSpec, Path, tuple[str, ...]], Sequence[str]] | None
     ) = None
     stop_event: threading.Event | None = None
 
@@ -143,9 +143,9 @@ def run_sweep(manifest: Mapping[str, Any], options: SweepOptions) -> dict[str, A
                 break
             run_dir = _variant_dir(output_dir, slots, repeat)
             run_dir.mkdir(parents=True, exist_ok=True)
-            summary = harness.run_manifest(
+            summary = batch_runner.run_manifest(
                 manifest,
-                harness.HarnessOptions(
+                batch_runner.BatchOptions(
                     devices=options.devices,
                     output_dir=run_dir,
                     slots_per_device=slots,
@@ -164,7 +164,7 @@ def run_sweep(manifest: Mapping[str, Any], options: SweepOptions) -> dict[str, A
                 "slots": slots,
                 "repeat": repeat,
                 "run_dir": str(run_dir),
-                "summary": str(run_dir / harness.SUMMARY_REPORT),
+                "summary": str(run_dir / batch_runner.SUMMARY_REPORT),
                 "status": summary["status"],
                 "effective_cpu_budget": summary.get("cpu_budget"),
                 "effective_slots_per_device": summary.get("slots_per_device"),
@@ -186,7 +186,7 @@ def run_sweep(manifest: Mapping[str, Any], options: SweepOptions) -> dict[str, A
     summary_payload = {
         "schema": SWEEP_SCHEMA,
         "status": "cancelled" if cancelled else "complete",
-        "revision": harness._evidence.atst_revision(),
+        "revision": batch_runner._evidence.atst_revision(),
         "started_at": started_at,
         "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "wall_s": round(time.monotonic() - started_monotonic, 3),
@@ -204,7 +204,7 @@ def run_sweep(manifest: Mapping[str, Any], options: SweepOptions) -> dict[str, A
             f"{repeats} repeat(s); the frozen matrix asks for at least "
             f"{MIN_MEANINGFUL_REPEATS} alternating repeats before drawing "
             "performance conclusions.",
-            "Per-variant directories keep the raw harness summaries; no case "
+            "Per-variant directories keep the raw batch-runner summaries; no case "
             "is removed from the denominator on failure.",
         ],
     }

@@ -20,3 +20,5 @@ post-fix ABACUS baseline:
 
 Machine paths inside the evidence are the SAI ones
 (`/home/galileo-group/galileouser02/...`) as recorded during the run.
+
+> 2026-09-21 补充：切片里 staging 脚本引用的 `atst_tools.bench.harness` 已更名为 `atst_tools.bench.batch_runner`（产物名与 schema 字符串保持 `harness_*` 不变）。

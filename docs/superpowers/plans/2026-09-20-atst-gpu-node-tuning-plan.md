@@ -74,9 +74,9 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 依赖：P1/P2。对应 SPEC §3、§5.1。
 
-- [x] 有限清单包含 case id、输入、输出目录、设备槽位、线程和超时；不引入跨作业服务（`src/atst_tools/bench/harness.py` 的 `CaseSpec`/manifest；模板 `examples/runtime_batch_cases.example.json`）。
+- [x] 有限清单包含 case id、输入、输出目录、设备槽位、线程和超时；不引入跨作业服务（`src/atst_tools/bench/batch_runner.py` 的 `CaseSpec`/manifest（2026-09-21 由 `bench/harness.py` 更名）；模板 `examples/runtime_batch_cases.example.json`）。
 - [x] 每卡并发默认1，显式候选2–6；调度以 GPU 和 CPU 可用预算共同限流（`slots_per_device` 默认 1；`cpu_budget` 取 `ATST_BATCH_CPU_BUDGET` 或 `sched_getaffinity`，线程和在途数超预算即等待）。
-- [x] 子进程测试验证槽位上限、独立目录、结果汇总、失败继续/停止策略、取消和超时后回收（`tests/unit/test_bench_harness.py`：替身 worker 记录 start/end 时序、超时后整组回收（子进程 PID 消失）、取消标记；停止策略 `stop_on_failure`）。
+- [x] 子进程测试验证槽位上限、独立目录、结果汇总、失败继续/停止策略、取消和超时后回收（`tests/unit/test_bench_batch_runner.py`：替身 worker 记录 start/end 时序、超时后整组回收（子进程 PID 消失）、取消标记；停止策略 `stop_on_failure`）。
 - [x] OOM/unknown 分类保持证据，不默认 retry；显式 retry 使用新 attempt（`classify_exit` 记 `oom`/`exit N`/`signal N`/`unknown`；无隐式重试，attempt 字段留给显式新行）。
 - [x] 一个 allocation 一个 sampler，记录全部任务结果和卡时，失败 case 不从分母/清单消失（`HostSampler` 单例；`harness_summary.json` 含 cases_total/succeeded/failed/timed_out/skipped、gpu_seconds、逐 case 行；skipped case 也写 `harness_case.json`）。
 

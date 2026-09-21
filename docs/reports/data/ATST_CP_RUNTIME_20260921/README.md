@@ -29,3 +29,5 @@ SAI `galileouser02` (job 1435012, 4V100, 1 GPU, plus the diagnostic job
   configuration.
 * The `atst_api_result.json` copies were left out: their content is already
   covered by `harness_case.json` and the runtime sidecars.
+
+> 2026-09-21 补充：切片里 staging 脚本引用的 `atst_tools.bench.harness` 已更名为 `atst_tools.bench.batch_runner`（产物名与 schema 字符串保持 `harness_*` 不变）。

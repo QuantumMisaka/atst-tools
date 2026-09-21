@@ -1,6 +1,11 @@
-"""Finite-case batch harness for the GPU node tuning work (P3).
+"""Batch runner for the GPU node tuning work (P3): finite case lists.
 
-The harness runs a bounded case list inside one existing allocation:
+Runs one bounded case manifest inside one existing allocation.  The module
+was called ``harness`` until 2026-09-21; the schema string and the report
+file names below keep that historical spelling because ``bench_record``
+hashes the whole run tree and the archived slices reference those names.
+
+The batch runner executes a bounded case list inside one existing allocation:
 
 * every case runs as an isolated worker process in its own output directory;
 * device slots and the CPU thread budget are both respected (a case's rank
@@ -14,7 +19,7 @@ The harness runs a bounded case list inside one existing allocation:
 
 Usage::
 
-    python -m atst_tools.bench.harness --manifest cases.json --out runs/batch \\
+    python -m atst_tools.bench.batch_runner --manifest cases.json --out runs/batch \\
         --devices 0,1 --slots 1 --cpu-budget 16
 """
 
@@ -38,9 +43,9 @@ from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import evidence as _evidence
 from atst_tools.runtime import launch as _launch
 
-SCHEMA = "atst-bench-harness-v1"
-CASE_REPORT = "harness_case.json"
-SUMMARY_REPORT = "harness_summary.json"
+SCHEMA = "atst-bench-harness-v1"  # frozen: archived records carry this value
+CASE_REPORT = "harness_case.json"  # frozen: see the module docstring
+SUMMARY_REPORT = "harness_summary.json"  # frozen: see the module docstring
 DEFAULT_RESULT_JSON = "atst_api_result.json"
 TERMINATION_GRACE_S = 5.0
 
@@ -126,7 +131,7 @@ class CaseSpec:
 
 
 @dataclass
-class HarnessOptions:
+class BatchOptions:
     """Batch-level controls; every default is explicit and conservative."""
 
     devices: tuple[str, ...]
@@ -157,7 +162,7 @@ class HarnessOptions:
             return max(os.cpu_count() or 1, 1)
 
 
-def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[CaseSpec]:
+def load_cases(manifest: Mapping[str, Any], options: BatchOptions) -> list[CaseSpec]:
     """Load and normalise the manifest case rows."""
     rows = manifest.get("cases")
     if not isinstance(rows, list) or not rows:
@@ -239,7 +244,7 @@ def worker_command(
     """Return the worker argv for one case (the API runner by default).
 
     A case-level launcher (for example ``mpiexec -n 3``) is prefixed so
-    image-parallel cases keep the harness slot, timeout and reporting
+    image-parallel cases keep the batch-runner slot, timeout and reporting
     contracts.
     """
     if factory is not None:
@@ -296,6 +301,7 @@ def case_environment(
     # default: mark it so the ABACUS factory keeps it instead of falling back to
     # the legacy single thread.  A case config carrying its own
     # ``runtime.threads`` overwrites this marker in the worker environment.
+    # Frozen evidence value: archived sidecars record threads_source=harness.
     env[_launch.THREADS_SOURCE_ENV] = "harness"
     env[_launch.ATTEMPT_ENV] = str(attempt)
     cache_dir = _launch.child_cache_dir(workdir, attempt)
@@ -389,7 +395,7 @@ def _terminate_group(
     The process-group id is captured before any signal because it becomes
     unavailable once the group leader is reaped; after the grace window the
     whole group is SIGKILLed and its emptiness is confirmed, so a surviving
-    child cannot keep occupying a GPU after the harness moved on.
+    child cannot keep occupying a GPU after the batch runner moved on.
     """
     try:
         pgid = os.getpgid(process.pid)
@@ -524,9 +530,7 @@ def _record_spawn_failure(
     return payload
 
 
-def run_manifest(
-    manifest: Mapping[str, Any], options: HarnessOptions
-) -> dict[str, Any]:
+def run_manifest(manifest: Mapping[str, Any], options: BatchOptions) -> dict[str, Any]:
     """Run every manifest case with slot/CPU limits and return the summary."""
     cases = load_cases(manifest, options)
     output_dir = Path(options.output_dir).resolve()
@@ -796,7 +800,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         signal.signal(signum, _handle)
     summary = run_manifest(
         manifest,
-        HarnessOptions(
+        BatchOptions(
             devices=tuple(
                 part.strip() for part in args.devices.split(",") if part.strip()
             ),

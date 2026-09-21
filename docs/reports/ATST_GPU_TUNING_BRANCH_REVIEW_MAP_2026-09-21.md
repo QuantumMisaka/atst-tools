@@ -79,7 +79,7 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
    **运行组合验收已完成**（2026-09-21：SAI 1435012，`compensated_gate` 单点 + 三点扫描 2/2、分配外设备负例被拒；见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)）。
 3. ~~`calculator.abacus.omp` 默认值使 `runtime.threads` 失效~~ **已修复并复验**（2026-09-21，`5e26789`）：schema 改为 `int | None = None`（缺省不写，legacy 1 由 `resolve_calculator_omp` 写），新增三条回归测试；SAI 作业 1436782 用同一恒电势单点用例复跑确认 `OMP_NUM_THREADS=8`、无 `runtime_threads_overridden`、无覆盖 warning（对照见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md) §5.1）。
-4. ~~批量 harness 的 per-case `threads` 通道~~ **已裁定并实现**（`1a62a72`）：manifest 的线程预算按调用者显式预算处理（`case_environment` 写 `ATST_THREADS_SOURCE=harness`），未写 `omp` 且无 `runtime` 段的用例不再落回 legacy 1；带 `runtime.threads` 的用例仍由 worker 覆盖为 `explicit`/`auto`。站点复验见 SAI 报告 §5d(a)：`abacus-relax-h2au-t2` 生效 `OMP_NUM_THREADS=2`、无覆盖计数。注：P5 的 ABACUS 计时为单线程是因其示例配置**显式**写了 `omp: 1`（另一条路径），本改动对它们无影响。
+4. ~~批量 harness（今 `bench/batch_runner.py`）的 per-case `threads` 通道~~ **已裁定并实现**（`1a62a72`）：manifest 的线程预算按调用者显式预算处理（`case_environment` 写 `ATST_THREADS_SOURCE=harness`），未写 `omp` 且无 `runtime` 段的用例不再落回 legacy 1；带 `runtime.threads` 的用例仍由 worker 覆盖为 `explicit`/`auto`。站点复验见 SAI 报告 §5d(a)：`abacus-relax-h2au-t2` 生效 `OMP_NUM_THREADS=2`、无覆盖计数。注：P5 的 ABACUS 计时为单线程是因其示例配置**显式**写了 `omp: 1`（另一条路径），本改动对它们无影响。
 5. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
 6. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。

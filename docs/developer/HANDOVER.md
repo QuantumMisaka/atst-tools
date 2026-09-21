@@ -117,6 +117,36 @@ release 变更，都先从对应小节确认需要同步的文档。
 - 保证新增输入在 `inputs/` 或受控路径下，生成输出不进入 git。
 - 运行 example 解析、dry-run 或 reference-result 测试。
 
+## 7.1 新增或修改基准工具链（bench）
+
+术语（2026-09-21 定）：**bench** = 测量工具链（`atst_tools.bench`）；**batch** = 一次运行
+（一个 manifest 在一个已有 allocation 内跑一遍）；**harness** 是这批模块与产物的历史名，
+仅保留在下面列出的冻结字符串里，不再用于新文字或新代码。
+
+三件套：
+
+| 工具 | 命令 | 作用 |
+| --- | --- | --- |
+| 批次执行器 | `python -m atst_tools.bench.batch_runner --manifest cases.json --out runs --devices 0,1 --slots 1 --cpu-budget 8 --threads 2` | 在既有分配内执行一张用例清单：槽位调度、超时回收、每 case 报告 + 批次汇总 |
+| 变体扫描 | `python -m atst_tools.bench.sweep --manifest cases.json --out runs/sweep --devices 0,1 --slots 1,2,3 --repeats 3` | 变体 × 重复矩阵，交替顺序，出 `sweep_summary.json` |
+| 测量记录 | `python -m atst_tools.bench.record --manifest cases.json --out runs/bench_record.json --run-dir runs --job-id … --partition … --qos …` | 自描述记录：修订/分支/dirty、清单与夹具哈希、结果树哈希、operator 字段 |
+
+站点一键入口：`scripts/sai_runtime_bench.sbatch`（计时 sweep → 证据 pass → 记录）。
+清单模板：`examples/runtime_batch_cases.example.json`。清单字段：`case_id`、`config`、
+`slots`、`threads`、`timeout_s`、`workdir`、`launcher`、`ranks`、`env`；**每个 case 必须有
+自己的目录**（未给 `workdir` 时按配置目录，同目录会被拒绝，避免证据互相覆盖）。
+
+产物：`<out>/harness_case.json`、`harness_summary.json`、`harness_worker.{out,err}`，
+用例配置带 `runtime.telemetry` 时另有 `runtime_evidence.json`；批量侧 `bench_record.json`。
+
+冻结约定（改名前先读）：产物名 `harness_*.json`、schema 字符串 `atst-bench-harness-v1`
+与证据取值 `ATST_THREADS_SOURCE=harness` **都不随模块更名而改**——`bench_record` 对结果树
+做全树哈希，且 `docs/reports/data/**` 的归档切片引用这些名字。
+
+边界：它不是生产队列/调度器（不申请资源、不跨作业排队），也不新增 `atst batch` 公共
+接口；科学逻辑在 `workflows/`。回归：`tests/unit/test_bench_batch_runner.py`、
+`tests/integration/test_bench_batch_runner_mpi.py`。
+
 ## 8. 新增 report 或移动旧 report
 
 - 判断 report 级别：L1 状态入口、L2 当前证据、L3 当前主题审查、L4 历史材料。

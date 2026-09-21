@@ -1,4 +1,4 @@
-"""Real-launcher regression: the batch harness launches an image-parallel case."""
+"""Real-launcher regression: the batch runner launches an image-parallel case."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from atst_tools.bench import harness
+from atst_tools.bench import batch_runner
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,8 +20,8 @@ def _mpi_test_enabled() -> bool:
     return os.environ.get("ATST_RUN_MPI_TESTS") == "1"
 
 
-def test_harness_runs_an_mpi_launched_case(tmp_path: Path) -> None:
-    """A case with a launcher keeps the harness report and timeout contract."""
+def test_batch_runner_runs_an_mpi_launched_case(tmp_path: Path) -> None:
+    """A case with a launcher keeps the batch-runner report and timeout contract."""
     if not _mpi_test_enabled():
         pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
     launcher = shutil.which("mpiexec") or shutil.which("mpirun")
@@ -51,9 +51,9 @@ def test_harness_runs_an_mpi_launched_case(tmp_path: Path) -> None:
             }
         ]
     }
-    summary = harness.run_manifest(
+    summary = batch_runner.run_manifest(
         manifest,
-        harness.HarnessOptions(
+        batch_runner.BatchOptions(
             devices=("0",),
             output_dir=tmp_path / "out",
             telemetry=False,
@@ -65,7 +65,7 @@ def test_harness_runs_an_mpi_launched_case(tmp_path: Path) -> None:
     assert row["launcher"][:2] == [launcher, "-n"]
     assert row["args"] == ["--dry-run"]
     result = json.loads(
-        (tmp_path / "out" / "mpi-dry-run" / harness.DEFAULT_RESULT_JSON).read_text(
+        (tmp_path / "out" / "mpi-dry-run" / batch_runner.DEFAULT_RESULT_JSON).read_text(
             encoding="utf-8"
         )
     )
@@ -84,7 +84,7 @@ time.sleep(120)
 """
 
 
-def test_harness_terminates_every_mpi_rank_on_timeout(tmp_path: Path) -> None:
+def test_batch_runner_terminates_every_mpi_rank_on_timeout(tmp_path: Path) -> None:
     """A timed-out multi-rank case must not leave any rank behind (review F1)."""
     if not _mpi_test_enabled():
         pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
@@ -98,7 +98,7 @@ def test_harness_terminates_every_mpi_rank_on_timeout(tmp_path: Path) -> None:
         del case, workdir, devices
         return [launcher, "-n", "2", sys.executable, str(script)]
 
-    summary = harness.run_manifest(
+    summary = batch_runner.run_manifest(
         {
             "cases": [
                 {
@@ -111,7 +111,7 @@ def test_harness_terminates_every_mpi_rank_on_timeout(tmp_path: Path) -> None:
                 }
             ]
         },
-        harness.HarnessOptions(
+        batch_runner.BatchOptions(
             devices=("0",),
             output_dir=tmp_path / "out",
             telemetry=False,

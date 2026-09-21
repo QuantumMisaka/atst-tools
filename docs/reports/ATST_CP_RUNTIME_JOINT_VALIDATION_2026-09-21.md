@@ -126,7 +126,7 @@ GPU 直跑场景（`ks_solver cusolver`）主要是 CPU 侧线性代数受损，
    （caller-bound 收窄路径已覆盖；allocation token 路径由 P5 与负例覆盖）。
 4. 站点遗留：作业 `1431952`/`1431646` 仍停在 `CG`（孤儿进程），与本轮无关但会占用节点。
 5. host/SIF 成对、8 图×8 卡、8 ranks/1 卡压力行仍属 P5 未完成矩阵行。
-6. 批量 harness 的 per-case `threads` 仍只写线程环境键、不写 `ATST_THREADS_SOURCE`：用例配置没有 `runtime` 段时 ABACUS 按 legacy 1 线程运行（P5 的 ABACUS 用例如此）。是否让 harness 也打该标记属待裁定项，见审阅地图 §4。
+6. 批量 harness（今 `bench/batch_runner.py`）的 per-case `threads` 仍只写线程环境键、不写 `ATST_THREADS_SOURCE`：用例配置没有 `runtime` 段时 ABACUS 按 legacy 1 线程运行（P5 的 ABACUS 用例如此）。是否让 harness 也打该标记属待裁定项，见审阅地图 §4。
 
 ## 7. 证据索引
 
