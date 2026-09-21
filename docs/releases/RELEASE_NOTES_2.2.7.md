@@ -70,3 +70,52 @@ Measurement evidence for this line (SAI 4V100 and a local GPU) is archived under
 - The only default-value change is `calculator.abacus.omp`, which is now unset
   instead of 1: an explicit `omp` still wins, a runtime thread budget now
   reaches ABACUS, and runs without any budget keep the historical single thread.
+
+## Publication Evidence
+
+- GitHub Tests run [`35614550222`](https://github.com/QuantumMisaka/atst-tools/actions/runs/35614550222)
+  and abacuslite ASE Interface run [`35614550226`](https://github.com/QuantumMisaka/atst-tools/actions/runs/35614550226)
+  succeeded on the release commit `af9c8fa6b82386a52055a5b3dced82eb3d8f4ef2`
+  before tagging.
+- Publish workflow run [`35614555409`](https://github.com/QuantumMisaka/atst-tools/actions/runs/35614555409)
+  completed: the release preflight (readiness, unit tests, documentation
+  governance, sdist/wheel build, distribution checks, clean-wheel API gate) and
+  the PyPI upload job succeeded once the `pypi` environment's five-minute wait
+  timer elapsed.
+- GitHub Release: [`v2.2.7`](https://github.com/QuantumMisaka/atst-tools/releases/tag/v2.2.7).
+- PyPI artifacts:
+  - `atst_tools-2.2.7-py3-none-any.whl`, uploaded 2026-09-21T14:55:26Z,
+    sha256 `b3b8edfa0bb97947c82d9ad24ced0211cf4c550b3821a563ff53aca9f532f45e`.
+  - `atst_tools-2.2.7.tar.gz`, uploaded 2026-09-21T14:55:28Z,
+    sha256 `a5dddcd3d2a4448652177f0c51489861fd4fbced144040ab28a7fe335976672b`.
+- Official no-cache clean-install verification in an isolated venv:
+  `pip install --no-cache-dir atst-tools==2.2.7` resolved and installed 27
+  packages; `atst --version` reported `atst 2.2.7`, `atst_tools.package_version()`
+  reported `2.2.7`, the package imported from that venv's site-packages, and both
+  the stable root imports and the new `runtime`/`bench` modules loaded - the
+  `--share-worker` flag is present and `calculator.abacus.omp` is unset by
+  default in the published wheel.
+
+## Validation Matrix
+
+Platform/Paimon tool-chain and SIF-side deployment acceptance are not claimed by
+this document; the runtime evidence below was collected on a shared SAI 4V100
+node and on a local GPU.
+
+| Evidence | Status |
+| :--- | :--- |
+| Full unit suite (`pytest tests/unit`) | 1131 passed, 2 skipped |
+| Integration suite with the real MPI launcher (`ATST_RUN_MPI_TESTS=1`) | 23 passed |
+| Documentation governance (`scripts/check_docs_governance.py`) | Passed locally and in the publish preflight |
+| Clean-wheel public API gate (`scripts/verify_wheel_api.py --mpi-smoke`) | Passed locally and in the publish preflight |
+| Release readiness (`scripts/check_release_readiness.py --tag v2.2.7`) | Passed locally and in the publish preflight |
+| Official no-cache clean-install from PyPI | Passed (isolated venv, 2.2.7) |
+| SAI 4V100 runtime evidence (P5: DP matrix, ABACUS examples, multi-card NEB, 8 ranks on one card, 8 graphs x 8 cards, host/SIF pairing) | Archived under `docs/reports/data/` and summarised in the SAI and local validation reports |
+| Constant-potential x runtime joint acceptance (SAI) | Passed for the compensated-gate single point and the three-point scan; no platform chain claim |
+| Platform/Paimon tool-chain acceptance, SIF-side deployment, Gitee mirror sync | Not performed (maintainer/platform-side actions) |
+
+## Download
+
+```bash
+python -m pip install atst-tools==2.2.7
+```
