@@ -235,24 +235,28 @@ fail-closed 同批复验：只持有 0 号卡时请求 `devices: [1]` 的用例 
 至此 P5 压力/收益矩阵只剩 host/SIF 成对一项。证据切片
 `docs/reports/data/ATST_NEB_8CARDS_SAI_20260921/`。
 
-## 5i. host/SIF 成对：SIF 侧前置勘察（受阻，2026-09-21）
+## 5i. host/SIF 成对：SIF 侧勘察与精确阻塞点（2026-09-21）
 
-最后一项 P5 行需要"host 与 SIF 各跑一遍同一用例"。本轮把 SIF 侧能力勘察清楚，得到的是**精确阻塞点**而非笼统的"待协调"：
+**范围先厘清**：`20260920-toolbox-atst/abacus-adam-sai-toolbox-atst.sif` 是 **ABACUS** toolbox 交付
+（标签 `Application: ABACUS`、`AtstToolsDelivery: toolbox`、`HostCluster: sai-native`、`Layer: 2`）；
+**deepmd 不在其范围内**——DP 通道的运行是站点 `deepmd-kit/3.2.0` module 环境（本项目所有 DP 运行都走它），
+DP 若要容器对照应使用 DP 侧自己的镜像。因此本行是**ABACUS 通道**的成对：host module ABACUS vs SIF ABACUS。
 
-- SIF（`20260920-toolbox-atst/abacus-adam-sai-toolbox-atst.sif`，标签 `AtstToolsDelivery: toolbox`、
-  `HostCluster: sai-native`、`Layer: 2`）里 **atst 可导入**：绑定检出 + `PYTHONPATH=/work/atst/src` 后
-  `import atst_tools, ase, pydantic` 成功（Python 3.12.14，ase 3.29.0，pydantic 2.13.5，mpi4py 存在）；
-  **无 `deepmd`** → 该镜像只能跑 ABACUS 通道。
-- SIF 里的 ABACUS 是"SAI-native runtime provider"包装（`/usr/local/bin/abacus` →
-  `sai_native_runtime_prepare`），需要**站点 module 栈在容器内可见**；实测即使绑定
-  `/opt/modules`+`/opt/apps`+`/opt/devtools(ro)` 仍报
-  `SAI-native runtime error: module did not provide a readable ScaLAPACK library directory`，
-  且容器内 `mpirun` 不可解析（容器内 `module load openmpi/5.0.8-nvhpc25.7-gnu-auto` 无输出、无 mpirun）。
+已确认可用：SIF 内绑定检出 + `PYTHONPATH` 可 `import atst_tools`（Python 3.12.14 / ase 3.29.0 /
+pydantic 2.13.5 / mpi4py 在）；`/opt/apps` 绑定后容器内能看到 ABACUS 二进制。
 
-**处置**：该行保持开放并移交 SIF 归属方（镜像属 toolbox 交付）——要么包装脚本需要补充文档化的绑定/栈修复，
-要么成对验证改用 toolbox 自己的 launcher 而不是裸 `apptainer exec`。复现命令与完整输出见
-`docs/reports/data/ATST_HOST_SIF_RECON_20260921/README.md`。**这不是 atst 侧缺陷**：host 侧该用例
-（示例 06 relax）本轮已在 §5d/§5g 反复跑通。
+**阻塞点（精确）**：容器内**看不到站点的 `/opt/devtools`**（BLAS/ScaLAPACK/ELPA/CUDA/OpenMPI 都在那里），
+即使显式 `--bind /opt/devtools:/opt/devtools[,ro]` 也一样（`/opt/apps` 能绑进来）——判断为镜像
+`shared-layer2` 构建在 `/opt` 上的挂载/覆盖冲突。后果：镜像自带的
+`/usr/local/bin/abacus`（`sai_native_runtime_prepare`，检查逻辑见
+`/usr/local/share/abacus/abacus-native-runtime.sh:148` 的 `sai_native_module_blas_library_dir`，它扫
+`LD_LIBRARY_PATH` 里的 `libscalapack.so*`）报 "readable ScaLAPACK library directory"；直接跑宿主二进制
+则有 12 个未解析共享库。账号内**四个不同构建的镜像同一报错**，故属启动上下文而非单个镜像损坏。
+
+**处置**：该行保持开放，移交镜像归属方（toolbox 交付）：要么给出使 `/opt/devtools` 可见的文档化 launcher/绑定，
+要么让 wrapper 改从宿主环境读取栈。复现命令与完整输出见
+`docs/reports/data/ATST_HOST_SIF_RECON_20260921/README.md`。host 侧该用例（示例 06 relax）本轮已多次跑通
+（§5d/§5g），**不是 atst 侧缺陷**。
 
 ## 6. 站点问题与修复（本次 P5 产生）
 
