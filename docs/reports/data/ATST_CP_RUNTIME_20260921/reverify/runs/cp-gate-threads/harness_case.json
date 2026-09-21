@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "cp-gate-threads",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-threads/config.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T11:21:10.723216+00:00",
+  "gpu_seconds": 32.868,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-threads/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T11:20:37.855027+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-threads/harness_worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-threads/harness_worker.out",
+  "threads": 8,
+  "wall_s": 32.868,
+  "workdir": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-threads"
+}

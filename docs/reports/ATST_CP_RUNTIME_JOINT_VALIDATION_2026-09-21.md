@@ -69,7 +69,7 @@ ABACUS `INPUT` 变量逐条按 materialize 产物转写（`gate_flag 1`、`efiel
 `gate_derivative_ev = −1.478`、`dipole_derivative_ev = 7.198`、
 `compensation_derivative_ev = 5.720`（均为同一 run 内密度导出的 eV 量）。
 
-## 5. 发现（P2）：ABACUS 的 `omp` schema 默认值使 `runtime.threads` 失效
+## 5. 发现（P2，已修复）：ABACUS 的 `omp` schema 默认值使 `runtime.threads` 失效
 
 **现象**：两例的 sidecar 都记录 `runtime_threads_overridden=1`、
 `gauges.runtime_threads_effective=1.0`，最终环境为 `OMP_NUM_THREADS: "1"`，
@@ -91,11 +91,31 @@ worker stderr 首行为
 GPU 直跑场景（`ks_solver cusolver`）主要是 CPU 侧线性代数受损，站点上未测出失败，
 但「runtime 预算生效」这一条无法在 ABACUS 后端上宣称成立。
 
-**建议修复**（待裁定，未在本轮改动）：把 `AbacusConfig.omp` 改为
-`int | None = Field(default=None)`，让 legacy 默认 1 由
-`runtime.launch.resolve_calculator_omp` 在「无 runtime 预算」时写入（与 DP 侧一致），
-并补一条「normalize → `_effective_omp` 保留 runtime 预算」的回归测试；
-行为差异只出现在使用 `runtime.threads` 的调用上，legacy 调用保持 1。
+**修复**（`5e26789`，维护者裁定按方案 A 实施）：`AbacusConfig.omp` 改为
+`int | None = Field(default=None, gt=0)`，于是 `normalize_config` 在用户未写该键时
+直接省略它（`model_dump(exclude_none=True)`），`_effective_omp` 也就不再看到"显式值"。
+显式 `omp` 仍优先并照旧记录覆盖计数；有 runtime 预算时预算保留；两者都缺省时仍写历史默认 1
+（由 `resolve_calculator_omp` 写入，而非 schema 物化）。新增三条回归测试：
+归一化后的段保留预算、无任何预算时保持 1、schema 契约（未写即缺省、`gt=0` 仍生效）。
+
+### 5.1 修复复验（2026-09-21，SAI 作业 1436782）
+
+同一 fixture、同一目标 μ、同一 `runtime.threads: auto` 的单点用例在修复后重跑（`cp-gate-threads`，
+新目录以避免旧 checkpoint 干扰）：
+
+| fact | 修复前（1435012） | 修复后（1436782） |
+| --- | --- | --- |
+| `environment.threads.OMP_NUM_THREADS` | `1` | **`8`**（与 `cpu_affinity_count` 一致） |
+| `MKL/OPENBLAS/NUMEXPR_NUM_THREADS` | 8 | 8 |
+| `counters.runtime_threads_overridden` | 1 | **缺失** |
+| `gauges.runtime_threads_effective` | 1.0 | **空** |
+| worker stderr | `calculator omp=1 overrides the inherited OMP_NUM_THREADS=8` | **空** |
+| `runtime.threads` 事实 | `auto` | `auto` |
+| 单点 wall | 70.1 s | 32.9 s（同一用例，非受控对照，含缓存/节点差异） |
+| CP 结果 | `complete`，残差 −2.2e−09 eV | `complete`，残差 +2.4e−10 eV |
+
+负例（`runtime.devices: [1]`）在同一次作业中再次被拒。基准记录修订为 `5e26789`，
+操作者字段（job/QOS）照旧写入；本段证据见归档 `reverify/`。
 
 ## 6. 边界与未覆盖
 

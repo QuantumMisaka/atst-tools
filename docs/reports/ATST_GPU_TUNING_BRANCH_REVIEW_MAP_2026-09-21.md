@@ -19,7 +19,7 @@
 | 主要证据 | [P0 复核](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)；[本地 GPU 验证报告](ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md) §4–§16 |
 | 账本 | [DOCUMENTATION_STATUS_REPORT.md](DOCUMENTATION_STATUS_REPORT.md)（每次变更登记） |
 
-门禁现状（2026-09-21 对 `e0abb71` 复测）：`tests/unit` **1097 passed / 2 documented skips**
+门禁现状（2026-09-21 对 `5e26789` 复测）：`tests/unit` **1100 passed / 2 documented skips**
 （共 1099 项收集）；`ATST_RUN_MPI_TESTS=1 tests/integration` **23 passed**（真实 MPI）；
 `scripts/verify_wheel_api.py --mpi-smoke` 通过；
 `scripts/check_docs_governance.py` 通过。复现命令见 §5。
@@ -79,7 +79,7 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
    **运行组合验收已完成**（2026-09-21：SAI 1435012，`compensated_gate` 单点 + 三点扫描 2/2、分配外设备负例被拒；见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)）。
-3. **`calculator.abacus.omp` 默认值 1 使 `runtime.threads` 失效**（联合验收发现，P2）：`utils/config_schema.py:1020` 的 `Field(default=1)` 让归一化后的配置恒带显式 omp，`_effective_omp` 因而始终走「显式优先」分支（站点 sidecar 记 `runtime_threads_overridden=1`、`runtime_threads_effective=1.0`）。建议改为 `None` 默认并由 `resolve_calculator_omp` 写 legacy 1；待裁定后修复并补回归。
+3. ~~`calculator.abacus.omp` 默认值使 `runtime.threads` 失效~~ **已修复并复验**（2026-09-21，`5e26789`）：schema 改为 `int | None = None`（缺省不写，legacy 1 由 `resolve_calculator_omp` 写），新增三条回归测试；SAI 作业 1436782 用同一恒电势单点用例复跑确认 `OMP_NUM_THREADS=8`、无 `runtime_threads_overridden`、无覆盖 warning（对照见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md) §5.1）。
 4. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
 5. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。

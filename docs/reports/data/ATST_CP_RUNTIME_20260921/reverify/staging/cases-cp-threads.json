@@ -1,0 +1,17 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "OMP fix re-verification: one compensated-gate evaluation with runtime.threads: auto. The sidecar must show OMP_NUM_THREADS equal to the affinity budget and no runtime_threads_overridden counter.",
+  "defaults": {
+    "threads": 8,
+    "timeout_s": 1800
+  },
+  "cases": [
+    {
+      "case_id": "cp-gate-threads",
+      "config": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-threads/config.yaml",
+      "slots": 1,
+      "threads": 8,
+      "timeout_s": 1800
+    }
+  ]
+}

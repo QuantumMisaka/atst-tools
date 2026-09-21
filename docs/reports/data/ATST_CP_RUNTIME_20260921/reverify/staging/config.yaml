@@ -1,0 +1,78 @@
+# CP x runtime joint acceptance (case: cp-gate-single).
+# Derived from examples/19_constant_potential_Pt via
+#   materialize.py <case> --basis lcao --electrons 217 --dipole --density-precision 12
+# The compensated-gate target and the Newton controls mirror the fixture's own
+# validate_forces.py invocation (target_mu 15.04597065792631 eV, N0 216, guess 217).
+calculation:
+  type: constant_potential
+  init_structure: /home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-threads/STRU
+  directory: cp_threads
+  results_file: constant_potential_results.json
+  log_file: constant_potential.log
+  checkpoint_file: constant_potential_checkpoint.json
+  artifact_manifest: atst_artifacts.json
+
+runtime:
+  devices: [0]
+  binding: inherit
+  threads: auto
+  telemetry: true
+
+calculator:
+  name: abacus
+  abacus:
+    command: abacus
+    mpi: 1
+    directory: abacus_work
+    kpts: [1, 1, 1]
+    parameters:
+      calculation: scf
+      dft_functional: pbe
+      symmetry: 0
+      cal_force: 1
+      cal_stress: 0
+      ecutwfc: 100
+      scf_nmax: 200
+      scf_thr: 1e-9
+      basis_type: lcao
+      ks_solver: cusolver
+      nspin: 1
+      nbands: 130
+      smearing_method: gauss
+      smearing_sigma: 0.015
+      mixing_type: broyden
+      mixing_beta: 0.1
+      out_pot: 2
+      out_chg: "1 12"
+      gate_flag: 1
+      efield_dir: 0
+      zgate: 0.7
+      block_down: 0.65
+      block_up: 0.75
+      block_height: 0.01
+      block: 1
+      nelec: 217
+      efield_flag: 1
+      dip_cor_flag: 1
+      efield_pos_max: 0.8
+      efield_pos_dec: 0.1
+      efield_amp: 0
+      pseudo_dir: /home/galileo-group/galileouser02/atst-cp-runtime-20260921/data
+      orbital_dir: /home/galileo-group/galileouser02/atst-cp-runtime-20260921/data
+      pseudopotentials:
+        Pt: Pt_ONCV_PBE-1.0.upf
+      basissets:
+        Pt: Pt_gga_7au_100Ry_4s2p2d1f.orb
+  constant_potential:
+    energy_boundary: compensated_gate
+    reference_electrode: custom
+    reference_electrons: 216
+    target_mu_ev: 15.04597065792631
+    potential_tolerance_v: 1e-4
+    max_iterations: 12
+    capacitance_initial: 0.05
+    capacitance_unit: e/V
+    nelec_min: 216.5
+    nelec_max: 217.5
+    nelec_step_max: 0.1
+    vacuum_axis: 0

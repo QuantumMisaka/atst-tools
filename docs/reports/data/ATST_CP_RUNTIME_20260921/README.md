@@ -17,6 +17,7 @@ SAI `galileouser02` (job 1435012, 4V100, 1 GPU, plus the diagnostic job
 | `cases/<case>/config.yaml`, `fixture.json` | the exact staged case configuration and the materialized fixture hashes |
 | `staging/cases-cp.json`, `run-cp-joint.sbatch`, `config.negative.yaml`, `probe-omp.sbatch`, `probe_eval_omp.py` | staged manifest, acceptance job script, allocation-refusal negative config and the OMP diagnostic probe |
 | `slurm-1435012.out`, `slurm-1435134.out` | job logs (module list, job facts, the refusal message, the probe output) |
+| `reverify/**` | OMP fix re-verification (job 1436782, revision `5e26789`): the single-point case sidecar, CP result, harness report, the now-empty worker stderr, the record and the reduced manifest/config |
 
 ## Provenance
 
