@@ -61,8 +61,9 @@
 
 ## 4. 已知开放门（不属本分支完成范围）
 
-1. **P5（SAI V100 基准）尚未执行**：需维护者授权与 fixture/容差/预算裁决（计划 P5 提案表）；
-   登台包（wheel/tarball/git bundle/权重/fixtures/6-case 清单/手册）已备。
+1. **P5（SAI V100 基准）首轮已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4，
+   见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md)）；**剩余**：host/SIF 成对、
+   每卡 4 进程档、多卡 NEB 与 8-rank/1 卡压力行、ABACUS 候选点 ≥3 次重复。
 2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；远端推送仍待授权。

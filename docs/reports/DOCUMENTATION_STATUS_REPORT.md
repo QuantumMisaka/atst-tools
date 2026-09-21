@@ -102,6 +102,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（用户文档补全，§8 合并后收尾）：`CONFIG_REFERENCE` 的 telemetry 说明补上`telemetry.sampler.memory_peak_mib`（`sampled_peak` 标记）与 MPI `counters_mpi`；`FEATURE_STATUS_MATRIX` 的 Runtime 行修正阶段名（S5→P5）并注明已有本地真实 GPU 证据、SAI V100 身份验收待 P5；读者入口文档（README/index/examples README）保持只链接引用、不加受限词汇内容。
 
+- 2026-09-21（**P5 现场执行，首轮完成**）：维护者“开跑”后于 SAI `galileouser02` 完成双通道——① 冒烟三连（1430846 首跑失败→定位 Lmod/`set -u` 缺陷并修→1430966 通过→1431010 修复设备事实后通过）；② DP 矩阵 1431119（4 case × slots 1/2/3 × 3 repeats，12/12 全通过；makespan 16.1/16.6/16.8 s，卡时 29–30.8 s；sidecar 含设备事实、threads、计数器与 `counters_mpi=35`、显存峰值 480–3296 MiB、利用率 ≤13.6%）；③ ABACUS 通道 1431200（示例 06 relax 172.8/171.0 s、示例 01 NEB 747.3/777.4 s，4/4 通过；利用率 29.5–45.2%）。新增现场报告 `docs/reports/ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md`；站点问题与修复：Lmod 在 `set -u` 下静默失效（`set +u` 包裹 + mpi4py 校验）、Slurm 槽位限制 MPI（`--oversubscribe`/`--ntasks`）、`ATST_SOURCE_ROOT` 让记录带真实修订、未绑定运行设备事实修复（`4d77fee`）、ABACUS 示例相对路径→登台绝对路径副本。计划 P5 清单按证据更新（6 项完成、3 项部分：host/SIF 成对、每卡 4 进程、多卡 NEB）。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
@@ -219,6 +221,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | :--- | :--- |
 | `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` | 隔离运行路径在本地真实 GPU（RTX 2070 SUPER + DPA-3.1-3M）的 end-to-end 证据：设备请求/绑定、线程预算、DP 推理计数、宿主采样与 manifest 引用；SAI V100/ABACUS/MPI 仍属 P5。 |
 | `docs/reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md` | GPU 节点调优分支（`feature/gpu-node-tuning`，49 提交）审阅地图：提交分组、证据索引、开放门与复现命令；面向 reviewer 与后续合入/PR。 |
+| `docs/reports/ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md` | P5 现场验收（SAI 4V100）：冒烟三连、DP 矩阵（12/12）与 ABACUS 双示例（4/4）、站点问题与修复、证据清单与后续（host/SIF、多卡、每卡 4 进程）。 |
 | `docs/reports/DP_VALIDATION_2.0.0.md` | DP/DPA 示例级 SAI 验证和相关边界证据。 |
 | `docs/reports/DPA3_DP_EXAMPLES_VALIDATION_2026-05-28.md` | DPA-3.1 DP examples 全量 config_dp runtime 验证、模型来源和 checksum 证据。 |
 | `docs/reports/EXAMPLES_MAIN_BRANCH_COMPARISON_LTS3101_2026-05-19.md` | examples 与 main/LTS 3.10.1 对齐验证证据。 |
