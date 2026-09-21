@@ -1,0 +1,48 @@
+{
+  "artifact_manifest": "/work/case/atst_artifacts.json",
+  "artifacts": [
+    {
+      "path": "relax.traj",
+      "role": "trajectory"
+    },
+    {
+      "path": "relax.log",
+      "role": "log"
+    },
+    {
+      "path": "final_relaxed.traj",
+      "role": "final_structure"
+    }
+  ],
+  "is_root": true,
+  "metadata": {
+    "backend_source": "vendored",
+    "runtime_evidence": "runtime_evidence.json"
+  },
+  "runtime": {
+    "attempt": 1,
+    "devices": {
+      "allocation_identity": "unverified",
+      "binding": "inherit",
+      "bound": true,
+      "caller_bound": true,
+      "effective": [
+        "0"
+      ],
+      "inherited": [
+        "0"
+      ],
+      "requested": [
+        "0"
+      ],
+      "requested_source": "runtime.devices",
+      "threads": 8
+    },
+    "evidence": "runtime_evidence.json",
+    "status": "complete"
+  },
+  "schema": "atst-api-result-v1",
+  "status": "success",
+  "workdir": "/work/case",
+  "workflow": "relax"
+}

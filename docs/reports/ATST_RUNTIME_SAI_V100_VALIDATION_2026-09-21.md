@@ -258,6 +258,25 @@ pydantic 2.13.5 / mpi4py 在）；`/opt/apps` 绑定后容器内能看到 ABACUS
 `docs/reports/data/ATST_HOST_SIF_RECON_20260921/README.md`。host 侧该用例（示例 06 relax）本轮已多次跑通
 （§5d/§5g），**不是 atst 侧缺陷**。
 
+## 5j. host/SIF 成对完成（ABACUS 通道，2026-09-21，作业 1438496）
+
+同一 relax 用例（示例 06 H2-Au、`max_steps: 1`、`mpi: 1`、`omp: 8`）在同一 allocation 内跑两遍，
+两侧都用同一个 atst runner（`python -m atst_tools.api.runner`，SIF 侧用镜像自带 Python 3.12）：
+
+| pass | 运行时 | wall | 末能量 | sidecar |
+| --- | --- | --- | --- | --- |
+| host | module `abacus/LTSv3.10.1-sm70-auto` + venv Python 3.13 | 142 s | −239256.2707 eV | complete（1 build / 1 力调用 / OMP=8） |
+| SIF | `apptainer exec --nv -B /opt:/opt …`，镜像 Python 3.12.14 | 153 s | −239256.2707 eV | complete（同上） |
+
+**可用的 SIF 调用姿势**（本轮定位）：`-B /opt:/opt`（layer1 镜像自带提示）+ 用 `--env LD_LIBRARY_PATH=$LD_LIBRARY_PATH`
+补回被 Apptainer 清掉的宿主模块库路径 + GPU 节点上 `--nv` 提供 `libcuda.so.1`；再把检出绑到 `/work/atst`
+（`PYTHONPATH=/work/atst/src`）、用例目录绑到 `/work/case`，SIF 侧配置的 `command` 指向镜像自带的
+`/usr/local/bin/abacus`。SIF 通道里只有容器网络噪声（libibverbs 配置警告、UCX 回落 TCP）。
+
+**范围说明**：该 SIF 是 ABACUS toolbox 交付，**deepmd 不在其范围**（DP 通道走站点 module 环境，本项目全部 DP
+运行即如此）；因此本行是 ABACUS 通道成对，DP 若需容器对照属 DP 侧镜像。**P5 压力/收益矩阵至此全部完成。**
+证据切片 `docs/reports/data/ATST_HOST_SIF_PAIR_20260921/`。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：

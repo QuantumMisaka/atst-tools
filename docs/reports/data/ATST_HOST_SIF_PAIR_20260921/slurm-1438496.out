@@ -1,0 +1,11 @@
+job=1438496 host=4v100n05 CVD=0
+host LD_LIBRARY_PATH entries: 10
+=== Starting Relaxation with abacus ===
+=== Relaxation Finished. Final energy: -239256.2707 eV ===
+HOST_WALL_S=142
+libibverbs: Warning: couldn't open config directory '/etc/libibverbs.d'.
+[1790001266.574345] [4v100n05:3108558:0]     ucp_context.c:1321 UCX  WARN  network devices 'mlx5_0:1','mlx5_1:1' are not available, please use one or more of: 'enp21s0f0np0'(tcp), 'enxfee15fddb95d'(tcp), 'lo'(tcp)
+=== Starting Relaxation with abacus ===
+=== Relaxation Finished. Final energy: -239256.2707 eV ===
+SIF_WALL_S=153
+PAIR_DONE host=142s sif=153s
