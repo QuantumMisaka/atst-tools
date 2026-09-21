@@ -567,3 +567,21 @@ def test_evidence_payload_includes_process_counters(tmp_path):
     assert payload["counters_scope"] == "process"
     counters.reset()
     counters.set_enabled(False)
+
+
+def test_unbound_in_process_runs_record_the_literal_caller_mask():
+    """Without a coordinator the literal CUDA mask is still the inherited set."""
+    facts = runtime_evidence.device_facts(
+        None, {runtime_devices.CUDA_VISIBLE_DEVICES: "2,3", "OMP_NUM_THREADS": "4"}
+    )
+    assert facts["bound"] is False
+    assert facts["caller_bound"] is True
+    assert facts["inherited"] == ["2", "3"]
+    assert facts["effective"] == ["2", "3"]
+
+    empty = runtime_evidence.device_facts(
+        None, {runtime_devices.CUDA_VISIBLE_DEVICES: ""}
+    )
+    assert empty["caller_bound"] is False
+    assert empty["inherited"] == []
+    assert empty["effective"] == []

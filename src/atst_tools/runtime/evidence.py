@@ -171,13 +171,23 @@ def device_facts(
         raw_threads = environ.get("OMP_NUM_THREADS", "").strip()
         if raw_threads.isdigit():
             threads = int(raw_threads)
+    inherited = _split(environ.get(_devices.INHERITED_DEVICES_ENV))
+    effective = _split(environ.get(_devices.EFFECTIVE_DEVICES_ENV))
+    literal_mask = environ.get(_devices.CUDA_VISIBLE_DEVICES)
+    caller_bound = bool(literal_mask and literal_mask.strip())
+    if caller_bound and not inherited and not effective:
+        # Unbound in-process runs still know the caller's literal mask; the
+        # interface defines `inherited` as exactly that set, and since no
+        # rebinding happened the effective set equals it.
+        inherited = list(_split(literal_mask))
+        effective = list(inherited)
     return {
         "bound": environ.get(_devices.RUNTIME_BOUND_ENV) == "1",
         "requested": requested_tokens,
         "requested_source": requested_source,
-        "inherited": _split(environ.get(_devices.INHERITED_DEVICES_ENV)),
-        "effective": _split(environ.get(_devices.EFFECTIVE_DEVICES_ENV)),
-        "caller_bound": environ.get(_devices.CUDA_VISIBLE_DEVICES) is not None,
+        "inherited": inherited,
+        "effective": effective,
+        "caller_bound": caller_bound,
         "allocation_identity": _allocation_identity(environ),
         "binding": section.get("binding", "inherit"),
         "threads": threads,

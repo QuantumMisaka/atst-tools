@@ -38,6 +38,12 @@ DRY_RUN="${DRY_RUN:-0}"
 # SAI has python3 but no bare python; prefer an explicit interpreter (venv).
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python || command -v python3)}"
 
+# Optional: run from a source checkout so the benchmark record carries a real
+# git revision instead of null (a wheel install records no revision).
+if [ -n "${ATST_SOURCE_ROOT:-}" ] && [ -d "${ATST_SOURCE_ROOT}/src/atst_tools" ]; then
+  export PYTHONPATH="${ATST_SOURCE_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+fi
+
 # Site facts from the 2026-09-21 reconnaissance (plan P5 prep): Lmod lives under
 # /opt/modules/lmod/9.2.4 with modulefiles in /opt/modules/modulefiles/{devtools,apps};
 # there is no system conda. The DP runtime must be DPA4/SeZM-capable
