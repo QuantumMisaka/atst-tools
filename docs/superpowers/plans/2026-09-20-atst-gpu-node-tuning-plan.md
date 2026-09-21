@@ -215,4 +215,6 @@ atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线
 
 2026-09-21（P1–P5 预备，同一维护者）：P1–P4 已实施并以本地真实 GPU/MPI 证据闭合（验证报告 §4–§16；契约消息、验收表、`memory_peak_mib` 等冻结项经机械审计补齐）；P5 工具链（harness/sweep/record/一键 sbatch）与登台包（wheel/tarball/git bundle、6-case 清单、RUNBOOK、MANIFEST）就绪且逐件验证；**P5 执行待维护者授权与 fixture/容差/预算裁决**。恒电势共享文件顺序已确认（接口文档 §8/§8.2），合入仍由其 owner 决定；TF 制品与单头 EMA 缺失为已知开放项。
 
+2026-09-21（分支合入 main）：维护者指示不做 PR，`feature/gpu-node-tuning` 以 fast-forward 直接合入 `main` 并推送 `origin`；P5 首轮证据与契约修复随之进入主线。
+
 2026-09-21（恒电势合入与 GPU rebase）：恒电势开发者完成合入（atst `main` = `7bc3f92`+`d30747b`，父仓另有 `375ef7c6b`/`7e3009e32`；§8.1 两项门禁均已被其修复，main 单测 943 项 0 失败）。GPU 分支 rebase 到 main：61 提交全部重放、**零冲突**；新增 SPEC §7A 联合验收测试并全绿（合体树：单测 1091 项 0 失败、真实 MPI 集成 22 项、wheel 门通过）。登台件按新 HEAD 重导出。P5 仍待授权。

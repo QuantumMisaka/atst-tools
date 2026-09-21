@@ -12,7 +12,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 基线（写本文时） | `main` 已含恒电势合入 = `7bc3f92` + `d30747b`（原基线 `origin/main` = `2cf5b7e6`；SPEC §11 R1）；本分支已 rebase 于其之上，实时值以 `git log -1` / `git rev-list --count main..HEAD` 为准 |
+| 基线（写本文时） | `main` 已含恒电势合入 = `7bc3f92` + `d30747b`（原基线 `origin/main` = `2cf5b7e6`；SPEC §11 R1）；本分支已 rebase 于其之上，并于 2026-09-21 以 fast-forward **直接合入 `main`**（未建 PR）；实时值以 `git log -1` 为准 |
 | 分支头（写本文时） | `eb37c61`（49 提交）；后续新增契约审计与联合验收提交，提交数以 `git rev-list --count main..HEAD` 为准 |
 | 变更规模 | 52 文件，+9080 / −950（`git diff --stat 2cf5b7e..HEAD`） |
 | 规范源 | [SPEC](../superpowers/specs/2026-09-20-atst-gpu-node-tuning-design.md)（§11 Ruling）、[接口冻结](../superpowers/specs/2026-09-21-atst-runtime-interface-design.md)（rev.5）、[计划](../superpowers/plans/2026-09-20-atst-gpu-node-tuning-plan.md) |
