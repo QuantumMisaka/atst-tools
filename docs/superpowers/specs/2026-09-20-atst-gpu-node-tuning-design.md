@@ -259,7 +259,7 @@ DP fixture 建议两层：atst 已有 `examples/dp_model_manifest.json` 的通�
 ### 11.1 迁移与 pin 对照
 
 - 本 SPEC 与 [PLAN](../plans/2026-09-20-atst-gpu-node-tuning-plan.md) 于 2026-09-21 迁入 atst-tools 规范源并登记文档账本；P0 接口冻结文档为 [2026-09-21 atst runtime 接口冻结设计](2026-09-21-atst-runtime-interface-design.md)。
-- 2026-09-21 实测各树 atst pin（同源仓库，仅 checkout 不同）：
+- 2026-09-21 实测各树 atst pin（同源仓库，仅 checkout 不同；当日 09:50 复核：7 棵树全部与表一致、无漂移）：
 
 | 树 | 分支/HEAD | atst pin | 盘面 |
 | --- | --- | --- | --- |
