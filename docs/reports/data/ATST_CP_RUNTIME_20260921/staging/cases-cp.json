@@ -1,0 +1,23 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "defaults": {
+    "threads": 8,
+    "timeout_s": 3600
+  },
+  "cases": [
+    {
+      "case_id": "cp-gate-single",
+      "config": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-single/config.yaml",
+      "slots": 1,
+      "threads": 8,
+      "timeout_s": 3600
+    },
+    {
+      "case_id": "cp-gate-scan",
+      "config": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/config.yaml",
+      "slots": 1,
+      "threads": 8,
+      "timeout_s": 5400
+    }
+  ]
+}

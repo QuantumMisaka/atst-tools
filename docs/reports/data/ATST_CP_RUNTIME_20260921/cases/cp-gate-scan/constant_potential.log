@@ -1,0 +1,4 @@
+constant_potential	index	target_mu_ev	nelec	mu_calc	residual_mu_eV	converged
+constant_potential	0	15	216.997719429	15.0000000276	2.76107918751e-08	True
+constant_potential	1	15.0459706579	217	15.0459706704	1.24862413742e-08	True
+constant_potential	2	15.1	217.002680515	15.1000000222	2.21573017711e-08	True

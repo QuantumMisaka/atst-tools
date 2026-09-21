@@ -1,0 +1,21 @@
+
+The following have been reloaded with a version change:
+  1) nvhpc/26.3-gnu-cuda12-tuned => nvhpc/25.7-gnu-tuned
+  2) openmpi/5.0.10-nvhpc26.3-gnu-cuda12-auto => openmpi/5.0.8-nvhpc25.7-gnu-auto
+
+
+Currently Loaded Modules:
+  1) deepmd-kit/3.2.0       6) openmpi/5.0.8-nvhpc25.7-gnu-auto
+  2) fftw/3.3.10            7) saiblas/2509-gnu-auto
+  3) libxc/7.0.0-auto       8) elpa/2025.06.001-2509-gnu-sm70-auto
+  4) cuda/12.9.1            9) abacus/LTSv3.10.1-sm70-auto
+  5) nvhpc/25.7-gnu-tuned
+
+job=1435012 host=4v100n06.mr-sai.ai node=4v100n06
+CVD=0 ntasks=1 cpus_per_task=?
+atst_src=/home/galileo-group/galileouser02/atst-p5-20260921/atst-tools python=/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python
+{"cases_total": 2, "failed": 0, "skipped": 0, "succeeded": 2, "timed_out": 0, "wall_s": 421.528}
+wrote benchmark record: /org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/bench_record.json
+--- negative check: runtime.devices [1] in a 1-GPU allocation ---
+device index 1 is outside the inherited visible set (size 1)
+negative check passed: the launcher refused the out-of-allocation device

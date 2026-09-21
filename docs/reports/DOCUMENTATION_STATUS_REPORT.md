@@ -116,6 +116,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（修复后现场复验）：SAI 重跑此前挂起的 `mpiexec -n 4 + round_robin` 四卡用例（1434302）——22 s 完成、1/1 ×2，rank0 `bound=true`/`effective=['0']`/`world_size=4`、`counters_mpi` Σ38 次力调用；P1-2（runner MPI 初始化顺序）与 P1-1（allocation 约束）在站点闭环。修复提交 `0668d61` 已推送并 fast-forward 合入 `main`。
 
+- 2026-09-21（**恒电势 × runtime 真机组合验收**）：按维护者授权在 SAI 4V100 执行作业 1435012——`constant_potential` + `compensated_gate` 单点与三点扫描两用例 2/2 通过（wall 421.5 s、0.118 GPU·h，证据 sidecar 完整、清单引用、记录含 `e0abb71` 修订与操作者字段），并附分配外设备负例被拒（`device index 1 is outside the inherited visible set (size 1)`）。用例配置由 fixture 自带的 `validate_forces.py` 参数派生（目标 μ 15.04597065792631 eV、N0 216、初值 217），未自造标定。新增报告 `docs/reports/ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md` 与证据切片 `docs/reports/data/ATST_CP_RUNTIME_20260921/`（19 项：harness 汇总/记录、两例 case 报告与 worker 日志、sidecar、CP 产物、staging 与作业脚本、两个 job 日志）。**副产品 P2 缺陷**：`utils/config_schema.py:1020` 的 `omp: Field(default=1)` 使 `runtime.threads` 对 ABACUS 后端失效（sidecar `runtime_threads_overridden=1`、`runtime_threads_effective=1.0`；本地复现归因），已记入审阅地图 §4 第 3 项，待裁定后修复。
 - 2026-09-21（复核方复验 + 成熟度/治理核对）：复核方对第三轮修复复验通过后，维护者做三项独立核对——① 格式与导入卫生按仓内 pin 的 black 23.9.1 / isort 5.12.0 归一（本分支新增模块与测试共 18 文件、5 处未用导入；AST 比对确认除被删导入外无行为变化），并在 `examples/README.md` 补登 `runtime_batch_cases.example.json` 模板（`5346fa9`）；② 路径引用审计：`src/`、`tests/`、`examples/`、`scripts/` 对本机与站点绝对路径零命中，`docs/` 命中只出现在运行记录与归档证据中（与该仓既有 `docs/reports/data/**`、`docs/superpowers/**` 做法一致）；③ 仓级建议（未改代码）：`.pre-commit-config.yaml` 的 isort 缺 `--profile black`、与 black 88 列不一致，故 pre-commit 在本仓无法整体全绿，属仓库级配置缺口。门禁复测：unit 1097 passed / 2 skipped、integration 23 passed、`check_docs_governance.py` 通过、`verify_wheel_api.py --mpi-smoke` 通过。成熟度结论：主体功能与双后端实测证据完整，**仍不按“开发完成/可验收关闭”处理**，开放项见审阅地图 §4。
 
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
@@ -235,6 +236,7 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 | :--- | :--- |
 | `docs/reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md` | 隔离运行路径在本地真实 GPU（RTX 2070 SUPER + DPA-3.1-3M）的 end-to-end 证据：设备请求/绑定、线程预算、DP 推理计数、宿主采样与 manifest 引用；SAI V100/ABACUS/MPI 仍属 P5。 |
 | `docs/reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md` | GPU 节点调优分支审阅地图（已 fast-forward 合入 `main`）：提交分组、证据索引、开放门与复现命令，含第三轮外部审查/第四轮复验与治理核对的留痕。 |
+| `docs/reports/ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md` | 恒电势 × runtime 真机联合验收（SAI 1435012）：两用例 2/2、分配外设备负例被拒、证据与记录索引，以及 ABACUS `omp` 默认值使 `runtime.threads` 失效的 P2 发现。 |
 | `docs/reports/ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md` | P5 现场验收（SAI 4V100）：冒烟三连、DP 矩阵（12/12）与 ABACUS 双示例（4/4）、站点问题与修复、证据清单与后续（host/SIF、多卡、每卡 4 进程）。 |
 | `docs/reports/DP_VALIDATION_2.0.0.md` | DP/DPA 示例级 SAI 验证和相关边界证据。 |
 | `docs/reports/DPA3_DP_EXAMPLES_VALIDATION_2026-05-28.md` | DPA-3.1 DP examples 全量 config_dp runtime 验证、模型来源和 checksum 证据。 |

@@ -19,7 +19,7 @@
 | 主要证据 | [P0 复核](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)；[本地 GPU 验证报告](ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md) §4–§16 |
 | 账本 | [DOCUMENTATION_STATUS_REPORT.md](DOCUMENTATION_STATUS_REPORT.md)（每次变更登记） |
 
-门禁现状（2026-09-21 对 `5346fa9` 复测）：`tests/unit` **1097 passed / 2 documented skips**
+门禁现状（2026-09-21 对 `e0abb71` 复测）：`tests/unit` **1097 passed / 2 documented skips**
 （共 1099 项收集）；`ATST_RUN_MPI_TESTS=1 tests/integration` **23 passed**（真实 MPI）；
 `scripts/verify_wheel_api.py --mpi-smoke` 通过；
 `scripts/check_docs_governance.py` 通过。复现命令见 §5。
@@ -58,6 +58,7 @@
 | FT²DP（DPA4/SeZM）接入 | 报告 §13、§16；接口冻结 §7.1 |
 | NEB 图数 × rank 数压力边界 | 报告 §15（单卡 4/8 rank 为 4.1×/7.7× 负收益） |
 | SAI 环境勘察与 P5 登台 | 计划 P5 预备段；`~/scratch/atst-p5-staging-20260921/RUNBOOK.md` |
+| 恒电势 × runtime 真机组合 | [联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)（SAI 1435012，2/2 + 负例）与 [证据切片](data/ATST_CP_RUNTIME_20260921/README.md) |
 
 **第三轮外部审查（2026-09-21，对 `f03b3e6`）**：8 项（P1×4、P2×4）已全部复现并修复，逐条处置见接口文档 §7.3；修复提交随后按"直接合入 main"惯例落地。
 
@@ -77,8 +78,10 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
 2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
-3. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
-4. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
+   **运行组合验收已完成**（2026-09-21：SAI 1435012，`compensated_gate` 单点 + 三点扫描 2/2、分配外设备负例被拒；见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)）。
+3. **`calculator.abacus.omp` 默认值 1 使 `runtime.threads` 失效**（联合验收发现，P2）：`utils/config_schema.py:1020` 的 `Field(default=1)` 让归一化后的配置恒带显式 omp，`_effective_omp` 因而始终走「显式优先」分支（站点 sidecar 记 `runtime_threads_overridden=1`、`runtime_threads_effective=1.0`）。建议改为 `None` 默认并由 `resolve_calculator_omp` 写 legacy 1；待裁定后修复并补回归。
+4. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
+5. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。
 
 ## 5. 复现命令

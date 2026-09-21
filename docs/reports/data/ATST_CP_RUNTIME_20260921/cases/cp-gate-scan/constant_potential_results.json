@@ -1,0 +1,1416 @@
+{
+  "analysis": {
+    "area_A2": 26.660467844420467,
+    "capacitance": 0.0018608414242757278,
+    "capacitance_uF_cm2": 2.9813966495538513,
+    "capacitance_unit": "e^2/(eV Angstrom^2)",
+    "coordinate": "target_mu_ev",
+    "coordinate_unit": "eV",
+    "fit": {
+      "intercept_e": 0.25355585843475836,
+      "mu_max_ev": 15.1,
+      "mu_min_ev": 15.0,
+      "rss_e2": 3.5138852763279476e-15,
+      "slope_e2_per_ev": 0.049610902955468626
+    },
+    "identifiable": false,
+    "interface_count": 1,
+    "point_count": 3,
+    "pzc_status": "zero-charge-crossing-not-bracketed",
+    "pzc_v": null,
+    "reference_electrons": 216.0,
+    "target_field": "target_mu_ev",
+    "zero_charge_mu_ev": null
+  },
+  "calculator_identity": {
+    "boundary_parameters": {
+      "block": 1,
+      "block_down": 0.65,
+      "block_height": 0.01,
+      "block_up": 0.75,
+      "cal_force": 1,
+      "dip_cor_flag": 1,
+      "efield_amp": 0,
+      "efield_dir": 0,
+      "efield_flag": 1,
+      "efield_pos_dec": 0.1,
+      "efield_pos_max": 0.8,
+      "gate_flag": 1,
+      "nspin": 1,
+      "out_chg": "1 12",
+      "out_pot": 2,
+      "zgate": 0.7
+    },
+    "calculator": "constant_potential",
+    "energy_boundary": "compensated_gate",
+    "energy_definition": "omega_compensated_gate",
+    "fixed_hamiltonian": {
+      "assets": {
+        "kpoints": {
+          "specification": [
+            1,
+            1,
+            1
+          ]
+        },
+        "orbitals": [
+          {
+            "kind": "orbital",
+            "provenance": {
+              "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+              "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb"
+            },
+            "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+            "species": "Pt"
+          }
+        ],
+        "pseudopotentials": [
+          {
+            "kind": "pseudopotential",
+            "provenance": {
+              "configured_name": "Pt_ONCV_PBE-1.0.upf",
+              "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf"
+            },
+            "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+            "species": "Pt"
+          }
+        ]
+      },
+      "boundary_parameters": {
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "cal_force": 1,
+        "dip_cor_flag": 1,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "zgate": 0.7
+      },
+      "parameters": {
+        "basis_type": "lcao",
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "cal_force": 1,
+        "cal_stress": 0,
+        "calculation": "scf",
+        "dft_functional": "pbe",
+        "dip_cor_flag": 1,
+        "ecutwfc": 100,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "kpts": [
+          1,
+          1,
+          1
+        ],
+        "ks_solver": "cusolver",
+        "mixing_beta": 0.1,
+        "mixing_type": "broyden",
+        "nbands": 130,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "scf_nmax": 200,
+        "scf_thr": 1e-09,
+        "smearing_method": "gauss",
+        "smearing_sigma": 0.015,
+        "symmetry": 0,
+        "zgate": 0.7
+      }
+    },
+    "potential_v": null,
+    "reference_electrode": "custom",
+    "reference_electrons": 216.0,
+    "reference_pH": null,
+    "target_mu_ev": 15.1,
+    "temperature_K": null,
+    "work_ref": null,
+    "work_ref_source": null
+  },
+  "energy_boundary": "compensated_gate",
+  "points": [
+    {
+      "boundary_parameters": {
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "dip_cor_flag": 1,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "zgate": 0.7
+      },
+      "compensation": {
+        "boundary": "compensated_gate",
+        "compensation_derivative_ev": 5.683994559810792,
+        "density_electron_error": 3.126388037344441e-12,
+        "density_electron_tolerance": 6.08058054173659e-08,
+        "density_precision": 12,
+        "dipole_derivative_ev": 7.181435060655671,
+        "gate_derivative_ev": -1.497440500844879,
+        "integrated_electrons": 216.99771942889203,
+        "ionic_valence_electrons": 216.0,
+        "total_dipole_ry_au": 0.019951053576846352
+      },
+      "cp_converged": true,
+      "cp_history": [
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 216.99770146729014,
+          "candidate_unbounded": 216.99770146729014,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.719976215997396,
+            "density_electron_error": -3.410605131648481e-13,
+            "density_electron_tolerance": 6.080644446538567e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.197912618532492,
+            "gate_derivative_ev": -1.4779364025350965,
+            "integrated_electrons": 216.99999999999966,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019996830588994957
+          },
+          "converged": false,
+          "delta_nelec": 1.0,
+          "derivative_eV_per_e": 20.0,
+          "derivative_source": "initial_capacitance",
+          "directory": "cp_scan/point_0000_15/batch_0001/evaluation_0001",
+          "efermi": 9.3259944382,
+          "energy": -39582.3380830405,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 1,
+          "fermishift": null,
+          "fit_degree": null,
+          "fit_rss_eV2": null,
+          "fit_status": "not_attempted",
+          "free_energy": -39582.3380830405,
+          "mu_calc": 15.045970654197397,
+          "mu_target": 15.0,
+          "nelec": 217.0,
+          "omega_correction": -15.0,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3380830405,
+          "raw_free_energy": -39567.3380830405,
+          "reference_electrons": 216.0,
+          "residual_mu": 0.04597065419739721,
+          "residual_v": 0.04597065419739721,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 216.9977194288889,
+          "candidate_unbounded": 216.9977194288889,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.683711141542171,
+            "density_electron_error": -8.640199666842818e-12,
+            "density_electron_tolerance": 6.080580038427149e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.181305263312819,
+            "gate_derivative_ev": -1.4975941217706477,
+            "integrated_electrons": 216.9977014672815,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019950692981266286
+          },
+          "converged": false,
+          "delta_nelec": 0.9977014672901419,
+          "derivative_eV_per_e": 20.157518427996735,
+          "derivative_source": "chebyshev_forward_difference",
+          "directory": "cp_scan/point_0000_15/batch_0001/evaluation_0002",
+          "efermi": 9.3159267972,
+          "energy": -39582.338135461956,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 2,
+          "fermishift": null,
+          "fit_degree": 1,
+          "fit_rss_eV2": 0.0,
+          "fit_status": "accepted",
+          "free_energy": -39582.338135461956,
+          "mu_calc": 14.99963793874217,
+          "mu_target": 15.0,
+          "nelec": 216.99770146729014,
+          "omega_correction": -14.965522009352128,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3726134526,
+          "raw_free_energy": -39567.3726134526,
+          "reference_electrons": 216.0,
+          "residual_mu": -0.0003620612578298932,
+          "residual_v": -0.0003620612578298932,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.683994559810792,
+            "density_electron_error": 3.126388037344441e-12,
+            "density_electron_tolerance": 6.08058054173659e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.181435060655671,
+            "gate_derivative_ev": -1.497440500844879,
+            "integrated_electrons": 216.99771942889203,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019951053576846352
+          },
+          "converged": true,
+          "delta_nelec": 0.9977194288888995,
+          "directory": "cp_scan/point_0000_15/batch_0001/evaluation_0003",
+          "efermi": 9.3160054678,
+          "energy": -39582.338135461134,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 3,
+          "fermishift": null,
+          "free_energy": -39582.338135461134,
+          "mu_calc": 15.000000027610792,
+          "mu_target": 15.0,
+          "nelec": 216.9977194288889,
+          "omega_correction": -14.965791433333493,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3723440278,
+          "raw_free_energy": -39567.3723440278,
+          "reference_electrons": 216.0,
+          "residual_mu": 2.7610791875076757e-08,
+          "residual_v": 2.7610791875076757e-08,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        }
+      ],
+      "cp_identity": {
+        "boundary_parameters": {
+          "block": 1,
+          "block_down": 0.65,
+          "block_height": 0.01,
+          "block_up": 0.75,
+          "cal_force": 1,
+          "dip_cor_flag": 1,
+          "efield_amp": 0,
+          "efield_dir": 0,
+          "efield_flag": 1,
+          "efield_pos_dec": 0.1,
+          "efield_pos_max": 0.8,
+          "gate_flag": 1,
+          "nspin": 1,
+          "out_chg": "1 12",
+          "out_pot": 2,
+          "zgate": 0.7
+        },
+        "calculator": "constant_potential",
+        "energy_boundary": "compensated_gate",
+        "energy_definition": "omega_compensated_gate",
+        "fixed_hamiltonian": {
+          "assets": {
+            "kpoints": {
+              "specification": [
+                1,
+                1,
+                1
+              ]
+            },
+            "orbitals": [
+              {
+                "kind": "orbital",
+                "provenance": {
+                  "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb"
+                },
+                "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+                "species": "Pt"
+              }
+            ],
+            "pseudopotentials": [
+              {
+                "kind": "pseudopotential",
+                "provenance": {
+                  "configured_name": "Pt_ONCV_PBE-1.0.upf",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf"
+                },
+                "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+                "species": "Pt"
+              }
+            ]
+          },
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "parameters": {
+            "basis_type": "lcao",
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "cal_stress": 0,
+            "calculation": "scf",
+            "dft_functional": "pbe",
+            "dip_cor_flag": 1,
+            "ecutwfc": 100,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "kpts": [
+              1,
+              1,
+              1
+            ],
+            "ks_solver": "cusolver",
+            "mixing_beta": 0.1,
+            "mixing_type": "broyden",
+            "nbands": 130,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "scf_nmax": 200,
+            "scf_thr": 1e-09,
+            "smearing_method": "gauss",
+            "smearing_sigma": 0.015,
+            "symmetry": 0,
+            "zgate": 0.7
+          }
+        },
+        "potential_v": null,
+        "reference_electrode": "custom",
+        "reference_electrons": 216.0,
+        "reference_pH": null,
+        "target_mu_ev": 15.0,
+        "temperature_K": null,
+        "work_ref": null,
+        "work_ref_source": null
+      },
+      "cp_iterations": 3,
+      "delta_nelec": 0.9977194288888995,
+      "efermi": 9.3160054678,
+      "energy": -39582.338135461134,
+      "energy_boundary": "compensated_gate",
+      "fermishift": null,
+      "forces": [
+        [
+          -0.7460072794,
+          8.9713e-06,
+          1.83992e-05
+        ],
+        [
+          -0.7459964236,
+          2.17178e-05,
+          -1.93147e-05
+        ],
+        [
+          -0.7459927948,
+          -1.86644e-05,
+          2.14415e-05
+        ],
+        [
+          -0.7459817891,
+          -1.11427e-05,
+          -2.3085e-05
+        ],
+        [
+          -0.062057266,
+          6.6205e-06,
+          -6.3751e-06
+        ],
+        [
+          -0.0620711283,
+          1.15502e-05,
+          2.45144e-05
+        ],
+        [
+          -0.0620618206,
+          -1.40579e-05,
+          -2.16572e-05
+        ],
+        [
+          -0.0620748242,
+          -8.3059e-06,
+          9.448e-06
+        ],
+        [
+          1.653256982,
+          -1.76912e-05,
+          1.01276e-05
+        ],
+        [
+          1.6532676925,
+          -1.64227e-05,
+          -2.73363e-05
+        ],
+        [
+          1.6532716253,
+          1.79191e-05,
+          2.51794e-05
+        ],
+        [
+          1.6532824988,
+          1.92411e-05,
+          -1.16795e-05
+        ]
+      ],
+      "free_energy": -39582.338135461134,
+      "index": 0,
+      "mu_calc": 15.000000027610792,
+      "mu_target": 15.0,
+      "nelec": 216.9977194288889,
+      "omega_correction": -14.965791433333493,
+      "point_artifact": "cp_scan/point_0000_15/result.json",
+      "potential_calc": null,
+      "potential_target": null,
+      "profile_status": "compensated_gate_pending_scientific_acceptance",
+      "raw_energy": -39567.3723440278,
+      "raw_free_energy": -39567.3723440278,
+      "reference_electrons": 216.0,
+      "residual_mu": 2.7610791875076757e-08,
+      "residual_mu_eV": 2.7610791875076757e-08,
+      "residual_v": 2.7610791875076757e-08,
+      "scf_converged": true,
+      "structure": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/STRU",
+      "target_mu_ev": 15.0,
+      "vacuum_level": null
+    },
+    {
+      "boundary_parameters": {
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "dip_cor_flag": 1,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "zgate": 0.7
+      },
+      "compensation": {
+        "boundary": "compensated_gate",
+        "compensation_derivative_ev": 5.71997622901255,
+        "density_electron_error": -5.030642569181509e-12,
+        "density_electron_tolerance": 6.080644446546155e-08,
+        "density_precision": 12,
+        "dipole_derivative_ev": 7.197912625842822,
+        "gate_derivative_ev": -1.477936396830272,
+        "integrated_electrons": 217.00000000026293,
+        "ionic_valence_electrons": 216.0,
+        "total_dipole_ry_au": 0.019996830609304097
+      },
+      "cp_converged": true,
+      "cp_history": [
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 217.00001796186083,
+          "candidate_unbounded": 217.00001796186083,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.683994539387401,
+            "density_electron_error": -2.8705926524708048e-12,
+            "density_electron_tolerance": 6.08058054173639e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.181435051221315,
+            "gate_derivative_ev": -1.4974405118339138,
+            "integrated_electrons": 216.99771942888603,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.01995105355063636
+          },
+          "converged": false,
+          "delta_nelec": 0.9977194288888995,
+          "derivative_eV_per_e": 20.0,
+          "derivative_source": "initial_capacitance",
+          "directory": "cp_scan/point_0001_15d0459706579/batch_0001/evaluation_0001",
+          "efermi": 9.3160054591,
+          "energy": -39582.3840012759,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 1,
+          "fermishift": null,
+          "fit_degree": null,
+          "fit_rss_eV2": null,
+          "fit_status": "not_attempted",
+          "free_energy": -39582.3840012759,
+          "mu_calc": 14.9999999984874,
+          "mu_target": 15.04597065792631,
+          "nelec": 216.9977194288889,
+          "omega_correction": -15.011657251905378,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.372344024,
+          "raw_free_energy": -39567.372344024,
+          "reference_electrons": 216.0,
+          "residual_mu": -0.04597065943890932,
+          "residual_v": -0.04597065943890932,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 217.00000000026796,
+          "candidate_unbounded": 217.00000000026796,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.7202595971645405,
+            "density_electron_error": -3.495870259939693e-12,
+            "density_electron_tolerance": 6.080644949854965e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.198042385998575,
+            "gate_derivative_ev": -1.4777827888340345,
+            "integrated_electrons": 217.00001796185734,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019997191101573077
+          },
+          "converged": false,
+          "delta_nelec": 1.0000179618608342,
+          "derivative_eV_per_e": 20.157518363976834,
+          "derivative_source": "chebyshev_forward_difference",
+          "directory": "cp_scan/point_0001_15d0459706579/batch_0001/evaluation_0002",
+          "efermi": 9.3260731219,
+          "energy": -39582.38405367986,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 2,
+          "fermishift": null,
+          "fit_degree": 1,
+          "fit_rss_eV2": 0.0,
+          "fit_status": "accepted",
+          "free_energy": -39582.38405367986,
+          "mu_calc": 15.04633271906454,
+          "mu_target": 15.04597065792631,
+          "nelec": 217.00001796186083,
+          "omega_correction": -15.046240911557383,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3378127683,
+          "raw_free_energy": -39567.3378127683,
+          "reference_electrons": 216.0,
+          "residual_mu": 0.0003620611382313399,
+          "residual_v": 0.0003620611382313399,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.71997622901255,
+            "density_electron_error": -5.030642569181509e-12,
+            "density_electron_tolerance": 6.080644446546155e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.197912625842822,
+            "gate_derivative_ev": -1.477936396830272,
+            "integrated_electrons": 217.00000000026293,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019996830609304097
+          },
+          "converged": true,
+          "delta_nelec": 1.0000000002679599,
+          "directory": "cp_scan/point_0001_15d0459706579/batch_0001/evaluation_0003",
+          "efermi": 9.3259944414,
+          "energy": -39582.38405369986,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 3,
+          "fermishift": null,
+          "free_energy": -39582.38405369986,
+          "mu_calc": 15.04597067041255,
+          "mu_target": 15.04597065792631,
+          "nelec": 217.00000000026796,
+          "omega_correction": -15.045970661958027,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3380830379,
+          "raw_free_energy": -39567.3380830379,
+          "reference_electrons": 216.0,
+          "residual_mu": 1.2486241374176643e-08,
+          "residual_v": 1.2486241374176643e-08,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        }
+      ],
+      "cp_identity": {
+        "boundary_parameters": {
+          "block": 1,
+          "block_down": 0.65,
+          "block_height": 0.01,
+          "block_up": 0.75,
+          "cal_force": 1,
+          "dip_cor_flag": 1,
+          "efield_amp": 0,
+          "efield_dir": 0,
+          "efield_flag": 1,
+          "efield_pos_dec": 0.1,
+          "efield_pos_max": 0.8,
+          "gate_flag": 1,
+          "nspin": 1,
+          "out_chg": "1 12",
+          "out_pot": 2,
+          "zgate": 0.7
+        },
+        "calculator": "constant_potential",
+        "energy_boundary": "compensated_gate",
+        "energy_definition": "omega_compensated_gate",
+        "fixed_hamiltonian": {
+          "assets": {
+            "kpoints": {
+              "specification": [
+                1,
+                1,
+                1
+              ]
+            },
+            "orbitals": [
+              {
+                "kind": "orbital",
+                "provenance": {
+                  "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb"
+                },
+                "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+                "species": "Pt"
+              }
+            ],
+            "pseudopotentials": [
+              {
+                "kind": "pseudopotential",
+                "provenance": {
+                  "configured_name": "Pt_ONCV_PBE-1.0.upf",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf"
+                },
+                "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+                "species": "Pt"
+              }
+            ]
+          },
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "parameters": {
+            "basis_type": "lcao",
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "cal_stress": 0,
+            "calculation": "scf",
+            "dft_functional": "pbe",
+            "dip_cor_flag": 1,
+            "ecutwfc": 100,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "kpts": [
+              1,
+              1,
+              1
+            ],
+            "ks_solver": "cusolver",
+            "mixing_beta": 0.1,
+            "mixing_type": "broyden",
+            "nbands": 130,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "scf_nmax": 200,
+            "scf_thr": 1e-09,
+            "smearing_method": "gauss",
+            "smearing_sigma": 0.015,
+            "symmetry": 0,
+            "zgate": 0.7
+          }
+        },
+        "potential_v": null,
+        "reference_electrode": "custom",
+        "reference_electrons": 216.0,
+        "reference_pH": null,
+        "target_mu_ev": 15.04597065792631,
+        "temperature_K": null,
+        "work_ref": null,
+        "work_ref_source": null
+      },
+      "cp_iterations": 3,
+      "delta_nelec": 1.0000000002679599,
+      "efermi": 9.3259944414,
+      "energy": -39582.38405369986,
+      "energy_boundary": "compensated_gate",
+      "fermishift": null,
+      "forces": [
+        [
+          -0.7459465231,
+          8.9884e-06,
+          1.84028e-05
+        ],
+        [
+          -0.7459356977,
+          2.16989e-05,
+          -1.93664e-05
+        ],
+        [
+          -0.7459320683,
+          -1.86216e-05,
+          2.14816e-05
+        ],
+        [
+          -0.7459210831,
+          -1.11877e-05,
+          -2.30709e-05
+        ],
+        [
+          -0.062104861,
+          6.5676e-06,
+          -6.3374e-06
+        ],
+        [
+          -0.0621186902,
+          1.16107e-05,
+          2.46007e-05
+        ],
+        [
+          -0.0621093719,
+          -1.40933e-05,
+          -2.17625e-05
+        ],
+        [
+          -0.0621223186,
+          -8.2698e-06,
+          9.4161e-06
+        ],
+        [
+          1.6571445091,
+          -1.77057e-05,
+          1.01207e-05
+        ],
+        [
+          1.6571552612,
+          -1.64139e-05,
+          -2.72999e-05
+        ],
+        [
+          1.6571591823,
+          1.78783e-05,
+          2.51634e-05
+        ],
+        [
+          1.6571700724,
+          1.92832e-05,
+          -1.16868e-05
+        ]
+      ],
+      "free_energy": -39582.38405369986,
+      "index": 1,
+      "mu_calc": 15.04597067041255,
+      "mu_target": 15.04597065792631,
+      "nelec": 217.00000000026796,
+      "omega_correction": -15.045970661958027,
+      "point_artifact": "cp_scan/point_0001_15d0459706579/result.json",
+      "potential_calc": null,
+      "potential_target": null,
+      "profile_status": "compensated_gate_pending_scientific_acceptance",
+      "raw_energy": -39567.3380830379,
+      "raw_free_energy": -39567.3380830379,
+      "reference_electrons": 216.0,
+      "residual_mu": 1.2486241374176643e-08,
+      "residual_mu_eV": 1.2486241374176643e-08,
+      "residual_v": 1.2486241374176643e-08,
+      "scf_converged": true,
+      "structure": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/STRU",
+      "target_mu_ev": 15.04597065792631,
+      "vacuum_level": null
+    },
+    {
+      "boundary_parameters": {
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "dip_cor_flag": 1,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "zgate": 0.7
+      },
+      "compensation": {
+        "boundary": "compensated_gate",
+        "compensation_derivative_ev": 5.762264153957302,
+        "density_electron_error": 1.2732925824820995e-11,
+        "density_electron_tolerance": 6.080719558338034e-08,
+        "density_precision": 12,
+        "dipole_derivative_ev": 7.217277224692623,
+        "gate_derivative_ev": -1.4550130707353204,
+        "integrated_electrons": 217.00268051530097,
+        "ionic_valence_electrons": 216.0,
+        "total_dipole_ry_au": 0.020050628234135816
+      },
+      "cp_converged": true,
+      "cp_history": [
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 217.00270146680498,
+          "candidate_unbounded": 217.00270146680498,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.719976228159783,
+            "density_electron_error": -5.059064278611913e-12,
+            "density_electron_tolerance": 6.080644446546144e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.197912625410948,
+            "gate_derivative_ev": -1.477936397251165,
+            "integrated_electrons": 217.0000000002629,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.01999683060810429
+          },
+          "converged": false,
+          "delta_nelec": 1.0000000002679599,
+          "derivative_eV_per_e": 20.0,
+          "derivative_source": "initial_capacitance",
+          "directory": "cp_scan/point_0002_15d1/batch_0001/evaluation_0001",
+          "efermi": 9.3259944411,
+          "energy": -39582.43808303574,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 1,
+          "fermishift": null,
+          "fit_degree": null,
+          "fit_rss_eV2": null,
+          "fit_status": "not_attempted",
+          "free_energy": -39582.43808303574,
+          "mu_calc": 15.045970669259784,
+          "mu_target": 15.1,
+          "nelec": 217.00000000026796,
+          "omega_correction": -15.100000004046194,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3380830317,
+          "raw_free_energy": -39567.3380830317,
+          "reference_electrons": 216.0,
+          "residual_mu": -0.05402933074021554,
+          "residual_v": -0.05402933074021554,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "candidate_nelec": 217.00268051528823,
+          "candidate_unbounded": 217.00268051528823,
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.762594669071731,
+            "density_electron_error": 1.1539214028744027e-11,
+            "density_electron_tolerance": 6.080720145428854e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.217428576368536,
+            "gate_derivative_ev": -1.4548339072968042,
+            "integrated_electrons": 217.00270146681652,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.020051048710735493
+          },
+          "converged": false,
+          "delta_nelec": 1.0027014668049787,
+          "derivative_eV_per_e": 20.1563245651748,
+          "derivative_source": "chebyshev_forward_difference",
+          "directory": "cp_scan/point_0002_15d1/batch_0001/evaluation_0002",
+          "efermi": 9.3378276365,
+          "energy": -39582.43815543105,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 2,
+          "fermishift": null,
+          "fit_degree": 1,
+          "fit_rss_eV2": 0.0,
+          "fit_status": "accepted",
+          "free_energy": -39582.43815543105,
+          "mu_calc": 15.100422305571731,
+          "mu_target": 15.1,
+          "nelec": 217.00270146680498,
+          "omega_correction": -15.140792148755178,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.2973632823,
+          "raw_free_energy": -39567.2973632823,
+          "reference_electrons": 216.0,
+          "residual_mu": 0.00042230557173184025,
+          "residual_v": 0.00042230557173184025,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        },
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.762264153957302,
+            "density_electron_error": 1.2732925824820995e-11,
+            "density_electron_tolerance": 6.080719558338034e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.217277224692623,
+            "gate_derivative_ev": -1.4550130707353204,
+            "integrated_electrons": 217.00268051530097,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.020050628234135816
+          },
+          "converged": true,
+          "delta_nelec": 1.0026805152882332,
+          "directory": "cp_scan/point_0002_15d1/batch_0001/evaluation_0003",
+          "efermi": 9.3377358682,
+          "energy": -39582.43815541806,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 3,
+          "fermishift": null,
+          "free_energy": -39582.43815541806,
+          "mu_calc": 15.100000022157301,
+          "mu_target": 15.1,
+          "nelec": 217.00268051528823,
+          "omega_correction": -15.140475780852322,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.2976796372,
+          "raw_free_energy": -39567.2976796372,
+          "reference_electrons": 216.0,
+          "residual_mu": 2.2157301771130733e-08,
+          "residual_v": 2.2157301771130733e-08,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        }
+      ],
+      "cp_identity": {
+        "boundary_parameters": {
+          "block": 1,
+          "block_down": 0.65,
+          "block_height": 0.01,
+          "block_up": 0.75,
+          "cal_force": 1,
+          "dip_cor_flag": 1,
+          "efield_amp": 0,
+          "efield_dir": 0,
+          "efield_flag": 1,
+          "efield_pos_dec": 0.1,
+          "efield_pos_max": 0.8,
+          "gate_flag": 1,
+          "nspin": 1,
+          "out_chg": "1 12",
+          "out_pot": 2,
+          "zgate": 0.7
+        },
+        "calculator": "constant_potential",
+        "energy_boundary": "compensated_gate",
+        "energy_definition": "omega_compensated_gate",
+        "fixed_hamiltonian": {
+          "assets": {
+            "kpoints": {
+              "specification": [
+                1,
+                1,
+                1
+              ]
+            },
+            "orbitals": [
+              {
+                "kind": "orbital",
+                "provenance": {
+                  "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb"
+                },
+                "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+                "species": "Pt"
+              }
+            ],
+            "pseudopotentials": [
+              {
+                "kind": "pseudopotential",
+                "provenance": {
+                  "configured_name": "Pt_ONCV_PBE-1.0.upf",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf"
+                },
+                "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+                "species": "Pt"
+              }
+            ]
+          },
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "parameters": {
+            "basis_type": "lcao",
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "cal_stress": 0,
+            "calculation": "scf",
+            "dft_functional": "pbe",
+            "dip_cor_flag": 1,
+            "ecutwfc": 100,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "kpts": [
+              1,
+              1,
+              1
+            ],
+            "ks_solver": "cusolver",
+            "mixing_beta": 0.1,
+            "mixing_type": "broyden",
+            "nbands": 130,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "scf_nmax": 200,
+            "scf_thr": 1e-09,
+            "smearing_method": "gauss",
+            "smearing_sigma": 0.015,
+            "symmetry": 0,
+            "zgate": 0.7
+          }
+        },
+        "potential_v": null,
+        "reference_electrode": "custom",
+        "reference_electrons": 216.0,
+        "reference_pH": null,
+        "target_mu_ev": 15.1,
+        "temperature_K": null,
+        "work_ref": null,
+        "work_ref_source": null
+      },
+      "cp_iterations": 3,
+      "delta_nelec": 1.0026805152882332,
+      "efermi": 9.3377358682,
+      "energy": -39582.43815541806,
+      "energy_boundary": "compensated_gate",
+      "fermishift": null,
+      "forces": [
+        [
+          -0.7458853422,
+          8.937e-06,
+          1.84374e-05
+        ],
+        [
+          -0.7458744849,
+          2.17481e-05,
+          -1.92676e-05
+        ],
+        [
+          -0.7458708611,
+          -1.86831e-05,
+          2.13925e-05
+        ],
+        [
+          -0.7458598487,
+          -1.11288e-05,
+          -2.3108e-05
+        ],
+        [
+          -0.0621726937,
+          6.571e-06,
+          -6.3225e-06
+        ],
+        [
+          -0.0621865153,
+          1.16162e-05,
+          2.46336e-05
+        ],
+        [
+          -0.0621771771,
+          -1.41008e-05,
+          -2.17994e-05
+        ],
+        [
+          -0.0621901237,
+          -8.2615e-06,
+          9.3897e-06
+        ],
+        [
+          1.6617187462,
+          -1.76556e-05,
+          1.00842e-05
+        ],
+        [
+          1.6617294535,
+          -1.64708e-05,
+          -2.74166e-05
+        ],
+        [
+          1.661733368,
+          1.79438e-05,
+          2.52773e-05
+        ],
+        [
+          1.6617442225,
+          1.92192e-05,
+          -1.16403e-05
+        ]
+      ],
+      "free_energy": -39582.43815541806,
+      "index": 2,
+      "mu_calc": 15.100000022157301,
+      "mu_target": 15.1,
+      "nelec": 217.00268051528823,
+      "omega_correction": -15.140475780852322,
+      "point_artifact": "cp_scan/point_0002_15d1/result.json",
+      "potential_calc": null,
+      "potential_target": null,
+      "profile_status": "compensated_gate_pending_scientific_acceptance",
+      "raw_energy": -39567.2976796372,
+      "raw_free_energy": -39567.2976796372,
+      "reference_electrons": 216.0,
+      "residual_mu": 2.2157301771130733e-08,
+      "residual_mu_eV": 2.2157301771130733e-08,
+      "residual_v": 2.2157301771130733e-08,
+      "scf_converged": true,
+      "structure": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/STRU",
+      "target_mu_ev": 15.1,
+      "vacuum_level": null
+    }
+  ],
+  "profile_status": "compensated_gate_pending_scientific_acceptance",
+  "schema": "atst-constant-potential-result-v1",
+  "status": "complete",
+  "target_mu_values_ev": [
+    15.0,
+    15.04597065792631,
+    15.1
+  ],
+  "workflow": "constant_potential"
+}

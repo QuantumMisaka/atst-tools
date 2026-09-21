@@ -1,0 +1,70 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "constant_potential",
+  "metadata": {
+    "status": "complete",
+    "point_count": 1,
+    "energy_boundary": "compensated_gate",
+    "profile_status": "compensated_gate_pending_scientific_acceptance",
+    "target_mu_values_ev": [
+      15.04597065792631
+    ],
+    "analysis": null,
+    "runtime_evidence": "runtime_evidence.json"
+  },
+  "stages": [
+    {
+      "name": "potential_0000",
+      "status": "complete",
+      "converged": true,
+      "role": "potential_point",
+      "criterion": "constant_potential",
+      "iteration": 1,
+      "measured": {
+        "residual_mu_eV": -2.225283068924e-09
+      },
+      "measured_unit": "eV"
+    },
+    {
+      "name": "constant_potential",
+      "status": "complete",
+      "converged": true,
+      "role": "final",
+      "criterion": "constant_potential",
+      "measured": {
+        "completed_points": 1.0
+      },
+      "measured_unit": "count"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "results",
+      "path": "constant_potential_results.json"
+    },
+    {
+      "role": "constant_potential_log",
+      "path": "constant_potential.log"
+    },
+    {
+      "role": "checkpoint",
+      "path": "constant_potential_checkpoint.json"
+    },
+    {
+      "role": "input_structure",
+      "path": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-single/STRU"
+    },
+    {
+      "role": "final_structure",
+      "path": "cp_eval/final_structure.traj"
+    },
+    {
+      "role": "artifact_manifest",
+      "path": "atst_artifacts.json"
+    },
+    {
+      "role": "potential_point",
+      "path": "cp_eval/point_0000_15d0459706579/result.json"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "cp-gate-scan",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/config.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:41:30.270671+00:00",
+  "gpu_seconds": 351.394,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-scan/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T08:35:38.876404+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-scan/harness_worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/cp-gate-scan/harness_worker.out",
+  "threads": 8,
+  "wall_s": 351.394,
+  "workdir": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan"
+}

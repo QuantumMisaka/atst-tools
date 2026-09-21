@@ -1,0 +1,126 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "constant_potential",
+  "metadata": {
+    "status": "complete",
+    "point_count": 3,
+    "energy_boundary": "compensated_gate",
+    "profile_status": "compensated_gate_pending_scientific_acceptance",
+    "target_mu_values_ev": [
+      15.0,
+      15.04597065792631,
+      15.1
+    ],
+    "analysis": {
+      "point_count": 3,
+      "reference_electrons": 216.0,
+      "area_A2": 26.660467844420467,
+      "interface_count": 1,
+      "coordinate": "target_mu_ev",
+      "coordinate_unit": "eV",
+      "identifiable": false,
+      "pzc_v": null,
+      "zero_charge_mu_ev": null,
+      "pzc_status": "zero-charge-crossing-not-bracketed",
+      "capacitance": 0.0018608414242757278,
+      "capacitance_unit": "e^2/(eV Angstrom^2)",
+      "capacitance_uF_cm2": 2.9813966495538513,
+      "fit": {
+        "slope_e2_per_ev": 0.049610902955468626,
+        "intercept_e": 0.25355585843475836,
+        "rss_e2": 3.5138852763279476e-15,
+        "mu_min_ev": 15.0,
+        "mu_max_ev": 15.1
+      },
+      "target_field": "target_mu_ev"
+    },
+    "runtime_evidence": "runtime_evidence.json"
+  },
+  "stages": [
+    {
+      "name": "potential_0000",
+      "status": "complete",
+      "converged": true,
+      "role": "potential_point",
+      "criterion": "constant_potential",
+      "iteration": 3,
+      "measured": {
+        "residual_mu_eV": 2.7610791875076757e-08
+      },
+      "measured_unit": "eV"
+    },
+    {
+      "name": "potential_0001",
+      "status": "complete",
+      "converged": true,
+      "role": "potential_point",
+      "criterion": "constant_potential",
+      "iteration": 3,
+      "measured": {
+        "residual_mu_eV": 1.2486241374176643e-08
+      },
+      "measured_unit": "eV"
+    },
+    {
+      "name": "potential_0002",
+      "status": "complete",
+      "converged": true,
+      "role": "potential_point",
+      "criterion": "constant_potential",
+      "iteration": 3,
+      "measured": {
+        "residual_mu_eV": 2.2157301771130733e-08
+      },
+      "measured_unit": "eV"
+    },
+    {
+      "name": "constant_potential",
+      "status": "complete",
+      "converged": true,
+      "role": "final",
+      "criterion": "constant_potential",
+      "measured": {
+        "completed_points": 3.0
+      },
+      "measured_unit": "count"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "results",
+      "path": "constant_potential_results.json"
+    },
+    {
+      "role": "constant_potential_log",
+      "path": "constant_potential.log"
+    },
+    {
+      "role": "checkpoint",
+      "path": "constant_potential_checkpoint.json"
+    },
+    {
+      "role": "input_structure",
+      "path": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-scan/STRU"
+    },
+    {
+      "role": "final_structure",
+      "path": "cp_scan/final_structure.traj"
+    },
+    {
+      "role": "artifact_manifest",
+      "path": "atst_artifacts.json"
+    },
+    {
+      "role": "potential_point",
+      "path": "cp_scan/point_0000_15/result.json"
+    },
+    {
+      "role": "potential_point",
+      "path": "cp_scan/point_0001_15d0459706579/result.json"
+    },
+    {
+      "role": "potential_point",
+      "path": "cp_scan/point_0002_15d1/result.json"
+    }
+  ]
+}

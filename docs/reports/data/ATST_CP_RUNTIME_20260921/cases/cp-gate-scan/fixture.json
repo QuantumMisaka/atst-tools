@@ -1,0 +1,26 @@
+{
+  "upstream": "deepmodeling/abacus-develop",
+  "revision": "f71921fe848659deac8db319cd4311b55b5ad480",
+  "source": "examples/compensating_charge/Pt-slab",
+  "basis": "lcao",
+  "electrons": 217.0,
+  "nspin": 1,
+  "neutral_electrons": 216,
+  "vacuum_axis": 0,
+  "changes": [
+    "explicit x gate axis",
+    "out_pot=2 and out_chg=1 12",
+    "scf_thr=1e-9, ecutwfc=100, nbands=130",
+    "explicit Gamma 1x1x1 mesh",
+    "LCAO uses existing ATST Pt orbital and cusolver; PW uses cg",
+    "assets copied from ATST examples/data",
+    "Explicit dipole .8/.1/0 from dipole_correction/Pt-slab/INPUT1; this also changes the block ramp"
+  ],
+  "sha256": {
+    "Pt_gga_7au_100Ry_4s2p2d1f.orb": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+    "INPUT": "24e5712b730a76955045e1b4cd75d3d239cc0caae66d81b8fc433cc4ea2f4c62",
+    "KPT": "91042b39ee493cb5c1bee648adc865a2e5935a29278eb405dc009f994db55ece",
+    "STRU": "4ccbdcfe87e0143ee67df5e8813e913f6171270e792170a7ff10a450aba2cb94",
+    "Pt_ONCV_PBE-1.0.upf": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719"
+  }
+}

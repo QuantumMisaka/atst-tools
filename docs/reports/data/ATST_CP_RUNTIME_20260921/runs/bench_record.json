@@ -1,0 +1,100 @@
+{
+  "atst": {
+    "record_time": {
+      "branch": "cp-runtime-joint-20260921",
+      "dirty": false,
+      "head": "e0abb71969e7a48b7b07a46a2da662e78c6e44c6",
+      "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+    },
+    "run_time": [
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs",
+        "revision": {
+          "branch": "cp-runtime-joint-20260921",
+          "dirty": false,
+          "head": "e0abb71969e7a48b7b07a46a2da662e78c6e44c6",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      }
+    ],
+    "run_time_consistent": true
+  },
+  "created_at": "2026-09-21T08:41:30.523583+00:00",
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 8,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 1
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "OMP_NUM_THREADS": "2"
+    },
+    "threads_source": null
+  },
+  "host": {
+    "cpu_count": 32,
+    "gpu_inventory": [
+      "GPU 0: Tesla V100-SXM2-32GB (UUID: GPU-b48fa06e-25fa-a934-29e4-3a2c73fd58a2)"
+    ],
+    "gpu_inventory_error": null,
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39"
+  },
+  "inputs": {
+    "fixtures": [],
+    "manifest": {
+      "exists": true,
+      "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/cases-cp.json",
+      "sha256": "74fe51be3b14c5b42c7fa4bb52cab9db62e61dd260e03faad218cc196352af82"
+    }
+  },
+  "notes": [
+    "cp-runtime joint acceptance: gpu=0 slots=1 threads=8",
+    "operator fields filled 2026-09-21 (approved_by/allocated_gpu_hours/sacct_excerpt); the extra 1435134 probe is a diagnostic, not part of the acceptance timing"
+  ],
+  "operator": {
+    "allocated_gpu_hours": 0.118,
+    "approved_by": "QuantumMisaka",
+    "job_id": "1435012",
+    "partition": "4V100",
+    "qos": "rush-1o2gpu",
+    "sacct_excerpt": "1435012  atst-cp-runtime  4V100 rush-1o2gpu billing=194,cpu=8,gres/gpu=1,mem=22G Elapsed 00:07:06 COMPLETED 2026-09-21T16:34:24 -> 2026-09-21T16:41:30 (1 GPU x 7.1 min = 0.118 GPU-h); 1435134  atst-cp-omp-probe 4V100 rush-1o2gpu Elapsed 00:00:39 COMPLETED (diagnostic, 1 GPU x 39 s = 0.011 GPU-h)"
+  },
+  "results": [
+    {
+      "cases_total": 2,
+      "dir": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs",
+      "exists": true,
+      "failed": 0,
+      "revision": {
+        "branch": "cp-runtime-joint-20260921",
+        "dirty": false,
+        "head": "e0abb71969e7a48b7b07a46a2da662e78c6e44c6",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-harness-v1",
+      "succeeded": 2,
+      "summary": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/runs/harness_summary.json",
+      "summary_sha256": "109f3e3c7cec8c185a9d20502b4aad7e25ab74992c62e62737857c54615e0f50",
+      "tree": {
+        "file_count": 9,
+        "tree_sha256": "2a780ae45088fd1f7a607a3ef698098127f980d14149d9df6136b031dbcdab7b"
+      },
+      "wall_s": 421.528
+    }
+  ],
+  "schema": "atst-bench-record-v1",
+  "warnings": []
+}

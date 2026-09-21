@@ -1,0 +1,413 @@
+{
+  "identity": {
+    "calculator": {
+      "abacus": {
+        "command": "abacus",
+        "directory": "abacus_work",
+        "kpts": [
+          1,
+          1,
+          1
+        ],
+        "mpi": 1,
+        "omp": 1,
+        "parameters": {
+          "basis_type": "lcao",
+          "basissets": {
+            "Pt": "Pt_gga_7au_100Ry_4s2p2d1f.orb"
+          },
+          "block": 1,
+          "block_down": 0.65,
+          "block_height": 0.01,
+          "block_up": 0.75,
+          "cal_force": 1,
+          "cal_stress": 0,
+          "calculation": "scf",
+          "dft_functional": "pbe",
+          "dip_cor_flag": 1,
+          "ecutwfc": 100,
+          "efield_amp": 0,
+          "efield_dir": 0,
+          "efield_flag": 1,
+          "efield_pos_dec": 0.1,
+          "efield_pos_max": 0.8,
+          "gate_flag": 1,
+          "ks_solver": "cusolver",
+          "mixing_beta": 0.1,
+          "mixing_type": "broyden",
+          "nbands": 130,
+          "nelec": 217,
+          "nspin": 1,
+          "orbital_dir": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/data",
+          "out_chg": "1 12",
+          "out_pot": 2,
+          "pseudo_dir": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/data",
+          "pseudopotentials": {
+            "Pt": "Pt_ONCV_PBE-1.0.upf"
+          },
+          "scf_nmax": 200,
+          "scf_thr": 1e-09,
+          "smearing_method": "gauss",
+          "smearing_sigma": 0.015,
+          "symmetry": 0,
+          "zgate": 0.7
+        }
+      },
+      "name": "abacus"
+    },
+    "fixed_assets": {
+      "kpoints": {
+        "specification": [
+          1,
+          1,
+          1
+        ]
+      },
+      "orbitals": [
+        {
+          "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+          "kind": "orbital",
+          "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb",
+          "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+          "species": "Pt"
+        }
+      ],
+      "pseudopotentials": [
+        {
+          "configured_name": "Pt_ONCV_PBE-1.0.upf",
+          "kind": "pseudopotential",
+          "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf",
+          "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+          "species": "Pt"
+        }
+      ]
+    },
+    "input_structure": {
+      "path": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-single/STRU",
+      "sha256": "4ccbdcfe87e0143ee67df5e8813e913f6171270e792170a7ff10a450aba2cb94"
+    },
+    "settings": {
+      "capacitance_initial": 0.05,
+      "capacitance_unit": "e/V",
+      "energy_boundary": "compensated_gate",
+      "interface_count": 1,
+      "max_iterations": 12,
+      "nelec_max": 217.5,
+      "nelec_min": 216.5,
+      "nelec_step_max": 0.1,
+      "potential_tolerance_v": 0.0001,
+      "reference_electrode": "custom",
+      "reference_electrons": 216.0,
+      "reference_pH": null,
+      "temperature_K": null,
+      "vacuum_axis": 0,
+      "work_ref": null,
+      "work_ref_source": null
+    },
+    "target_field": "target_mu_ev",
+    "targets": [
+      15.04597065792631
+    ],
+    "workflow": "constant_potential"
+  },
+  "next_initial_electrons": 217.0,
+  "points": [
+    {
+      "boundary_parameters": {
+        "block": 1,
+        "block_down": 0.65,
+        "block_height": 0.01,
+        "block_up": 0.75,
+        "dip_cor_flag": 1,
+        "efield_amp": 0,
+        "efield_dir": 0,
+        "efield_flag": 1,
+        "efield_pos_dec": 0.1,
+        "efield_pos_max": 0.8,
+        "gate_flag": 1,
+        "nspin": 1,
+        "out_chg": "1 12",
+        "out_pot": 2,
+        "zgate": 0.7
+      },
+      "compensation": {
+        "boundary": "compensated_gate",
+        "compensation_derivative_ev": 5.719976217301026,
+        "density_electron_error": 4.149569576838985e-12,
+        "density_electron_tolerance": 6.080644446538698e-08,
+        "density_precision": 12,
+        "dipole_derivative_ev": 7.197912619316487,
+        "gate_derivative_ev": -1.4779364020154604,
+        "integrated_electrons": 217.00000000000415,
+        "ionic_valence_electrons": 216.0,
+        "total_dipole_ry_au": 0.019996830591173003
+      },
+      "cp_converged": true,
+      "cp_history": [
+        {
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "compensation": {
+            "boundary": "compensated_gate",
+            "compensation_derivative_ev": 5.719976217301026,
+            "density_electron_error": 4.149569576838985e-12,
+            "density_electron_tolerance": 6.080644446538698e-08,
+            "density_precision": 12,
+            "dipole_derivative_ev": 7.197912619316487,
+            "gate_derivative_ev": -1.4779364020154604,
+            "integrated_electrons": 217.00000000000415,
+            "ionic_valence_electrons": 216.0,
+            "total_dipole_ry_au": 0.019996830591173003
+          },
+          "converged": true,
+          "delta_nelec": 1.0,
+          "directory": "cp_eval/point_0000_15d0459706579/batch_0001/evaluation_0001",
+          "efermi": 9.3259944384,
+          "energy": -39582.384053687325,
+          "energy_boundary": "compensated_gate",
+          "evaluation_index": 1,
+          "fermishift": null,
+          "free_energy": -39582.384053687325,
+          "mu_calc": 15.045970655701026,
+          "mu_target": 15.04597065792631,
+          "nelec": 217.0,
+          "omega_correction": -15.04597065792631,
+          "potential_calc": null,
+          "potential_target": null,
+          "profile_status": "compensated_gate_pending_scientific_acceptance",
+          "raw_energy": -39567.3380830294,
+          "raw_free_energy": -39567.3380830294,
+          "reference_electrons": 216.0,
+          "residual_mu": -2.225283068924e-09,
+          "residual_v": -2.225283068924e-09,
+          "scf_converged": true,
+          "vacuum_level": null,
+          "valid": true
+        }
+      ],
+      "cp_identity": {
+        "boundary_parameters": {
+          "block": 1,
+          "block_down": 0.65,
+          "block_height": 0.01,
+          "block_up": 0.75,
+          "cal_force": 1,
+          "dip_cor_flag": 1,
+          "efield_amp": 0,
+          "efield_dir": 0,
+          "efield_flag": 1,
+          "efield_pos_dec": 0.1,
+          "efield_pos_max": 0.8,
+          "gate_flag": 1,
+          "nspin": 1,
+          "out_chg": "1 12",
+          "out_pot": 2,
+          "zgate": 0.7
+        },
+        "calculator": "constant_potential",
+        "energy_boundary": "compensated_gate",
+        "energy_definition": "omega_compensated_gate",
+        "fixed_hamiltonian": {
+          "assets": {
+            "kpoints": {
+              "specification": [
+                1,
+                1,
+                1
+              ]
+            },
+            "orbitals": [
+              {
+                "kind": "orbital",
+                "provenance": {
+                  "configured_name": "Pt_gga_7au_100Ry_4s2p2d1f.orb",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_gga_7au_100Ry_4s2p2d1f.orb"
+                },
+                "sha256": "0459f24abe5e4252e81d84c3e3e551bae302b5b3dc96547f9f87e4b7794089c6",
+                "species": "Pt"
+              }
+            ],
+            "pseudopotentials": [
+              {
+                "kind": "pseudopotential",
+                "provenance": {
+                  "configured_name": "Pt_ONCV_PBE-1.0.upf",
+                  "path": "/org/galileo-group/galileouser02/atst-cp-runtime-20260921/data/Pt_ONCV_PBE-1.0.upf"
+                },
+                "sha256": "ce2828782414e48b4b9613700e29f218d1b3a74dd5ca34f89cdcb0695e471719",
+                "species": "Pt"
+              }
+            ]
+          },
+          "boundary_parameters": {
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "dip_cor_flag": 1,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "zgate": 0.7
+          },
+          "parameters": {
+            "basis_type": "lcao",
+            "block": 1,
+            "block_down": 0.65,
+            "block_height": 0.01,
+            "block_up": 0.75,
+            "cal_force": 1,
+            "cal_stress": 0,
+            "calculation": "scf",
+            "dft_functional": "pbe",
+            "dip_cor_flag": 1,
+            "ecutwfc": 100,
+            "efield_amp": 0,
+            "efield_dir": 0,
+            "efield_flag": 1,
+            "efield_pos_dec": 0.1,
+            "efield_pos_max": 0.8,
+            "gate_flag": 1,
+            "kpts": [
+              1,
+              1,
+              1
+            ],
+            "ks_solver": "cusolver",
+            "mixing_beta": 0.1,
+            "mixing_type": "broyden",
+            "nbands": 130,
+            "nspin": 1,
+            "out_chg": "1 12",
+            "out_pot": 2,
+            "scf_nmax": 200,
+            "scf_thr": 1e-09,
+            "smearing_method": "gauss",
+            "smearing_sigma": 0.015,
+            "symmetry": 0,
+            "zgate": 0.7
+          }
+        },
+        "potential_v": null,
+        "reference_electrode": "custom",
+        "reference_electrons": 216.0,
+        "reference_pH": null,
+        "target_mu_ev": 15.04597065792631,
+        "temperature_K": null,
+        "work_ref": null,
+        "work_ref_source": null
+      },
+      "cp_iterations": 1,
+      "delta_nelec": 1.0,
+      "efermi": 9.3259944384,
+      "energy": -39582.384053687325,
+      "energy_boundary": "compensated_gate",
+      "fermishift": null,
+      "forces": [
+        [
+          -0.7459598971,
+          8.9111e-06,
+          1.84153e-05
+        ],
+        [
+          -0.7459490173,
+          2.17761e-05,
+          -1.92243e-05
+        ],
+        [
+          -0.7459454024,
+          -1.87338e-05,
+          2.13597e-05
+        ],
+        [
+          -0.7459343767,
+          -1.10755e-05,
+          -2.31036e-05
+        ],
+        [
+          -0.062120075,
+          6.5604e-06,
+          -6.3394e-06
+        ],
+        [
+          -0.0621338623,
+          1.16179e-05,
+          2.46392e-05
+        ],
+        [
+          -0.0621245508,
+          -1.41283e-05,
+          -2.17849e-05
+        ],
+        [
+          -0.0621374868,
+          -8.2349e-06,
+          9.4019e-06
+        ],
+        [
+          1.6571398432,
+          -1.76239e-05,
+          1.01078e-05
+        ],
+        [
+          1.6571504944,
+          -1.64957e-05,
+          -2.74534e-05
+        ],
+        [
+          1.6571544402,
+          1.80001e-05,
+          2.52938e-05
+        ],
+        [
+          1.6571652626,
+          1.91614e-05,
+          -1.16508e-05
+        ]
+      ],
+      "free_energy": -39582.384053687325,
+      "index": 0,
+      "mu_calc": 15.045970655701026,
+      "mu_target": 15.04597065792631,
+      "nelec": 217.0,
+      "omega_correction": -15.04597065792631,
+      "point_artifact": "cp_eval/point_0000_15d0459706579/result.json",
+      "potential_calc": null,
+      "potential_target": null,
+      "profile_status": "compensated_gate_pending_scientific_acceptance",
+      "raw_energy": -39567.3380830294,
+      "raw_free_energy": -39567.3380830294,
+      "reference_electrons": 216.0,
+      "residual_mu": -2.225283068924e-09,
+      "residual_mu_eV": -2.225283068924e-09,
+      "residual_v": -2.225283068924e-09,
+      "scf_converged": true,
+      "structure": "/home/galileo-group/galileouser02/atst-cp-runtime-20260921/cases/cp-gate-single/STRU",
+      "target_mu_ev": 15.04597065792631,
+      "vacuum_level": null
+    }
+  ],
+  "schema": "atst-constant-potential-checkpoint-v1"
+}
