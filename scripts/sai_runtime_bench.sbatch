@@ -38,17 +38,32 @@ DRY_RUN="${DRY_RUN:-0}"
 # SAI has python3 but no bare python; prefer an explicit interpreter (venv).
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python || command -v python3)}"
 
-# Site facts from the 2026-09-21 read-only reconnaissance (plan P5 prep):
-# Lmod lives under /opt/modules/lmod/9.2.4 with modulefiles in
-# /opt/modules/modulefiles/{devtools,apps}; there is no system conda. The DP
-# runtime must be DPA4/SeZM-capable (deepmd-kit/3.2.0; 3.1.2 fails with
-# "Unknown model type: dpa4") and needs an MPI module so mpi4py finds libmpi.
-# The maintainer still reviews these lines before the first real run.
-source /opt/modules/lmod/9.2.4/init/bash 2>/dev/null || source /etc/profile.d/modules.sh 2>/dev/null || true
-module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps 2>/dev/null || true
-module load deepmd-kit/3.2.0 2>/dev/null || true
-module load openmpi/5.0.8-nvhpc25.7-gnu-auto 2>/dev/null || true
-# module load abacus/LTSv3.10.1-sm70-auto   # ABACUS channel only; loads the same OpenMPI
+# Site facts from the 2026-09-21 reconnaissance (plan P5 prep): Lmod lives under
+# /opt/modules/lmod/9.2.4 with modulefiles in /opt/modules/modulefiles/{devtools,apps};
+# there is no system conda. The DP runtime must be DPA4/SeZM-capable
+# (deepmd-kit/3.2.0; 3.1.2 fails with "Unknown model type: dpa4"), and that
+# module chain brings the OpenMPI the venv's mpi4py links against.
+#
+# Lmod dereferences variables such as LD_LIBRARY_PATH while sourcing and while
+# applying module loads, so nounset must be off for this block (the site's SIF
+# build scripts use the same idiom). Measured on 4v100 nodes: with `set -u`
+# active the module loads silently do nothing, and every case then fails with
+# "cannot load MPI library" before any science runs.
+if [ -f /opt/modules/lmod/9.2.4/init/bash ]; then
+  set +u
+  source /opt/modules/lmod/9.2.4/init/bash
+  module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps
+  module load deepmd-kit/3.2.0
+  module list 2>&1 | sed -n '1,8p'
+  set -u
+  if ! "${PYTHON_BIN}" -c "from mpi4py import MPI" >/dev/null 2>&1; then
+    echo "fatal: mpi4py cannot load an MPI library after 'module load deepmd-kit/3.2.0'; see the module list above" >&2
+    exit 1
+  fi
+else
+  source /etc/profile.d/modules.sh 2>/dev/null || true
+fi
+# module load abacus/LTSv3.10.1-sm70-auto   # ABACUS channel only; brings openmpi/5.0.8
 
 mkdir -p "${OUT_DIR}"
 
