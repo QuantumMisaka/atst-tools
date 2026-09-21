@@ -80,8 +80,9 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
    **运行组合验收已完成**（2026-09-21：SAI 1435012，`compensated_gate` 单点 + 三点扫描 2/2、分配外设备负例被拒；见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)）。
 3. ~~`calculator.abacus.omp` 默认值使 `runtime.threads` 失效~~ **已修复并复验**（2026-09-21，`5e26789`）：schema 改为 `int | None = None`（缺省不写，legacy 1 由 `resolve_calculator_omp` 写），新增三条回归测试；SAI 作业 1436782 用同一恒电势单点用例复跑确认 `OMP_NUM_THREADS=8`、无 `runtime_threads_overridden`、无覆盖 warning（对照见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md) §5.1）。
-4. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
-5. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
+4. **待裁定：批量 harness 的 per-case `threads` 通道**。manifest 的 `threads` 只写线程环境键、不写 `ATST_THREADS_SOURCE`，所以配置里没有 `runtime` 段时 ABACUS 仍按 legacy 1 线程运行（P5 的 ABACUS 用例即如此）。要让清单的 `threads` 直达 ABACUS，需让 harness 也打该标记（或在用例配置里加 `runtime.threads`）；前者会改变与既有 P5 数据的可比性，故留待裁定。
+5. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
+6. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。
 
 ## 5. 复现命令
