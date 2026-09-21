@@ -63,10 +63,10 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 依赖：P1。对应 SPEC §4.3、§5.3、§6。
 
 - [ ] 在初始化前应用明确的线程预算，覆盖 CPU affinity/cpuset 与 DP TF/PT 差异；不静默覆盖用户已有科学配置（线程预算/affinity 已实现并验证；TF 维度本地不可达——TF 运行时在但无 TF 制品，`dp --pt convert-backend` 对 DPA-3.1 失败，见验证报告 §10；留待 P5 有制品时补测）。
-- [ ] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例。
+- [ ] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例（计数/存活对象/显存已实现：`counters`、`dp.cached_instances` gauge、`memory_peak_mib` 采样峰值；每 attempt 独立 cache 已验证；图像状态隔离由并行 NEB 逐帧等价间接覆盖；只读模型共享与重启回归仍留 P5/后续）。
 - [ ] ABACUS 按实际 command 验证 launcher；复用现有 MPI 清理、profile 和 backend 选择。
-- [ ] 增加 opt-in runtime sidecar、阶段耗时、初始化/力调用计数与版本来源；成功关联 manifest，失败保留部分证据（首片 2026-09-21：`runtime/evidence.py` 的 sidecar `atst-runtime-evidence-v1`、manifest `runtime_evidence` 引用、环境/设备事实、rank 0 单例宿主采样、失败保留 `partial`、计量失败不阻断运行；第二片：`runtime/counters.py` 进程级计数器（`dp.calculator_built/reused`、`dp.force_calls`、`abacus.calculator_built/force_calls`）随 sidecar 输出并标注 `counters_scope=process`；第三片：MPI 成功路径在 collective 后输出 `counters_mpi`（rank 求和，含 `world_size`）；剩余：阶段耗时明细与结果 envelope 的 `runtime` 摘要）。
-- [ ] 宿主 sampler/parser 区分 device/process，覆盖缺工具、权限不足、短任务无样本、MPS 归属未知和采样失败。
+- [x] 增加 opt-in runtime sidecar、阶段耗时、初始化/力调用计数与版本来源；成功关联 manifest，失败保留部分证据（首片 2026-09-21：`runtime/evidence.py` 的 sidecar `atst-runtime-evidence-v1`、manifest `runtime_evidence` 引用、环境/设备事实、rank 0 单例宿主采样、失败保留 `partial`、计量失败不阻断运行；第二片：`runtime/counters.py` 进程级计数器（`dp.calculator_built/reused`、`dp.force_calls`、`abacus.calculator_built/force_calls`）随 sidecar 输出并标注 `counters_scope=process`；第三片：MPI 成功路径在 collective 后输出 `counters_mpi`（rank 求和，含 `world_size`）；第四片：阶段耗时 `phases`（`dispatch_s`/`attempt_s`）与结果 envelope 可选 `runtime` 摘要（legacy 无此键，逐字节兼容）；第五片（契约审计）：`memory_peak_mib` 采样峰值标记；子项全部交付并有单测）。
+- [ ] 宿主 sampler/parser 区分 device/process，覆盖缺工具、权限不足、短任务无样本、MPS 归属未知和采样失败（device 行与计算进程行、缺工具/权限/无进程原因、短任务零样本、采样失败均有实现与单测；MPS 归属未知留 P5 现场）。
 
 验收：计量失败不掩盖科学运行结果；显式 GPU 不可用仍报执行错误；现有结果消费者可忽略新增可选字段。线程调优带来的真实收益由 P5 证明。
 

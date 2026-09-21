@@ -92,6 +92,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P5 清单/配置补齐与预解析）：登台 `configs/` 补齐 relax（t4/t8）、NEB（chain5，3-rank launcher）、AutoNEB 四份 SAI 路径配置并逐份通过 schema 归一化；`cases.p5.draft.json`（6 case）经 `bench.harness.load_cases` 预解析通过（workdir 互异、launcher/timeout 正确）；MANIFEST 同步刷新。
 
+- 2026-09-21（计划/接口文档陈旧状态清理）：P2 的 sidecar 条目（sidecar、phase 耗时、计数、结果 envelope 摘要、峰值标记）已全部交付——计划该项改 [x] 并列出第四/五片；计量生命周期项与 sampler 项补注已交付子项（计数/存活对象/显存峰值/独立 cache 已证，MPS 归属未知与重启回归留 P5）；接口文档 §7.2 的“留待 P2 后续片”改为逐项已交付说明。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
