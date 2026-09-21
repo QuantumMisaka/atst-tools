@@ -388,3 +388,32 @@ P5 矩阵的 AutoNEB 行（"inherit / 已验证共享布局"）在本地用 FT²
 
 边界：单卡、66 原子、两段 ×3 步、单次测量；并行 AutoNEB 与多卡布局仍留给
 P5 现场（结合 §15 的单卡压力结论，单卡多 rank 不应期待收益）。
+
+## 17. CCQN 成本分解：CPU 段 vs 推理段（本地初测；2026-09-21 追加）
+
+回应「GPU 推理很快、时间花在 CPU 上（CCQN/NEB 都在 CPU 上做）」这条原始动机：先用
+`examples/12_ccqn_H2-Au` 的 H₂+Au₆₄（66 原子）把 CCQN 的墙钟拆开。方法是对同一配置跑两遍：
+
+- **替身 pass**（`atst-dev`，把 calculator factory 换成瞬时返回 E/F 的 stand-in）：
+  只留 CCQN/ASE 自己的 CPU 逻辑 → 墙钟按步长外推得**固定 ≈1.5 s + ≈0.08 s/调用**；
+- **DP pass**（`atst-dev` + DPA-3.1-3M / `head: Omat24`，经 `atst run` 的隔离 worker）：
+  同一配置（`reactive_bonds: 1-2`、`max_steps` 2/8）走真实推理，sidecar 记
+  `dp.force_calls=9`、`dp.calculator_built=1`、`dp.cached_instances=1`（进程内复用 ✓）。
+
+| 量 | 实测（本机 RTX 2070 SUPER，桌面共享该卡） |
+| --- | --- |
+| worker 固定成本 | `import deepmd` 0.09 s + **模型加载 5.2 s** + **首次 E+F 10.3 s（预热/编译）** = **≈15.6 s** |
+| 稳态推理 | ≈0.5–0.6 s/调用（同 §9 的 0.56–0.58 s/call；本探测第 2/3 次调用因 ASE 结果缓存返回 0 s，故只取首次与 §9 口径） |
+| CCQN/ASE 自身 CPU | ≈2 s（1.5 s 固定 + 9 × 0.08 s） |
+| 整跑（steps=8，9 次调用） | `dispatch_s` 29.8 s / wall 35.5 s；steps=2 与 steps=8 墙钟几乎相同（35.5 / 36.4 s） |
+
+**结论（本地初测）**：在这类小体系上，**per-worker 固定成本（模型加载 + 首次调用预热）已占整跑一半以上**，
+稳态推理约 4 s，**CCQN 自身的 CPU 逻辑只有 ≈2 s（≈7%）**。因此原始观察需要精确化：
+「时间花在 CPU 上」成立，但主导项是**每个 worker 的模型初始化**，不是 CCQN 的算法运算。
+可操作杠杆因此是「摊薄 worker 初始化」（同一进程内跑多个 case / 更快的预热 / 复用推理上下文），
+而不是改写 CCQN；这也解释了 `share_calculator` 为什么只在多图工作流（NEB/AutoNEB）里见效。
+
+边界：单卡共享、66 原子、DPA-3.1-3M、steps ≤ 8、单次测量；**待 SAI 用 FT²DP 复测**（模型更大、
+加载更久，预期固定成本占比更高）。本次同时现场验证了冻结语义：不带 `CUDA_VISIBLE_DEVICES`
+直接跑带 `runtime.devices` 的配置会被 fail-closed 拒绝
+（`explicit device selection is refused: ...`）。
