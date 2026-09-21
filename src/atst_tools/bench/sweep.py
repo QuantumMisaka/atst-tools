@@ -61,6 +61,11 @@ def _variant_dir(output_dir: Path, slots: int, repeat: int) -> Path:
 def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     makespans = [float(row["wall_s"]) for row in rows]
     gpu_seconds = [float(row["gpu_seconds_total"]) for row in rows]
+    allocation_gpu_seconds = [
+        float(row["allocation_gpu_seconds"])
+        for row in rows
+        if row.get("allocation_gpu_seconds") is not None
+    ]
     succeeded = [int(row["succeeded"]) for row in rows]
     cases_total = [int(row["cases_total"]) for row in rows]
     throughputs = [
@@ -77,6 +82,14 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "gpu_seconds_total": {
             "values": [round(value, 3) for value in gpu_seconds],
             "median": round(median(gpu_seconds), 3) if gpu_seconds else None,
+        },
+        "allocation_gpu_seconds": {
+            "values": [round(value, 3) for value in allocation_gpu_seconds],
+            "median": (
+                round(median(allocation_gpu_seconds), 3)
+                if allocation_gpu_seconds
+                else None
+            ),
         },
         "succeeded": {
             "values": succeeded,
@@ -165,6 +178,9 @@ def run_sweep(
                 "revision": summary.get("revision"),
                 "wall_s": summary["wall_s"],
                 "gpu_seconds_total": summary["gpu_seconds_total"],
+                "allocation_gpu_seconds": (
+                    summary.get("allocation") or {}
+                ).get("gpu_seconds"),
                 "cases_total": summary["cases_total"],
                 "succeeded": summary["succeeded"],
                 "failed": summary["failed"],

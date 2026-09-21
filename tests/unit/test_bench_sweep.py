@@ -152,6 +152,30 @@ def test_sweep_aggregate_survives_zero_wall_rows():
     assert aggregate["successful_cases_per_hour"]["values"] == [None]
 
 
+def test_sweep_aggregate_reports_allocation_gpu_seconds():
+    """The allocation-based metric is aggregated separately from case time."""
+    aggregate = sweep._aggregate(
+        [
+            {
+                "wall_s": 20.0,
+                "gpu_seconds_total": 31.0,
+                "allocation_gpu_seconds": 40.0,
+                "succeeded": 4,
+                "cases_total": 4,
+            },
+            {
+                "wall_s": 22.0,
+                "gpu_seconds_total": 33.0,
+                "allocation_gpu_seconds": 44.0,
+                "succeeded": 4,
+                "cases_total": 4,
+            },
+        ]
+    )
+    assert aggregate["allocation_gpu_seconds"]["median"] == 42.0
+    assert aggregate["gpu_seconds_total"]["median"] == 32.0
+
+
 def test_sweep_defaults_to_no_per_case_telemetry():
     """Timing sweeps must not add per-case samplers unless asked (review F9)."""
     assert sweep.SweepOptions(devices=("0",), output_dir=Path("x")).case_telemetry is False

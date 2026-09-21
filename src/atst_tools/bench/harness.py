@@ -177,15 +177,21 @@ def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[Cas
     shared: dict[str, list[str]] = {}
     for case in cases:
         if case.workdir is not None:
-            shared.setdefault(case.workdir, []).append(case.case_id)
+            location = f"workdir:{case.workdir}"
+        else:
+            # Without an explicit workdir a case runs in its configuration
+            # directory, so two cases whose configs share a directory would
+            # overwrite each other's trajectories, manifests and caches.
+            location = f"config-dir:{Path(case.config).resolve().parent}"
+        shared.setdefault(location, []).append(case.case_id)
     clashes = {value: ids for value, ids in shared.items() if len(ids) > 1}
     if clashes:
         detail = "; ".join(
-            f"{value!r} is shared by {', '.join(ids)}" for value, ids in clashes.items()
+            f"{value} is shared by {', '.join(ids)}" for value, ids in clashes.items()
         )
         raise ValueError(
-            f"cases must use distinct workdir values so evidence cannot be "
-            f"overwritten ({detail})"
+            f"cases must run in distinct directories so evidence cannot be "
+            f"overwritten; give every case its own workdir ({detail})"
         )
     return cases
 
@@ -366,26 +372,37 @@ class _RunningCase:
 
 
 def _terminate_group(process: subprocess.Popen, grace: float = TERMINATION_GRACE_S) -> None:
-    """Terminate one worker group within a bounded grace window."""
-    if process.poll() is not None:
-        return
+    """Terminate one worker group, including children that ignore SIGTERM.
+
+    The process-group id is captured before any signal because it becomes
+    unavailable once the group leader is reaped; after the grace window the
+    whole group is SIGKILLed and its emptiness is confirmed, so a surviving
+    child cannot keep occupying a GPU after the harness moved on.
+    """
     try:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        pgid = os.getpgid(process.pid)
     except (ProcessLookupError, PermissionError):
         return
+
+    def signal_group(sig: int) -> None:
+        try:
+            os.killpg(pgid, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    if process.poll() is None:
+        signal_group(signal.SIGTERM)
     try:
         process.wait(timeout=grace)
-        return
     except subprocess.TimeoutExpired:
         pass
-    try:
-        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        return
-    try:
-        process.wait(timeout=grace)
-    except subprocess.TimeoutExpired:  # pragma: no cover - defensive
-        pass
+    for _ in range(20):
+        try:
+            os.killpg(pgid, 0)
+        except (ProcessLookupError, PermissionError):
+            return
+        signal_group(signal.SIGKILL)
+        time.sleep(0.05)
 
 
 def _case_report_payload(
@@ -578,7 +595,12 @@ def run_manifest(
                     workdir = case_workdir(case, output_dir)
                     workdir.mkdir(parents=True, exist_ok=True)
                     env = case_environment(
-                        case, devices, base=os.environ, attempt=1, workdir=workdir
+                        case,
+                        devices,
+                        base=os.environ,
+                        attempt=1,
+                        workdir=workdir,
+                        case_telemetry=options.case_telemetry,
                     )
                     stdout_path = report_dir / "harness_worker.out"
                     stderr_path = report_dir / "harness_worker.err"
@@ -680,14 +702,24 @@ def run_manifest(
         if sampler is not None:
             sampler_summary = sampler.stop()
     succeeded = [row for row in reports if row["status"] == STATUS_SUCCEEDED]
+    batch_wall = round(time.monotonic() - batch_started, 3)
     summary = {
         "schema": SCHEMA,
         "status": "cancelled" if cancelled else "complete",
         "revision": _evidence.atst_revision(),
         "started_at": batch_started_at,
         "finished_at": _now(),
-        "wall_s": round(time.monotonic() - batch_started, 3),
+        "wall_s": batch_wall,
         "devices": list(options.devices),
+        # ``gpu_seconds_total`` below sums per-case device-seconds (a case on
+        # two devices counts two), which over-counts shared cards and ignores
+        # allocated-but-idle time; ``allocation`` is the cost-accounting view:
+        # every allocated device for the whole batch wall clock.
+        "allocation": {
+            "devices": list(options.devices),
+            "wall_s": batch_wall,
+            "gpu_seconds": round(batch_wall * len(options.devices), 3),
+        },
         "slots_per_device": options.slots_per_device,
         "cpu_budget": cpu_limit,
         "cases_total": len(cases),

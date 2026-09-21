@@ -210,3 +210,56 @@ def test_cli_dispatch_plans_rank_local_masks_under_mpi(tmp_path: Path) -> None:
     assert sorted(row["mask"] for row in rows) == ["2", "3"]
     assert all(row["bound"] == "1" for row in rows)
     assert all(row["module"] == ["-m", "atst_tools.api.runner"] for row in rows)
+
+
+def test_runner_direct_entry_completes_under_real_mpi(tmp_path: Path) -> None:
+    """The bound runner chain (plan -> exec -> worker) must not hang under MPI.
+
+    Review finding 2: the runner used to probe the MPI rank before re-execing,
+    which loses the PMIx session on OpenMPI. This runs the real entry point
+    under the local launcher and only requires that it reaches a normal exit
+    (a missing model makes the workflow fail, which is fine).
+    """
+    if not _mpi_test_enabled():
+        pytest.skip("set ATST_RUN_MPI_TESTS=1 to run real MPI launcher regressions")
+
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        "calculation:\n"
+        "  type: relax\n"
+        "  init_structure: missing.stru\n"
+        "  fmax: 0.5\n"
+        "  max_steps: 1\n"
+        "calculator:\n"
+        "  name: dp\n"
+        "  dp:\n"
+        "    model: missing.pt\n"
+        "runtime:\n"
+        "  binding: round_robin\n",
+        encoding="utf-8",
+    )
+    environment = _environment()
+    environment["CUDA_VISIBLE_DEVICES"] = "0"
+    completed = _run_mpi(
+        [
+            _launcher(),
+            "-n",
+            "2",
+            sys.executable,
+            "-m",
+            "atst_tools.api.runner",
+            "--config",
+            str(config),
+            "--workdir",
+            str(tmp_path),
+            "--result-json",
+            str(tmp_path / "result.json"),
+        ],
+        cwd=tmp_path,
+        environment=environment,
+    )
+    # The chain completed (no hang, no launcher abort); the workflow itself
+    # fails on the missing structure and rank 0 records the error document.
+    assert completed.returncode == 2, completed.stderr
+    document = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert document["status"] == "error"

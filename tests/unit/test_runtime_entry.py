@@ -213,13 +213,18 @@ def test_runner_direct_entry_rebinds_before_running(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2,3")
     recorded: list = []
+    order: list = []
     _record_execute(monkeypatch, recorded)
+    monkeypatch.setattr(runner, "_process_rank", lambda: order.append("rank") or 0)
 
     with pytest.raises(SystemExit):
         runner.main(["--config", str(config)])
 
     assert len(recorded) == 1
     assert recorded[0].environment["CUDA_VISIBLE_DEVICES"] == "3"
+    # The rank probe imports mpi4py; it must not run before the rebind exec or
+    # an OpenMPI rank loses its PMIx session and hangs (review finding 2).
+    assert order == []
 
 
 def test_explicit_calculator_omp_wins_over_the_runtime_budget(monkeypatch):

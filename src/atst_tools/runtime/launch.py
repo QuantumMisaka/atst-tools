@@ -373,12 +373,22 @@ def ensure_runtime_contract(
         if devices_value is None
         else _devices.parse_device_tokens(devices_value)
     )
+    # The coordinator records the merged binding (CLI wins over YAML) in
+    # ATST_BINDING; the worker must prefer that record over the raw YAML.
+    recorded_binding = env.get(_devices.BINDING_ENV)
     section_binding = section.get("binding")
     binding = _devices.parse_binding(
-        section_binding if section_binding is not None else env.get(_devices.BINDING_ENV)
+        recorded_binding if recorded_binding is not None else section_binding
     )
-    threads = _devices.parse_threads(section.get("threads"))
-    rebinds = tokens is not None or threads is not None or binding == "round_robin"
+    # ``threads: auto`` is resolved to a concrete budget by the coordinator and
+    # recorded in the child environment; the worker only has to treat it as a
+    # rebinding request instead of parsing the literal as an integer.
+    raw_threads = section.get("threads")
+    threads = (
+        None if raw_threads == "auto" else _devices.parse_threads(raw_threads)
+    )
+    threads_requested = threads is not None or raw_threads == "auto"
+    rebinds = tokens is not None or threads_requested or binding == "round_robin"
     if not rebinds and not bound:
         return
     if not bound:

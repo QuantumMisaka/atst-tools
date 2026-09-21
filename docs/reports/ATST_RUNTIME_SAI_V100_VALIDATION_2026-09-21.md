@@ -112,7 +112,7 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
    ABACUS 通道以 `--ntasks=8` 提交（其内部 `mpirun -np 4`）。
 3. **记录修订为空**：走 wheel 安装时 `bench_record.revision` 为 null；入口新增
    `ATST_SOURCE_ROOT`，从 git 检出运行后记录携带真实 `head/branch/dirty`。
-4. **MPI rank 内 re-exec 重绑定在站点 OpenMPI 下挂起**：带 `runtime.*` 请求的 runner 会先做绑定再 `execve`。探针（1431952）显示
+4. **MPI rank 内 re-exec 重绑定在站点 OpenMPI 下挂起**（根因含本仓入口顺序缺陷：runner 曾在 exec 前初始化 MPI；2026-09-21 外部审查 P1-2 已修复，见接口文档 §7.3）：带 `runtime.*` 请求的 runner 会先做绑定再 `execve`。探针（1431952）显示
    `mpiexec -n 2` 下两 rank 打印 `pre-exec ok` 后**不再有输出并超时**（exec 后 PMIx 会话失效）；本地 MPICH 同场景正常（round_robin NEB 完成）。
    影响：站点的 `mpiexec + runtime.binding/--devices` 组合不可用；多卡 NEB 改用 `srun --mpi=pmix_v5 --gpus-per-task=1` 方案（§5c）。
    连带现象：超时杀掉 mpiexec 后，exec 过的 rank 会成为孤儿进程，取消作业长时间停留在 `CG`（1431952/1431646 留档）。

@@ -1,0 +1,142 @@
+{
+  "cpu_budget": 16,
+  "devices": [
+    "0",
+    "1"
+  ],
+  "finished_at": "2026-09-21T12:11:57+0800",
+  "notes": [
+    "Per-case evidence sidecars are opt-in for sweeps (case_telemetry=False by default) so per-case samplers do not add noise to makespan/throughput measurements.",
+    "Aggregates are descriptive statistics over 3 repeat(s); the frozen matrix asks for at least 3 alternating repeats before drawing performance conclusions.",
+    "Per-variant directories keep the raw harness summaries; no case is removed from the denominator on failure."
+  ],
+  "repeats": 3,
+  "revision": {
+    "branch": "feature/gpu-node-tuning",
+    "dirty": false,
+    "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+    "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+  },
+  "runs": [
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 4,
+      "failed": 0,
+      "gpu_seconds_total": 33.224,
+      "repeat": 1,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-1",
+      "skipped": 0,
+      "slots": 4,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-1/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 17.107
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 4,
+      "failed": 0,
+      "gpu_seconds_total": 29.157,
+      "repeat": 2,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-2",
+      "skipped": 0,
+      "slots": 4,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-2/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 15.796
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 4,
+      "failed": 0,
+      "gpu_seconds_total": 28.909,
+      "repeat": 3,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-3",
+      "skipped": 0,
+      "slots": 4,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/slots-4/repeat-3/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 15.755
+    }
+  ],
+  "schema": "atst-bench-sweep-v1",
+  "slots_variants": [
+    4
+  ],
+  "started_at": "2026-09-21T12:11:08+0800",
+  "status": "complete",
+  "variants": {
+    "4": {
+      "cases_total": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "gpu_seconds_total": {
+        "median": 29.157,
+        "values": [
+          33.224,
+          29.157,
+          28.909
+        ]
+      },
+      "makespan_s": {
+        "max": 17.107,
+        "median": 15.796,
+        "min": 15.755,
+        "values": [
+          17.107,
+          15.796,
+          15.755
+        ]
+      },
+      "runs": 3,
+      "succeeded": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "successful_cases_per_hour": {
+        "median": 911.62,
+        "values": [
+          841.76,
+          911.62,
+          914.0
+        ]
+      }
+    }
+  },
+  "wall_s": 48.675
+}

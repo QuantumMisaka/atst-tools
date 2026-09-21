@@ -25,6 +25,7 @@ slurm-*
 !examples/reference_results.json
 !examples/dp_reference_results.json
 !docs/reports/data/convergence_fixtures_20260917/*.json
+!docs/reports/data/ATST_SAI_V100_20260921/**
 !examples/dp_model_manifest.json
 !examples/runtime_batch_cases.example.json
 !examples/09_lightweight_cli/vib/

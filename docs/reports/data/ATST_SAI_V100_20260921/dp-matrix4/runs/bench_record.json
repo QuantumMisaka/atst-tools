@@ -1,0 +1,150 @@
+{
+  "atst": {
+    "record_time": {
+      "branch": "feature/gpu-node-tuning",
+      "dirty": false,
+      "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+      "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+    },
+    "run_time": [
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep",
+        "revision": {
+          "branch": "feature/gpu-node-tuning",
+          "dirty": false,
+          "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      },
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/evidence",
+        "revision": {
+          "branch": "feature/gpu-node-tuning",
+          "dirty": false,
+          "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      }
+    ],
+    "run_time_consistent": true
+  },
+  "created_at": "2026-09-21T04:12:13.284598+00:00",
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 16,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 1
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "OMP_NUM_THREADS": "2"
+    },
+    "threads_source": null
+  },
+  "host": {
+    "cpu_count": 32,
+    "gpu_inventory": [
+      "GPU 0: Tesla V100-SXM2-32GB (UUID: GPU-8f622ee6-9fe8-49b2-1ee7-90c022aa2b6c)",
+      "GPU 1: Tesla V100-SXM2-32GB (UUID: GPU-835f3a9a-05cd-5026-335f-f6f492700f1c)"
+    ],
+    "gpu_inventory_error": null,
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39"
+  },
+  "inputs": {
+    "fixtures": [
+      {
+        "exists": true,
+        "path": "/org/galileo-group/galileouser02/atst-p5-20260921/models/model.ckpt-100000.pt",
+        "sha256": "13b7479796d36b9d5d9518106f24a1915e43810765dbc09cafda817046753e34"
+      }
+    ],
+    "manifest": {
+      "exists": true,
+      "path": "/org/galileo-group/galileouser02/atst-p5-20260921/cases-dp.json",
+      "sha256": "b4df4bca8682c8b1612e88c6f22390fcf9c7b4af76cf2b7b4afcdb04e5502151"
+    }
+  },
+  "notes": [
+    "sai_runtime_bench: devices=0,1 slots=4 repeats=3"
+  ],
+  "operator": {
+    "allocated_gpu_hours": 0.037,
+    "approved_by": "QuantumMisaka",
+    "job_id": "1431648",
+    "partition": "4V100",
+    "qos": "rush-1o2gpu",
+    "sacct_excerpt": "1431648|COMPLETED|00:01:06|billing=388,cpu=16,gres/gpu=2,mem=44G,node=1"
+  },
+  "results": [
+    {
+      "dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep",
+      "exists": true,
+      "repeats": 3,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-sweep-v1",
+      "slots_variants": [
+        4
+      ],
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/sweep/sweep_summary.json",
+      "summary_sha256": "c6a2f8839fcd4d85255b7278539a5f99df20a580ea1aa788728acb64e31d14bd",
+      "tree": {
+        "file_count": 142,
+        "tree_sha256": "67864838edf4f11046ebcb889c12d0681e93f445adaf66e2eb5da5c3fd940279"
+      },
+      "variants": {
+        "4": {
+          "cases_total": 12,
+          "makespan_s_median": 15.796,
+          "succeeded_total": 12
+        }
+      }
+    },
+    {
+      "dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/evidence",
+      "exists": true,
+      "repeats": 1,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "cfebd7957873259ba5370ac4e7c287f561dfd5e7",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-sweep-v1",
+      "slots_variants": [
+        4
+      ],
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix4/runs/evidence/sweep_summary.json",
+      "summary_sha256": "0939e1102d0a004a14a26504369510c337077f46d26a4d10451dc0cf88f65f99",
+      "tree": {
+        "file_count": 48,
+        "tree_sha256": "a9e2f5c61a9240d3511b8b8a7b449135d7259e2904a84ea2907142b89e4f1101"
+      },
+      "variants": {
+        "4": {
+          "cases_total": 4,
+          "makespan_s_median": 15.754,
+          "succeeded_total": 4
+        }
+      }
+    }
+  ],
+  "schema": "atst-bench-record-v1",
+  "warnings": []
+}

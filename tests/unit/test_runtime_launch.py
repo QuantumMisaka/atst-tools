@@ -341,3 +341,27 @@ def test_empty_visible_devices_env_is_an_explicit_empty_request():
     assert inherit.requested is False
     assert inherit.devices is None
     assert inherit.devices_source is None
+
+
+def test_bound_worker_accepts_auto_threads_and_recorded_binding():
+    """`threads: auto` and a CLI-recorded binding must survive the worker
+    consistency check (review finding 5)."""
+    environ = {
+        runtime_devices.RUNTIME_BOUND_ENV: "1",
+        runtime_devices.INHERITED_DEVICES_ENV: "2,3",
+        runtime_devices.EFFECTIVE_DEVICES_ENV: "3",
+        runtime_devices.CUDA_VISIBLE_DEVICES: "3",
+        runtime_devices.BINDING_ENV: "round_robin",
+        "OMPI_COMM_WORLD_SIZE": "2",
+        "OMPI_COMM_WORLD_LOCAL_RANK": "1",
+    }
+    config = {"runtime": {"threads": "auto", "binding": "inherit"}}
+    # The recorded binding (round_robin) wins over the YAML value, and the
+    # auto thread budget is not re-parsed as an integer.
+    runtime_launch.ensure_runtime_contract(config, workflow="relax", environ=environ)
+
+    mismatched = dict(environ, **{runtime_devices.BINDING_ENV: "inherit"})
+    with pytest.raises(RuntimeBindingError):
+        runtime_launch.ensure_runtime_contract(
+            config, workflow="relax", environ=mismatched
+        )

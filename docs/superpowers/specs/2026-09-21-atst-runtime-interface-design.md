@@ -109,7 +109,7 @@ runtime:
 - 表中由环境/绑定判定触发的“拒绝”行一律抛 `RuntimeBindingError`（YAML 语法问题才抛 `ConfigValidationError`）。
 - **一致性校验基准（冻结）**：入口层在绑定前把继承集合与最终集合经 `ATST_INHERITED_DEVICES`、`ATST_EFFECTIVE_DEVICES` 传给 worker；校验式为“requested 在 inherited 基准上的解析结果 == effective == child 实际掩码”，**不得在收窄后的掩码上重新求序号**（否则恒真，无法发现绑错卡）。
 - `binding: round_robin` 在 P1 为 **fail-closed**：`world.size <= 1`、无已核验单节点共同池、或 local rank 不可判定时抛 `RuntimeBindingError`（不静默按 inherit 执行）。local rank 来源冻结为 `OMPI_COMM_WORLD_LOCAL_RANK`、`SLURM_LOCALID`、`PMIX_LOCAL_RANK`（P4 可扩展）；轮转为 `local_rank % effective_count`。
-- `round_robin` 的设备池 = 请求解析后的 effective 集合（`devices` 选池、逐 rank 在池内轮转）；池为空或非 caller-bound 时拒绝。
+- `round_robin` 的设备池 = 请求解析后的 effective 集合（`devices` 选池、逐 rank 在池内轮转）；**inherit 请求同样先与可信 allocation 求交**（空交集，或 `count < 可见集合` 且身份不可验证时拒绝），池为空或非 caller-bound 时拒绝。
 - 无 GPU/无采样工具：显式 GPU 请求按执行错误失败；计量降级不冒充成功。
 
 ## 5. 进程、入口与嵌入 API（冻结进程模型分流）
@@ -117,7 +117,7 @@ runtime:
 **模式分流（SPEC §11 R6）**。触发口径（冻结）：**YAML `runtime` 段、任一 CLI runtime 选项、或 `ATST_VISIBLE_DEVICES` 三者任一出现**即视为“请求 runtime”（并写出证据 sidecar）；三者皆无 = 未请求。
 
 1. **未请求 runtime**：`atst run` 保持现状进程内路径（`run_workflow_from_cli` 语义），不合成 manifest、不写 `atst_api_result.json`、退出码不变——旧调用逐字节兼容。
-2. **请求 runtime**：进入隔离模式。轻量 coordinator 构造 child（CUDA mask、线程、cwd、缓存目录、`ATST_RUNTIME_BOUND=1`）→ 以 exec 进入唯一 worker（复用 `python -m atst_tools.api.runner` 协议与原子结果写）。一个工作流一个新解释器，不为每次力调用创建进程。
+2. **请求 runtime**：进入隔离模式。轻量 coordinator 构造 child（CUDA mask、线程、cwd、缓存目录、`ATST_RUNTIME_BOUND=1`）→ 以 exec 进入唯一 worker（复用 `python -m atst_tools.api.runner` 协议与原子结果写）；**MPI 必须在 exec 之后由最终 worker 初始化**——在 `MPI_Init` 后 exec 会使 OpenMPI 丢失 PMIx 会话而挂起。一个工作流一个新解释器，不为每次力调用创建进程。
 
 **内部标记 `ATST_RUNTIME_BOUND` 语义（冻结）**：只表达“本进程已由 atst 入口层完成绑定”，不构成资源授权。**最终工作进程必带该标记**；`atst run` 的 coordinator 与 **runner 直接入口**都必须在完成绑定后以 re-exec 方式让工作进程携带它（runner 自身不因 `--devices` 报“嵌入 API”错误）。标记存在时，worker 内 `run_workflow` 对 `runtime.*` 做**一致性校验**（按 §4 的基准；不符 → `RuntimeBindingError`），不再拒绝设备请求；标记不存在时（Python 嵌入或进程内调用），`runtime.devices`、`runtime.threads`、`runtime.binding: round_robin` 一律抛 `RuntimeBindingError`（`embedding API cannot rebind devices; run the workflow through 'atst run' or 'python -m atst_tools.api.runner' instead`）。
 
@@ -180,6 +180,21 @@ runtime:
 MPI 计数汇总（P2 收口片）：除 rank 0 的进程级 `counters`/`gauges`（`counters_scope=process`）外，成功路径在失败同步 collective 之后对**全部 rank** 求和 canonical 计数，写入 `counters_mpi`（`scope=sum-over-ranks`、`world_size`、`counters`、`gauges`）；失败路径无此集体操作，只保留 rank 0 的进程级值（诚实降级）。
 
 冻结消息一致性收口（2026-09-21，机械审计）：逐条比对本文 §2/§4 的冻结消息与实现，发现并修正 5 处偏差——① `runtime must be a mapping` 未实现（pydantic 原始消息）；② `runtime.telemetry.enabled must be a boolean` 与 ③ `runtime.telemetry.interval_s must be a positive number` 走 pydantic 原始消息且 union 泄漏额外 `runtime.telemetry.bool` 行；④ 非字符串设备 token 的 entry 消息缺引号（`entry 1.5` → `entry '1.5'`）；⑤ CLI `--telemetry-interval <非数字>` 泄漏 `could not convert string to float`。现全部按本文输出，并有契约测试锁住（`tests/unit/test_runtime_schema.py::test_runtime_section_uses_the_frozen_interface_messages`、`tests/unit/test_runtime_launch.py::test_telemetry_interval_uses_the_frozen_message_for_bad_values`）。
+
+### 7.3 第三轮复核（外部审查 2026-09-21）修复记录
+
+外部审查对 `f03b3e6` 提出 8 项（P1×4、P2×4）；逐条复现、修复并补回归：
+
+1. **round_robin 绕过 allocation（P1）**：inherit + `round_robin` 现先与可信 allocation 求交（空交集或 `count < 可见集合` 即拒绝），与显式请求共用同一套可采性规则（§4）。
+2. **runner 在 MPI 初始化后 re-exec（P1）**：`_process_rank()`（导入 mpi4py）推迟到重绑定 exec 之后；SAI 的 OpenMPI 挂起根因即此顺序，已修复。回归：入口顺序单测 + 真实 MPI 冒烟 `test_runner_direct_entry_completes_under_real_mpi`。
+3. **进程组清理遗留子进程（P1）**：`_terminate_group` 先固化 pgid，宽限后对整组 SIGKILL 并确认组已空；新增“忽略 SIGTERM 的子进程”回归。
+4. **默认 workdir 未隔离（P1）**：manifest 校验按“实际运行目录”（显式 workdir 或配置所在目录）判重，同目录多 case 直接拒绝。
+5. **两种合法参数组合在 worker 失败（P2）**：`threads: auto` 视为请求而非按整数解析；worker 优先采用协调者记录的 `ATST_BINDING`（CLI 覆盖 YAML）。
+6. **`--case-telemetry` 未透传（P2）**：harness 现在把 `case_telemetry` 传入子进程环境构造，关闭时不再注入 `ATST_TELEMETRY_ENABLED`。
+7. **“卡时”语义（P2）**：`gpu_seconds` 明确为 per-case 设备秒；新增 `allocation.{devices,wall_s,gpu_seconds}`（分配卡数 × 批次墙钟），sweep 汇总同步聚合。
+8. **证据切片未被 Git 跟踪（P2）**：`.gitignore` 增加归档例外并补提交 JSON（records/汇总/sidecar）。
+
+验证：`tests/unit` 1099 passed / 2 skipped、`ATST_RUN_MPI_TESTS=1 tests/integration` 23 passed（新增 1 项）。
 
 ## 8. 与恒电势在途工作的共享文件协调（SPEC §11 R4）
 

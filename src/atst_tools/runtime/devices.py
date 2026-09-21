@@ -274,6 +274,38 @@ def declared_node_count(environ: Mapping[str, str]) -> int:
     return 1
 
 
+def _inherited_round_robin_pool(
+    inherited: tuple[str, ...], allocation: AllocationFacts | None
+) -> tuple[str, ...]:
+    """Return the pool a rebinding inherit request may rotate over.
+
+    Rebinding must respect the trusted allocation just like an explicit
+    request: a token list narrows the pool to ``inherited ∩ allocation``
+    (empty intersection is refused), and a count smaller than the inherited
+    set is refused because the granted device identities cannot be verified.
+    """
+    if allocation is None:
+        return inherited
+    if allocation.tokens is not None:
+        trusted = set(allocation.tokens)
+        pool = tuple(part for part in inherited if part in trusted)
+        if not pool:
+            raise RuntimeBindingError(
+                f"{REFUSED_PREFIX}: {REASON_OVEREXPOSED}",
+                context={
+                    "inherited": ",".join(inherited),
+                    "allocation": allocation.raw,
+                },
+            )
+        return pool
+    if allocation.count < len(inherited):
+        raise RuntimeBindingError(
+            f"{REFUSED_PREFIX}: {REASON_OVEREXPOSED}",
+            context={"inherited": ",".join(inherited), "allocation": allocation.raw},
+        )
+    return inherited
+
+
 def _apply_round_robin(
     resolution: DeviceResolution, environ: Mapping[str, str]
 ) -> DeviceResolution:
@@ -389,11 +421,16 @@ def resolve_devices(
         )
         if inherited_source == "env" and not caller_bound:
             identity = "unverified"
+        effective = inherited
+        if mode == "round_robin":
+            # Rebinding inherits nothing it was not granted: verify the pool
+            # against the trusted allocation before rotating ranks over it.
+            effective = _inherited_round_robin_pool(inherited, allocation)
         inherit_resolution = DeviceResolution(
             requested=(),
             inherited=inherited,
             inherited_source=inherited_source,
-            effective=inherited,
+            effective=effective,
             child_mask=None,
             allocation_identity=identity,
             binding=mode,

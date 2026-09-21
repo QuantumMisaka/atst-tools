@@ -276,3 +276,31 @@ def test_verify_bound_devices_replays_round_robin_rotation():
         runtime_devices.verify_bound_devices(
             None, environ=wrong_rank, binding="round_robin"
         )
+
+
+def test_round_robin_inherit_respects_the_trusted_allocation():
+    """Inherit + round_robin must rotate only inside the allocation (review 1)."""
+    environ = {
+        "CUDA_VISIBLE_DEVICES": "2,3",
+        runtime_devices.ALLOCATION_DEVICES_ENV: "2",
+        "OMPI_COMM_WORLD_SIZE": "2",
+        "OMPI_COMM_WORLD_LOCAL_RANK": "1",
+    }
+    resolution = runtime_devices.resolve_devices(
+        None, binding="round_robin", environ=environ
+    )
+    assert resolution.inherited == ("2", "3")
+    assert resolution.effective == ("2",)
+    assert resolution.allocation_identity == "verified"
+
+
+def test_round_robin_inherit_refuses_a_count_below_the_visible_set():
+    environ = {
+        "CUDA_VISIBLE_DEVICES": "2,3",
+        runtime_devices.ALLOCATION_DEVICES_ENV: "count=1",
+        "OMPI_COMM_WORLD_SIZE": "2",
+        "OMPI_COMM_WORLD_LOCAL_RANK": "0",
+    }
+    with pytest.raises(runtime_errors.RuntimeBindingError) as caught:
+        runtime_devices.resolve_devices(None, binding="round_robin", environ=environ)
+    assert "exceeds the trusted allocation" in str(caught.value)

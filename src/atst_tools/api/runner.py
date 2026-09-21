@@ -186,7 +186,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     workdir = Path(args.workdir).resolve()
     config_path = Path(args.config).resolve()
     result_path = _result_path(args.result_json, workdir)
-    is_root = _process_rank() == 0
     level = os.environ.get(_LOG_LEVEL_ENV)
     if level:
         logging.basicConfig(
@@ -203,6 +202,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         plots=args.plots,
     )
 
+    is_root = False
+    root_resolved = False
     try:
         from atst_tools.runtime.cli_dispatch import plan_runner_launch
 
@@ -212,11 +213,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         plan = plan_runner_launch(arguments, workdir=workdir)
         if plan is not None:  # pragma: no cover - replaces the process
             plan.execute()
+        # MPI must not be initialised before the rebind exec: an OpenMPI rank
+        # that executes after MPI_Init loses its PMIx session and hangs (see
+        # the SAI report). The rank is therefore resolved in the final worker.
+        is_root = _process_rank() == 0
+        root_resolved = True
         with _working_directory(workdir):
             result = _api_attr("run_workflow")(config_path, options)
             if is_root:
                 _write_json_atomic(result_path, result.to_document(workdir))
     except ATSTAPIError as error:
+        if not root_resolved:
+            is_root = _process_rank() == 0
         if is_root:
             _write_json_atomic(result_path, _error_document(error))
         return 2

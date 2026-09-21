@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import signal
 import sys
 import threading
 import time
@@ -24,6 +25,7 @@ facts = {
     "attempt": os.environ.get("ATST_ATTEMPT"),
     "threads": os.environ.get("OMP_NUM_THREADS"),
     "cache": os.environ.get("NUMBA_CACHE_DIR"),
+    "telemetry": os.environ.get("ATST_TELEMETRY_ENABLED"),
     "pid": os.getpid(),
 }
 (workdir / "env.json").write_text(json.dumps(facts))
@@ -39,6 +41,20 @@ def note(text):
 note("start %s" % os.getpid())
 if mode == "sleep":
     child = subprocess.Popen(["sleep", "120"])
+    (workdir / "child.pid").write_text(str(child.pid))
+    time.sleep(120)
+elif mode == "stubborn":
+    # A child that ignores SIGTERM and outlives its group leader: the harness
+    # must still reclaim the whole group.
+    child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import signal, time\\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"
+            "time.sleep(120)\\n",
+        ]
+    )
     (workdir / "child.pid").write_text(str(child.pid))
     time.sleep(120)
 elif mode == "fail_oom":
@@ -260,6 +276,35 @@ def test_timeout_terminates_the_whole_worker_group(tmp_path, monkeypatch):
         os.kill(child_pid, 0)
 
 
+def test_termination_reclaims_children_that_ignore_sigterm(tmp_path, monkeypatch):
+    """A SIGTERM-ignoring child must not survive the group cleanup."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+    case = _case("stubborn", "stubborn")
+    case["timeout_s"] = 0.5
+    summary = harness.run_manifest(
+        {"cases": [case]},
+        harness.HarnessOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+
+    assert summary["timed_out"] == 1
+    child_pid = int((tmp_path / "out" / "stubborn" / "child.pid").read_text())
+    for _ in range(50):
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    else:
+        os.kill(child_pid, signal.SIGKILL)
+        raise AssertionError("stubborn child survived the group cleanup")
+
+
 def test_cancel_marks_remaining_cases_and_writes_the_summary(tmp_path, monkeypatch):
     script = _standin(tmp_path)
     log = tmp_path / "log.txt"
@@ -320,21 +365,34 @@ def test_manifest_validation_rejects_bad_rows(tmp_path):
 
 
 def test_manifest_rejects_shared_case_workdirs(tmp_path):
-    """Two cases sharing one workdir would overwrite each other's evidence."""
+    """Cases that would run in the same directory are rejected."""
     options = harness.HarnessOptions(devices=("0",), output_dir=tmp_path)
     shared = [dict(_case("a"), workdir="work"), dict(_case("b"), workdir="work")]
-    with pytest.raises(ValueError, match="distinct workdir values"):
+    with pytest.raises(ValueError, match="distinct directories"):
         harness.load_cases({"cases": shared}, options)
     distinct = [dict(_case("a"), workdir="work-a"), dict(_case("b"), workdir="work-b")]
     assert [case.workdir for case in harness.load_cases({"cases": distinct}, options)] == [
         "work-a",
         "work-b",
     ]
-    absent = harness.load_cases(
-        {"cases": [{"case_id": "a", "config": "a.yaml"}, {"case_id": "b", "config": "b.yaml"}]},
-        options,
-    )
-    assert [case.workdir for case in absent] == [None, None]
+
+
+def test_manifest_rejects_implicit_config_directory_collisions(tmp_path):
+    """Without workdirs, two cases in one configuration directory collide."""
+    options = harness.HarnessOptions(devices=("0",), output_dir=tmp_path)
+    same_dir = [
+        {"case_id": "a", "config": "shared/config-a.yaml"},
+        {"case_id": "b", "config": "shared/config-b.yaml"},
+    ]
+    with pytest.raises(ValueError, match="distinct directories"):
+        harness.load_cases({"cases": same_dir}, options)
+
+    separate = [
+        {"case_id": "a", "config": "dir-a/config.yaml"},
+        {"case_id": "b", "config": "dir-b/config.yaml"},
+    ]
+    cases = harness.load_cases({"cases": separate}, options)
+    assert [case.workdir for case in cases] == [None, None]
 
 
 def test_case_environment_merges_case_specific_values(tmp_path):
@@ -365,6 +423,27 @@ def test_case_environment_requests_per_case_evidence_by_default(tmp_path):
         case, ("0",), base={}, attempt=1, workdir=tmp_path, case_telemetry=False
     )
     assert "ATST_TELEMETRY_ENABLED" not in quiet
+
+
+def test_run_manifest_forwards_case_telemetry_to_workers(tmp_path, monkeypatch):
+    """`case_telemetry=False` must reach the worker environment."""
+    script = _standin(tmp_path)
+    monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
+
+    for case_telemetry, expected in ((False, None), (True, "1")):
+        out = tmp_path / f"out-{case_telemetry}"
+        harness.run_manifest(
+            {"cases": [_case("only")]},
+            harness.HarnessOptions(
+                devices=("0",),
+                output_dir=out,
+                worker_factory=_factory(script),
+                telemetry=False,
+                case_telemetry=case_telemetry,
+            ),
+        )
+        facts = json.loads((out / "only" / "env.json").read_text(encoding="utf-8"))
+        assert facts["telemetry"] == expected
 
 
 def test_slot_pool_hands_out_distinct_devices_for_multi_slot_cases():

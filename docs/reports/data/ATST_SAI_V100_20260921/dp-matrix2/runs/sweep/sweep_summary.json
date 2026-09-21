@@ -1,0 +1,366 @@
+{
+  "cpu_budget": 16,
+  "devices": [
+    "0",
+    "1"
+  ],
+  "finished_at": "2026-09-21T11:30:08+0800",
+  "notes": [
+    "Per-case evidence sidecars are opt-in for sweeps (case_telemetry=False by default) so per-case samplers do not add noise to makespan/throughput measurements.",
+    "Aggregates are descriptive statistics over 3 repeat(s); the frozen matrix asks for at least 3 alternating repeats before drawing performance conclusions.",
+    "Per-variant directories keep the raw harness summaries; no case is removed from the denominator on failure."
+  ],
+  "repeats": 3,
+  "revision": {
+    "branch": "feature/gpu-node-tuning",
+    "dirty": false,
+    "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+    "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+  },
+  "runs": [
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 1,
+      "failed": 0,
+      "gpu_seconds_total": 34.318,
+      "repeat": 1,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-1",
+      "skipped": 0,
+      "slots": 1,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-1/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 18.838
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 2,
+      "failed": 0,
+      "gpu_seconds_total": 29.487,
+      "repeat": 1,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-1",
+      "skipped": 0,
+      "slots": 2,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-1/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.476
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 3,
+      "failed": 0,
+      "gpu_seconds_total": 30.319,
+      "repeat": 1,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-1",
+      "skipped": 0,
+      "slots": 3,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-1/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.573
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 3,
+      "failed": 0,
+      "gpu_seconds_total": 31.017,
+      "repeat": 2,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-2",
+      "skipped": 0,
+      "slots": 3,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-2/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.822
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 2,
+      "failed": 0,
+      "gpu_seconds_total": 30.172,
+      "repeat": 2,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-2",
+      "skipped": 0,
+      "slots": 2,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-2/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.567
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 1,
+      "failed": 0,
+      "gpu_seconds_total": 28.856,
+      "repeat": 2,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-2",
+      "skipped": 0,
+      "slots": 1,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-2/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.004
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 1,
+      "failed": 0,
+      "gpu_seconds_total": 29.058,
+      "repeat": 3,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-3",
+      "skipped": 0,
+      "slots": 1,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-1/repeat-3/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.106
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 2,
+      "failed": 0,
+      "gpu_seconds_total": 29.972,
+      "repeat": 3,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-3",
+      "skipped": 0,
+      "slots": 2,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-2/repeat-3/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.557
+    },
+    {
+      "cases_total": 4,
+      "effective_cpu_budget": 16,
+      "effective_slots_per_device": 3,
+      "failed": 0,
+      "gpu_seconds_total": 30.808,
+      "repeat": 3,
+      "revision": {
+        "branch": "feature/gpu-node-tuning",
+        "dirty": false,
+        "head": "4d77fee6e55d88e3d323372501bc5c732ada23f9",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "run_dir": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-3",
+      "skipped": 0,
+      "slots": 3,
+      "status": "complete",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-20260921/work/dp-matrix2/runs/sweep/slots-3/repeat-3/harness_summary.json",
+      "timed_out": 0,
+      "wall_s": 16.75
+    }
+  ],
+  "schema": "atst-bench-sweep-v1",
+  "slots_variants": [
+    1,
+    2,
+    3
+  ],
+  "started_at": "2026-09-21T11:27:37+0800",
+  "status": "complete",
+  "variants": {
+    "1": {
+      "cases_total": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "gpu_seconds_total": {
+        "median": 29.058,
+        "values": [
+          34.318,
+          28.856,
+          29.058
+        ]
+      },
+      "makespan_s": {
+        "max": 18.838,
+        "median": 16.106,
+        "min": 16.004,
+        "values": [
+          18.838,
+          16.004,
+          16.106
+        ]
+      },
+      "runs": 3,
+      "succeeded": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "successful_cases_per_hour": {
+        "median": 894.08,
+        "values": [
+          764.41,
+          899.78,
+          894.08
+        ]
+      }
+    },
+    "2": {
+      "cases_total": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "gpu_seconds_total": {
+        "median": 29.972,
+        "values": [
+          29.487,
+          30.172,
+          29.972
+        ]
+      },
+      "makespan_s": {
+        "max": 16.567,
+        "median": 16.557,
+        "min": 16.476,
+        "values": [
+          16.476,
+          16.567,
+          16.557
+        ]
+      },
+      "runs": 3,
+      "succeeded": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "successful_cases_per_hour": {
+        "median": 869.72,
+        "values": [
+          874.0,
+          869.2,
+          869.72
+        ]
+      }
+    },
+    "3": {
+      "cases_total": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "gpu_seconds_total": {
+        "median": 30.808,
+        "values": [
+          30.319,
+          31.017,
+          30.808
+        ]
+      },
+      "makespan_s": {
+        "max": 16.822,
+        "median": 16.75,
+        "min": 16.573,
+        "values": [
+          16.573,
+          16.822,
+          16.75
+        ]
+      },
+      "runs": 3,
+      "succeeded": {
+        "total": 12,
+        "values": [
+          4,
+          4,
+          4
+        ]
+      },
+      "successful_cases_per_hour": {
+        "median": 859.7,
+        "values": [
+          868.88,
+          856.02,
+          859.7
+        ]
+      }
+    }
+  },
+  "wall_s": 150.722
+}
