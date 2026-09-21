@@ -123,6 +123,7 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 ## 7. 证据清单
 
 - 作业：1430846（失败，留档）、1430966、1431010、1431119、1431648（slots=4）、1431955/1432107（多卡 NEB 对照）、1432043（srun/mpiexec 探针）；ABACUS：1431200（成功）、1431647（三次重复；repeat-2 NEB 停滞取消）、1432820（NEB 补跑 ×2 成功）；1431188/1431190（时序/路径问题取消或失败，留档）；1431952/1431646（挂起与孤儿，留档）。
+- 仓库归档：本报告的版本化证据切片见 [`docs/reports/data/ATST_SAI_V100_20260921/`](data/ATST_SAI_V100_20260921/README.md)（records/汇总/证据 sidecar/两次重复的 case 记录；records 的 `approved_by` 已填）。
 - 站点路径：`~/atst-p5-20260921/work/{smoke,smoke2,smoke3,dp-matrix,dp-matrix2,abacus2}/runs/`
   （`sweep/`、`evidence/`、`bench_record.json`），日志 `~/atst-p5-20260921/slurm-<job>.out`。
 - 记录：`bench_record.json`（`atst-bench-record-v1`）含修订 `4d77fee`、fixture 哈希、

@@ -108,6 +108,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（P5 收尾：ABACUS 候选点重复完成）：NEB 补跑（1432820）成功 712.7/709.8 s，与 1431647 的 750.2 s 合为 3 点（中位 ≈712.7 s、离散 ~5%）；relax 共 4 点（172.8/171.0/171.7/172.6 s）。此前 repeat-2 NEB 的同节点停滞（孤儿进程同期出现）记为站点观察项。P5 清单中 DP/NEB/采样项完成，仅 host/SIF 成对留后续；SAI 报告与计划已收口。
 
+- 2026-09-21（P5 交付物处理）：5 份 `bench_record.json` 补齐操作者字段（`approved_by=QuantumMisaka`、`allocated_gpu_hours` 由 sacct 计算：0.024–0.851、`sacct_excerpt`）；证据切片归档到 `docs/reports/data/ATST_SAI_V100_20260921/`（5 records + 4 sweep 汇总 + 7 份 sidecar + abacus4 两例 case 记录，共 1.6 MB，附 README 说明来源与站点全量路径）。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
