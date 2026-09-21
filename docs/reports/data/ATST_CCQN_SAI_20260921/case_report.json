@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "ccqn-h2au-ft2dp",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-ccqn-20260921/configs/ccqn_ft2dp.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T12:43:47.195114+00:00",
+  "gpu_seconds": 6.709,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-ccqn-20260921/runs/ccqn-h2au-ft2dp/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T12:43:40.486456+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-ccqn-20260921/runs/ccqn-h2au-ft2dp/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-ccqn-20260921/runs/ccqn-h2au-ft2dp/worker.out",
+  "threads": 4,
+  "wall_s": 6.709,
+  "workdir": "/org/galileo-group/galileouser02/atst-ccqn-20260921/runs/work-ccqn-ft2dp"
+}

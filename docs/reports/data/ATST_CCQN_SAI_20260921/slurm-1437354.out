@@ -1,0 +1,10 @@
+
+Currently Loaded Modules:
+  1) cuda/12.9.1                   3) openmpi/5.0.10-nvhpc26.3-gnu-cuda12-auto
+  2) nvhpc/26.3-gnu-cuda12-tuned   4) deepmd-kit/3.2.0
+
+ 
+
+job=1437354 host=4v100n06 CVD=0 np=2
+{"cases_total": 1, "failed": 0, "skipped": 0, "succeeded": 1, "timed_out": 0, "wall_s": 6.712}
+wrote benchmark record: /org/galileo-group/galileouser02/atst-ccqn-20260921/runs/bench_record.json

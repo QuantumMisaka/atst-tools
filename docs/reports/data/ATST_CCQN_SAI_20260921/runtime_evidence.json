@@ -1,0 +1,193 @@
+{
+  "attempt": 1,
+  "counters": {
+    "dp.calculator_built": 1,
+    "dp.force_calls": 9
+  },
+  "counters_scope": "process",
+  "devices": {
+    "allocation_identity": "unverified",
+    "binding": "inherit",
+    "bound": true,
+    "caller_bound": true,
+    "effective": [
+      "0"
+    ],
+    "inherited": [
+      "0"
+    ],
+    "requested": [
+      "0"
+    ],
+    "requested_source": "runtime.devices",
+    "threads": 4
+  },
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 8,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 1
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "MKL_NUM_THREADS": "4",
+      "NUMEXPR_NUM_THREADS": "4",
+      "OMP_NUM_THREADS": "4",
+      "OPENBLAS_NUM_THREADS": "4"
+    },
+    "threads_source": "harness"
+  },
+  "finished_at": "2026-09-21T12:43:46.339579+00:00",
+  "gauges": {
+    "dp.cached_instances": 1.0
+  },
+  "limitations": [
+    "GPU samples are host-scope values; they are not exclusive to this workflow when devices are shared.",
+    "Sampled memory peaks may miss short peaks; missing values are reported as null, never zero."
+  ],
+  "phases": {
+    "attempt_s": 4.946,
+    "dispatch_s": 4.946
+  },
+  "reason": null,
+  "schema": "atst-runtime-evidence-v1",
+  "started_at": "2026-09-21T12:43:41.393253+00:00",
+  "status": "complete",
+  "telemetry": {
+    "enabled": true,
+    "interval_s": 1.0,
+    "sampler": {
+      "coverage_s": 4.946,
+      "memory_peak_mib": {
+        "source": "sampled_peak",
+        "value": 1074.0
+      },
+      "reason": null,
+      "sample_count": 5,
+      "samples": [
+        {
+          "devices": [
+            {
+              "memory_total_mib": 32768.0,
+              "memory_used_mib": 4.0,
+              "utilization_gpu_pct": 0.0,
+              "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+            }
+          ],
+          "processes": {
+            "processes": [],
+            "reason": "no compute process was reported",
+            "source": "nvidia-smi",
+            "status": "unavailable"
+          },
+          "reason": null,
+          "sampled_at": "2026-09-21T12:43:41.403305+00:00",
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        {
+          "devices": [
+            {
+              "memory_total_mib": 32768.0,
+              "memory_used_mib": 4.0,
+              "utilization_gpu_pct": 0.0,
+              "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+            }
+          ],
+          "processes": {
+            "processes": [],
+            "reason": "no compute process was reported",
+            "source": "nvidia-smi",
+            "status": "unavailable"
+          },
+          "reason": null,
+          "sampled_at": "2026-09-21T12:43:42.423334+00:00",
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        {
+          "devices": [
+            {
+              "memory_total_mib": 32768.0,
+              "memory_used_mib": 4.0,
+              "utilization_gpu_pct": 0.0,
+              "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+            }
+          ],
+          "processes": {
+            "processes": [],
+            "reason": "no compute process was reported",
+            "source": "nvidia-smi",
+            "status": "unavailable"
+          },
+          "reason": null,
+          "sampled_at": "2026-09-21T12:43:43.496656+00:00",
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        {
+          "devices": [
+            {
+              "memory_total_mib": 32768.0,
+              "memory_used_mib": 4.0,
+              "utilization_gpu_pct": 0.0,
+              "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+            }
+          ],
+          "processes": {
+            "processes": [],
+            "reason": "no compute process was reported",
+            "source": "nvidia-smi",
+            "status": "unavailable"
+          },
+          "reason": null,
+          "sampled_at": "2026-09-21T12:43:44.515521+00:00",
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        {
+          "devices": [
+            {
+              "memory_total_mib": 32768.0,
+              "memory_used_mib": 1074.0,
+              "utilization_gpu_pct": 1.0,
+              "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+            }
+          ],
+          "processes": {
+            "processes": [
+              {
+                "attribution": "reported",
+                "gpu_uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214",
+                "pid": 1984631,
+                "used_memory_mib": 1070.0
+              }
+            ],
+            "reason": null,
+            "source": "nvidia-smi",
+            "status": "observed"
+          },
+          "reason": null,
+          "sampled_at": "2026-09-21T12:43:45.533695+00:00",
+          "source": "nvidia-smi",
+          "status": "observed"
+        }
+      ],
+      "source": "nvidia-smi",
+      "status": "observed"
+    }
+  },
+  "workflow": "ccqn"
+}

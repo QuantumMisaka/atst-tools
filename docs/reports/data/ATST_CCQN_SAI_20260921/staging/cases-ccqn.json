@@ -1,0 +1,15 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "CCQN x DP fixed-cost re-check on SAI (V100, FT2DP single-head 100k). One case; the stand-in pass runs in-process on the login node.",
+  "defaults": {"threads": 4, "timeout_s": 1800},
+  "cases": [
+    {
+      "case_id": "ccqn-h2au-ft2dp",
+      "config": "/home/galileo-group/galileouser02/atst-ccqn-20260921/configs/ccqn_ft2dp.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 1800,
+      "workdir": "work-ccqn-ft2dp"
+    }
+  ]
+}

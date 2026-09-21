@@ -413,7 +413,8 @@ P5 现场（结合 §15 的单卡压力结论，单卡多 rank 不应期待收�
 可操作杠杆因此是「摊薄 worker 初始化」（同一进程内跑多个 case / 更快的预热 / 复用推理上下文），
 而不是改写 CCQN；这也解释了 `share_calculator` 为什么只在多图工作流（NEB/AutoNEB）里见效。
 
-边界：单卡共享、66 原子、DPA-3.1-3M、steps ≤ 8、单次测量；**待 SAI 用 FT²DP 复测**（模型更大、
-加载更久，预期固定成本占比更高）。本次同时现场验证了冻结语义：不带 `CUDA_VISIBLE_DEVICES`
+边界：单卡共享、66 原子、DPA-3.1-3M、steps ≤ 8、单次测量；**SAI 复测已完成**（2026-09-21，
+作业 1437354：FT²DP 单头 100k + V100 的固定成本只有 ≈2.4 s——固定成本随模型规模变化，
+见 SAI 报告 §5e 与证据切片 `docs/reports/data/ATST_CCQN_SAI_20260921/`）。本次同时现场验证了冻结语义：不带 `CUDA_VISIBLE_DEVICES`
 直接跑带 `runtime.devices` 的配置会被 fail-closed 拒绝
 （`explicit device selection is refused: ...`）。

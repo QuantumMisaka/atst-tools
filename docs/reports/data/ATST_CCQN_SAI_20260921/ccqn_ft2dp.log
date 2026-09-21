@@ -1,0 +1,10 @@
+               Step     Time          Energy          fmax
+CCQNOptimizer:    0 20:43:46    -3497.126856        0.384372
+CCQNOptimizer:    1 20:43:46    -3497.182305        0.301210
+CCQNOptimizer:    2 20:43:46    -3497.231430        0.318420
+CCQNOptimizer:    3 20:43:46    -3497.275525        0.343888
+CCQNOptimizer:    4 20:43:46    -3497.315294        0.385693
+CCQNOptimizer:    5 20:43:46    -3497.349643        0.465863
+CCQNOptimizer:    6 20:43:46    -3497.377595        0.603764
+CCQNOptimizer:    7 20:43:46    -3497.399216        0.769705
+CCQNOptimizer:    8 20:43:46    -3497.413192        0.999390

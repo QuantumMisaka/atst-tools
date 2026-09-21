@@ -143,6 +143,26 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 **站点观察**：两个作业的批次 shell 里 `nproc=2`，而 worker 内亲和掩码为 8
 （`cpu_affinity_count=8`）——站点 Slurm 绑定在不同进程层不一致，记为观察项，不据此改代码。
 
+## 5e. CCQN 固定成本复测（2026-09-21，作业 1437354）
+
+把本地报告 §17 的 CCQN 分解搬到站点（V100 + FT2DP 单头 100k，一个 case、9 次力调用、
+`reactive_bonds: 1-2`、`max_steps: 8`）：
+
+| 量 | 本地（DPA-3.1-3M，2070S） | 站点（FT2DP 单头 100k，V100） |
+| --- | --- | --- |
+| 替身 pass（只留 CCQN/ASE CPU 逻辑） | 2.27 s（9 次调用） | **2.56 s**（登录节点，9 次调用） |
+| 真实 pass | 35.5 s wall / 29.8 s dispatch | **6.71 s wall / 4.95 s dispatch** |
+| 每 worker 固定成本（加载 + 预热） | ≈15.6 s | **≈2.4 s（推算：4.95 − 2.56）** |
+| `dp.force_calls` / `calculator_built` / `cached_instances` | 9 / 1 / 1 | 9 / 1 / 1 |
+| 采样 | 25 样本 / 29.8 s，峰值 4573 MiB | 5 样本 / 4.9 s，峰值 1074 MiB |
+| `threads_source` | — | `harness`（新线程标记在站点生效，worker stderr 为空） |
+
+**结论**：固定成本随**模型**而非框架变化——多任务 DPA-3.1-3M 在本机要 15.6 s，而站点小模型只要
+≈2.4 s；CCQN 自身的 CPU 逻辑两端都只有 ~2.3–2.6 s。所以"摊薄 worker 初始化"这条杠杆对
+**大模型 + 短 case** 最值钱，对小模型/长 case 收益有限。本次同时验证了产物更名后的首个新运行：
+`runs/batch_summary.json`、`runs/ccqn-h2au-ft2dp/case_report.json`、`worker.{out,err}` 均按新名落盘，
+`bench_record` 正常生成。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：
