@@ -32,6 +32,17 @@ The batch runner executes a bounded case list inside one existing allocation:
 * one batch-level host sampler covers the whole batch; per-case evidence
   sidecars (and their own samplers) are opt-in through ``case_telemetry``.
 
+One worker process per case is the default.  ``--share-worker`` is the opt-in
+single-process mode: every case of the batch runs sequentially inside one child
+(``atst_tools.bench.batch_worker``), so a machine learned potential pays its
+fixed model load, first-call warm-up and compilation cost once instead of once
+per case.  That mode acquires exactly one device slot for the whole batch and
+reports per-case wall time as the case's own segment inside the shared process.
+It also publishes the bound-process facts of that slot (see
+:func:`shared_bound_environment`), so case configs that declare a ``runtime:``
+section run unchanged while a request that contradicts the binding is still
+refused per case.
+
 Usage::
 
     python -m atst_tools.bench.batch_runner --manifest cases.json --out runs/batch \\
@@ -54,6 +65,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from atst_tools.bench import batch_worker as _batch_worker
 from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import evidence as _evidence
 from atst_tools.runtime import launch as _launch
@@ -69,6 +81,18 @@ CASE_REPORT = "case_report.json"
 SUMMARY_REPORT = "batch_summary.json"
 DEFAULT_RESULT_JSON = "atst_api_result.json"
 TERMINATION_GRACE_S = 5.0
+
+# Shared-worker mode (``--share-worker``): one child runs the whole batch.
+SHARED_WORKER_MODULE = "atst_tools.bench.batch_worker"
+JOBS_REPORT = "batch_jobs.json"
+# Slot-pool key of the single slot the shared batch holds for its whole wall
+# clock; it is not a case id and never reaches an artifact.
+SHARED_BATCH_SLOT = "__batch__"
+# English reason recorded for the case the shared worker was running plus every
+# case it never reached when that worker died mid-batch.
+SHARED_WORKER_EXIT_REASON = "shared worker exited"
+_SHARED_SUCCESS_STATUSES = frozenset({"success", "succeeded"})
+_SHARED_ERROR_STATUSES = frozenset({"error", "failed"})
 
 STATUS_SUCCEEDED = "succeeded"
 STATUS_FAILED = "failed"
@@ -165,9 +189,11 @@ class BatchOptions:
     sampler_interval_s: float = 1.0
     telemetry: bool = True
     case_telemetry: bool = True
+    share_worker: bool = False
     worker_factory: Callable[
         ["CaseSpec", Path, tuple[str, ...]], Sequence[str]
     ] | None = None
+    shared_worker_factory: Callable[[Path, Path], Sequence[str]] | None = None
     stop_event: threading.Event | None = None
 
     def cpu_limit(self) -> int:
@@ -302,6 +328,216 @@ def case_workdir(case: CaseSpec, output_dir: Path) -> Path:
             candidate.resolve() if candidate.is_absolute() else (output_dir / candidate)
         )
     return Path(case.config).resolve().parent
+
+
+def shared_worker_command(
+    jobs_path: Path,
+    output_dir: Path,
+    *,
+    factory: Callable[[Path, Path], Sequence[str]] | None = None,
+) -> list[str]:
+    """Return the argv of the single worker that runs a whole shared batch.
+
+    The shared batch has exactly one child, so a case-level launcher cannot be
+    honoured here; :func:`shared_batch_plan` refuses such a manifest instead of
+    dropping the launcher silently.  ``factory`` overrides the argv and
+    receives the job-list path and the batch output directory.
+    """
+    if factory is not None:
+        return list(factory(Path(jobs_path), Path(output_dir)))
+    return [
+        sys.executable,
+        "-m",
+        SHARED_WORKER_MODULE,
+        "--jobs",
+        str(jobs_path),
+        "--out",
+        str(output_dir),
+    ]
+
+
+def write_jobs_file(cases: Sequence[CaseSpec], output_dir: Path) -> Path:
+    """Write the shared worker's job list and return its path.
+
+    Paths are absolute: the shared worker enters one case directory at a time,
+    so relative paths would resolve against the wrong directory mid-batch.
+    """
+    rows = [
+        {
+            "case_id": case.case_id,
+            "config": str(Path(case.config).resolve()),
+            "workdir": str(case_workdir(case, output_dir)),
+        }
+        for case in cases
+    ]
+    path = Path(output_dir) / JOBS_REPORT
+    path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+@dataclass(frozen=True)
+class SharedBatchPlan:
+    """Resolved single-process facts of one ``--share-worker`` batch."""
+
+    devices: tuple[str, ...]
+    threads: int
+    env: dict[str, str]
+    jobs_path: Path
+
+
+def _shared_runtime_request() -> _launch.RuntimeRequest:
+    """Return the binding request that the shared batch publishes.
+
+    The batch runner is the coordinator of this launch: it acquires one device
+    slot and hands that binding to the single child, exactly like the isolated
+    per-case coordinator does through ``plan_runner_launch``.
+
+    ``devices`` is deliberately ``None`` so that no requested-device record is
+    published.  Every case then keeps being verified against the *published*
+    binding (``ensure_runtime_contract`` falls back to the case config's own
+    ``runtime.devices``), which is what keeps the mode fail-closed: a case that
+    asks for a device outside the bound set is still refused instead of being
+    silently redirected by a batch-level record.  Threads are left to
+    :func:`case_environment`, which owns the ``harness`` thread marker together
+    with the per-attempt cache directories of the batch.
+    """
+    return _launch.RuntimeRequest(
+        devices=None,
+        devices_source=None,
+        binding="inherit",
+        threads=None,
+        threads_source=None,
+        telemetry_enabled=False,
+        telemetry_interval_s=0.0,
+        requested=True,
+    )
+
+
+def shared_bound_environment(devices: Sequence[str]) -> dict[str, str]:
+    """Return the bound-process facts of a shared worker (frozen contract).
+
+    The published variables are the ones ``atst_tools.runtime.launch`` writes
+    for an isolated bound worker - ``ATST_RUNTIME_BOUND``,
+    ``ATST_INHERITED_DEVICES``, ``ATST_EFFECTIVE_DEVICES`` and ``ATST_BINDING``
+    - and they are produced by that same helper so the two binding paths cannot
+    drift apart.  Without them a case config carrying a ``runtime:`` section is
+    rejected by the embedded-API guard ("embedding API cannot rebind devices")
+    because the workflow sees an unbound process.
+
+    The inherited set is the slot the batch actually holds, not every device the
+    batch was given: the shared worker may only see its own device, and a case
+    that asks for any other one must fail loudly rather than be rebound.
+    """
+    held = tuple(str(device) for device in devices)
+    # The resolver is only asked to describe an already-bound worker: the
+    # batch runner hands out host tokens (it never resolves a request against
+    # the allocation), so the inherited set is seeded from the held slot.
+    resolution = _devices.resolve_devices(
+        None,
+        binding="inherit",
+        environ={_devices.CUDA_VISIBLE_DEVICES: ",".join(held)},
+    )
+    return _launch.build_child_environment(
+        _shared_runtime_request(),
+        resolution,
+        base=os.environ,
+        log_level=os.environ.get(_launch.LOG_LEVEL_ENV),
+    )
+
+
+def shared_batch_plan(
+    cases: Sequence[CaseSpec],
+    options: BatchOptions,
+    *,
+    output_dir: Path,
+    cpu_limit: int,
+) -> SharedBatchPlan:
+    """Resolve the one-process facts of a shared batch, or fail explicitly.
+
+    In this mode one process owns the batch for its whole wall clock, so a
+    per-case dimension that a single process cannot carry is refused instead of
+    being dropped silently: more than one slot per device, a per-case launcher
+    and per-case environments that disagree.  The thread budget is the largest
+    case cost, because the cases run one after another in the same process.  The
+    environment mirrors :func:`case_environment` (caller-bound device, the four
+    thread keys, the ``harness`` thread marker, one attempt and a per-attempt
+    cache directory), with the batch output directory as the workflow directory.
+
+    The environment additionally carries the bound-process facts published by
+    :func:`shared_bound_environment`, so the shared worker is a *bound* worker:
+    case configs that declare a ``runtime:`` section - the normal shape of the
+    DP, ABACUS, CCQN and joint-acceptance manifests - are validated against the
+    published binding instead of being refused by the embedded-API guard, and a
+    config that contradicts the binding is still refused per case.
+
+    Returns:
+        The plan, including the single device slot, the shared environment and
+        the job-list path.
+
+    Raises:
+        RuntimeError: The manifest cannot be honoured by one shared process.
+    """
+    if options.slots_per_device != 1:
+        raise RuntimeError(
+            "--share-worker runs the whole batch in one process, which holds "
+            "exactly one device slot; rerun with --slots 1 (got --slots "
+            f"{options.slots_per_device})"
+        )
+    environments: dict[str, tuple[dict[str, str], list[str]]] = {}
+    for case in cases:
+        if case.launcher:
+            raise RuntimeError(
+                f"case {case.case_id}: --share-worker runs every case in one "
+                f"process, so the per-case launcher "
+                f"'{' '.join(case.launcher)}' cannot be honoured; drop the "
+                "launcher or drop --share-worker"
+            )
+        key = json.dumps(dict(sorted(case.env.items())), sort_keys=True)
+        environments.setdefault(key, (dict(case.env), []))[1].append(case.case_id)
+    if len(environments) > 1:
+        detail = "; ".join(
+            f"{', '.join(ids)} declares {values}"
+            for values, ids in environments.values()
+        )
+        raise RuntimeError(
+            "--share-worker sets one process environment for the whole batch, "
+            f"so every case must declare the same env mapping ({detail})"
+        )
+    threads = max(case_thread_cost(case) for case in cases)
+    if threads > cpu_limit:
+        raise RuntimeError(
+            "--share-worker runs every case in one process whose thread budget "
+            f"is the largest case cost ({threads}); the batch CPU budget is "
+            f"{cpu_limit}"
+        )
+    pool = _SlotPool(options.devices, 1)
+    devices = pool.acquire(SHARED_BATCH_SLOT, 1)
+    if devices is None:
+        raise RuntimeError(
+            "--share-worker needs exactly one device slot for the whole batch, "
+            "but no device was given (--devices is empty)"
+        )
+    common_env = next(iter(environments.values()), ({}, []))[0]
+    shared_case = CaseSpec(
+        case_id=SHARED_BATCH_SLOT,
+        config=str(Path(output_dir) / JOBS_REPORT),
+        threads=threads,
+        env=common_env,
+    )
+    env = case_environment(
+        shared_case,
+        devices,
+        base=shared_bound_environment(devices),
+        attempt=1,
+        workdir=Path(output_dir),
+        case_telemetry=options.case_telemetry,
+    )
+    return SharedBatchPlan(
+        devices=devices,
+        threads=threads,
+        env=env,
+        jobs_path=write_jobs_file(cases, output_dir),
+    )
 
 
 def case_environment(
@@ -552,11 +788,430 @@ def _record_spawn_failure(
     return payload
 
 
+def _shared_case_report(
+    case: CaseSpec,
+    *,
+    output_dir: Path,
+    status: str,
+    classification: str | None,
+    wall_s: float,
+    devices: tuple[str, ...],
+    threads: int,
+    exit_code: int | None,
+    stdout_path: Path,
+    stderr_path: Path,
+    started_at: str | None,
+) -> dict[str, Any]:
+    """Write and return the case report of one case of a shared batch.
+
+    The key set is the per-case report key set plus ``shared_worker``, so a
+    consumer of either mode reads the same document.  ``wall_s`` is the
+    worker-measured segment of that case inside the shared process: the fixed
+    model load is therefore visible in the first case only.  ``exit_code`` is
+    the shared worker's exit status when the case never finished on its own,
+    and ``None`` for a case the worker completed - one process cannot attribute
+    an exit status to a case it carried on past.
+    """
+    result_path = output_dir / case.case_id / DEFAULT_RESULT_JSON
+    payload = {
+        "schema": SCHEMA,
+        "case_id": case.case_id,
+        "attempt": 1,
+        "status": status,
+        "classification": classification,
+        "exit_code": exit_code,
+        "devices": list(devices),
+        "threads": threads,
+        "ranks": 1,
+        "ranks_source": "shared-worker",
+        "started_at": started_at,
+        "finished_at": _now(),
+        "wall_s": round(wall_s, 3),
+        "gpu_seconds": round(wall_s * len(devices), 3),
+        "config": case.config,
+        "launcher": list(case.launcher),
+        "args": list(case.args),
+        "workdir": str(case_workdir(case, output_dir)),
+        "result_json": str(result_path) if result_path.exists() else None,
+        "stdout": str(stdout_path),
+        "stderr": str(stderr_path),
+        "shared_worker": True,
+    }
+    case_dir = output_dir / case.case_id
+    case_dir.mkdir(parents=True, exist_ok=True)
+    (case_dir / CASE_REPORT).write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return payload
+
+
+def _shared_error_classification(output_dir: Path, case: CaseSpec) -> str:
+    """Return what the parent can attribute to a failed shared case.
+
+    The worker writes the API error document before it reports the case, so the
+    recorded classification names the exception instead of leaving a bare
+    "failed" with no cause.
+    """
+    document = output_dir / case.case_id / DEFAULT_RESULT_JSON
+    if document.is_file():
+        try:
+            error = json.loads(document.read_text(encoding="utf-8")).get("error") or {}
+        except (OSError, ValueError):
+            error = {}
+        detail = ": ".join(
+            part
+            for part in (
+                str(error.get("type") or ""),
+                str(error.get("message") or ""),
+            )
+            if part
+        )
+        if detail:
+            return f"case_error: {detail[:200]}"
+    return "case_error"
+
+
+def _next_unrecorded(cases: Sequence[CaseSpec], recorded: set[str]) -> CaseSpec | None:
+    """Return the case the shared worker is running, or ``None`` when done.
+
+    Cases run sequentially in manifest order, so the first case without a
+    progress record is the one in flight.
+    """
+    for case in cases:
+        if case.case_id not in recorded:
+            return case
+    return None
+
+
+class _ProgressReader:
+    """Incremental reader of the shared worker's progress stream."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        self._handle: Any = None
+        self._pending = ""
+
+    def lines(self) -> list[str]:
+        """Return the complete lines appended since the previous call."""
+        if self._handle is None:
+            if not self._path.exists():
+                return []
+            self._handle = self._path.open("r", encoding="utf-8", errors="replace")
+        chunk = self._handle.read()
+        if not chunk:
+            return []
+        parts = (self._pending + chunk).split("\n")
+        self._pending = parts.pop()
+        return parts
+
+    def close(self) -> None:
+        """Close the underlying stream when it was opened."""
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
+
+
+def _run_shared_manifest(
+    cases: Sequence[CaseSpec], options: BatchOptions, output_dir: Path
+) -> dict[str, Any]:
+    """Run every case of one batch inside a single shared worker process.
+
+    One child runs the whole batch, so the parent owns the report layout: it
+    writes the same ``case_report.json`` and ``batch_summary.json`` documents
+    the per-case mode writes, taking each case's own duration from the worker's
+    progress line.  A worker that dies mid-batch is never a silent skip: the
+    case it was running and every case it never reached are recorded failed
+    with the explicit reason ``shared worker exited``.  Zero cases are retried.
+
+    The child inherits the caller's working directory (it enters each case
+    directory itself), so a relative interpreter path such as ``PYTHONPATH=src``
+    keeps resolving for the whole batch.
+    """
+    cpu_limit = options.cpu_limit()
+    plan = shared_batch_plan(cases, options, output_dir=output_dir, cpu_limit=cpu_limit)
+    stdout_path = output_dir / "worker.out"
+    stderr_path = output_dir / "worker.err"
+    sampler = (
+        _evidence.HostSampler(options.sampler_interval_s) if options.telemetry else None
+    )
+    if sampler is not None:
+        sampler.start()
+    stop = options.stop_event or threading.Event()
+    case_by_id = {case.case_id: case for case in cases}
+    reports: list[dict[str, Any]] = []
+    recorded: set[str] = set()
+    batch_started = time.monotonic()
+    batch_started_at = _now()
+    segment_started = batch_started
+    segment_started_at = batch_started_at
+    cancelled = False
+    abandoned: str | None = None
+    exit_code: int | None = None
+    process: subprocess.Popen | None = None
+    sampler_summary: dict[str, Any] | None = None
+
+    def _record(
+        case: CaseSpec,
+        *,
+        status: str,
+        classification: str | None,
+        wall_s: float,
+        case_exit_code: int | None = None,
+        started_at: str | None = None,
+    ) -> None:
+        reports.append(
+            _shared_case_report(
+                case,
+                output_dir=output_dir,
+                status=status,
+                classification=classification,
+                wall_s=wall_s,
+                devices=plan.devices,
+                threads=plan.threads,
+                exit_code=case_exit_code,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                started_at=started_at,
+            )
+        )
+        recorded.add(case.case_id)
+
+    def _read_progress(reader: _ProgressReader) -> None:
+        """Record every case the worker has reported since the last read."""
+        nonlocal segment_started, segment_started_at
+        for line in reader.lines():
+            parsed = _batch_worker.parse_progress_line(line)
+            if parsed is None:
+                continue
+            case_id, status, wall_s = parsed
+            case = case_by_id.get(case_id)
+            if case is None or case.case_id in recorded:
+                continue
+            if status in _SHARED_SUCCESS_STATUSES:
+                classification = None
+                case_status = STATUS_SUCCEEDED
+            elif status in _SHARED_ERROR_STATUSES:
+                classification = _shared_error_classification(output_dir, case)
+                case_status = STATUS_FAILED
+            else:
+                classification = f"shared worker reported status {status!r}"
+                case_status = STATUS_FAILED
+            _record(
+                case,
+                status=case_status,
+                classification=classification,
+                wall_s=wall_s,
+                started_at=segment_started_at,
+            )
+            segment_started = time.monotonic()
+            segment_started_at = _now()
+
+    reader = _ProgressReader(stdout_path)
+    stdout_handle = stdout_path.open("w", encoding="utf-8")
+    stderr_handle = stderr_path.open("w", encoding="utf-8")
+    try:
+        try:
+            process = subprocess.Popen(
+                shared_worker_command(
+                    plan.jobs_path,
+                    output_dir,
+                    factory=options.shared_worker_factory,
+                ),
+                env=plan.env,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            # No case of this batch can run: record every one instead of
+            # letting an unstartable worker shrink the denominator.
+            for case in cases:
+                _record(
+                    case,
+                    status=STATUS_FAILED,
+                    classification=f"spawn_error: {exc}",
+                    wall_s=0.0,
+                )
+        stdout_handle.close()
+        stderr_handle.close()
+
+        while process is not None and len(recorded) < len(cases):
+            _read_progress(reader)
+            if len(recorded) >= len(cases):
+                break
+            if stop.is_set():
+                cancelled = True
+                _terminate_group(process)
+                exit_code = process.poll()
+                _read_progress(reader)
+                break
+            if (
+                not options.continue_on_failure
+                and reports
+                and reports[-1]["status"] in {STATUS_FAILED, STATUS_TIMEOUT}
+            ):
+                abandoned = "stopped_after_failure"
+                _terminate_group(process)
+                exit_code = process.poll()
+                _read_progress(reader)
+                break
+            finished = process.poll()
+            if finished is not None:
+                exit_code = finished
+                # Take whatever the child flushed before it died.
+                _read_progress(reader)
+                break
+            pending = _next_unrecorded(cases, recorded)
+            timeout = None if pending is None else pending.timeout_s
+            if timeout is not None and (time.monotonic() - segment_started) > timeout:
+                abandoned = "timeout"
+                _terminate_group(process)
+                exit_code = process.poll()
+                _read_progress(reader)
+                if pending is not None and pending.case_id not in recorded:
+                    _record(
+                        pending,
+                        status=STATUS_TIMEOUT,
+                        classification=None,
+                        wall_s=time.monotonic() - segment_started,
+                        case_exit_code=exit_code,
+                        started_at=segment_started_at,
+                    )
+                break
+            time.sleep(0.05)
+
+        # A fully reported batch leaves the child exiting: its status is the
+        # batch-evidence exit code, so wait for it instead of reporting None.
+        if process is not None and exit_code is None:
+            try:
+                exit_code = process.wait(timeout=TERMINATION_GRACE_S)
+            except subprocess.TimeoutExpired:  # pragma: no cover - hung child
+                exit_code = None
+
+        # Cases the worker never reported: a cancel, a stop-on-failure, a
+        # timeout kill or a worker that died mid-batch.  None of them may
+        # vanish from the denominator.
+        stop_after_failure = bool(
+            not options.continue_on_failure
+            and reports
+            and reports[-1]["status"] in {STATUS_FAILED, STATUS_TIMEOUT}
+        )
+        in_flight = True
+        for case in cases:
+            if case.case_id in recorded:
+                continue
+            if cancelled:
+                _record(
+                    case,
+                    status=STATUS_SKIPPED,
+                    classification="cancelled",
+                    wall_s=0.0,
+                )
+            elif stop_after_failure:
+                _record(
+                    case,
+                    status=STATUS_SKIPPED,
+                    classification="stopped_after_failure",
+                    wall_s=0.0,
+                )
+            elif abandoned == "timeout":
+                _record(
+                    case,
+                    status=STATUS_FAILED,
+                    classification=SHARED_WORKER_EXIT_REASON,
+                    wall_s=0.0,
+                    case_exit_code=exit_code,
+                )
+            elif in_flight:
+                # The worker died with this case in flight: the parent knows
+                # how much of the segment elapsed, and every case after it
+                # never started.
+                in_flight = False
+                _record(
+                    case,
+                    status=STATUS_FAILED,
+                    classification=SHARED_WORKER_EXIT_REASON,
+                    wall_s=time.monotonic() - segment_started,
+                    case_exit_code=exit_code,
+                    started_at=segment_started_at,
+                )
+            else:
+                _record(
+                    case,
+                    status=STATUS_FAILED,
+                    classification=SHARED_WORKER_EXIT_REASON,
+                    wall_s=0.0,
+                    case_exit_code=exit_code,
+                )
+    finally:
+        reader.close()
+        if process is not None and process.poll() is None:
+            _terminate_group(process)
+        if sampler is not None:
+            sampler_summary = sampler.stop()
+
+    succeeded = [row for row in reports if row["status"] == STATUS_SUCCEEDED]
+    batch_wall = round(time.monotonic() - batch_started, 3)
+    summary = {
+        "schema": SCHEMA,
+        "status": "cancelled" if cancelled else "complete",
+        "revision": _evidence.atst_revision(),
+        "started_at": batch_started_at,
+        "finished_at": _now(),
+        "wall_s": batch_wall,
+        "devices": list(options.devices),
+        # One shared process holds exactly one device slot for the whole batch,
+        # so the cost-accounting view is the batch wall clock on that one
+        # device; ``gpu_seconds_total`` below sums the per-case segments.
+        "allocation": {
+            "devices": list(plan.devices),
+            "wall_s": batch_wall,
+            "gpu_seconds": round(batch_wall * len(plan.devices), 3),
+        },
+        "slots_per_device": 1,
+        "cpu_budget": cpu_limit,
+        "cases_total": len(cases),
+        "succeeded": len(succeeded),
+        "failed": len([r for r in reports if r["status"] == STATUS_FAILED]),
+        "timed_out": len([r for r in reports if r["status"] == STATUS_TIMEOUT]),
+        "skipped": len([r for r in reports if r["status"] == STATUS_SKIPPED]),
+        "gpu_seconds_total": round(
+            sum(float(row["gpu_seconds"]) for row in reports), 3
+        ),
+        "cases": sorted(reports, key=lambda row: row["case_id"]),
+        "telemetry": sampler_summary,
+        "shared_worker": {
+            "enabled": True,
+            "pid": None if process is None else process.pid,
+            "devices": list(plan.devices),
+            "threads": plan.threads,
+            "jobs": str(plan.jobs_path),
+            "stdout": str(stdout_path),
+            "stderr": str(stderr_path),
+            "exit_code": exit_code,
+            # Per-case durations come from the worker's own progress records.
+            "per_case_wall_source": "batch_worker",
+        },
+    }
+    (output_dir / SUMMARY_REPORT).write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    if cancelled:
+        raise SystemExit("batch cancelled")
+    return summary
+
+
 def run_manifest(manifest: Mapping[str, Any], options: BatchOptions) -> dict[str, Any]:
-    """Run every manifest case with slot/CPU limits and return the summary."""
+    """Run every manifest case with slot/CPU limits and return the summary.
+
+    ``options.share_worker`` switches the batch to the single-process mode; the
+    default (one worker process per case) is unchanged.
+    """
     cases = load_cases(manifest, options)
     output_dir = Path(options.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    if options.share_worker:
+        return _run_shared_manifest(cases, options, output_dir)
     pool = _SlotPool(options.devices, options.slots_per_device)
     cpu_limit = options.cpu_limit()
     sampler = (
@@ -813,6 +1468,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Do not request per-case runtime evidence sidecars",
     )
+    parser.add_argument(
+        "--share-worker",
+        action="store_true",
+        help=(
+            "Run every case of the batch in one worker process so the fixed "
+            "model load and warm-up cost is paid once (requires --slots 1)"
+        ),
+    )
     args = parser.parse_args(argv)
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     stop_event = threading.Event()
@@ -836,6 +1499,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             continue_on_failure=not args.stop_on_failure,
             telemetry=not args.no_telemetry,
             case_telemetry=not args.no_case_telemetry,
+            share_worker=args.share_worker,
             stop_event=stop_event,
         ),
     )

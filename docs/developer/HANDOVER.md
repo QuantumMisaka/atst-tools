@@ -140,6 +140,16 @@ release 变更，都先从对应小节确认需要同步的文档。
 `worker.out` / `worker.err`（每 case 报告目录内）；用例配置带 `runtime.telemetry` 时另有
 `runtime_evidence.json`；批量侧 `bench_record.json`。
 
+**共享 worker 模式（`--share-worker`，2026-09-21 新增）**：整批 case 在同一个 worker 进程里顺序执行，
+模型加载与首次调用预热只付一次（维护者实测：2 例 CCQN 批 68.2 s → 34.2 s，第 2 例只花 3.1 s）。语义与约束：
+要求 `--slots 1`；拒绝 per-case `launcher`、非一致的 per-case `env`、超预算线程与空 `--devices`；
+共享 worker 以「已绑定进程」身份启动（用 `runtime.launch.build_child_environment` 发布
+`ATST_RUNTIME_BOUND`/`ATST_INHERITED_DEVICES`/`ATST_EFFECTIVE_DEVICES`/`ATST_BINDING`），所以带 `runtime:`
+段的配置可以运行，**与绑定矛盾的请求仍逐 case fail-closed**（例如只持有 0 号卡时请求 `devices: [1]`）；
+单进程没有 rank 轮转，配置里的 `round_robin` 不产生旋转；`--timeout` 与 `--stop-on-failure` 仍生效
+（超时杀 worker → 该 case `timeout`、其余 `failed`/`shared worker exited`）。新增产物：
+`<out>/batch_jobs.json`、`<out>/worker.out|err`；每 case 报告多一个 `"shared_worker": true` 键。
+
 命名沿革（先读）：2026-09-21 之前上述产物叫 `harness_case.json` / `harness_summary.json` /
 `harness_worker.{out,err}`；**归档切片 `docs/reports/data/**` 仍带旧名，照原样保留**，
 `bench_record` 读取时同时接受新旧汇总名（新名优先）。两条历史拼写**冻结不动**：schema 字符串
