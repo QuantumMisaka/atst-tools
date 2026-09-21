@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from atst_tools.runtime import devices as runtime_devices
@@ -48,18 +46,14 @@ def test_merge_marks_telemetry_only_sections_as_requested_but_not_rebinding():
     assert request.telemetry_enabled is True
     assert request.telemetry_interval_s == 2.5
 
-    empty_section = runtime_launch.merge_runtime_request(
-        yaml_section={}, environ={}
-    )
+    empty_section = runtime_launch.merge_runtime_request(yaml_section={}, environ={})
     assert empty_section.requested is True
     assert empty_section.rebinds is False
 
 
 def test_threads_auto_follows_the_cpu_affinity_mask(monkeypatch):
     monkeypatch.setattr(runtime_launch, "cpu_affinity_count", lambda: 12)
-    auto_request = runtime_launch.merge_runtime_request(
-        cli_threads="auto", environ={}
-    )
+    auto_request = runtime_launch.merge_runtime_request(cli_threads="auto", environ={})
     assert auto_request.threads == 12
     assert auto_request.threads_source == "auto"
 
@@ -170,9 +164,7 @@ def test_ensure_runtime_contract_refuses_embedded_rebinding():
     assert runtime_launch.EMBEDDED_REFUSAL in str(caught.value)
 
     with pytest.raises(RuntimeBindingError):
-        runtime_launch.ensure_runtime_contract(
-            {"runtime": {"threads": 4}}, environ={}
-        )
+        runtime_launch.ensure_runtime_contract({"runtime": {"threads": 4}}, environ={})
     with pytest.raises(RuntimeBindingError):
         runtime_launch.ensure_runtime_contract(
             {"runtime": {"binding": "round_robin"}}, environ={}
@@ -281,16 +273,16 @@ def test_round_robin_survives_the_worker_contract_check():
         request.devices, binding=request.binding, environ=environ
     )
     assert resolution.effective == ("3",)
-    child_env = runtime_launch.build_child_environment(request, resolution, base=environ)
+    child_env = runtime_launch.build_child_environment(
+        request, resolution, base=environ
+    )
     assert child_env[runtime_devices.BINDING_ENV] == "round_robin"
 
     yaml_section = {"runtime": {"devices": [0, 1], "binding": "round_robin"}}
     runtime_launch.ensure_runtime_contract(yaml_section, environ=child_env)
     runtime_launch.ensure_runtime_contract({}, environ=child_env)
 
-    wrong_mask = dict(
-        child_env, **{runtime_devices.CUDA_VISIBLE_DEVICES: "2"}
-    )
+    wrong_mask = dict(child_env, **{runtime_devices.CUDA_VISIBLE_DEVICES: "2"})
     with pytest.raises(RuntimeBindingError):
         runtime_launch.ensure_runtime_contract({}, environ=wrong_mask)
 
@@ -303,7 +295,9 @@ def test_worker_verifies_the_merged_cli_request_not_the_raw_yaml():
     )
     resolution = runtime_devices.resolve_devices(request.devices, environ=environ)
     assert resolution.effective == ("2",)
-    child_env = runtime_launch.build_child_environment(request, resolution, base=environ)
+    child_env = runtime_launch.build_child_environment(
+        request, resolution, base=environ
+    )
 
     runtime_launch.ensure_runtime_contract(
         {"runtime": {"devices": [1]}}, environ=child_env
@@ -320,9 +314,8 @@ def test_telemetry_interval_uses_the_frozen_message_for_bad_values():
     ):
         with pytest.raises(ValueError) as caught:
             runtime_launch.merge_runtime_request(environ={}, **kwargs)
-        assert (
-            "runtime.telemetry.interval_s must be a positive number"
-            in str(caught.value)
+        assert "runtime.telemetry.interval_s must be a positive number" in str(
+            caught.value
         ), kwargs
 
 

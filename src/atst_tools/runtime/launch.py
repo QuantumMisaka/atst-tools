@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import os
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
-import sys
 
-from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import counters as _counters
+from atst_tools.runtime import devices as _devices
 from atst_tools.runtime.errors import RuntimeBindingError
 
 CACHE_ENV_KEYS = (
@@ -369,9 +369,7 @@ def ensure_runtime_contract(
     else:
         devices_value = section.get("devices")
     tokens = (
-        None
-        if devices_value is None
-        else _devices.parse_device_tokens(devices_value)
+        None if devices_value is None else _devices.parse_device_tokens(devices_value)
     )
     # The coordinator records the merged binding (CLI wins over YAML) in
     # ATST_BINDING; the worker must prefer that record over the raw YAML.
@@ -384,9 +382,7 @@ def ensure_runtime_contract(
     # recorded in the child environment; the worker only has to treat it as a
     # rebinding request instead of parsing the literal as an integer.
     raw_threads = section.get("threads")
-    threads = (
-        None if raw_threads == "auto" else _devices.parse_threads(raw_threads)
-    )
+    threads = None if raw_threads == "auto" else _devices.parse_threads(raw_threads)
     threads_requested = threads is not None or raw_threads == "auto"
     rebinds = tokens is not None or threads_requested or binding == "round_robin"
     if not rebinds and not bound:

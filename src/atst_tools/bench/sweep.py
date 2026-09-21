@@ -17,13 +17,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
-from statistics import median
 import signal
-import sys
 import threading
 import time
+from dataclasses import dataclass
+from pathlib import Path
+from statistics import median
 from typing import Any, Callable, Mapping, Sequence
 
 from atst_tools.bench import harness
@@ -68,9 +67,7 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     ]
     succeeded = [int(row["succeeded"]) for row in rows]
     cases_total = [int(row["cases_total"]) for row in rows]
-    throughputs = [
-        3600.0 * ok / wall for ok, wall in zip(succeeded, makespans) if wall
-    ]
+    throughputs = [3600.0 * ok / wall for ok, wall in zip(succeeded, makespans) if wall]
     return {
         "runs": len(rows),
         "makespan_s": {
@@ -104,16 +101,12 @@ def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 round(3600.0 * ok / wall, 2) if wall else None
                 for ok, wall in zip(succeeded, makespans)
             ],
-            "median": (
-                round(median(throughputs), 2) if throughputs else None
-            ),
+            "median": (round(median(throughputs), 2) if throughputs else None),
         },
     }
 
 
-def run_sweep(
-    manifest: Mapping[str, Any], options: SweepOptions
-) -> dict[str, Any]:
+def run_sweep(manifest: Mapping[str, Any], options: SweepOptions) -> dict[str, Any]:
     """Run every (slots, repeat) pair and return the sweep summary.
 
     Variants alternate their order between repeats so systematic drift (queue
@@ -178,9 +171,9 @@ def run_sweep(
                 "revision": summary.get("revision"),
                 "wall_s": summary["wall_s"],
                 "gpu_seconds_total": summary["gpu_seconds_total"],
-                "allocation_gpu_seconds": (
-                    summary.get("allocation") or {}
-                ).get("gpu_seconds"),
+                "allocation_gpu_seconds": (summary.get("allocation") or {}).get(
+                    "gpu_seconds"
+                ),
                 "cases_total": summary["cases_total"],
                 "succeeded": summary["succeeded"],
                 "failed": summary["failed"],
@@ -202,9 +195,7 @@ def run_sweep(
         "repeats": repeats,
         "cpu_budget": options.cpu_budget,
         "runs": repeat_rows,
-        "variants": {
-            slots: _aggregate(rows) for slots, rows in per_variant.items()
-        },
+        "variants": {slots: _aggregate(rows) for slots, rows in per_variant.items()},
         "notes": [
             "Per-case evidence sidecars are opt-in for sweeps "
             "(case_telemetry=False by default) so per-case samplers do not add "
@@ -259,9 +250,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         signal.signal(signum, _handle)
     try:
         slots = tuple(
-            int(part.strip())
-            for part in args.slots.split(",")
-            if part.strip()
+            int(part.strip()) for part in args.slots.split(",") if part.strip()
         )
     except ValueError as exc:
         raise SystemExit(f"invalid --slots value: {exc}") from None

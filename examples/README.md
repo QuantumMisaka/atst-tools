@@ -10,6 +10,7 @@ The examples are organized by chemical system and method to demonstrate the vers
 *   `<case>/outputs/`: Curated completed-run outputs when an example is meant to be inspected without rerunning an expensive calculation.
 *   `config.yaml`: ABACUS-backed example configuration.
 *   `config_dp.yaml`: DP-backed example configuration when available. These use `../../temp_repos/dp_model/DPA-3.1-3M.pt` with `head: Omat24` for local runs; the model file is intentionally outside git.
+*   `runtime_batch_cases.example.json`: Optional manifest template for the `atst_tools.bench` batch runner, describing per-case device slots, thread budgets and case-level launchers; every case keeps its own working directory.
 *   Generated outputs such as `run_*`, `OUT.ABACUS`, `AutoNEB_iter`, `vib`, `vib_calc`, `*.traj`, `*.json`, and ABACUS/DP scratch files are ignored unless they are explicitly curated inputs or completed-run outputs.
 
 ### 1. Basic Examples (Li Diffusion)

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sys
+import threading
+from pathlib import Path
 
 import pytest
-import threading
 
 from atst_tools.bench import harness, sweep
 
@@ -178,4 +178,6 @@ def test_sweep_aggregate_reports_allocation_gpu_seconds():
 
 def test_sweep_defaults_to_no_per_case_telemetry():
     """Timing sweeps must not add per-case samplers unless asked (review F9)."""
-    assert sweep.SweepOptions(devices=("0",), output_dir=Path("x")).case_telemetry is False
+    assert (
+        sweep.SweepOptions(devices=("0",), output_dir=Path("x")).case_telemetry is False
+    )

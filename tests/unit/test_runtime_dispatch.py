@@ -28,7 +28,8 @@ def test_cli_plan_is_none_for_legacy_invocations(tmp_path, monkeypatch):
     assert cli_dispatch.plan_runtime_launch(["run", "--dry-run", str(config)]) is None
     assert (
         cli_dispatch.plan_runtime_launch(
-            ["run", "--mystery-flag", str(config)], environ={"CUDA_VISIBLE_DEVICES": "2,3"}
+            ["run", "--mystery-flag", str(config)],
+            environ={"CUDA_VISIBLE_DEVICES": "2,3"},
         )
         is None
     )
@@ -60,7 +61,16 @@ def test_cli_plan_binds_explicit_devices_for_the_worker(tmp_path, monkeypatch):
     config = _write_config(tmp_path)
     monkeypatch.chdir(tmp_path)
     plan = cli_dispatch.plan_runtime_launch(
-        ["run", str(config), "--devices", "0", "--threads", "6", "--log-level", "WARNING"],
+        [
+            "run",
+            str(config),
+            "--devices",
+            "0",
+            "--threads",
+            "6",
+            "--log-level",
+            "WARNING",
+        ],
         environ={"CUDA_VISIBLE_DEVICES": "2,3", "PATH": "/usr/bin"},
     )
     assert plan is not None
@@ -172,11 +182,7 @@ def test_dry_run_with_runtime_options_still_binds_and_validates(tmp_path, monkey
 
 
 def _option_strings(parser: argparse.ArgumentParser) -> set[str]:
-    return {
-        option
-        for action in parser._actions
-        for option in action.option_strings
-    }
+    return {option for action in parser._actions for option in action.option_strings}
 
 
 def test_mirror_parsers_know_every_real_option():
@@ -198,11 +204,13 @@ def test_mirror_parsers_know_every_real_option():
     run_options = _option_strings(subparsers.choices["run"])
     mirror_options = _option_strings(cli_dispatch._cli_parser())
     missing_cli = run_options - mirror_options - {"-h", "--help"}
-    assert not missing_cli, f"atst run options missing from the mirror: {sorted(missing_cli)}"
+    assert (
+        not missing_cli
+    ), f"atst run options missing from the mirror: {sorted(missing_cli)}"
 
     runner_options = _option_strings(api_runner.build_parser())
     runner_mirror = _option_strings(cli_dispatch._runner_parser())
     missing_runner = runner_options - runner_mirror - {"-h", "--help"}
-    assert not missing_runner, (
-        f"runner options missing from the mirror: {sorted(missing_runner)}"
-    )
+    assert (
+        not missing_runner
+    ), f"runner options missing from the mirror: {sorted(missing_runner)}"

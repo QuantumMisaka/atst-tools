@@ -21,17 +21,17 @@ Usage::
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import shlex
 import signal
 import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from atst_tools.runtime import devices as _devices
@@ -139,7 +139,9 @@ class HarnessOptions:
     sampler_interval_s: float = 1.0
     telemetry: bool = True
     case_telemetry: bool = True
-    worker_factory: Callable[["CaseSpec", Path, tuple[str, ...]], Sequence[str]] | None = None
+    worker_factory: Callable[
+        ["CaseSpec", Path, tuple[str, ...]], Sequence[str]
+    ] | None = None
     stop_event: threading.Event | None = None
 
     def cpu_limit(self) -> int:
@@ -168,7 +170,9 @@ def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[Cas
             raise ValueError("every manifest case must be a mapping")
         merged = dict(row)
         merged.setdefault("threads", defaults.get("threads", options.default_threads))
-        merged.setdefault("timeout_s", defaults.get("timeout_s", options.default_timeout_s))
+        merged.setdefault(
+            "timeout_s", defaults.get("timeout_s", options.default_timeout_s)
+        )
         case = CaseSpec.from_mapping(merged)
         if case.case_id in seen:
             raise ValueError(f"duplicate case_id {case.case_id!r}")
@@ -194,7 +198,6 @@ def load_cases(manifest: Mapping[str, Any], options: HarnessOptions) -> list[Cas
             f"overwritten; give every case its own workdir ({detail})"
         )
     return cases
-
 
 
 _RANK_FLAGS = ("-n", "-np", "--n", "--np", "--ntasks")
@@ -269,7 +272,9 @@ def case_workdir(case: CaseSpec, output_dir: Path) -> Path:
     """
     if case.workdir:
         candidate = Path(case.workdir)
-        return candidate.resolve() if candidate.is_absolute() else (output_dir / candidate)
+        return (
+            candidate.resolve() if candidate.is_absolute() else (output_dir / candidate)
+        )
     return Path(case.config).resolve().parent
 
 
@@ -371,7 +376,9 @@ class _RunningCase:
     attempt: int = 1
 
 
-def _terminate_group(process: subprocess.Popen, grace: float = TERMINATION_GRACE_S) -> None:
+def _terminate_group(
+    process: subprocess.Popen, grace: float = TERMINATION_GRACE_S
+) -> None:
     """Terminate one worker group, including children that ignore SIGTERM.
 
     The process-group id is captured before any signal because it becomes
@@ -522,9 +529,7 @@ def run_manifest(
     pool = _SlotPool(options.devices, options.slots_per_device)
     cpu_limit = options.cpu_limit()
     sampler = (
-        _evidence.HostSampler(options.sampler_interval_s)
-        if options.telemetry
-        else None
+        _evidence.HostSampler(options.sampler_interval_s) if options.telemetry else None
     )
     if sampler is not None:
         sampler.start()
@@ -664,9 +669,10 @@ def run_manifest(
                     _record(item, status, rc)
                     del running[case_id]
                     continue
-                if timeout is not None and (
-                    time.monotonic() - item.started_monotonic
-                ) > timeout:
+                if (
+                    timeout is not None
+                    and (time.monotonic() - item.started_monotonic) > timeout
+                ):
                     _terminate_group(item.process)
                     rc = item.process.poll()
                     _record(item, STATUS_TIMEOUT, rc)
@@ -751,10 +757,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         required=True,
         help="Comma-separated device slots available to this batch (host tokens)",
     )
-    parser.add_argument("--slots", type=int, default=1, help="Concurrent cases per device")
+    parser.add_argument(
+        "--slots", type=int, default=1, help="Concurrent cases per device"
+    )
     parser.add_argument("--cpu-budget", type=int, default=None, help="Thread budget")
-    parser.add_argument("--threads", type=int, default=1, help="Default threads per case")
-    parser.add_argument("--timeout", type=float, default=None, help="Default case timeout")
+    parser.add_argument(
+        "--threads", type=int, default=1, help="Default threads per case"
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=None, help="Default case timeout"
+    )
     parser.add_argument(
         "--stop-on-failure",
         action="store_true",
@@ -780,7 +792,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     summary = run_manifest(
         manifest,
         HarnessOptions(
-            devices=tuple(part.strip() for part in args.devices.split(",") if part.strip()),
+            devices=tuple(
+                part.strip() for part in args.devices.split(",") if part.strip()
+            ),
             output_dir=Path(args.out),
             slots_per_device=max(args.slots, 1),
             cpu_budget=args.cpu_budget,
@@ -792,9 +806,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_event=stop_event,
         ),
     )
-    print(json.dumps({key: summary[key] for key in (
-        "cases_total", "succeeded", "failed", "timed_out", "skipped", "wall_s"
-    )}, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                key: summary[key]
+                for key in (
+                    "cases_total",
+                    "succeeded",
+                    "failed",
+                    "timed_out",
+                    "skipped",
+                    "wall_s",
+                )
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

@@ -8,21 +8,21 @@ local rank-0 process starts it, every other rank stays passive.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import importlib.metadata
 import json
 import os
-from pathlib import Path
 import platform
 import subprocess
 import sys
 import tempfile
 import threading
-from typing import Any, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Mapping
 
-from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import counters as _counters
+from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import launch as _launch
 
 EVIDENCE_FILENAME = "runtime_evidence.json"
@@ -340,7 +340,9 @@ class EvidenceSession:
     sampler: "HostSampler | None" = None
     written_path: Path | None = None
     started_at: str = field(default_factory=_now)
-    started_monotonic: float = field(default_factory=lambda: __import__("time").monotonic())
+    started_monotonic: float = field(
+        default_factory=lambda: __import__("time").monotonic()
+    )
 
     @property
     def path(self) -> Path:
@@ -364,15 +366,19 @@ class EvidenceSession:
         """Stop sampling, write the sidecar once and return its relative path."""
         if self.written_path is not None:
             return self.written_path.name
-        summary = self.sampler.stop() if self.sampler is not None else {
-            "status": STATUS_DISABLED,
-            "reason": "telemetry is disabled",
-            "source": None,
-            "sample_count": 0,
-            "coverage_s": 0.0,
-            "samples": [],
-            "memory_peak_mib": {"value": None, "source": None},
-        }
+        summary = (
+            self.sampler.stop()
+            if self.sampler is not None
+            else {
+                "status": STATUS_DISABLED,
+                "reason": "telemetry is disabled",
+                "source": None,
+                "sample_count": 0,
+                "coverage_s": 0.0,
+                "samples": [],
+                "memory_peak_mib": {"value": None, "source": None},
+            }
+        )
         payload = {
             "schema": EVIDENCE_SCHEMA,
             "status": status,
@@ -442,7 +448,9 @@ class HostSampler:
                     pass
                 self._stop.wait(self.interval_s)
 
-        self._thread = threading.Thread(target=_loop, name="atst-gpu-sampler", daemon=True)
+        self._thread = threading.Thread(
+            target=_loop, name="atst-gpu-sampler", daemon=True
+        )
         self._thread.start()
 
     def stop(self) -> dict[str, Any]:

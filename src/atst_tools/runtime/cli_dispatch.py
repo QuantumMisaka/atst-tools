@@ -8,8 +8,8 @@ path (frozen P6/R6 contract in the P0 interface design).
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 

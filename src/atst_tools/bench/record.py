@@ -19,14 +19,14 @@ Usage::
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import subprocess
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from atst_tools.runtime.evidence import atst_revision, environment_facts
@@ -184,9 +184,7 @@ def build_record(
         if entry.get("revision")
     ]
     heads = {
-        entry["revision"].get("head")
-        for entry in run_revisions
-        if entry["revision"]
+        entry["revision"].get("head") for entry in run_revisions if entry["revision"]
     }
     record_revision = atst_revision()
     warnings: list[str] = []

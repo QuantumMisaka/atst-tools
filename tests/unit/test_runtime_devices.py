@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from atst_tools.runtime import errors as runtime_errors
 from atst_tools.runtime import devices as runtime_devices
+from atst_tools.runtime import errors as runtime_errors
 
 UUID_A = "GPU-12345678-1234-1234-1234-123456789abc"
 UUID_B = "GPU-abcdefab-cdef-abcd-efab-cdefabcdefab"
@@ -79,7 +79,13 @@ def test_parse_allocation_supports_counts_and_token_lists():
     listed = runtime_devices.parse_allocation_value("2, 3, 3")
     assert listed.tokens == ("2", "3")
     assert listed.count == 2
-    for value in ("count=0", "count=abc", "", "MIG-aa11bb22-cc33-4455-6677-8899aabbccdd", "gpu-x"):
+    for value in (
+        "count=0",
+        "count=abc",
+        "",
+        "MIG-aa11bb22-cc33-4455-6677-8899aabbccdd",
+        "gpu-x",
+    ):
         with pytest.raises(runtime_errors.RuntimeConfigError):
             runtime_devices.parse_allocation_value(value)
 
@@ -271,7 +277,9 @@ def test_verify_bound_devices_replays_round_robin_rotation():
         environ=environ,
         binding="round_robin",
     )
-    wrong_rank = dict(environ, **{"ATST_EFFECTIVE_DEVICES": "2", "CUDA_VISIBLE_DEVICES": "2"})
+    wrong_rank = dict(
+        environ, **{"ATST_EFFECTIVE_DEVICES": "2", "CUDA_VISIBLE_DEVICES": "2"}
+    )
     with pytest.raises(runtime_errors.RuntimeBindingError):
         runtime_devices.verify_bound_devices(
             None, environ=wrong_rank, binding="round_robin"

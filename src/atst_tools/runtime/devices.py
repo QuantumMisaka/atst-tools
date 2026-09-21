@@ -7,9 +7,9 @@ Semantics follow the frozen P0 interface design
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
 import subprocess
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
 from atst_tools.runtime.errors import RuntimeBindingError, RuntimeConfigError
@@ -28,12 +28,16 @@ _UUID_PATTERN = re.compile(
     r"^GPU-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
-DEVICES_TYPE_MESSAGE = "runtime.devices must be a device index, GPU UUID or a list of them"
+DEVICES_TYPE_MESSAGE = (
+    "runtime.devices must be a device index, GPU UUID or a list of them"
+)
 DEVICES_ENTRY_MESSAGE = (
     "runtime.devices entry '{token}' is not a valid 0-based device index "
     "or full GPU UUID"
 )
-DEVICES_DUPLICATE_MESSAGE = "runtime.devices must not contain duplicate entries ({token})"
+DEVICES_DUPLICATE_MESSAGE = (
+    "runtime.devices must not contain duplicate entries ({token})"
+)
 DEVICES_EMPTY_MESSAGE = (
     "runtime.devices must not be empty; omit the field to inherit all visible devices"
 )
@@ -349,7 +353,9 @@ def _entry_outside_inherited(
 ) -> RuntimeBindingError:
     """Return the frozen refusal for one entry outside the inherited set."""
     if token.is_uuid:
-        message = f"{REFUSED_PREFIX}: {REASON_OUTSIDE_INHERITED.format(token=token.raw)}"
+        message = (
+            f"{REFUSED_PREFIX}: {REASON_OUTSIDE_INHERITED.format(token=token.raw)}"
+        )
     else:
         message = (
             f"device index {token.ordinal} is outside the inherited visible set "
@@ -526,7 +532,9 @@ def verify_bound_devices(
         )
     basis_tokens = tuple(part.strip() for part in basis.split(",") if part.strip())
     expected = environ.get(EFFECTIVE_DEVICES_ENV, "")
-    expected_tokens = tuple(part.strip() for part in expected.split(",") if part.strip())
+    expected_tokens = tuple(
+        part.strip() for part in expected.split(",") if part.strip()
+    )
     actual = environ.get(CUDA_VISIBLE_DEVICES)
     actual_tokens = (
         None

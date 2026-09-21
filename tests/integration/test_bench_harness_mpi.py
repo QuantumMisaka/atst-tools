@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import shutil
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
 from atst_tools.bench import harness
-
 
 ROOT = Path(__file__).resolve().parents[2]
 

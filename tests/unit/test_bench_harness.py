@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import signal
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
@@ -148,16 +148,16 @@ def test_cases_run_in_slots_with_isolated_dirs_and_reports(tmp_path, monkeypatch
         assert facts["cuda"] == "2"
         assert facts["attempt"] == "1"
         assert Path(facts["cache"]).is_dir()
-        report = json.loads(
-            (workdir / harness.CASE_REPORT).read_text(encoding="utf-8")
-        )
+        report = json.loads((workdir / harness.CASE_REPORT).read_text(encoding="utf-8"))
         assert report["status"] == "succeeded"
         assert report["result_json"] is not None
     events = [line.split()[0] for line in log.read_text(encoding="utf-8").splitlines()]
     assert events == ["start", "end", "start", "end"]
 
 
-def test_relative_output_dir_is_resolved_before_launching_workers(tmp_path, monkeypatch):
+def test_relative_output_dir_is_resolved_before_launching_workers(
+    tmp_path, monkeypatch
+):
     """A relative --out must not leak into worker paths (nested-dir regression)."""
     script = _standin(tmp_path)
     monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
@@ -219,7 +219,9 @@ def test_unsatisfiable_case_reports_an_explicit_error(tmp_path, monkeypatch):
     assert "too-big" in str(caught.value)
 
 
-def test_failure_keeps_evidence_and_stop_on_failure_skips_the_rest(tmp_path, monkeypatch):
+def test_failure_keeps_evidence_and_stop_on_failure_skips_the_rest(
+    tmp_path, monkeypatch
+):
     script = _standin(tmp_path)
     monkeypatch.setenv("HARNESS_LOG", str(tmp_path / "log.txt"))
     summary = harness.run_manifest(
@@ -359,9 +361,7 @@ def test_manifest_validation_rejects_bad_rows(tmp_path):
     with pytest.raises(ValueError):
         harness.load_cases({"cases": [{"case_id": "", "config": "x.yaml"}]}, options)
     with pytest.raises(ValueError):
-        harness.load_cases(
-            {"cases": [_case("a"), _case("a")]}, options
-        )
+        harness.load_cases({"cases": [_case("a"), _case("a")]}, options)
 
 
 def test_manifest_rejects_shared_case_workdirs(tmp_path):
@@ -371,7 +371,9 @@ def test_manifest_rejects_shared_case_workdirs(tmp_path):
     with pytest.raises(ValueError, match="distinct directories"):
         harness.load_cases({"cases": shared}, options)
     distinct = [dict(_case("a"), workdir="work-a"), dict(_case("b"), workdir="work-b")]
-    assert [case.workdir for case in harness.load_cases({"cases": distinct}, options)] == [
+    assert [
+        case.workdir for case in harness.load_cases({"cases": distinct}, options)
+    ] == [
         "work-a",
         "work-b",
     ]
@@ -415,9 +417,7 @@ def test_case_environment_merges_case_specific_values(tmp_path):
 
 def test_case_environment_requests_per_case_evidence_by_default(tmp_path):
     case = harness.CaseSpec.from_mapping({"case_id": "c", "config": "c.yaml"})
-    env = harness.case_environment(
-        case, ("0",), base={}, attempt=1, workdir=tmp_path
-    )
+    env = harness.case_environment(case, ("0",), base={}, attempt=1, workdir=tmp_path)
     assert env["ATST_TELEMETRY_ENABLED"] == "1"
     quiet = harness.case_environment(
         case, ("0",), base={}, attempt=1, workdir=tmp_path, case_telemetry=False
@@ -548,7 +548,12 @@ def test_ranks_resolution_prefers_declared_then_parsed_then_assumed():
     )
     assert harness.resolve_case_ranks(parsed) == (3, "parsed")
     declared = harness.CaseSpec.from_mapping(
-        {"case_id": "b", "config": "b.yaml", "launcher": ["mpiexec", "-n", "3"], "ranks": 2}
+        {
+            "case_id": "b",
+            "config": "b.yaml",
+            "launcher": ["mpiexec", "-n", "3"],
+            "ranks": 2,
+        }
     )
     assert harness.resolve_case_ranks(declared) == (2, "declared")
     assumed = harness.CaseSpec.from_mapping(
@@ -559,9 +564,7 @@ def test_ranks_resolution_prefers_declared_then_parsed_then_assumed():
     assert harness.resolve_case_ranks(serial) == (1, "serial")
     assert harness.case_thread_cost(parsed) == 3 * parsed.threads
     with pytest.raises(ValueError):
-        harness.CaseSpec.from_mapping(
-            {"case_id": "e", "config": "e.yaml", "ranks": 0}
-        )
+        harness.CaseSpec.from_mapping({"case_id": "e", "config": "e.yaml", "ranks": 0})
 
 
 def test_case_launcher_and_extra_args_prefix_the_worker(tmp_path):
@@ -574,7 +577,9 @@ def test_case_launcher_and_extra_args_prefix_the_worker(tmp_path):
         }
     )
     assert case.launcher == ("mpiexec", "-n", "3")
-    command = harness.worker_command(case, tmp_path, ("0",), result_json=tmp_path / "r.json")
+    command = harness.worker_command(
+        case, tmp_path, ("0",), result_json=tmp_path / "r.json"
+    )
     assert command[:3] == ["mpiexec", "-n", "3"]
     assert command[-1] == "--dry-run"
     assert str(tmp_path / "r.json") in command

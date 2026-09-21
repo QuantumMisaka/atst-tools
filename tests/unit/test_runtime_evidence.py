@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import types
 
 import pytest
 
 from atst_tools.runtime import devices as runtime_devices
 from atst_tools.runtime import evidence as runtime_evidence
-from atst_tools.runtime import launch as runtime_launch
 
 UUID_A = "GPU-12345678-1234-1234-1234-123456789abc"
 UUID_B = "GPU-abcdefab-cdef-abcd-efab-cdefabcdefab"
@@ -77,7 +75,9 @@ def test_environment_and_device_facts_use_the_recorded_values():
     assert facts["cpu_affinity_count"] >= 1
     assert facts["threads_source"] is None
 
-    devices = runtime_evidence.device_facts({"devices": [0], "binding": "inherit"}, environ)
+    devices = runtime_evidence.device_facts(
+        {"devices": [0], "binding": "inherit"}, environ
+    )
     assert devices["bound"] is True
     assert devices["requested"] == ["0"]
     assert devices["inherited"] == ["2", "3"]
@@ -145,7 +145,9 @@ def test_session_writes_once_and_marks_partial_failures(tmp_path):
         telemetry_interval_s=1.0,
     )
     assert session.finish("partial", reason="boom") == "runtime_evidence.json"
-    payload = json.loads((tmp_path / "runtime_evidence.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (tmp_path / "runtime_evidence.json").read_text(encoding="utf-8")
+    )
     assert payload["status"] == "partial"
     assert payload["reason"] == "boom"
     assert payload["attempt"] == 2
@@ -184,12 +186,16 @@ def test_start_session_respects_rank_and_request_gating(tmp_path):
     )
     assert session is not None
     session.finish("complete")
-    payload = json.loads((tmp_path / "runtime_evidence.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (tmp_path / "runtime_evidence.json").read_text(encoding="utf-8")
+    )
     assert payload["telemetry"]["enabled"] is True
 
 
 def test_sampler_collects_host_samples(monkeypatch, tmp_path):
-    monkeypatch.setattr(runtime_evidence, "sample_gpus", lambda timeout=5.0: _observed_sample())
+    monkeypatch.setattr(
+        runtime_evidence, "sample_gpus", lambda timeout=5.0: _observed_sample()
+    )
     session = runtime_evidence.start_session(
         workflow_dir=tmp_path,
         workflow="relax",
@@ -198,7 +204,9 @@ def test_sampler_collects_host_samples(monkeypatch, tmp_path):
     )
     assert session is not None
     session.finish("complete")
-    payload = json.loads((tmp_path / "runtime_evidence.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (tmp_path / "runtime_evidence.json").read_text(encoding="utf-8")
+    )
     sampler = payload["telemetry"]["sampler"]
     assert sampler["status"] == "observed"
     assert sampler["sample_count"] >= 1
@@ -217,8 +225,7 @@ def _relax_config(**runtime):
 
 
 def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_path):
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
@@ -226,7 +233,9 @@ def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_pa
         runtime_evidence, "sample_gpus", lambda timeout=5.0: _observed_sample()
     )
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
 
@@ -243,7 +252,9 @@ def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_pa
     assert payload["telemetry"]["sampler"]["sample_count"] >= 1
     assert payload["phases"]["dispatch_s"] >= 0
     assert payload["phases"]["attempt_s"] >= payload["phases"]["dispatch_s"]
-    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (tmp_path / "atst_artifacts.json").read_text(encoding="utf-8")
+    )
     assert (
         manifest["metadata"][runtime_evidence.EVIDENCE_MANIFEST_KEY]
         == runtime_evidence.EVIDENCE_FILENAME
@@ -260,13 +271,14 @@ def test_run_workflow_writes_evidence_and_links_the_manifest(monkeypatch, tmp_pa
 
 
 def test_documents_without_runtime_requests_stay_unchanged(monkeypatch, tmp_path):
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
     result = run_workflow(_relax_config(), RunOptions())
@@ -277,8 +289,7 @@ def test_documents_without_runtime_requests_stay_unchanged(monkeypatch, tmp_path
 
 def test_dry_run_with_runtime_controls_reports_the_binding(monkeypatch, tmp_path):
     """A validation-only run still reports the bound device facts."""
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
     from atst_tools.runtime import devices as runtime_devices
 
     monkeypatch.chdir(tmp_path)
@@ -291,9 +302,7 @@ def test_dry_run_with_runtime_controls_reports_the_binding(monkeypatch, tmp_path
     monkeypatch.setenv(runtime_devices.REQUESTED_DEVICES_ENV, "0")
     monkeypatch.setenv(runtime_devices.REQUESTED_SOURCE_ENV, "--devices")
 
-    result = run_workflow(
-        _relax_config(telemetry=True), RunOptions(dry_run=True)
-    )
+    result = run_workflow(_relax_config(telemetry=True), RunOptions(dry_run=True))
     document = result.to_document(tmp_path)
     assert result.status == "validated"
     assert document["runtime"]["status"] == "dry-run"
@@ -312,7 +321,9 @@ def test_legacy_cli_path_still_writes_phases(monkeypatch, tmp_path):
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
     monkeypatch.setenv("ATST_TELEMETRY_ENABLED", "1")
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
 
@@ -330,13 +341,14 @@ def test_non_root_ranks_do_not_claim_a_runtime_summary(monkeypatch, tmp_path):
     """Only the rank that owns the evidence file reports it (review F5)."""
     from helpers import FakeWorld
 
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
 
@@ -350,9 +362,10 @@ def test_non_root_ranks_do_not_claim_a_runtime_summary(monkeypatch, tmp_path):
     assert "runtime" not in result.to_document(tmp_path)
 
 
-def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(monkeypatch, tmp_path):
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(
+    monkeypatch, tmp_path
+):
+    from atst_tools.api import RunOptions, run_workflow, services
     from atst_tools.api.models import WorkflowExecutionError
 
     monkeypatch.chdir(tmp_path)
@@ -373,8 +386,7 @@ def test_run_workflow_keeps_partial_evidence_when_the_workflow_fails(monkeypatch
 
 
 def test_measurement_failures_do_not_mask_the_workflow(monkeypatch, tmp_path):
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
@@ -384,7 +396,9 @@ def test_measurement_failures_do_not_mask_the_workflow(monkeypatch, tmp_path):
 
     monkeypatch.setattr(runtime_evidence, "_write_json_atomic", broken_write)
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
 
@@ -392,13 +406,16 @@ def test_measurement_failures_do_not_mask_the_workflow(monkeypatch, tmp_path):
 
     assert result.status == "complete"
     assert not (tmp_path / runtime_evidence.EVIDENCE_FILENAME).exists()
-    manifest = json.loads((tmp_path / "atst_artifacts.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (tmp_path / "atst_artifacts.json").read_text(encoding="utf-8")
+    )
     assert runtime_evidence.EVIDENCE_MANIFEST_KEY not in manifest.get("metadata", {})
 
 
-def test_start_session_failure_does_not_break_the_workflow(monkeypatch, tmp_path, capsys):
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+def test_start_session_failure_does_not_break_the_workflow(
+    monkeypatch, tmp_path, capsys
+):
+    from atst_tools.api import RunOptions, run_workflow, services
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
@@ -408,7 +425,9 @@ def test_start_session_failure_does_not_break_the_workflow(monkeypatch, tmp_path
 
     monkeypatch.setattr(runtime_evidence, "start_session", broken_start)
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
 
@@ -485,8 +504,7 @@ def test_run_workflow_aggregates_counters_across_ranks(monkeypatch, tmp_path):
     """MPI runs report summed counters in the rank-0 sidecar."""
     from helpers import FakeWorld
 
-    from atst_tools.api import RunOptions, run_workflow
-    from atst_tools.api import services
+    from atst_tools.api import RunOptions, run_workflow, services
     from atst_tools.runtime import counters
 
     class DoublingWorld(FakeWorld):
@@ -496,7 +514,9 @@ def test_run_workflow_aggregates_counters_across_ranks(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(services, "_dispatch_normalized", lambda config, options: None)
     (tmp_path / "atst_artifacts.json").write_text(
-        json.dumps({"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}),
+        json.dumps(
+            {"workflow": "relax", "artifacts": [], "metadata": {}, "stages": []}
+        ),
         encoding="utf-8",
     )
     counters.reset()

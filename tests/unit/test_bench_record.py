@@ -29,15 +29,29 @@ def test_record_captures_provenance_inputs_results_and_operator_slots(
             "repeats": 3,
             "slots_variants": [1, 2],
             "variants": {
-                "1": {"makespan_s": {"median": 10.0}, "succeeded": {"total": 2}, "cases_total": {"total": 2}},
-                "2": {"makespan_s": {"median": 7.0}, "succeeded": {"total": 2}, "cases_total": {"total": 2}},
+                "1": {
+                    "makespan_s": {"median": 10.0},
+                    "succeeded": {"total": 2},
+                    "cases_total": {"total": 2},
+                },
+                "2": {
+                    "makespan_s": {"median": 7.0},
+                    "succeeded": {"total": 2},
+                    "cases_total": {"total": 2},
+                },
             },
         },
     )
     harness_dir = tmp_path / "single"
     _write_json(
         harness_dir / "harness_summary.json",
-        {"schema": "atst-bench-harness-v1", "cases_total": 2, "succeeded": 2, "failed": 0, "wall_s": 11.5},
+        {
+            "schema": "atst-bench-harness-v1",
+            "cases_total": 2,
+            "succeeded": 2,
+            "failed": 0,
+            "wall_s": 11.5,
+        },
     )
 
     payload = record.build_record(
@@ -58,10 +72,14 @@ def test_record_captures_provenance_inputs_results_and_operator_slots(
     assert "atst_tools_version" in payload["environment"]
     assert set(payload["environment"]["packages"]) >= {"numpy", "ase"}
     assert payload["host"]["cpu_count"] >= 1
-    assert payload["inputs"]["manifest"]["sha256"] == hashlib.sha256(
-        manifest.read_bytes()
-    ).hexdigest()
-    assert payload["inputs"]["fixtures"][0]["sha256"] == hashlib.sha256(b"weights").hexdigest()
+    assert (
+        payload["inputs"]["manifest"]["sha256"]
+        == hashlib.sha256(manifest.read_bytes()).hexdigest()
+    )
+    assert (
+        payload["inputs"]["fixtures"][0]["sha256"]
+        == hashlib.sha256(b"weights").hexdigest()
+    )
 
     runs = payload["results"]
     assert runs[0]["schema"] == "atst-bench-sweep-v1"
@@ -118,6 +136,7 @@ def test_record_copies_run_time_revisions_and_flags_mismatch(tmp_path: Path) -> 
 
 def test_record_reports_gpu_inventory_failure_instead_of_guessing(monkeypatch):
     """A missing nvidia-smi is recorded as an explicit error, not as 'no GPU'."""
+
     def missing(*args, **kwargs):
         raise FileNotFoundError("nvidia-smi")
 
