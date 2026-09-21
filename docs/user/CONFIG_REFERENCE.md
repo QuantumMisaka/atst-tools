@@ -845,9 +845,11 @@ Semantics:
   behaviour, including the default thread value of 1.
 - `telemetry` enables `runtime_evidence.json`: the environment triple, device
   facts, per-process counters (`dp.*`, `abacus.*` builds and force calls) and
-  host GPU samples taken by a single sampler on rank 0. Missing tools or
-  permissions degrade to `unavailable`; measurement never masks a workflow
-  result.
+  host GPU samples taken by a single sampler on rank 0, including a sampled
+  memory peak (`telemetry.sampler.memory_peak_mib`, marked `sampled_peak`).
+  Successful MPI runs also sum the canonical counters across ranks
+  (`counters_mpi`). Missing tools or permissions degrade to `unavailable`;
+  measurement never masks a workflow result.
 
 ## 5. Configuration Maintenance
 

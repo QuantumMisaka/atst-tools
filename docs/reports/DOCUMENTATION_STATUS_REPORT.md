@@ -100,6 +100,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（恒电势合入 + GPU rebase + 联合验收）：恒电势开发者完成合入（atst `main` = `7bc3f92`+`d30747b`，父仓 `375ef7c6b`/`7e3009e32`；§8.1 两项门禁已被其修复，main 单测 943 项 0 失败）。GPU 分支 `git rebase main`：61 提交全部重放、零冲突；新增 SPEC §7A 联合验收测试（`reference_fcp`/`compensated_gate` × runtime，双向 fail-closed）。合体树门禁：单测 1091 项 0 失败、真实 MPI 集成 22 项、wheel clean-install 门通过。登台件按新 HEAD `cca0912` 重导出并克隆复验（含 CP+GPU 模块，冒烟 sidecar 正常）。接口文档 §8.3、计划集成检查点与交付日志同步。
 
+- 2026-09-21（用户文档补全，§8 合并后收尾）：`CONFIG_REFERENCE` 的 telemetry 说明补上`telemetry.sampler.memory_peak_mib`（`sampled_peak` 标记）与 MPI `counters_mpi`；`FEATURE_STATUS_MATRIX` 的 Runtime 行修正阶段名（S5→P5）并注明已有本地真实 GPU 证据、SAI V100 身份验收待 P5；读者入口文档（README/index/examples README）保持只链接引用、不加受限词汇内容。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
