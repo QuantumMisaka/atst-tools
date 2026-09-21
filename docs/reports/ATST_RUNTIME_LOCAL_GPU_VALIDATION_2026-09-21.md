@@ -418,3 +418,46 @@ P5 现场（结合 §15 的单卡压力结论，单卡多 rank 不应期待收�
 见 SAI 报告 §5e 与证据切片 `docs/reports/data/ATST_CCQN_SAI_20260921/`）。本次同时现场验证了冻结语义：不带 `CUDA_VISIBLE_DEVICES`
 直接跑带 `runtime.devices` 的配置会被 fail-closed 拒绝
 （`explicit device selection is refused: ...`）。
+
+## 18. DP 固定成本归因（本地 spike；2026-09-21 追加）
+
+针对 §17 的"每 worker 固定成本"，做了一轮变体矩阵（每个变体独立进程、重复 2–3 次取中位；
+66 原子 H₂+Au₆₄、DPA-3.1-3M/`head: Omat24`、每次调用前 rattle 以绕开 ASE 结果缓存）：
+
+| 变体 | 构造 | 调用 1 / 2 / 3 | 稳态（≥4） |
+| --- | --- | --- | --- |
+| 生产配置（`dp.omp: 4`，torch 32 线程） | 4.75 s | 9.98 / 17.43 / 14.33 s | 6.97 s |
+| 进程外预置 `OMP_NUM_THREADS=4` | 4.15 s | 6.77 / 8.04 / 5.07 s | **0.56 s** |
+| 进程外预置 8 / 16 / 1 线程 | 4.5 / 4.4 / 4.1 s | 7.2/6.5/6.9 … | 0.57 / 0.52 / 1.01 s |
+| `DP_INFER_BATCH_SIZE=32 / 256` | 4.4 s | 9.4 / 8.7 … | 3.97 / 3.86 s（噪声内，**无效**） |
+| `TORCHINDUCTOR_CACHE_DIR` | 4.3 s | 9.7 / 12.4 / 10.2 s | 3.57 s（目录从未创建，**无效**） |
+| 4 / 132 原子（4 线程） | 4.2 s | 6.1–7.4 … | 0.07 / 1.66 s（预热总量与体系规模无关） |
+| **`no_jit=True`（eager）** | **2.35 s** | **0.70 / 0.61 / 0.49 s** | **0.46–0.49 s** |
+| 先跑一次 tiny 结构再跑 66 原子 | — | 8.89 / 4.41 s | 24.53 s 总计 vs 冷启动 24.03 s（**预热不可摊还**，窗口前移而已） |
+
+归因链（同一批次）：预热与体系规模无关（4/66/132 原子总量 22.5/24.0/25.7 s）→ 不是邻接表构建；
+绕过 ASE 直接驱动 scripted 模型复现同样的衰减 → 不是 ASE/`AutoBatchSize`；profiler 显示调用 1
+的 11.9 s 里 ATen 自耗时只有 0.64 s，且单线程同样衰减 → 不是 ATen 计算；**`no_jit=True` 用同一权重
+把预热整体消掉且能量一致（float32 噪声）** → 归因为 **TorchScript 惰性 JIT 代码生成**（按排除法）。
+构造成本另计：`torch.load` 1.0 s + `torch.jit.script` 1.8 s + deepmd.pt 首次导入 ≈1.3 s。
+
+**两条对既有结论的修正（重要）**：
+
+1. **§17 的"推理"其实是 CPU 推理**：`atst-dev` 的 torch 是 CPU-only（`torch 2.9.1`、
+   `torch.cuda.is_available()=False`、`deepmd.pt.utils.env.DEVICE='cpu'`，运行期 `nvidia-smi` 无计算进程）。
+   因此 §17 里的 15.6 s 固定成本是 **CPU/torch JIT** 口径；V100 + GPU torch 的真实固定成本见 SAI 报告 §5e
+   （FT²DP 单头 100k 仅 ≈2.4 s）。本节数字用于归因与旋钮筛选，不代表 GPU 节点的绝对值。
+2. **进程内写 `calculator.dp.omp` 不生效**：`scripts.cli_impl` 的导入链在计算器工厂之前就加载了 torch
+   （`import atst_tools.scripts.cli_impl` 之后 `torch` 已在 `sys.modules`，线程池已按默认 32 初始化），
+   所以 `dp.omp` 只改环境变量、改不了 torch 的线程池；**只有"进程外预置线程环境"通道有效**——这正是
+   runtime 层与批量执行器的既有契约（`build_child_environment` / `case_environment` 在 exec 前写线程键）。
+
+**可用于后续的杠杆（按实测收益）**：① 暴露 eager/`no_jit` 的 DP 构造路径（本机 24 s → ≈3 s/worker，
+需 schema 决策：`DPConfig` 目前 `extra="forbid"`，而上游 3.1.2 的 pt/pd 后端都声明 `no_jit`）——
+**站点探针已否掉这条**（SAI 报告 §5f：GPU torch + 单线程没有 fuser 预热，构造 1.55 s、首调用 1.33 s、
+稳态 0.028 s/调用），故不在 GPU 目标上推进该 schema 变更；
+② 共享 worker（同进程跑多 case，省去每 case 的构造+加载）；③ 线程预算必须走"进程外预置"通道（已具备）。
+无效项：`DP_INFER_BATCH_SIZE`、`TORCHINDUCTOR_CACHE_DIR`、先跑 tiny 结构预热。
+
+边界：本机 CPU-only torch、DPA-3.1-3M、单卡共享、重复 2–3 次的中位数；`no_jit` 在 GPU torch 与站点
+模型上的效果**未测**，是下一步的站点探针目标。
