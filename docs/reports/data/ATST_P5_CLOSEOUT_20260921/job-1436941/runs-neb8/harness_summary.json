@@ -1,0 +1,1187 @@
+{
+  "allocation": {
+    "devices": [
+      "0"
+    ],
+    "gpu_seconds": 33.26,
+    "wall_s": 33.26
+  },
+  "cases": [
+    {
+      "args": [],
+      "attempt": 1,
+      "case_id": "dp-neb-chain10-mpi8",
+      "classification": null,
+      "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_mpi8.yaml",
+      "devices": [
+        "0"
+      ],
+      "exit_code": 0,
+      "finished_at": "2026-09-21T11:57:49.608476+00:00",
+      "gpu_seconds": 20.506,
+      "launcher": [
+        "mpiexec",
+        "--oversubscribe",
+        "-n",
+        "8"
+      ],
+      "ranks": 8,
+      "ranks_source": "declared",
+      "result_json": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/atst_api_result.json",
+      "schema": "atst-bench-harness-v1",
+      "started_at": "2026-09-21T11:57:29.102858+00:00",
+      "status": "succeeded",
+      "stderr": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/harness_worker.err",
+      "stdout": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/harness_worker.out",
+      "threads": 1,
+      "wall_s": 20.506,
+      "workdir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/work-dp-neb-chain10-mpi8"
+    },
+    {
+      "args": [],
+      "attempt": 1,
+      "case_id": "dp-neb-chain10-serial",
+      "classification": null,
+      "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_serial.yaml",
+      "devices": [
+        "0"
+      ],
+      "exit_code": 0,
+      "finished_at": "2026-09-21T11:57:27.518455+00:00",
+      "gpu_seconds": 11.166,
+      "launcher": [],
+      "ranks": 1,
+      "ranks_source": "serial",
+      "result_json": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/atst_api_result.json",
+      "schema": "atst-bench-harness-v1",
+      "started_at": "2026-09-21T11:57:16.352573+00:00",
+      "status": "succeeded",
+      "stderr": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/harness_worker.err",
+      "stdout": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/harness_worker.out",
+      "threads": 1,
+      "wall_s": 11.166,
+      "workdir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/work-dp-neb-chain10-serial"
+    }
+  ],
+  "cases_total": 2,
+  "cpu_budget": 8,
+  "devices": [
+    "0"
+  ],
+  "failed": 0,
+  "finished_at": "2026-09-21T11:57:49.662238+00:00",
+  "gpu_seconds_total": 31.672,
+  "revision": {
+    "branch": "p5-closeout-20260921",
+    "dirty": false,
+    "head": "1a62a729b90632d7f6d2614fbc7f64286130b258",
+    "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+  },
+  "schema": "atst-bench-harness-v1",
+  "skipped": 0,
+  "slots_per_device": 1,
+  "started_at": "2026-09-21T11:57:16.349805+00:00",
+  "status": "complete",
+  "succeeded": 2,
+  "telemetry": {
+    "coverage_s": 33.26,
+    "memory_peak_mib": {
+      "source": "sampled_peak",
+      "value": 16646.0
+    },
+    "reason": null,
+    "sample_count": 33,
+    "samples": [
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:16.359381+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:17.378794+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:18.398360+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:19.418309+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 434.0,
+            "utilization_gpu_pct": 12.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 430.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:20.437659+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1972.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 1968.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:21.456791+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1972.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 1968.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:22.475106+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2078.0,
+            "utilization_gpu_pct": 93.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 2074.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:23.494492+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2078.0,
+            "utilization_gpu_pct": 93.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 2074.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:24.513546+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2078.0,
+            "utilization_gpu_pct": 91.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 2074.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:25.532885+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2078.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181059,
+              "used_memory_mib": 2074.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:26.552283+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1.0,
+            "utilization_gpu_pct": 1.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:27.572357+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:28.592036+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:29.616362+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:30.641469+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:31.665142+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:32.692503+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:33.721658+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:34.740021+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:35.759831+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:36.786840+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:37.818838+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 466.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 462.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:38.852775+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2078.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2074.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:39.883951+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2090.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2086.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:40.906891+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 2102.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 12.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2086.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:41.952752+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 5330.0,
+            "utilization_gpu_pct": 15.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 462.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 462.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:43.001426+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 14404.0,
+            "utilization_gpu_pct": 77.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 1968.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 476.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 1968.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 1976.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 1968.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 1976.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 1976.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:44.039412+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 16646.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 2082.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:45.068205+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 16646.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 2082.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:46.091577+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 16646.0,
+            "utilization_gpu_pct": 100.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 2082.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:47.121216+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 16646.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 2074.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 2082.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2090.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 2082.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:48.157428+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 16358.0,
+            "utilization_gpu_pct": 5.0,
+            "uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181184,
+              "used_memory_mib": 2038.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181185,
+              "used_memory_mib": 2046.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181182,
+              "used_memory_mib": 2038.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181188,
+              "used_memory_mib": 2046.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181183,
+              "used_memory_mib": 2038.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181186,
+              "used_memory_mib": 2046.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181181,
+              "used_memory_mib": 2054.0
+            },
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4",
+              "pid": 3181187,
+              "used_memory_mib": 2046.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T11:57:49.195459+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      }
+    ],
+    "source": "nvidia-smi",
+    "status": "observed"
+  },
+  "timed_out": 0,
+  "wall_s": 33.26
+}

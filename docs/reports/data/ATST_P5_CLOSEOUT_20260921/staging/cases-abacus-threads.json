@@ -1,0 +1,9 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "Post-fix ABACUS baseline: the example relax case as-shipped (explicit omp: 1) and a variant without omp so the manifest budget (2) is delivered by the harness marker.",
+  "defaults": {"threads": 2, "timeout_s": 3600},
+  "cases": [
+    {"case_id": "abacus-relax-h2au-omp1", "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/abacus_relax_h2au.yaml", "slots": 1, "threads": 2, "timeout_s": 3600, "workdir": "work-abacus-relax-omp1"},
+    {"case_id": "abacus-relax-h2au-t2", "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/abacus_relax_h2au_t2.yaml", "slots": 1, "threads": 2, "timeout_s": 3600, "workdir": "work-abacus-relax-t2"}
+  ]
+}

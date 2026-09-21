@@ -1,0 +1,30 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "dp-neb-chain10-mpi8",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_mpi8.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T11:57:49.608476+00:00",
+  "gpu_seconds": 20.506,
+  "launcher": [
+    "mpiexec",
+    "--oversubscribe",
+    "-n",
+    "8"
+  ],
+  "ranks": 8,
+  "ranks_source": "declared",
+  "result_json": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T11:57:29.102858+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/harness_worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-mpi8/harness_worker.out",
+  "threads": 1,
+  "wall_s": 20.506,
+  "workdir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/work-dp-neb-chain10-mpi8"
+}

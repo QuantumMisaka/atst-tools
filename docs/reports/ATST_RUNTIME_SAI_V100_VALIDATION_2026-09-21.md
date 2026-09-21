@@ -107,6 +107,42 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 `inherited=['0','1','2','3']`、`effective=['0']`、`world_size=4`、
 `counters_mpi` Σ`dp.force_calls=38`。此前 1431646 的挂起确认为入口顺序缺陷所致，已闭环。
 
+## 5d. P5 收尾：修复后 ABACUS 基线 + 8 ranks/1 卡压力行（2026-09-21）
+
+作业 **1436941**（4V100、1 GPU、`--ntasks=8`、`ABACUS_MODULE=1`）。此前作业 1436926 因
+`--ntasks=1` 被 PRRTE 以"not enough slots available"拒绝（示例配置内部为 `mpirun -np 4`）
+而 0/2 失败，留档于证据切片 `job-1436926/`；补上 P5 的 `--ntasks=8` 形状后两通道全部通过。
+
+**（a）修复后 ABACUS relax 基线**（`omp` 优先级修复 `5e26789` + harness 线程标记 `1a62a72` 之后）：
+
+| case | 配置 `omp` | 生效 OMP | `threads_source` | 覆盖计数 | wall |
+| --- | --- | --- | --- | --- | --- |
+| abacus-relax-h2au-omp1 | 显式 `1` | 1 | `harness` | 1（预期：显式值优先） | 160.9 s |
+| abacus-relax-h2au-t2 | 缺省 | **2** | `harness` | 无 | 157.6 s |
+
+两例均 4 个内部 MPI rank、`cpu_affinity_count=8`、显存峰值 2198 MiB、`abacus.force_calls=1`。
+对照 P5 原记录（172.8 / 171.0 s，同配置）说明：**该示例在 4 rank 基础上再加 OMP 线程收益 ≈ 2%
+（噪声级）**——H2-Au relax 的墙钟由 SCF 本身的串行工作决定，本用例不值得再堆线程；
+`t2` 用例同时证明 manifest 的 per-case `threads` 现在确实到达 ABACUS（证据记 `threads_source=harness`）。
+
+**（b）8 image-parallel ranks / 1 卡（站点压力行）**，FT²DP 单头 100k、`chain10`（8 内部图）、
+`max_steps: 2`、每 rank 1 线程、同一张卡、`mpiexec --oversubscribe -n 8`：
+
+| 作业 | 串行参考 | 8 ranks / 1 卡 | 比值 | Σ`dp.force_calls` | 显存峰值 |
+| --- | --- | --- | --- | --- | --- |
+| 1436926 | 13.57 s | 16.27 s | 1.20× | 66 → 26 | 2078 / 16646 MiB |
+| 1436941 | 11.17 s | 20.51 s | 1.84× | 66 → 26 | 2078 / 16646 MiB |
+
+**这条站点结果修正了本地 §15 的外推**：本机（WSL2 + RTX 2070 SUPER 8 GB）单卡 8 rank 相对串行
+是 7.7× 负收益，而 V100（32 GB HBM）上同一形状只有 **1.2–1.8×**、且两次测量离散就接近该量级——
+说明本地劣化主要来自**显存上限与桌面驱动/多上下文行为**，不是"单卡多 rank 必然不可用"。
+因此 P5 矩阵中"图数 ≤ 卡数"的收益假设仍须按卡型/显存实测，`8 ranks / 1 卡` 一栏按
+"温和负收益、显存是绑定资源"记录（16646 MiB ≈ 32 GB 的一半）。本行证据同时含
+`counters_mpi`（`world_size=8`、Σ`dp.force_calls=26`、`dp.calculator_built=9`）。
+
+**站点观察**：两个作业的批次 shell 里 `nproc=2`，而 worker 内亲和掩码为 8
+（`cpu_affinity_count=8`）——站点 Slurm 绑定在不同进程层不一致，记为观察项，不据此改代码。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：
@@ -128,6 +164,7 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 
 ## 7. 证据清单
 
+- 修复后收尾作业：1436926（ABACUS 组因 `--ntasks=1` 被 PRRTE 拒；DP 压力行通过，留档）、1436941（两通道全通过）；切片 [`docs/reports/data/ATST_P5_CLOSEOUT_20260921/`](data/ATST_P5_CLOSEOUT_20260921/README.md)。
 - 作业：1430846（失败，留档）、1430966、1431010、1431119、1431648（slots=4）、1431955/1432107（多卡 NEB 对照）、1432043（srun/mpiexec 探针）；ABACUS：1431200（成功）、1431647（三次重复；repeat-2 NEB 停滞取消）、1432820（NEB 补跑 ×2 成功）；1431188/1431190（时序/路径问题取消或失败，留档）；1431952/1431646（挂起与孤儿，留档）。
 - 仓库归档：本报告的版本化证据切片见 [`docs/reports/data/ATST_SAI_V100_20260921/`](data/ATST_SAI_V100_20260921/README.md)（records/汇总/证据 sidecar/两次重复的 case 记录；records 的 `approved_by` 已填）。
 - 站点路径：`~/atst-p5-20260921/work/{smoke,smoke2,smoke3,dp-matrix,dp-matrix2,abacus2}/runs/`
@@ -138,7 +175,6 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 ## 8. 边界与后续
 
 单节点 ×2 GPU、66 原子级 case、DP 矩阵 repeats=3；ABACUS 通道为单次有界跑
-（完整示例 NEB 约 19 min/次）。后续：host/SIF 成对、8-rank/1 卡压力行（`mpiexec --oversubscribe`，注意
-用 srun+pmix 方案避开重绑定挂起）。
+（完整示例 NEB 约 19 min/次）。**后续仅剩：host/SIF 成对与 8 图×8 卡**（8 ranks/1 卡压力行已于 2026-09-21 完成，见 §5d；host/SIF 需要站点侧 SIF 与挂载配合，8 图×8 卡需要站点协调超过 QOS 的卡数）。
 站点 `mpiexec` 重绑定挂起问题需与站点/上游（PRRTE/PMIx + exec）进一步确认。ABACUS 作业的 record
 fixture 当前传入了 DP 模型哈希（`MODEL` 变量），后续应按通道传入对应输入。

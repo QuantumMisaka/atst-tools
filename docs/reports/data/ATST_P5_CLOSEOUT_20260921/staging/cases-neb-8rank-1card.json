@@ -1,0 +1,9 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "P5 remaining row: 8 image-parallel ranks on one V100 card (pressure boundary). Serial reference on the same chain with the same single thread per rank.",
+  "defaults": {"threads": 1, "timeout_s": 1800},
+  "cases": [
+    {"case_id": "dp-neb-chain10-serial", "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_serial.yaml", "slots": 1, "threads": 1, "timeout_s": 900, "workdir": "work-dp-neb-chain10-serial"},
+    {"case_id": "dp-neb-chain10-mpi8", "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_mpi8.yaml", "slots": 1, "threads": 1, "launcher": ["mpiexec", "--oversubscribe", "-n", "8"], "ranks": 8, "timeout_s": 1800, "workdir": "work-dp-neb-chain10-mpi8"}
+  ]
+}

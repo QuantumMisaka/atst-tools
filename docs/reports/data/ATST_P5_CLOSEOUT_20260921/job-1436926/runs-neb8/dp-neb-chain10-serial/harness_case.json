@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "dp-neb-chain10-serial",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_serial.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T11:48:38.906250+00:00",
+  "gpu_seconds": 13.569,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T11:48:25.336797+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/harness_worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/dp-neb-chain10-serial/harness_worker.out",
+  "threads": 1,
+  "wall_s": 13.569,
+  "workdir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/work-dp-neb-chain10-serial"
+}

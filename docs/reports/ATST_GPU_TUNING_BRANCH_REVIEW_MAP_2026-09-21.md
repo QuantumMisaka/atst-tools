@@ -19,7 +19,7 @@
 | 主要证据 | [P0 复核](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)；[本地 GPU 验证报告](ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md) §4–§16 |
 | 账本 | [DOCUMENTATION_STATUS_REPORT.md](DOCUMENTATION_STATUS_REPORT.md)（每次变更登记） |
 
-门禁现状（2026-09-21 对 `5e26789` 复测）：`tests/unit` **1100 passed / 2 documented skips**
+门禁现状（2026-09-21 对 `1a62a72` 复测）：`tests/unit` **1101 passed / 2 documented skips**
 （共 1099 项收集）；`ATST_RUN_MPI_TESTS=1 tests/integration` **23 passed**（真实 MPI）；
 `scripts/verify_wheel_api.py --mpi-smoke` 通过；
 `scripts/check_docs_governance.py` 通过。复现命令见 §5。
@@ -73,14 +73,13 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
 
 ## 4. 已知开放门（不属本分支完成范围）
 
-1. **P5（SAI V100 基准）首轮已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4，
-   见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md)）；**剩余**：host/SIF 成对、8 图×8 卡、8 ranks/1 卡压力行（多卡 NEB、每卡 4 进程档与 ABACUS 候选点 ≥3 次重复均已完成）。
+1. **P5（SAI V100 基准）首轮与收尾已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4 + 多卡 NEB + per-card 4 进程 + ABACUS 3 重复 + 修复后 ABACUS 基线与 8 ranks/1 卡压力行，见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md) §5d）；**剩余仅两项**：host/SIF 成对（需站点 SIF/挂载配合）、8 图×8 卡（需站点协调超出 QOS 的卡数）。
 2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
    **运行组合验收已完成**（2026-09-21：SAI 1435012，`compensated_gate` 单点 + 三点扫描 2/2、分配外设备负例被拒；见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md)）。
 3. ~~`calculator.abacus.omp` 默认值使 `runtime.threads` 失效~~ **已修复并复验**（2026-09-21，`5e26789`）：schema 改为 `int | None = None`（缺省不写，legacy 1 由 `resolve_calculator_omp` 写），新增三条回归测试；SAI 作业 1436782 用同一恒电势单点用例复跑确认 `OMP_NUM_THREADS=8`、无 `runtime_threads_overridden`、无覆盖 warning（对照见[联合验收报告](ATST_CP_RUNTIME_JOINT_VALIDATION_2026-09-21.md) §5.1）。
-4. **待裁定：批量 harness 的 per-case `threads` 通道**。manifest 的 `threads` 只写线程环境键、不写 `ATST_THREADS_SOURCE`，所以配置里没有 `runtime` 段时 ABACUS 仍按 legacy 1 线程运行（P5 的 ABACUS 用例即如此）。要让清单的 `threads` 直达 ABACUS，需让 harness 也打该标记（或在用例配置里加 `runtime.threads`）；前者会改变与既有 P5 数据的可比性，故留待裁定。
+4. ~~批量 harness 的 per-case `threads` 通道~~ **已裁定并实现**（`1a62a72`）：manifest 的线程预算按调用者显式预算处理（`case_environment` 写 `ATST_THREADS_SOURCE=harness`），未写 `omp` 且无 `runtime` 段的用例不再落回 legacy 1；带 `runtime.threads` 的用例仍由 worker 覆盖为 `explicit`/`auto`。站点复验见 SAI 报告 §5d(a)：`abacus-relax-h2au-t2` 生效 `OMP_NUM_THREADS=2`、无覆盖计数。注：P5 的 ABACUS 计时为单线程是因其示例配置**显式**写了 `omp: 1`（另一条路径），本改动对它们无影响。
 5. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
 6. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。

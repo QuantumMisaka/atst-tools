@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "abacus-relax-h2au-omp1",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/abacus_relax_h2au.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T11:54:36.789123+00:00",
+  "gpu_seconds": 160.868,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-abacus/abacus-relax-h2au-omp1/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T11:51:55.921107+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-abacus/abacus-relax-h2au-omp1/harness_worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-abacus/abacus-relax-h2au-omp1/harness_worker.out",
+  "threads": 2,
+  "wall_s": 160.868,
+  "workdir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-abacus/work-abacus-relax-omp1"
+}

@@ -1,0 +1,99 @@
+{
+  "atst": {
+    "record_time": {
+      "branch": "p5-closeout-20260921",
+      "dirty": false,
+      "head": "1a62a729b90632d7f6d2614fbc7f64286130b258",
+      "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+    },
+    "run_time": [
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8",
+        "revision": {
+          "branch": "p5-closeout-20260921",
+          "dirty": false,
+          "head": "1a62a729b90632d7f6d2614fbc7f64286130b258",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      }
+    ],
+    "run_time_consistent": true
+  },
+  "created_at": "2026-09-21T11:57:49.745079+00:00",
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 8,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 8
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "OMP_NUM_THREADS": "2"
+    },
+    "threads_source": null
+  },
+  "host": {
+    "cpu_count": 32,
+    "gpu_inventory": [
+      "GPU 0: Tesla V100-SXM2-32GB (UUID: GPU-3099e6ef-7ae9-3306-f66a-f236f39376a4)"
+    ],
+    "gpu_inventory_error": null,
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39"
+  },
+  "inputs": {
+    "fixtures": [],
+    "manifest": {
+      "exists": true,
+      "path": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/cases-neb-8rank-1card.json",
+      "sha256": "620261d707761fd884f634ad5ab2cc86bcb389efa726fc83093c01c862e49954"
+    }
+  },
+  "notes": [
+    "p5-closeout: gpu=0 slots=1 cpu_budget=8"
+  ],
+  "operator": {
+    "allocated_gpu_hours": null,
+    "approved_by": null,
+    "job_id": "1436941",
+    "partition": "4V100",
+    "qos": "rush-1o2gpu",
+    "sacct_excerpt": null
+  },
+  "results": [
+    {
+      "cases_total": 2,
+      "dir": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8",
+      "exists": true,
+      "failed": 0,
+      "revision": {
+        "branch": "p5-closeout-20260921",
+        "dirty": false,
+        "head": "1a62a729b90632d7f6d2614fbc7f64286130b258",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-harness-v1",
+      "succeeded": 2,
+      "summary": "/org/galileo-group/galileouser02/atst-p5-closeout-20260921/runs-neb8/harness_summary.json",
+      "summary_sha256": "ada166df867cd97a66826ee492b0d7abad8b142b229709283e4ebe20a607d2b2",
+      "tree": {
+        "file_count": 17,
+        "tree_sha256": "d25ed4f961f01e6f3d76c825452005214f81534355daad79a4be8b98102afdee"
+      },
+      "wall_s": 33.26
+    }
+  ],
+  "schema": "atst-bench-record-v1",
+  "warnings": []
+}
