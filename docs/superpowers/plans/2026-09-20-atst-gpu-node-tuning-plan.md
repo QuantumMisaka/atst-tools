@@ -105,8 +105,8 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 - [x] 固定配置对比冷启动/稳态和同 allocation 吞吐；分开报告增加资源的收益（本地冷/热复核见验证报告 §14；站点 DP slots 1/2/3 吞吐见 SAI 报告 §5；ABACUS 同配置两遍 172.8/171.0 s、747.3/777.4 s）。
 - [ ] 候选正式点至少三次交替重复，保留失败；host/SIF 成对验证，采样开/关检查观测开销（DP 已 3 次交替重复且保留全部失败样本；采样开/关 A/B 已有本地与站点两遍对照；**host/SIF 成对未做**，留后续）。
 - [x] 归档输入/环境身份、原始结果、采样、汇总与可重跑命令；报告适用范围，不输出通用每卡并发默认值（SAI 报告 §7 + `bench_record.json`（修订 `4d77fee`/`cfebd795`、夹具哈希、操作者字段）+ RUNBOOK）。
-- [ ] DP 推理并发曲线（P0 复核新增）：同 allocation 每卡 1/2/4 个独立进程；记录 GPU 利用率、显存、成功 case/hour 与卡时/成功案；不采信“墙钟只随 CONC 缩放”的无据断言（站点已测 1/2/3（2 卡分配），4 未测；利用率/显存/卡时已入 SAI 报告 §5）。
-- [ ] NEB 图数 × 卡数映射（P0 复核新增）：4/8 内部图 × 1/2/4/8 卡；验证“图数 ≤ 卡数”的延迟收益与 8 ranks/1 卡的压力边界（站点已测 3 ranks/1 卡（≈9.9 s，Σ35 次力调用）；多卡与 8-rank 压力行留后续）。
+- [x] DP 推理并发曲线（P0 复核新增）：同 allocation 每卡 1/2/4 个独立进程；记录 GPU 利用率、显存、成功 case/hour 与卡时/成功案；不采信“墙钟只随 CONC 缩放”的无据断言（站点已测 slots 1/2/3/4：makespan 16.11/16.56/16.75/15.80 s，12/12 成功，卡时 29.0–30.8 s；利用率/显存见 SAI 报告 §5——该规模不随并发受益）。
+- [ ] NEB 图数 × 卡数映射（P0 复核新增）：4/8 内部图 × 1/2/4/8 卡；验证“图数 ≤ 卡数”的延迟收益与 8 ranks/1 卡的压力边界（站点已测：3 ranks/1 卡≈9.9 s、Σ35 次力调用；4 内部图 × 4 卡（`srun --mpi=pmix_v5 --gpus-per-task=1`）11.8/9.9 s、`world_size=4`、Σ38 次；8 图/8 卡与 8 ranks/1 卡压力行留后续）。
 - [x] 推理侧 GPU 采样（P0 复核新增）：利用率/显存/样本覆盖，复用 P2 sampler；无采样工具时记 `unavailable`、不得填 0（站点 sidecar：DP 0–13.6%、ABACUS 29.5%/45.2%；显存峰值 480–3296 MiB；缺失语义保持）。
 
 验收：工程和科学门禁通过后才可比较性能；无显著提升如实报告，不强行满足“2倍/40%”。首次基准不自动扩展到20条反应或改用其它账号/分区。
@@ -122,6 +122,7 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 - ABACUS：`module load abacus/LTSv3.10.1-sm70-auto`（NVHPC 25.7 GNU-branch / CUDA 12.9.1 / OpenMPI 5.0.8 / ELPA 2025.06；`ABACUS_HOME=/opt/apps/abacus/abacus-develop-LTSv3.10.1`，可执行在 `bin_sm70_avx512`，与 4V100 的 sm70 匹配）。
 - Python/DP：**须选 DPA4/SeZM 可加载的构建**——`deepmd-kit/3.1.2` 对 FT²DP 单头 100k 报 `Unknown model type: dpa4`（本地实测）；`module load deepmd-kit/3.2.0` → `/opt/apps/conda_env/deepmd-kit-3.2.0`（Python 3.12.12、deepmd-kit 3.2.0、torch 2.13.0+cu126、mpi4py、numpy；**无 ase/pydantic**）。Lmod 入口实测为 `source /opt/modules/lmod/9.2.4/init/bash; module use /opt/modules/modulefiles/devtools /opt/modules/modulefiles/apps`（`/etc/profile.d/modules.sh` 不生效）；`conda/anaconda3` 24.9.2 为只读 base，用户 env 目录 `~/.conda/envs`。MPI 配对：加载 `openmpi/5.0.8-nvhpc25.7-gnu-auto` 后该 env 的 mpi4py 可用（实测 `from mpi4py import MPI` → Open MPI 5.0.8）；`mpiexec` 同目录。P5 环境计划：以 3.2.0 env 为底座建 venv（`--system-site-packages`），pip 安装 `ase`、`pydantic`、`sella` 与本分支 wheel（登台包见下）。
 - MPI/容器：模块化 OpenMPI（默认 `5.0.10-nvhpc26.3-gnu-cuda12-auto`，ABACUS 模块自载 `5.0.8-nvhpc25.7-gnu-auto`）、宿主 `/usr/mpi/openmpi-4.1.7rc1`；`module load apptainer/1.4.4`。
+- MPI 站点行为（2026-09-21 实测）：`srun` 默认 `--mpi=none`（任务内无 PMI，mpi4py 退化为 size 1；多卡需 `srun --mpi=pmix_v5 --gpus-per-task=1`）；`mpiexec` 可正常初始化，但**带 runtime 请求的 runner 在 rank 内 `execve` 重绑定会挂起**（PMIx 会话失效；本地 MPICH 无此问题），因此站点多卡 NEB 用 srun+pmix 方案；`runtime.binding: round_robin` + `mpiexec` 组合在站点不可用（留档 1431646/1431952）。作业槽位：分配按 `--ntasks` 计槽，`mpiexec -n N`/`mpirun -np N` 需 `--ntasks >= N` 或 `--oversubscribe`。
 - 分区/QOS（现场快照）：4V100 35 节点（15 idle / 7 alloc / 13 mix）、8V100V0 14（11 idle）、16V100 80（8 idle，多数 alloc）；`rush-cpu` MaxWall 2 天、`improper-gpu` 30 天、`rush-gpu`/`rush-4gpu`/`rush-1o2gpu` 1 天（gres/gpu 16/4/2）、`flood-gpu`/`flood-1o2gpu` 4 小时。账号当前有 2 个恒电势作业占 4V100（QOS `rush-1o2gpu`）；P5 排期需避让同一 QOS 额度。
 - 可达性：家目录可写；**`/org/pku-jianghong/liuzhaoqing`（FT²DP `$R`）在本账号下不可读**，组共享（`share/data*`、`share/demo-data`）无 DP 权重，家目录无 `.pt`。→ P5 权重与 fixture 需单向上传。
 - 既有镜像：`~/abacus-sif-builds/20260920-toolbox-atst/abacus-adam-sai-toolbox-atst.sif`（1.5 GB，2026-09-20，ATST-free Toolbox 构建）可供 P5 的 SIF 通道；镜像构建使用 QOS `improper-gpu`。家目录中的 atst-tools 副本为 v2.2.3 普通拷贝（无 git、无 `runtime/`），不可作 P5 源。

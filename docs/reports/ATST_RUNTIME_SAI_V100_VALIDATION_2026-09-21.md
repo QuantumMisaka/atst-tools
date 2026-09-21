@@ -2,7 +2,7 @@
 
 **版本**: 2026-09-21
 **日期**: 2026-09-21
-**状态**: 首轮完成（DP 与 ABACUS 双通道均通过；多卡/SIF 留后续）
+**状态**: 首轮完成（DP 与 ABACUS 双通道、含多卡 NEB；host/SIF 成对留后续）
 **责任人**: ATST-Tools maintainers
 
 ## 1. 目的与范围
@@ -51,6 +51,7 @@ sbatch --ntasks=8 --time=<预算> --qos=rush-1o2gpu \
 | slots=1 | 16.11 s | 12/12 | 29.06 |
 | slots=2 | 16.56 s | 12/12 | 29.97 |
 | slots=3 | 16.75 s | 12/12 | 30.81 |
+| slots=4 | 15.80 s | 12/12 | 29.16 |
 
 单 case 墙钟中位（三变体）：relax t4 ≈ 6.2–6.7 s、relax t8 ≈ 6.2–6.9 s、
 AutoNEB ≈ 6.8–7.3 s、NEB 3-rank ≈ 9.9 s。证据 pass（每 case sidecar）：
@@ -66,6 +67,16 @@ AutoNEB ≈ 6.8–7.3 s、NEB 3-rank ≈ 9.9 s。证据 pass（每 case sidecar�
 slots 略增）；线程 4→8 无差异；显存上限 ≈3.3 GiB（3-rank NEB）；利用率
 ≤14%，与本地结论（延迟受 CPU/调度与固定加载成本主导）一致。**收益假设仍
 只在多卡/大体系上成立**。
+
+## 5c. 多卡 NEB（4 内部图 × 4 卡）
+
+| 作业 | 启动方式 | 结果 |
+| --- | --- | --- |
+| 1431646 | `mpiexec --oversubscribe -n 4` + 配置内 `runtime.binding: round_robin` | **挂起**（19 分钟后取消；见 §6.5） |
+| 1431955 | `srun --ntasks=4 --gpus-per-task=1`（无 `--mpi`） | 名义成功但 **退化为 4 个独立串行 NEB**（`world_size=1`；18.8 s；无 `counters_mpi`） |
+| 1432107 | `srun --mpi=pmix_v5 --ntasks=4 --gpus-per-task=1 --cpu-bind=none` | **正确**：`world_size=4`、rank0 掩码 `['0']`、`counters_mpi` Σ`dp.force_calls=38`；11.8 s（计时）/9.9 s（证据） |
+
+探针（1432043）解释了差异：站点 `srun` 默认 `--mpi=none`，任务里 `PMI_SIZE`/`PMIX_SIZE`/`OMPI_*` 全缺失、mpi4py 退化为 size 1；同一进程用 `mpiexec -n 2` 启动则是 size 2。**站点多卡 MPI 需显式 `srun --mpi=pmix_v5`（或 `mpiexec`）**；`--gpus-per-task=1` 由 Slurm 按任务分发单卡掩码，配合“配置不请求 runtime”即可避开重绑定路径。
 
 ## 5b. ABACUS 通道（示例 06 relax 与 01 NEB，host module 版）
 
@@ -95,13 +106,17 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
    ABACUS 通道以 `--ntasks=8` 提交（其内部 `mpirun -np 4`）。
 3. **记录修订为空**：走 wheel 安装时 `bench_record.revision` 为 null；入口新增
    `ATST_SOURCE_ROOT`，从 git 检出运行后记录携带真实 `head/branch/dirty`。
-4. **未绑定进程内运行的设备事实为空**：`device_facts` 只读协调者事实，
+4. **MPI rank 内 re-exec 重绑定在站点 OpenMPI 下挂起**：带 `runtime.*` 请求的 runner 会先做绑定再 `execve`。探针（1431952）显示
+   `mpiexec -n 2` 下两 rank 打印 `pre-exec ok` 后**不再有输出并超时**（exec 后 PMIx 会话失效）；本地 MPICH 同场景正常（round_robin NEB 完成）。
+   影响：站点的 `mpiexec + runtime.binding/--devices` 组合不可用；多卡 NEB 改用 `srun --mpi=pmix_v5 --gpus-per-task=1` 方案（§5c）。
+   连带现象：超时杀掉 mpiexec 后，exec 过的 rank 会成为孤儿进程，取消作业长时间停留在 `CG`（1431952/1431646 留档）。
+5. **未绑定进程内运行的设备事实为空**：`device_facts` 只读协调者事实，
    丢弃了 `CUDA_VISIBLE_DEVICES`；已修复（`inherited == effective == 字面掩码`，
    并加单测），站点与本地行为一致。
 
 ## 7. 证据清单
 
-- 作业：1430846（失败，留档）、1430966、1431010、1431119；ABACUS：1431200（成功）；1431188 因默认矩阵时长不匹配取消、1431190 因相对路径失败（均留档）。
+- 作业：1430846（失败，留档）、1430966、1431010、1431119、1431648（slots=4）、1431955/1432107（多卡 NEB 对照）、1432043（srun/mpiexec 探针）；ABACUS：1431200（成功）、1431647（三次重复，运行中）；1431188/1431190（时序/路径问题取消或失败，留档）；1431952/1431646（挂起与孤儿，留档）。
 - 站点路径：`~/atst-p5-20260921/work/{smoke,smoke2,smoke3,dp-matrix,dp-matrix2,abacus2}/runs/`
   （`sweep/`、`evidence/`、`bench_record.json`），日志 `~/atst-p5-20260921/slurm-<job>.out`。
 - 记录：`bench_record.json`（`atst-bench-record-v1`）含修订 `4d77fee`、fixture 哈希、
@@ -110,7 +125,7 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 ## 8. 边界与后续
 
 单节点 ×2 GPU、66 原子级 case、DP 矩阵 repeats=3；ABACUS 通道为单次有界跑
-（完整示例 NEB 约 19 min/次）。后续：多卡 NEB"图数 ≤ 卡数"矩阵（如 10 ranks/4 卡）、ABACUS
-host/SIF 成对、8-rank/1 卡压力行（以 `--oversubscribe` 运行）、ABACUS 候选点
-≥3 次交替重复（单次完整 NEB ≈13 min，预算允许时补）。ABACUS 作业的 record
+（完整示例 NEB 约 19 min/次）。后续：host/SIF 成对、8-rank/1 卡压力行（`mpiexec --oversubscribe`，注意
+用 srun+pmix 方案避开重绑定挂起）、ABACUS 候选点 ≥3 次交替重复（1431647 已在跑）。
+站点 `mpiexec` 重绑定挂起问题需与站点/上游（PRRTE/PMIx + exec）进一步确认。ABACUS 作业的 record
 fixture 当前传入了 DP 模型哈希（`MODEL` 变量），后续应按通道传入对应输入。
