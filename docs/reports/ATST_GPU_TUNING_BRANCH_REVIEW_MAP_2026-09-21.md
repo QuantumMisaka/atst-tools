@@ -2,13 +2,13 @@
 
 **版本**: 2026-09-21
 **日期**: 2026-09-21
-**状态**: 维护（审阅/合入入口；P5 未执行、未推送）
+**状态**: 维护（审阅/合入入口；已合入 `main`，P5 首轮完成，剩余矩阵行见 §4）
 **责任人**: ATST-Tools maintainers
 
 ## 1. 用途与分支事实
 
 面向将要审阅 `feature/gpu-node-tuning` 的维护者与独立 reviewer：给出提交分组、
-证据索引、建议阅读顺序与已知开放门。本分支尚未推送，未改变父仓 gitlink。
+证据索引、建议阅读顺序与已知开放门。分支提交已推送 `origin` 并以 fast-forward 直接合入 `main`（未建 PR）；父仓 `app-tools` 的 gitlink 仍指向恒电势合入点，需其维护者另行更新。
 
 | 项 | 值 |
 | --- | --- |
@@ -73,11 +73,10 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
 ## 4. 已知开放门（不属本分支完成范围）
 
 1. **P5（SAI V100 基准）首轮已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4，
-   见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md)）；**剩余**：host/SIF 成对、
-   每卡 4 进程档、多卡 NEB 与 8-rank/1 卡压力行、ABACUS 候选点 ≥3 次重复。
+   见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md)）；**剩余**：host/SIF 成对、8 图×8 卡、8 ranks/1 卡压力行（多卡 NEB、每卡 4 进程档与 ABACUS 候选点 ≥3 次重复均已完成）。
 2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
-   GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；远端推送仍待授权。
+   GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。
 3. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
 4. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。
