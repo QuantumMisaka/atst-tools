@@ -96,6 +96,8 @@ L1-L4 分级、归档判据和本轮待删除复核结果。
 
 - 2026-09-21（SPEC §11.1 pin 表复核）：对 7 棵树重新核对（workplace/app-tools 分支与 main、app-tools-forge、sidereus main 与 4 个 worktree。deepmodeling checkout）——**全部与表一致、无漂移**；恒电势 worktree 仍为 `7bc3f92` + 8 个在途文件。
 
+- 2026-09-21（采样开销 A/B）：同一 2-case 清单、slots=1、各 3 次重复——关闭 per-case 采样中位 27.16 s、开启 `--case-telemetry` 中位 26.85 s（差 ≤0.4 s、<1.5%，方向为开更略快）→ 该规模下采样开销不可测；报告 §14 增补，P5 可复用该 A/B。
+
 - 2026-09-20（未发布开发）：CCQN manifest 增加实际方向来源、1-based 反应键/元素和初始结构身份；PRFO 修复半径更新晚一轮及使用更新后 Hessian 评价上一实际步的时序问题。用户语义见 `CONFIG_REFERENCE` 的 CCQN 小节；本地单元测试 875 passed / 2 skipped。集成方 app-tools 的 `2026-09-20-ccqn-chemical-semantics-toolbox-runtime-plan.md` 保存映射消费、Toolbox 分发试验和独立复核；无 PyPI/SIF/平台发布或真实 DFT 验收。
 
 - 2026-09-20（未发布开发）：Sella 增加默认开启、可关闭的轻量 JSONL 事件；区分初始状态、实际优化迭代、直接观测的数值 Hessian 探测及未分类帧。配置与旧产物边界见 `CONFIG_REFERENCE` 的 Sella 小节；本批不升级 SIF/生产环境、不实施挂载，也不开展真实 ABACUS 计算。验证进度由集成方 app-tools 的 `2026-09-20-sella-observability-plan.md` 留存。
