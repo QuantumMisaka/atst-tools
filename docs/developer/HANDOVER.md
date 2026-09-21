@@ -136,12 +136,15 @@ release 变更，都先从对应小节确认需要同步的文档。
 `slots`、`threads`、`timeout_s`、`workdir`、`launcher`、`ranks`、`env`；**每个 case 必须有
 自己的目录**（未给 `workdir` 时按配置目录，同目录会被拒绝，避免证据互相覆盖）。
 
-产物：`<out>/harness_case.json`、`harness_summary.json`、`harness_worker.{out,err}`，
-用例配置带 `runtime.telemetry` 时另有 `runtime_evidence.json`；批量侧 `bench_record.json`。
+产物（新运行）：`<out>/case_report.json`（每 case）、`batch_summary.json`（批次）、
+`worker.out` / `worker.err`（每 case 报告目录内）；用例配置带 `runtime.telemetry` 时另有
+`runtime_evidence.json`；批量侧 `bench_record.json`。
 
-冻结约定（改名前先读）：产物名 `harness_*.json`、schema 字符串 `atst-bench-harness-v1`
-与证据取值 `ATST_THREADS_SOURCE=harness` **都不随模块更名而改**——`bench_record` 对结果树
-做全树哈希，且 `docs/reports/data/**` 的归档切片引用这些名字。
+命名沿革（先读）：2026-09-21 之前上述产物叫 `harness_case.json` / `harness_summary.json` /
+`harness_worker.{out,err}`；**归档切片 `docs/reports/data/**` 仍带旧名，照原样保留**，
+`bench_record` 读取时同时接受新旧汇总名（新名优先）。两条历史拼写**冻结不动**：schema 字符串
+`atst-bench-harness-v1`（版本化文档标识，不是模块名）与证据取值 `ATST_THREADS_SOURCE=harness`
+（归档 sidecar 的 `threads_source` 就是它）。
 
 边界：它不是生产队列/调度器（不申请资源、不跨作业排队），也不新增 `atst batch` 公共
 接口；科学逻辑在 `workflows/`。回归：`tests/unit/test_bench_batch_runner.py`、

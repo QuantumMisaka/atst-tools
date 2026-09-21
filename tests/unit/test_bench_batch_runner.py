@@ -123,7 +123,38 @@ def test_default_workdir_is_the_configuration_directory(tmp_path, monkeypatch):
         )
     )
     assert report["workdir"] == str(config_dir)
-    assert (tmp_path / "out" / "inplace" / "harness_worker.out").is_file()
+    assert (tmp_path / "out" / "inplace" / "worker.out").is_file()
+
+
+def test_new_runs_write_the_current_artifact_names(tmp_path, monkeypatch):
+    """A fresh batch writes ``case_report.json``/``batch_summary.json``/``worker.*``.
+
+    Legacy trees keep ``harness_case.json``, ``harness_summary.json`` and
+    ``harness_worker.*``; ``bench record`` still summarizes those (see
+    ``tests/unit/test_bench_record.py``).
+    """
+    script = _standin(tmp_path)
+    monkeypatch.setenv("BATCH_RUNNER_LOG", str(tmp_path / "log.txt"))
+    summary = batch_runner.run_manifest(
+        {"cases": [_case("artifacts")]},
+        batch_runner.BatchOptions(
+            devices=("0",),
+            output_dir=tmp_path / "out",
+            worker_factory=_factory(script),
+            telemetry=False,
+        ),
+    )
+    assert summary["succeeded"] == 1
+    case_dir = tmp_path / "out" / "artifacts"
+    assert (case_dir / "case_report.json").is_file()
+    assert (case_dir / "worker.out").is_file()
+    assert (case_dir / "worker.err").is_file()
+    assert (tmp_path / "out" / "batch_summary.json").is_file()
+    written = {path.name for path in (tmp_path / "out").rglob("*") if path.is_file()}
+    assert not [name for name in written if "harness" in name]
+    report = json.loads((case_dir / "case_report.json").read_text(encoding="utf-8"))
+    assert report["stdout"].endswith("worker.out")
+    assert report["stderr"].endswith("worker.err")
 
 
 def test_cases_run_in_slots_with_isolated_dirs_and_reports(tmp_path, monkeypatch):
@@ -434,8 +465,9 @@ def test_manifest_thread_budget_reaches_the_abacus_factory(tmp_path, monkeypatch
     """The per-case manifest budget must survive the calculator's OMP rules.
 
     P5 measured ABACUS with a single thread even though the manifest asked for
-    four, because the harness wrote the thread keys without marking them as a
-    caller budget (see the GPU node tuning review map).
+    four, because the batch runner (then ``harness``) wrote the thread keys
+    without marking them as a caller budget (see the GPU node tuning review
+    map).
     """
     from atst_tools.calculators.factory import _effective_omp
 

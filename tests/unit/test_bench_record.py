@@ -42,9 +42,9 @@ def test_record_captures_provenance_inputs_results_and_operator_slots(
             },
         },
     )
-    harness_dir = tmp_path / "single"
+    single_dir = tmp_path / "single"
     _write_json(
-        harness_dir / "harness_summary.json",
+        single_dir / "batch_summary.json",
         {
             "schema": "atst-bench-harness-v1",
             "cases_total": 2,
@@ -56,7 +56,7 @@ def test_record_captures_provenance_inputs_results_and_operator_slots(
 
     payload = record.build_record(
         manifest=manifest,
-        run_dirs=[sweep_dir, harness_dir, tmp_path / "missing"],
+        run_dirs=[sweep_dir, single_dir, tmp_path / "missing"],
         fixtures=[fixture],
         operator={"job_id": "123456", "partition": "4V100"},
         notes=["local smoke"],
@@ -117,7 +117,7 @@ def test_record_copies_run_time_revisions_and_flags_mismatch(tmp_path: Path) -> 
     head = "a" * 40
     run_dir = tmp_path / "run"
     _write_json(
-        run_dir / "harness_summary.json",
+        run_dir / "batch_summary.json",
         {
             "schema": "atst-bench-harness-v1",
             "cases_total": 1,
@@ -132,6 +132,92 @@ def test_record_copies_run_time_revisions_and_flags_mismatch(tmp_path: Path) -> 
     assert payload["atst"]["run_time_consistent"] is True
     assert payload["results"][0]["revision"]["head"] == head
     assert payload["warnings"] == []
+
+
+def test_record_summarizes_a_new_tree_from_batch_summary_json(tmp_path: Path) -> None:
+    """A run staged after the rename is summarized from ``batch_summary.json``."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    run_dir = tmp_path / "run"
+    _write_json(
+        run_dir / "batch_summary.json",
+        {
+            "schema": "atst-bench-harness-v1",
+            "cases_total": 3,
+            "succeeded": 2,
+            "failed": 1,
+            "wall_s": 4.5,
+        },
+    )
+    payload = record.build_record(manifest=manifest, run_dirs=[run_dir])
+    run = payload["results"][0]
+    assert Path(run["summary"]).name == "batch_summary.json"
+    assert run["schema"] == "atst-bench-harness-v1"
+    assert run["cases_total"] == 3
+    assert run["succeeded"] == 2
+    assert run["failed"] == 1
+    assert run["wall_s"] == 4.5
+    assert run["tree"]["file_count"] == 1
+    assert payload["warnings"] == []
+
+
+def test_record_still_reads_a_legacy_harness_summary_json(tmp_path: Path) -> None:
+    """A tree that only carries the legacy summary keeps summarizing.
+
+    The archived evidence under ``docs/reports/data/**`` was staged before the
+    ``harness`` -> ``batch_runner`` rename, so a record built over those trees
+    must not report them as empty run directories.
+    """
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    head = "b" * 40
+    run_dir = tmp_path / "legacy-run"
+    _write_json(
+        run_dir / "harness_summary.json",
+        {
+            "schema": "atst-bench-harness-v1",
+            "cases_total": 2,
+            "succeeded": 1,
+            "failed": 1,
+            "wall_s": 9.0,
+            "revision": {"head": head, "branch": "feature/x", "dirty": False},
+        },
+    )
+    payload = record.build_record(manifest=manifest, run_dirs=[run_dir])
+    run = payload["results"][0]
+    assert Path(run["summary"]).name == "harness_summary.json"
+    assert run["schema"] == "atst-bench-harness-v1"
+    assert run["cases_total"] == 2
+    assert run["succeeded"] == 1
+    assert run["revision"]["head"] == head
+    assert payload["atst"]["run_time"][0]["revision"]["head"] == head
+    assert payload["warnings"] == []
+
+
+def test_record_prefers_the_current_summary_over_a_legacy_copy(
+    tmp_path: Path,
+) -> None:
+    """A directory holding both documents reports the current one."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    run_dir = tmp_path / "rerun"
+    legacy = {
+        "schema": "atst-bench-harness-v1",
+        "cases_total": 1,
+        "succeeded": 0,
+        "failed": 1,
+        "wall_s": 30.0,
+    }
+    current = dict(legacy, cases_total=4, succeeded=4, failed=0, wall_s=12.0)
+    _write_json(run_dir / "harness_summary.json", legacy)
+    _write_json(run_dir / "batch_summary.json", current)
+    payload = record.build_record(manifest=manifest, run_dirs=[run_dir])
+    run = payload["results"][0]
+    assert Path(run["summary"]).name == "batch_summary.json"
+    assert run["cases_total"] == 4
+    assert run["succeeded"] == 4
+    assert run["wall_s"] == 12.0
+    assert run["tree"]["file_count"] == 2
 
 
 def test_record_reports_gpu_inventory_failure_instead_of_guessing(monkeypatch):

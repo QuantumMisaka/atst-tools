@@ -10,6 +10,15 @@ record time and copies the run-time revisions recorded by the batch runner/sweep
 documents, and lists every missing input as a warning (with a non-zero exit
 code) instead of pretending the reference exists.
 
+Run directories are read by document name, so a tree staged before the
+``harness`` -> ``batch_runner`` rename stays readable: the summary is taken
+from ``batch_summary.json`` when present and from the legacy
+``harness_summary.json`` otherwise.  The archived evidence under
+``docs/reports/data/**`` uses the legacy spelling throughout (it also carries
+``harness_case.json`` and ``harness_worker.out`` / ``harness_worker.err``).
+The summary ``schema`` value ``atst-bench-harness-v1`` is a frozen document
+identifier and is not affected by the rename.
+
 Usage::
 
     python -m atst_tools.bench.record --manifest cases.json --out record.json \\
@@ -105,7 +114,12 @@ def _tree_digest(root: Path) -> dict[str, Any]:
 
 
 def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
-    """Summarize one batch-runner or sweep directory by its summary document."""
+    """Summarize one batch-runner or sweep directory by its summary document.
+
+    The batch summary is accepted under its current name
+    (``batch_summary.json``) and under the legacy ``harness_summary.json`` so
+    archived trees keep summarizing.
+    """
     if not run_dir.is_dir():
         return {
             "dir": str(run_dir.resolve()),
@@ -118,6 +132,9 @@ def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
     tree = _tree_digest(run_dir)
     candidates = (
         run_dir / "sweep_summary.json",
+        # Current batch-runner spelling first: a directory re-run after the
+        # rename may still hold the legacy document next to the new one.
+        run_dir / "batch_summary.json",
         run_dir / "harness_summary.json",
     )
     for candidate in candidates:

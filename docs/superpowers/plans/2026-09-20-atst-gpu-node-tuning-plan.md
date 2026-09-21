@@ -116,7 +116,7 @@ ABACUS 与 DP 分别形成 baseline/candidate 证据；允许先完成一条作�
 
 ### P5 预备（草案，2026-09-21；真实运行前仍待维护者裁决 fixture/容差/预算）
 
-启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（一条命令跑完"计时 sweep → 证据 pass → 归档记录"，站点 QOS/module 行按 `$sai-user-guide` 现场填写；`DRY_RUN=1` 可先自检命令）。默认时序：计时 sweep（`SLOTS=1,2,3` × `REPEATS=3`，无 per-case 采样）→ 证据 pass（首个 slots 变体 × 1 次，`--case-telemetry`，产出每 case sidecar）→ `bench_record.json`（自动带 SLURM job/partition/QOS 与 `MODEL` fixture 哈希）。清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（证据 pass）+ 批次 `harness_summary.json`。
+启动入口：`scripts/sai_runtime_bench.sbatch <work_dir> [cases.json] [devices]`（一条命令跑完"计时 sweep → 证据 pass → 归档记录"，站点 QOS/module 行按 `$sai-user-guide` 现场填写；`DRY_RUN=1` 可先自检命令）。默认时序：计时 sweep（`SLOTS=1,2,3` × `REPEATS=3`，无 per-case 采样）→ 证据 pass（首个 slots 变体 × 1 次，`--case-telemetry`，产出每 case sidecar）→ `bench_record.json`（自动带 SLURM job/partition/QOS 与 `MODEL` fixture 哈希）。清单模板 `examples/runtime_batch_cases.example.json`。每 case 产物：`harness_case.json` + `atst_api_result.json` + `runtime_evidence.json`（证据 pass）+ 批次 `harness_summary.json`（2026-09-21 产物更名：新运行为 `case_report.json` / `batch_summary.json` / `worker.{out,err}`，旧名归档可读）。
 
 **SAI 只读勘察结果（2026-09-21，账号 `galileouser02`；未写入远端、未提交作业）**：
 

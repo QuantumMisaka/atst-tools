@@ -21,4 +21,4 @@ post-fix ABACUS baseline:
 Machine paths inside the evidence are the SAI ones
 (`/home/galileo-group/galileouser02/...`) as recorded during the run.
 
-> 2026-09-21 补充：切片里 staging 脚本引用的 `atst_tools.bench.harness` 已更名为 `atst_tools.bench.batch_runner`（产物名与 schema 字符串保持 `harness_*` 不变）。
+> 2026-09-21 补充：切片里 staging 脚本引用的 `atst_tools.bench.harness` 已更名为 `atst_tools.bench.batch_runner`；本切片内的产物文件名（`harness_case.json`、`harness_summary.json`、`harness_worker.*`）**保持归档时的原名不改**，新运行会写 `case_report.json` / `batch_summary.json` / `worker.{out,err}`，且 `bench_record` 读取时兼容两种汇总名。schema 字符串与 `threads_source=harness` 取值不变。

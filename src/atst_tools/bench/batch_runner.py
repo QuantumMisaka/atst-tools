@@ -1,9 +1,24 @@
 """Batch runner for the GPU node tuning work (P3): finite case lists.
 
 Runs one bounded case manifest inside one existing allocation.  The module
-was called ``harness`` until 2026-09-21; the schema string and the report
-file names below keep that historical spelling because ``bench_record``
-hashes the whole run tree and the archived slices reference those names.
+was called ``harness`` until 2026-09-21, and its artifact file names follow
+the module name now: ``case_report.json`` per case, ``batch_summary.json`` per
+batch, and ``worker.out`` / ``worker.err`` inside the per-case report
+directory.
+
+Only two ``harness`` spellings stay frozen, because archived evidence carries
+them as values rather than as module names:
+
+* the schema string ``atst-bench-harness-v1``, a versioned document identifier
+  that every archived case report and batch summary records;
+* the per-case evidence value ``ATST_THREADS_SOURCE=harness``, which the
+  archived run sidecars report as ``threads_source``.
+
+Legacy run directories - the archived slices under ``docs/reports/data/**``,
+plus any batch staged before this rename - still hold ``harness_case.json``,
+``harness_summary.json`` and ``harness_worker.out`` / ``harness_worker.err``.
+Those trees stay readable: ``atst_tools.bench.record`` accepts either summary
+spelling and falls back to the legacy one.
 
 The batch runner executes a bounded case list inside one existing allocation:
 
@@ -43,9 +58,15 @@ from atst_tools.runtime import devices as _devices
 from atst_tools.runtime import evidence as _evidence
 from atst_tools.runtime import launch as _launch
 
-SCHEMA = "atst-bench-harness-v1"  # frozen: archived records carry this value
-CASE_REPORT = "harness_case.json"  # frozen: see the module docstring
-SUMMARY_REPORT = "harness_summary.json"  # frozen: see the module docstring
+# Frozen: a versioned document identifier, not a module name.  Archived case
+# reports and batch summaries record this value and ``bench_record`` hashes
+# their trees, so renaming it would misread every stored row.
+SCHEMA = "atst-bench-harness-v1"
+# Artifact names follow the module name (see the module docstring for the
+# legacy ``harness_case.json`` / ``harness_summary.json`` spelling that
+# archived run trees keep).
+CASE_REPORT = "case_report.json"
+SUMMARY_REPORT = "batch_summary.json"
 DEFAULT_RESULT_JSON = "atst_api_result.json"
 TERMINATION_GRACE_S = 5.0
 
@@ -301,7 +322,8 @@ def case_environment(
     # default: mark it so the ABACUS factory keeps it instead of falling back to
     # the legacy single thread.  A case config carrying its own
     # ``runtime.threads`` overwrites this marker in the worker environment.
-    # Frozen evidence value: archived sidecars record threads_source=harness.
+    # Frozen evidence value: archived sidecars record threads_source=harness, so
+    # the marker keeps that spelling even though the module is now batch_runner.
     env[_launch.THREADS_SOURCE_ENV] = "harness"
     env[_launch.ATTEMPT_ENV] = str(attempt)
     cache_dir = _launch.child_cache_dir(workdir, attempt)
@@ -616,8 +638,10 @@ def run_manifest(manifest: Mapping[str, Any], options: BatchOptions) -> dict[str
                         workdir=workdir,
                         case_telemetry=options.case_telemetry,
                     )
-                    stdout_path = report_dir / "harness_worker.out"
-                    stderr_path = report_dir / "harness_worker.err"
+                    # Legacy report directories keep ``harness_worker.out`` and
+                    # ``harness_worker.err``; new runs write these names.
+                    stdout_path = report_dir / "worker.out"
+                    stderr_path = report_dir / "worker.err"
                     stdout_handle = stdout_path.open("w", encoding="utf-8")
                     stderr_handle = stderr_path.open("w", encoding="utf-8")
                     try:
