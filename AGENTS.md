@@ -38,7 +38,8 @@ ATST-Tools (ASE Transition State Tools for ABACUS and ML potentials)：建立用
 - abacuslite 是项目的 ABACUS-ASE backend，运行时默认走 vendored 快照
   （若环境安装了独立 abacuslite 包则优先导入，external 为预留通道，尚无稳定发布）。vendored 快照在
   `src/atst_tools/external/ASE_interface`（对照上游
-  `temp_repos/abacus-develop/interfaces/ASE_interface`）。维护模式为
+  `abacus-develop/interfaces/ASE_interface`；本地开发时通常置于
+  `temp_repos/abacus-develop`，以 `ABACUSLITE_SNAPSHOT.md` 记录的基线 SHA 为准）。维护模式为
   **本仓为主 + 定期上游同步**：修复先在 vendored 落地并登记
   `src/atst_tools/external/ASE_interface/PATCHES.md`，再向上游同步；基线 SHA
   记录于 `src/atst_tools/external/ASE_interface/ABACUSLITE_SNAPSHOT.md`（CI
