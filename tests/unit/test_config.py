@@ -890,3 +890,37 @@ def test_json_schema_can_be_generated():
     assert schema["type"] == "object"
     assert "calculation" in schema["properties"]
     assert "config_version" not in schema["properties"]
+
+
+def test_abacus_omp_stays_unset_unless_the_config_sets_it():
+    """The ABACUS OMP budget is opt-in so ``runtime.threads`` is never shadowed.
+
+    A schema default of 1 made every normalized config look like an explicit
+    request; only a user-written ``omp`` may override the runtime budget
+    (frozen interface design 6, unchanged item "P1 必须修改").
+    """
+    base = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {"name": "abacus", "abacus": {"command": "abacus", "mpi": 1}},
+    }
+    assert "omp" not in ConfigLoader.normalize(base)["calculator"]["abacus"]
+
+    explicit = {
+        "calculation": {"type": "relax", "init_structure": "init.stru"},
+        "calculator": {
+            "name": "abacus",
+            "abacus": {"command": "abacus", "mpi": 1, "omp": 4},
+        },
+    }
+    assert ConfigLoader.normalize(explicit)["calculator"]["abacus"]["omp"] == 4
+
+    with pytest.raises(ValueError):
+        ConfigLoader.normalize(
+            {
+                "calculation": {"type": "relax", "init_structure": "init.stru"},
+                "calculator": {
+                    "name": "abacus",
+                    "abacus": {"command": "abacus", "mpi": 1, "omp": 0},
+                },
+            }
+        )

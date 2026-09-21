@@ -278,6 +278,58 @@ def test_explicit_omp_override_is_recorded_in_the_evidence(monkeypatch):
     counters.set_enabled(False)
 
 
+def test_normalized_abacus_section_keeps_the_runtime_thread_budget(monkeypatch):
+    """An omitted calculator.abacus.omp must not look like an explicit choice.
+
+    The schema used to default ``omp`` to 1, so every normalized ABACUS config
+    carried an explicit value and ``runtime.threads`` was silently overridden
+    (SAI joint acceptance, 2026-09-21).  The default is now "unset".
+    """
+    from atst_tools.calculators.factory import _effective_omp
+    from atst_tools.runtime import counters
+    from atst_tools.utils.config import ConfigLoader
+
+    normalized = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "relax", "init_structure": "init.stru"},
+            "calculator": {"name": "abacus", "abacus": {"command": "abacus", "mpi": 1}},
+        }
+    )
+    section = normalized["calculator"]["abacus"]
+    assert "omp" not in section
+
+    counters.reset()
+    counters.set_enabled(True)
+    monkeypatch.setenv("OMP_NUM_THREADS", "8")
+    monkeypatch.setenv("ATST_THREADS_SOURCE", "auto")
+    assert _effective_omp(section, None) == 8
+    assert os.environ["OMP_NUM_THREADS"] == "8"
+    assert counters.snapshot().get("runtime_threads_overridden") is None
+    assert counters.gauge_snapshot().get("runtime_threads_effective") is None
+    counters.reset()
+    counters.set_enabled(False)
+
+
+def test_normalized_abacus_section_without_any_budget_keeps_the_legacy_default(
+    monkeypatch,
+):
+    """No runtime request and no explicit omp keeps the historical value 1."""
+    from atst_tools.calculators.factory import _effective_omp
+    from atst_tools.utils.config import ConfigLoader
+
+    normalized = ConfigLoader.normalize(
+        {
+            "calculation": {"type": "relax", "init_structure": "init.stru"},
+            "calculator": {"name": "abacus", "abacus": {"command": "abacus", "mpi": 1}},
+        }
+    )
+    section = normalized["calculator"]["abacus"]
+    monkeypatch.setenv("OMP_NUM_THREADS", "4")
+    monkeypatch.delenv("ATST_THREADS_SOURCE", raising=False)
+    assert _effective_omp(section, None) == 1
+    assert os.environ["OMP_NUM_THREADS"] == "1"
+
+
 def test_runner_direct_entry_resolves_paths_from_the_caller_directory(tmp_path):
     """A relative --config/--workdir pair must survive the worker re-exec.
 

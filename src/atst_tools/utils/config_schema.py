@@ -1017,7 +1017,15 @@ class AbacusConfig(BaseModel):
         description="Optional full command used for ABACUS version probing.",
     )
     mpi: int = Field(default=1, gt=0, description="MPI process count used when command is not already parallel.")
-    omp: int = Field(default=1, gt=0, description="OpenMP thread count.")
+    omp: int | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "OpenMP thread count, written only when the user sets it explicitly; "
+            "an absent value preserves a runtime.threads budget and otherwise "
+            "falls back to the legacy default of 1."
+        ),
+    )
     directory: str = Field(default=".", description="Calculator working directory.")
     kpts: list[int] | Dict[str, Any] | None = Field(default=None, description="K-point sampling settings.")
     pseudopotentials: Dict[str, str] | None = Field(default=None, description="Element to UPF filename mapping.")

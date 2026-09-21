@@ -667,7 +667,7 @@ configuration field or user-selectable tolerance.
 | :--- | :--- | :--- | :--- |
 | `command` | string | `abacus` | Command to execute ABACUS (e.g., `mpirun -np 4 abacus`). |
 | `mpi` | int | `1` | Number of MPI processes (deprecated, use `command` to specify mpirun). |
-| `omp` | int | `1` | Number of OpenMP threads per process. |
+| `omp` | int | unset | Number of OpenMP threads per process. The schema leaves it unset: an omitted key keeps a `runtime.threads` budget, while runs without any runtime request keep the historical default of 1. |
 | `directory` | string | `.` | Working directory for the calculator. |
 | `kpts` | list[int] | `[1, 1, 1]` | K-points sampling (e.g., `[3, 3, 3]`). |
 | `pseudopotentials` | dict | **Required** | Map of element symbol to UPF file name. |
@@ -837,12 +837,13 @@ Semantics:
   resolved device pool and fails closed for multi-node launcher shapes,
   unknown local ranks, or pools that are not caller-bound.
 - `threads` is applied to the worker environment before the scientific stack
-  is imported (`OMP_NUM_THREADS` and its BLAS siblings). An explicit
-  `calculator.abacus.omp` still wins for ABACUS runs; an override of the
-  runtime budget is recorded as the `runtime_threads_overridden` counter and
-  the `runtime_threads_effective` gauge in the evidence document (plus an
-  English warning). Runs without any runtime request keep the historical
-  behaviour, including the default thread value of 1.
+  is imported (`OMP_NUM_THREADS` and its BLAS siblings). Only a `omp` the user
+  actually wrote counts as explicit, so a `calculator.abacus` block without that
+  key keeps the runtime budget; an explicit value still wins and its override of
+  the runtime budget is recorded as the `runtime_threads_overridden` counter and
+  the `runtime_threads_effective` gauge in the evidence document (plus an English
+  warning). Runs without any runtime request keep the historical behaviour,
+  including the default thread value of 1.
 - `telemetry` enables `runtime_evidence.json`: the environment triple, device
   facts, per-process counters (`dp.*`, `abacus.*` builds and force calls) and
   host GPU samples taken by a single sampler on rank 0, including a sampled
