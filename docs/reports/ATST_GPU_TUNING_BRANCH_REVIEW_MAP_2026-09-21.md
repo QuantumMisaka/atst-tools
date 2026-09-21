@@ -12,8 +12,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 基线 | `origin/main` = `2cf5b7e6`（v2.2.6 + 7 个未发布提交，SPEC §11 R1） |
-| 分支头（写本文时） | `eb37c61`（49 提交：16 feat / 11 fix / 3 test / 19 docs）；实时值以 `git log -1` / `git rev-list --count 2cf5b7e..HEAD` 为准 |
+| 基线（写本文时） | `main` 已含恒电势合入 = `7bc3f92` + `d30747b`（原基线 `origin/main` = `2cf5b7e6`；SPEC §11 R1）；本分支已 rebase 于其之上，实时值以 `git log -1` / `git rev-list --count main..HEAD` 为准 |
+| 分支头（写本文时） | `eb37c61`（49 提交）；后续新增契约审计与联合验收提交，提交数以 `git rev-list --count main..HEAD` 为准 |
 | 变更规模 | 52 文件，+9080 / −950（`git diff --stat 2cf5b7e..HEAD`） |
 | 规范源 | [SPEC](../superpowers/specs/2026-09-20-atst-gpu-node-tuning-design.md)（§11 Ruling）、[接口冻结](../superpowers/specs/2026-09-21-atst-runtime-interface-design.md)（rev.5）、[计划](../superpowers/plans/2026-09-20-atst-gpu-node-tuning-plan.md) |
 | 主要证据 | [P0 复核](../superpowers/specs/2026-09-21-atst-gpu-node-tuning-p0-review.md)；[本地 GPU 验证报告](ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md) §4–§16 |
@@ -63,9 +63,9 @@
 
 1. **P5（SAI V100 基准）尚未执行**：需维护者授权与 fixture/容差/预算裁决（计划 P5 提案表）；
    登台包（wheel/tarball/git bundle/权重/fixtures/6-case 清单/手册）已备。
-2. **恒电势合入 main** 由其 owner 决定；两项前置门禁（`examples/reference_results.json` 缺
-   `19_constant_potential_Pt` 条目；vendored abacuslite `core.py` 补丁与快照归一化测试前提）与
-   8 个在途文件仍在其工作树；合并预演（只读）无文本冲突。
+2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
+   `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
+   GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；远端推送仍待授权。
 3. **TF 后端维度**：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 类模型失败）。
 4. **FT²DP 单头 EMA**：本机无文件、SAI 钉版路径在 `galileouser02` 下不可读；pin 记分卡记
    EMA ≈ regular，故默认 regular-only。

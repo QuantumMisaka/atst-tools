@@ -197,9 +197,9 @@ atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线
 
 依据 SPEC §7A，GPU runtime 与恒电势算法没有性能验收上的相互前置依赖；共享文件由 atst 维护者串行集成，不要求等待整个恒电势项目完成。
 
-- [ ] P0 对齐 runtime/calculation 字段和结果扩展；恒电势每轮允许新 calculator，不受“单模型实例”限制。
+- [x] P0 对齐 runtime/calculation 字段和结果扩展；恒电势每轮允许新 calculator，不受"单模型实例"限制（2026-09-21：恒电势已合入 main，GPU 分支 rebase 于其上；字段对齐由联合验收测试 `tests/unit/test_joint_runtime_constant_potential.py` 锁定，见接口文档 §8.3）。
 - [ ] P2/P4 审查 cache、任务目录、restart、rank/image 状态，不能将 `nelec` 或前轮 E/F 混用。
-- [ ] 两项实现都可用后，运行恒电势单点/扫描与新 runtime 的组合回归；恒电势 NEB 共享另在其 P1 科学验收后验证。
+- [ ] 两项实现都可用后，运行恒电势单点/扫描与新 runtime 的组合回归；恒电势 NEB 共享另在其 P1 科学验收后验证（配置层联合校验已加并全绿；真实组合运行待 P5 授权后执行）。
 
 恒电势 O7、M0 后端事实及电势收敛容差由恒电势 owner 解决；本计划不修改其算法或授权范围。组合回归尚未满足时只交付已验证的固定电荷/普通 DP runtime，不泛称恒电势已获优化支持。
 
@@ -213,3 +213,5 @@ atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线
 
 
 2026-09-21（P1–P5 预备，同一维护者）：P1–P4 已实施并以本地真实 GPU/MPI 证据闭合（验证报告 §4–§16；契约消息、验收表、`memory_peak_mib` 等冻结项经机械审计补齐）；P5 工具链（harness/sweep/record/一键 sbatch）与登台包（wheel/tarball/git bundle、6-case 清单、RUNBOOK、MANIFEST）就绪且逐件验证；**P5 执行待维护者授权与 fixture/容差/预算裁决**。恒电势共享文件顺序已确认（接口文档 §8/§8.2），合入仍由其 owner 决定；TF 制品与单头 EMA 缺失为已知开放项。
+
+2026-09-21（恒电势合入与 GPU rebase）：恒电势开发者完成合入（atst `main` = `7bc3f92`+`d30747b`，父仓另有 `375ef7c6b`/`7e3009e32`；§8.1 两项门禁均已被其修复，main 单测 943 项 0 失败）。GPU 分支 rebase 到 main：61 提交全部重放、**零冲突**；新增 SPEC §7A 联合验收测试并全绿（合体树：单测 1091 项 0 失败、真实 MPI 集成 22 项、wheel 门通过）。登台件按新 HEAD 重导出。P5 仍待授权。

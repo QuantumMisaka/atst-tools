@@ -213,6 +213,12 @@ GPU 侧在本清单之外新增/触及的文件：`src/atst_tools/runtime/*`（�
 
 后续：CP 工作树在 checkpoint 之后另有 8 个在途改动（截至 2026-09-21 02:07：constant-potential restart 事实、IDPP、`workflows/relax.py`、`scripts/main.py` 与 CLI/CONFIG 文档），属恒电势 owner 在途工作，未进入本次预演；owner 提交后需再复演一次。两项前置门禁仍待恒电势 owner 处理。
 
+### 8.3 恒电势合入 main 与 GPU rebase（2026-09-21）
+
+恒电势开发者已完成合入：atst 侧 `main` = `7bc3f92` + `d30747b`（"fix(constant-potential): complete checkpoint recovery and constrained path validation"，工作树 clean；尚未推送远端），app-tools 父仓分支另有 `375ef7c6b`/`7e3009e32` 两个集成记录提交。§8.1 的两项前置门禁**均已由恒电势侧修复**：`examples/reference_results.json` 已含 `19_constant_potential_Pt` 条目；`tests/unit/test_abacuslite_snapshot_ci.py` 在 main 上通过（main 全量单测 943 项、0 失败）。
+
+GPU 侧按其重放：`feature/gpu-node-tuning` 已 rebase 到 `main`（61 提交全部重放、**零冲突**），并在其上新增 SPEC §7A 要求的联合验收测试 `tests/unit/test_joint_runtime_constant_potential.py`（`reference_fcp` 与 `compensated_gate` 两条路径 × runtime 段；两方向的失败仍 fail-closed：空设备表/采样间隔/未知键与 `work_ref_source`/未知字段各自保留冻结消息）。合体树门禁：单测 1091 项 0 失败、真实 MPI 集成 22 项通过、wheel clean-install 公开 API 门通过。共享文件（`config_schema.py`/`services.py`/`factory.py`/用户文档）现按"恒电势先、GPU 后"的顺序落在 main 之上。
+
 ## 9. P0 验收对照表
 
 | 场景 | 期望行为 |
