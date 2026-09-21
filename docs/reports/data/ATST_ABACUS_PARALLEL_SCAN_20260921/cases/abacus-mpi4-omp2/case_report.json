@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "abacus-mpi4-omp2",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-abacus-scan-20260921/configs/abacus_relax_mpi4_omp2.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T13:54:09.622023+00:00",
+  "gpu_seconds": 145.817,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs/abacus-mpi4-omp2/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T13:51:43.805086+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs/abacus-mpi4-omp2/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs/abacus-mpi4-omp2/worker.out",
+  "threads": 8,
+  "wall_s": 145.817,
+  "workdir": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs/work-mpi4-omp2"
+}

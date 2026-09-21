@@ -1,0 +1,11 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "ABACUS inner-parallelism scan on one V100: 4 MPI ranks x 1/2 OMP threads and fewer ranks with more threads, one relax case each (example 06 H2-Au, max_steps 1).",
+  "defaults": {"threads": 8, "timeout_s": 1800},
+  "cases": [
+    {"case_id": "abacus-mpi4-omp1", "config": "/home/galileo-group/galileouser02/atst-abacus-scan-20260921/configs/abacus_relax_mpi4_omp1.yaml", "slots": 1, "threads": 4, "timeout_s": 1800, "workdir": "work-mpi4-omp1"},
+    {"case_id": "abacus-mpi4-omp2", "config": "/home/galileo-group/galileouser02/atst-abacus-scan-20260921/configs/abacus_relax_mpi4_omp2.yaml", "slots": 1, "threads": 8, "timeout_s": 1800, "workdir": "work-mpi4-omp2"},
+    {"case_id": "abacus-mpi2-omp4", "config": "/home/galileo-group/galileouser02/atst-abacus-scan-20260921/configs/abacus_relax_mpi2_omp4.yaml", "slots": 1, "threads": 8, "timeout_s": 1800, "workdir": "work-mpi2-omp4"},
+    {"case_id": "abacus-mpi1-omp8", "config": "/home/galileo-group/galileouser02/atst-abacus-scan-20260921/configs/abacus_relax_mpi1_omp8.yaml", "slots": 1, "threads": 8, "timeout_s": 1800, "workdir": "work-mpi1-omp8"}
+  ]
+}

@@ -1,0 +1,1 @@
+calculator omp=1 overrides the inherited OMP_NUM_THREADS=4

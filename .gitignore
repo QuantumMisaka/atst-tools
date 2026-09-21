@@ -29,6 +29,7 @@ slurm-*
 !docs/reports/data/ATST_CP_RUNTIME_20260921/**
 !docs/reports/data/ATST_P5_CLOSEOUT_20260921/**
 !docs/reports/data/ATST_CCQN_SAI_20260921/**
+!docs/reports/data/ATST_ABACUS_PARALLEL_SCAN_20260921/**
 !examples/dp_model_manifest.json
 !examples/runtime_batch_cases.example.json
 !examples/09_lightweight_cli/vib/

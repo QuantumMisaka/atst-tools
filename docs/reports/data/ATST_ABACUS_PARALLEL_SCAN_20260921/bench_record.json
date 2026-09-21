@@ -1,0 +1,99 @@
+{
+  "atst": {
+    "record_time": {
+      "branch": "ccqn-fixed-cost-20260921",
+      "dirty": false,
+      "head": "ea2514cc1e3db98e13e50698c1a242f07f69d85a",
+      "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+    },
+    "run_time": [
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs",
+        "revision": {
+          "branch": "ccqn-fixed-cost-20260921",
+          "dirty": false,
+          "head": "ea2514cc1e3db98e13e50698c1a242f07f69d85a",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      }
+    ],
+    "run_time_consistent": true
+  },
+  "created_at": "2026-09-21T14:00:22.887724+00:00",
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 8,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 8
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "OMP_NUM_THREADS": "2"
+    },
+    "threads_source": null
+  },
+  "host": {
+    "cpu_count": 32,
+    "gpu_inventory": [
+      "GPU 0: Tesla V100-SXM2-32GB (UUID: GPU-6fb8003a-42ab-83c5-b6d0-d8bc342d7b21)"
+    ],
+    "gpu_inventory_error": null,
+    "platform": "Linux-6.8.0-71-generic-x86_64-with-glibc2.39"
+  },
+  "inputs": {
+    "fixtures": [],
+    "manifest": {
+      "exists": true,
+      "path": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/cases-abacus-scan.json",
+      "sha256": "5a9c5592b9e5c3700359ef4e8b609e67a89837fcfe53c9986b34ec99a109afbd"
+    }
+  },
+  "notes": [
+    "abacus inner-parallelism scan: gpu=0"
+  ],
+  "operator": {
+    "allocated_gpu_hours": null,
+    "approved_by": null,
+    "job_id": "1438158",
+    "partition": "4V100",
+    "qos": "rush-1o2gpu",
+    "sacct_excerpt": null
+  },
+  "results": [
+    {
+      "cases_total": 4,
+      "dir": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs",
+      "exists": true,
+      "failed": 0,
+      "revision": {
+        "branch": "ccqn-fixed-cost-20260921",
+        "dirty": false,
+        "head": "ea2514cc1e3db98e13e50698c1a242f07f69d85a",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-harness-v1",
+      "succeeded": 4,
+      "summary": "/org/galileo-group/galileouser02/atst-abacus-scan-20260921/runs/batch_summary.json",
+      "summary_sha256": "e40c41b6e59c663a11a1c63473482f43a4c2f8019c3bb8ff816f0f8d09ebea73",
+      "tree": {
+        "file_count": 97,
+        "tree_sha256": "7025e081bdcb9d56ba0a0623a9069be97b4e1a4604f77be5b71f90c7006f269c"
+      },
+      "wall_s": 664.22
+    }
+  ],
+  "schema": "atst-bench-record-v1",
+  "warnings": []
+}

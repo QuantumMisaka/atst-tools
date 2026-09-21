@@ -190,6 +190,23 @@ CCQN 一个 case（9 次调用）的墙钟几乎全由"启动"（构造 ≈1.6 s
 （没有可省的预热），故**不推进该 schema 变更**；GPU 节点上值得做的仍是**摊薄每 case 的启动**
 （同一进程跑多个 case）。若未来有 CPU-torch + 多线程的消费场景，再重新评估 `no_jit`。
 
+## 5g. ABACUS 内层并行扫描（mpi × omp，2026-09-21，作业 1438158）
+
+同一 relax 用例（示例 06 H2-Au、单步）、同一张 V100，只改内层并行（`--ntasks=8` 保证内部
+`mpirun -np N` 有槽位）：
+
+| 用例 | 内层 MPI | OMP | wall |
+| --- | --- | --- | --- |
+| abacus-mpi4-omp1 | 4 | 1 | 147.3 s（与 P5 的 171–173 s 同量级，节点/时机差异） |
+| abacus-mpi4-omp2 | 4 | 2 | **145.8 s** |
+| abacus-mpi2-omp4 | 2 | 4 | **224.3 s** |
+| abacus-mpi1-omp8 | 1 | 8 | 146.8 s |
+
+**结论**：这个 ABACUS 负载（LCAO + `cusolver`、66 原子）**不吃 CPU 预算**——从 4 核到 8 核的所有
+排布都落在 ≈146–147 s（差异在噪声内），而 2 rank × 4 线程反而慢 50%。因此示例默认
+（`mpi: 4, omp: 1`）就是好的选择，不必再做内层拆分调优；ABACUS 的时间不在 CPU 侧赢。
+证据切片 `docs/reports/data/ATST_ABACUS_PARALLEL_SCAN_20260921/`。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：
