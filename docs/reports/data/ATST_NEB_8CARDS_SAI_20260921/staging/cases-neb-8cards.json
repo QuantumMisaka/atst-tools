@@ -1,0 +1,34 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "P5 row: 8 NEB interior graphs across 8 V100 cards (srun pmix) against the serial reference on the same chain.",
+  "defaults": {
+    "threads": 1,
+    "timeout_s": 1800
+  },
+  "cases": [
+    {
+      "case_id": "dp-neb-chain10-serial",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/neb8/configs/dp_neb_ft2dp_chain10_serial.yaml",
+      "slots": 1,
+      "threads": 1,
+      "timeout_s": 900,
+      "workdir": "work-chain10-serial"
+    },
+    {
+      "case_id": "dp-neb-chain10-8cards",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/neb8/configs/dp_neb_ft2dp_chain10_cards.yaml",
+      "slots": 8,
+      "threads": 1,
+      "ranks": 8,
+      "launcher": [
+        "srun",
+        "--mpi=pmix_v5",
+        "--ntasks=8",
+        "--gpus-per-task=1",
+        "--cpu-bind=none"
+      ],
+      "timeout_s": 1800,
+      "workdir": "work-chain10-8cards"
+    }
+  ]
+}

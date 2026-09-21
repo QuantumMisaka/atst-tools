@@ -1,0 +1,17 @@
+[
+  {
+    "case_id": "ccqn-a",
+    "config": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-a/config.yaml",
+    "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-a"
+  },
+  {
+    "case_id": "ccqn-b",
+    "config": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-b/config.yaml",
+    "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-b"
+  },
+  {
+    "case_id": "ccqn-c",
+    "config": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-c/config.yaml",
+    "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-c"
+  }
+]

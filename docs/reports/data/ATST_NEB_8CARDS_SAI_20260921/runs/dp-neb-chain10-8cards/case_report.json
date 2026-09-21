@@ -1,0 +1,38 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "dp-neb-chain10-8cards",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/neb8/configs/dp_neb_ft2dp_chain10_cards.yaml",
+  "devices": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T14:11:42.507249+00:00",
+  "gpu_seconds": 194.499,
+  "launcher": [
+    "srun",
+    "--mpi=pmix_v5",
+    "--ntasks=8",
+    "--gpus-per-task=1",
+    "--cpu-bind=none"
+  ],
+  "ranks": 8,
+  "ranks_source": "declared",
+  "result_json": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs/dp-neb-chain10-8cards/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T14:11:18.194885+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs/dp-neb-chain10-8cards/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs/dp-neb-chain10-8cards/worker.out",
+  "threads": 1,
+  "wall_s": 24.312,
+  "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs/work-chain10-8cards"
+}

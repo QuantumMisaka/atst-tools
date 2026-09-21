@@ -1,0 +1,31 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "site validation: one worker per case (3 CCQN cases, FT2DP)",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 1800
+  },
+  "cases": [
+    {
+      "case_id": "ccqn-a",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-a/config.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 1800
+    },
+    {
+      "case_id": "ccqn-b",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-b/config.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 1800
+    },
+    {
+      "case_id": "ccqn-c",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-c/config.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 1800
+    }
+  ]
+}

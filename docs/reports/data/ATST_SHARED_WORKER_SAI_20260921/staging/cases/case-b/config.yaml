@@ -1,0 +1,28 @@
+calculation:
+  type: ccqn
+  init_structure: /home/galileo-group/galileouser02/atst-ccqn-20260921/cases/ccqn-h2au/ccqn_init.stru
+  fmax: 0.05
+  max_steps: 8
+  trajectory: ccqn_b.traj
+  logfile: ccqn_b.log
+  final_structure: ccqn_b_final.extxyz
+  artifact_manifest: atst_artifacts_ccqn_b.json
+  e_vector_method: ic
+  reactive_bonds: "1-2"
+  ic_mode: democratic
+  cos_phi: 0.5
+  trust_radius_uphill: 0.05
+  trust_radius_saddle_initial: 0.03
+  accept_initial_converged: false
+  directory: run_ccqn_b
+
+runtime:
+  devices: [0]
+  binding: inherit
+  telemetry: true
+
+calculator:
+  name: dp
+  dp:
+    model: /home/galileo-group/galileouser02/atst-p5-20260921/models/model.ckpt-100000.pt
+    share_calculator: true

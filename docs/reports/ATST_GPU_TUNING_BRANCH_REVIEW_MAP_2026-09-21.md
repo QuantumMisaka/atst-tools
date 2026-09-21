@@ -73,7 +73,7 @@ AST 级比对确认除被删导入外无行为变化），并在 `examples/READM
 
 ## 4. 已知开放门（不属本分支完成范围）
 
-1. **P5（SAI V100 基准）首轮与收尾已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4 + 多卡 NEB + per-card 4 进程 + ABACUS 3 重复 + 修复后 ABACUS 基线与 8 ranks/1 卡压力行，见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md) §5d）；**剩余仅两项**：host/SIF 成对（需站点 SIF/挂载配合）、8 图×8 卡（需站点协调超出 QOS 的卡数）。
+1. **P5（SAI V100 基准）首轮与收尾已完成**（2026-09-21：冒烟 + DP 矩阵 12/12 + ABACUS 双示例 4/4 + 多卡 NEB + per-card 4 进程 + ABACUS 3 重复 + 修复后 ABACUS 基线与 8 ranks/1 卡压力行，见 [SAI 报告](ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md) §5d）；**剩余仅一项**：host/SIF 成对（需站点 SIF/挂载配合）。8 图×8 卡已于 2026-09-21 完成（`rush-gpu` 支持单作业 16 卡：8 卡图并行 24.31 s vs 串行 26.63 s，本 band 上仅 ≈1.1×，见 SAI 报告 §5h）。
 2. ~~恒电势合入 main~~ **已完成**（2026-09-21：`main` = `7bc3f92`+`d30747b`；两项前置门禁已被恒电势侧修复，
    `examples/reference_results.json` 含 `19_constant_potential_Pt`，abacuslite 快照测试在 main 上通过）。
    GPU 分支已 rebase 于其上并新增 §7A 联合验收测试；分支与 `main` 均已推送 `origin`（未建 PR）。

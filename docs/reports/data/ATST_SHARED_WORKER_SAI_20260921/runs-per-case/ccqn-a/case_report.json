@@ -1,0 +1,25 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "ccqn-a",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-a/config.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T14:10:56.023517+00:00",
+  "gpu_seconds": 6.76,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "serial",
+  "result_json": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-per-case/ccqn-a/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-21T14:10:49.263903+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-per-case/ccqn-a/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-per-case/ccqn-a/worker.out",
+  "threads": 4,
+  "wall_s": 6.76,
+  "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-a"
+}

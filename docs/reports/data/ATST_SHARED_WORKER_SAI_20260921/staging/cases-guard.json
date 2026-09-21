@@ -1,0 +1,17 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "site validation: shared worker must refuse a case asking for a device outside the held set",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 1800
+  },
+  "cases": [
+    {
+      "case_id": "ccqn-guard",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-guard/config.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 600
+    }
+  ]
+}

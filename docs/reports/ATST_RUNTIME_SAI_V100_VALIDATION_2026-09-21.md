@@ -207,6 +207,34 @@ CCQN 一个 case（9 次调用）的墙钟几乎全由"启动"（构造 ≈1.6 s
 （`mpi: 4, omp: 1`）就是好的选择，不必再做内层拆分调优；ABACUS 的时间不在 CPU 侧赢。
 证据切片 `docs/reports/data/ATST_ABACUS_PARALLEL_SCAN_20260921/`。
 
+## 5h. 共享 worker 站点验证 + 8 图×8 卡（2026-09-21，作业 1438378 / 1438379）
+
+**（a）共享 worker（1 卡）**：3 个同构 CCQN 用例（FT²DP 单头，配置均带 `runtime` 段）跑两遍：
+
+| 模式 | 批次 wall | 逐 case wall |
+| --- | --- | --- |
+| 逐 case worker | 17.38 s | 6.76 / 5.31 / 5.31 s |
+| `--share-worker` | **5.73 s** | 4.18 / **0.35** / **0.35** s |
+
+→ 小批在站点**快 3.0×**（模型加载与首调用只付一次，后续 case 各 ~0.35 s）。
+fail-closed 同批复验：只持有 0 号卡时请求 `devices: [1]` 的用例 0.30 s 内被拒
+（`case_error: RuntimeBindingError: device index 1 is outside the inherited visible set (size 1)`）。
+证据切片 `docs/reports/data/ATST_SHARED_WORKER_SAI_20260921/`。
+
+**（b）8 图×8 卡（`rush-gpu`，QOS 上限 16 卡，单作业 8 卡不需协调）**：
+
+| 用例 | 形状 | wall | 计数 |
+| --- | --- | --- | --- |
+| dp-neb-chain10-serial | 单进程 | 26.63 s | 66 次 `dp.force_calls` |
+| dp-neb-chain10-8cards | `srun --mpi=pmix_v5 --ntasks=8 --gpus-per-task=1` + `round_robin` | **24.31 s** | Σ26 次、`world_size=8` |
+
+→ 八卡图并行在这个 band 上只值 **≈1.1×**：band 小（2 步、26 次调用），每个 rank 都要付自己的
+模型加载与 MPI 启动。与 §5c 的四卡行（11.8/9.9 s vs 串行 ~11–13 s）一致——**"一图一卡"的收益随
+每步工作量增长，而不是随卡数**；本行按"边际收益"记录，站点 8 卡能力本身已验证（`round_robin`
+把 8 个 rank 分到 8 张卡，逐 rank sidecar 各见一张卡）。
+至此 P5 压力/收益矩阵只剩 host/SIF 成对一项。证据切片
+`docs/reports/data/ATST_NEB_8CARDS_SAI_20260921/`。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：

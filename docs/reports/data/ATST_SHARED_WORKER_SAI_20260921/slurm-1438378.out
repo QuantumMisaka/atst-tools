@@ -1,0 +1,6 @@
+job=1438378 host=4v100n06 CVD=0 np=2
+{"cases_total": 3, "failed": 0, "skipped": 0, "succeeded": 3, "timed_out": 0, "wall_s": 17.384}
+{"cases_total": 3, "failed": 0, "skipped": 0, "succeeded": 3, "timed_out": 0, "wall_s": 5.729}
+{"cases_total": 1, "failed": 1, "skipped": 0, "succeeded": 0, "timed_out": 0, "wall_s": 0.303}
+guard_run_exit=0 (a non-zero per-case failure is expected and recorded)
+DONE

@@ -1,0 +1,105 @@
+{
+  "allocation": {
+    "devices": [
+      "0"
+    ],
+    "gpu_seconds": 0.303,
+    "wall_s": 0.303
+  },
+  "cases": [
+    {
+      "args": [],
+      "attempt": 1,
+      "case_id": "ccqn-guard",
+      "classification": "case_error: RuntimeBindingError: device index 1 is outside the inherited visible set (size 1)",
+      "config": "/home/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-guard/config.yaml",
+      "devices": [
+        "0"
+      ],
+      "exit_code": null,
+      "finished_at": "2026-09-21T14:11:13.073754+00:00",
+      "gpu_seconds": 0.246,
+      "launcher": [],
+      "ranks": 1,
+      "ranks_source": "shared-worker",
+      "result_json": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/ccqn-guard/atst_api_result.json",
+      "schema": "atst-bench-harness-v1",
+      "shared_worker": true,
+      "started_at": "2026-09-21T14:11:12.771895+00:00",
+      "status": "failed",
+      "stderr": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/worker.err",
+      "stdout": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/worker.out",
+      "threads": 4,
+      "wall_s": 0.246,
+      "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-guard"
+    }
+  ],
+  "cases_total": 1,
+  "cpu_budget": 8,
+  "devices": [
+    "0"
+  ],
+  "failed": 1,
+  "finished_at": "2026-09-21T14:11:13.125418+00:00",
+  "gpu_seconds_total": 0.246,
+  "revision": {
+    "branch": "mainline-20260921",
+    "dirty": false,
+    "head": "33f7c1bd1b4f2d6efccf148497e0763b4a5b6a0e",
+    "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+  },
+  "schema": "atst-bench-harness-v1",
+  "shared_worker": {
+    "devices": [
+      "0"
+    ],
+    "enabled": true,
+    "exit_code": 0,
+    "jobs": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/batch_jobs.json",
+    "per_case_wall_source": "batch_worker",
+    "pid": 1992056,
+    "stderr": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/worker.err",
+    "stdout": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/runs-guard/worker.out",
+    "threads": 4
+  },
+  "skipped": 0,
+  "slots_per_device": 1,
+  "started_at": "2026-09-21T14:11:12.771895+00:00",
+  "status": "complete",
+  "succeeded": 0,
+  "telemetry": {
+    "coverage_s": 0.303,
+    "memory_peak_mib": {
+      "source": "sampled_peak",
+      "value": 1.0
+    },
+    "reason": null,
+    "sample_count": 1,
+    "samples": [
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1.0,
+            "utilization_gpu_pct": 5.0,
+            "uuid": "GPU-f48005f4-5f48-2582-1871-669caf405214"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-21T14:11:12.780657+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      }
+    ],
+    "source": "nvidia-smi",
+    "status": "observed"
+  },
+  "timed_out": 0,
+  "wall_s": 0.303
+}

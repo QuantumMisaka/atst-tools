@@ -1,0 +1,3 @@
+Warning: CCQN finished without satisfying its optimizer convergence criteria
+(workflow=ccqn, stage=ccqn, threshold_fmax=0.05 eV/Angstrom, nsteps=8, max_steps=8).
+Execution completion does not imply optimizer convergence.

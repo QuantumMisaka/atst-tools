@@ -1,0 +1,106 @@
+{
+  "atst": {
+    "record_time": {
+      "branch": "mainline-20260921",
+      "dirty": false,
+      "head": "33f7c1bd1b4f2d6efccf148497e0763b4a5b6a0e",
+      "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+    },
+    "run_time": [
+      {
+        "dir": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs",
+        "revision": {
+          "branch": "mainline-20260921",
+          "dirty": false,
+          "head": "33f7c1bd1b4f2d6efccf148497e0763b4a5b6a0e",
+          "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+        }
+      }
+    ],
+    "run_time_consistent": true
+  },
+  "created_at": "2026-09-21T14:11:43.073319+00:00",
+  "environment": {
+    "atst_tools_path": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools/src/atst_tools/__init__.py",
+    "atst_tools_version": "2.2.6",
+    "cpu_affinity_count": 48,
+    "interpreter": "/home/galileo-group/galileouser02/atst-p5-20260921/venv/bin/python",
+    "mpi": {
+      "local_rank": 0,
+      "world_size": 8
+    },
+    "packages": {
+      "abacuslite": null,
+      "ase": "3.29.0",
+      "deepmd-kit": "3.2.0",
+      "mpi4py": "4.1.2",
+      "numpy": "2.5.2",
+      "pydantic": "2.13.4"
+    },
+    "platform": "Linux-5.15.0-100-generic-x86_64-with-glibc2.39",
+    "python": "3.13.15",
+    "threads": {
+      "OMP_NUM_THREADS": "2"
+    },
+    "threads_source": null
+  },
+  "host": {
+    "cpu_count": 48,
+    "gpu_inventory": [
+      "GPU 0: Tesla V100-SXM2-32GB (UUID: GPU-5c166311-2d81-a92f-1a3c-cc30351f4352)",
+      "GPU 1: Tesla V100-SXM2-32GB (UUID: GPU-af56e2e0-859e-159b-e9fb-596251009e0c)",
+      "GPU 2: Tesla V100-SXM2-32GB (UUID: GPU-b8a22e24-f1a4-ba6f-cf4f-ca8dc926a7e1)",
+      "GPU 3: Tesla V100-SXM2-32GB (UUID: GPU-8b23ce52-1625-226a-bfdc-b16331d35b33)",
+      "GPU 4: Tesla V100-SXM2-32GB (UUID: GPU-9de6fff9-e1c3-d46f-0170-95e0b1e2249f)",
+      "GPU 5: Tesla V100-SXM2-32GB (UUID: GPU-bce3ad3a-73bd-3fa0-b281-d5c2e6936a24)",
+      "GPU 6: Tesla V100-SXM2-32GB (UUID: GPU-fa9c851d-dafe-8fa1-0ab9-2596d5a58fbc)",
+      "GPU 7: Tesla V100-SXM2-32GB (UUID: GPU-324019de-bdac-e17f-d0ac-91a332c3df40)"
+    ],
+    "gpu_inventory_error": null,
+    "platform": "Linux-5.15.0-100-generic-x86_64-with-glibc2.39"
+  },
+  "inputs": {
+    "fixtures": [],
+    "manifest": {
+      "exists": true,
+      "path": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/cases-neb-8cards.json",
+      "sha256": "c61b372882bf1d7df697be7dcdab34bb6f5faa0c0ed53c88f1508eae10ae71be"
+    }
+  },
+  "notes": [
+    "neb 8 graphs / 8 cards: gpu=0,1,2,3,4,5,6,7"
+  ],
+  "operator": {
+    "allocated_gpu_hours": null,
+    "approved_by": null,
+    "job_id": "1438379",
+    "partition": "8V100V0",
+    "qos": "rush-gpu",
+    "sacct_excerpt": null
+  },
+  "results": [
+    {
+      "cases_total": 2,
+      "dir": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs",
+      "exists": true,
+      "failed": 0,
+      "revision": {
+        "branch": "mainline-20260921",
+        "dirty": false,
+        "head": "33f7c1bd1b4f2d6efccf148497e0763b4a5b6a0e",
+        "source_root": "/org/galileo-group/galileouser02/atst-p5-20260921/atst-tools"
+      },
+      "schema": "atst-bench-harness-v1",
+      "succeeded": 2,
+      "summary": "/org/galileo-group/galileouser02/atst-mainline-20260921/neb8/runs/batch_summary.json",
+      "summary_sha256": "79bca524eb8d0a9728cc344fbc09145a6a8a5e721556ea13998eb1a62551a0fe",
+      "tree": {
+        "file_count": 17,
+        "tree_sha256": "62d22dc2a655aabbed08ee33f47e456884edfa5c53f686d6a1d6d8ee5eb9251b"
+      },
+      "wall_s": 50.952
+    }
+  ],
+  "schema": "atst-bench-record-v1",
+  "warnings": []
+}

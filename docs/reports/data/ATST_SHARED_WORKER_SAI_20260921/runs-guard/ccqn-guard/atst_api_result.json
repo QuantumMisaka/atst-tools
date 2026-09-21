@@ -1,0 +1,14 @@
+{
+  "error": {
+    "cause": null,
+    "context": {
+      "requested": "1"
+    },
+    "message": "device index 1 is outside the inherited visible set (size 1)",
+    "type": "RuntimeBindingError",
+    "workflow": null
+  },
+  "schema": "atst-api-result-v1",
+  "status": "error",
+  "workflow": null
+}

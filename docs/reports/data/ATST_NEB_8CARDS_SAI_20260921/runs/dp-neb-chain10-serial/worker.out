@@ -1,0 +1,9 @@
+Warning: NEB initial endpoint is being recomputed by endpoint_singlepoint=always.
+Warning: NEB final endpoint is being recomputed by endpoint_singlepoint=always.
+      Step     Time          Energy          fmax
+FIRE:    0 22:11:11  -263522.311774        3.713084
+FIRE:    1 22:11:13  -263522.347838        2.027878
+FIRE:    2 22:11:15  -263522.392076        1.125881
+Warning: NEB finished without satisfying its optimizer convergence criteria
+(workflow=neb, stage=neb, threshold_fmax=0.5 eV/Angstrom, nsteps=2, max_steps=2).
+Execution completion does not imply optimizer convergence.

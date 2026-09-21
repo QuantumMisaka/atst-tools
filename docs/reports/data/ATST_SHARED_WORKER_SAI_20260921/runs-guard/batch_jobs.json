@@ -1,0 +1,7 @@
+[
+  {
+    "case_id": "ccqn-guard",
+    "config": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-guard/config.yaml",
+    "workdir": "/org/galileo-group/galileouser02/atst-mainline-20260921/shared/cases/case-guard"
+  }
+]

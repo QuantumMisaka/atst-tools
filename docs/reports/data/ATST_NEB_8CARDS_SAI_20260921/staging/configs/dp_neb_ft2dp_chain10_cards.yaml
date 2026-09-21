@@ -1,0 +1,20 @@
+calculation:
+  type: neb
+  init_chain: /home/galileo-group/galileouser02/atst-p5-20260921/fixtures/chain10.traj
+  climb: false
+  fmax: 0.5
+  max_steps: 2
+  k: 0.1
+  algorism: improvedtangent
+  parallel: true
+  optimizer: FIRE
+  endpoint_singlepoint: always
+  trajectory: neb.traj
+
+calculator:
+  name: dp
+  dp:
+    model: /home/galileo-group/galileouser02/atst-p5-20260921/models/model.ckpt-100000.pt
+
+runtime:
+  binding: round_robin
