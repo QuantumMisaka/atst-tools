@@ -11,6 +11,7 @@ FT2DP single-head 100k model, run through the batch runner on one V100.
 | `runtime_evidence.json` | runtime sidecar: 9 `dp.force_calls`, 1 calculator build, sampler 5 samples over 4.9 s, peak 1074 MiB, `threads_source=harness` |
 | `ccqn_ft2dp.log`, `slurm-1437354.out` | CCQN steps (all inside one second) and the job facts |
 | `staging/` | the manifest, case configs (with and without the `runtime` section), the sbatch entry and the stand-in driver used for the login-node pass |
+| `probe/` | job 1437867: the DP start-up probe on GPU torch (construct 1.55 s, first call 1.33 s, steady 0.028 s/call, no TorchScript fuser warm-up at one thread) plus its script and sbatch entry |
 
 Machine paths inside the staged configs are the SAI ones.  The login-node
 stand-in pass (no GPU) measured 2.56 s for the same nine force calls.

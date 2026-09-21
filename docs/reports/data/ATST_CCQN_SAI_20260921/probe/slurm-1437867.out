@@ -1,0 +1,2 @@
+{"torch": "2.13.0+cu126", "torch_cuda": true, "deepmd_device": "cuda:0", "torch_threads": 1}
+{"construct_s": 1.551, "calls_s": [1.326, 0.028, 0.028, 0.028, 0.028], "natoms": 66}

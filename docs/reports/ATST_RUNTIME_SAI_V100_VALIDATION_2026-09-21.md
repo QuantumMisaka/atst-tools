@@ -163,6 +163,33 @@ R3 行为（`calculator.abacus.omp: 1` 显式值优先于 case 线程预算）�
 `runs/batch_summary.json`、`runs/ccqn-h2au-ft2dp/case_report.json`、`worker.{out,err}` 均按新名落盘，
 `bench_record` 正常生成。
 
+## 5f. DP 启动成本在 GPU 侧的形态（2026-09-21，作业 1437867）
+
+承接本地 §18 的归因（TorchScript fuser 预热）在站点复测同一模型（FT²DP 单头 100k、66 原子、
+`atst_tools.calculators.factory` 同一条构造路径）：
+
+```json
+{"torch": "2.13.0+cu126", "torch_cuda": true, "deepmd_device": "cuda:0", "torch_threads": 1}
+{"construct_s": 1.551, "calls_s": [1.326, 0.028, 0.028, 0.028, 0.028], "natoms": 66}
+```
+
+| 量 | 本地 CPU-only torch（§18） | 站点 GPU torch（本节） |
+| --- | --- | --- |
+| 构造 | 4.2 s（含 `torch.jit.script` 1.8 s） | **1.55 s** |
+| 首调用 | 6.8–17 s 的 fuser 预热曲线 | **1.33 s** |
+| 稳态 | 0.56 s/调用（4 线程） | **0.028 s/调用** |
+| 预热曲线 | 明显（24 s 才进稳态） | **不存在**（第 2 次即 0.028 s） |
+
+**解释**：TorchScript 的 TensorExpr fuser 只在 intra-op 线程数 > 1 时工作；站点这个作业
+`torch_threads=1`（批次 step 只拿到 2 CPU、torch 取 1），因此 fuser 不参与，本地看到的那条
+20 s 预热曲线在 GPU/单线程路径上根本不出现。稳态 0.028 s/调用也解释了 §5e 的算术：
+CCQN 一个 case（9 次调用）的墙钟几乎全由"启动"（构造 ≈1.6 s + 首调用 ≈1.3 s ≈2.9 s）
+与 CCQN 自身 CPU 逻辑（≈2.5 s）构成，推理本身可以忽略。
+
+**结论（含对 §18 建议的修正）**：本地 spike 提出的"暴露 eager/`no_jit` 路径"这条杠杆**在本站点路径上不成立**
+（没有可省的预热），故**不推进该 schema 变更**；GPU 节点上值得做的仍是**摊薄每 case 的启动**
+（同一进程跑多个 case）。若未来有 CPU-torch + 多线程的消费场景，再重新评估 `no_jit`。
+
 ## 6. 站点问题与修复（本次 P5 产生）
 
 1. **Lmod 在 Slurm 批脚本里对 `set -u` 静默失效**（首跑 1430846 全灭）：
