@@ -134,6 +134,8 @@ sbatch run-record-channels.sbatch  # record 双通道（DP / ABACUS）
 | 计算进程归因 | ✅ 本轮 `status=observed`（`nvidia-smi` 报出行）；MPS 下空表时 reason 点名 MPS 的路径由 `tests/unit/test_evidence_mps.py` 覆盖 |
 | 自身归因 | ✅ `self_reported.status=observed`，`max_memory_allocated_mib=620.139`（torch 分配器口径，读取不触发 CUDA 初始化） |
 
+复验（2026-09-22，作业 1448173，main `bc420aa`，证据见切片 `reverify/`）：收紧 MPS 正证据规则后重跑，线程键仍 `explicit`、探测仍为「完成的否证」、`self_reported` 仍取到 620.139 MiB。
+
 边界：MPS 守护进程在当日下午两次作业（`4v100n18`/`4v100n26`）均不可见（当日上午作业 1444802 曾可见），
 故「MPS 正向路径」尚未在站点观测到；探针在该情形下如实记 `detected=false` 并回落既有 reason，不产生错误归因。
 TF 后端不做特意支持：线程预算与制品 kind 判定在算法层对 TF 同样生效，但不安排 TF 制品验证。

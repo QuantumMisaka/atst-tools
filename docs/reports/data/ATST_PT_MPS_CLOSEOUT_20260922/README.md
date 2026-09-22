@@ -10,3 +10,10 @@
 | `pt-mps-verify/runtime_evidence.json` | 通过轮次的完整 sidecar：`environment.threads`（含两个 `DP_*`）、`telemetry.sampler.mps`、`self_reported` |
 
 边界：MPS 守护进程在 2026-09-22 下午两次作业（4v100n18 / 4v100n26）中均**不可见**，故「detected=true 且 reason 点名 MPS」的正向路径只有单测（替身）覆盖；当日上午 P2 作业（1444802，4v100n18）曾看到守护进程，说明该现象随节点/时间变化，探针三态语义正确。
+
+## 收紧规则后的复验（2026-09-22，作业 1448173，main `bc420aa`）
+
+`reverify/` 内为本轮证据：入口脚本、作业日志、`sacct`、`pt-mps-verify/runtime_evidence.json`。
+结论与首轮一致且更可靠：两个 `DP_*` 线程键与 OMP 同值（`threads_source=explicit`）；
+`mps.detected=false` 且三路探测完成（收紧为「只认可执行列」后仍是完成的否证，不再把 `grep …` 之类的提及当作证据）；
+`self_reported.max_memory_allocated_mib=620.139`。MPS 正向路径仍只有单测覆盖。
