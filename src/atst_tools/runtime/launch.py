@@ -24,8 +24,8 @@ THREAD_ENV_KEYS = (
     "MKL_NUM_THREADS",
     "NUMEXPR_NUM_THREADS",
     # DeepMD-kit asks for both knobs on top of OMP for its PT and TF backends;
-    # the budget stays one number from one source, so a worker whose device
-    # mask allows N CPUs never oversubscribes the node through the DP backend.
+    # the budget stays one number from one source, so the DP backend receives
+    # the same budget as the rest of the process (sidecar environment.threads).
     "DP_INTRA_OP_PARALLELISM_THREADS",
     "DP_INTER_OP_PARALLELISM_THREADS",
 )

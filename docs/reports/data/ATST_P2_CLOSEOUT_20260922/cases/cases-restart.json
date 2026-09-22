@@ -1,0 +1,18 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "P2 closeout: one DP relax case with an absolute workdir, run twice as two separate batches so the second run has to recompute from an existing case directory instead of reusing the first run's results.",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 900
+  },
+  "cases": [
+    {
+      "case_id": "restart",
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_restart.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 900,
+      "workdir": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/work/restart"
+    }
+  ]
+}

@@ -48,12 +48,12 @@
 ### 4.2 每 attempt 的缓存与证据归属
 
 `ATST_ATTEMPT` 1/2 两次运行分别产生 `attempt-1`、`attempt-2` 缓存目录，两份 sidecar 的 `attempt`
-字段与目录一致（此前证据/结果文档会回落为 attempt 1，修复见 §6）。两次运行 `threads_source=explicit`
+字段与目录一致（该一致性在单测层固定；库调用者传入精选 `base` 时修复前会回落为 1，本轮站点运行不区分该差异，修复见 §6）。两次运行 `threads_source=explicit`
 （CLI 线程预算），`dp.force_calls=5` / 各 1 次构建。
 
 ### 4.3 重启回归
 
-同一 workdir 连跑两个 batch：两次 `case_report.json` 均 `succeeded`（4.68 s / 4.58 s），末帧能量
+同一 workdir 连跑两个 batch：两次 `case_report.json` 均 `succeeded`（用例级 3.711 s / 3.721 s，批级 4.525 s / 4.573 s），末帧能量
 −3498.2024201687445 eV 与 −3498.202403984692 eV（Δ=1.6e-05 eV，DP 在 GPU 上的重复计算噪声）；
 批级缓存目录 `attempt-1` 唯一；用例目录保留自身 `atst_artifacts.json`、`runtime_evidence.json` 与轨迹，
 没有沿用上一轮的 atoms/results（轨迹被本轮重写）。

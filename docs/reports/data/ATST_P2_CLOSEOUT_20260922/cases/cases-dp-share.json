@@ -1,0 +1,26 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "P2 closeout: two DP relax cases share one read-only model artifact inside a single shared worker (--share-worker), so the model directory must stay byte- and mtime-identical while each case keeps its own writable cache.",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 900
+  },
+  "cases": [
+    {
+      "case_id": "ro-a",
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_ro_a.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 900,
+      "workdir": "work/ro-a"
+    },
+    {
+      "case_id": "ro-b",
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_ro_b.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 900,
+      "workdir": "work/ro-b"
+    }
+  ]
+}

@@ -130,7 +130,7 @@ if [ -n "${ABACUS_INPUTS:-}" ]; then
   labeled_fixtures+=("abacus_inputs=${ABACUS_INPUTS}")
 fi
 FIXTURE_LABELS="none"
-if [ "${#labeled_fixtures[@]}" -gt 0 ]; then
+if [ -n "${labeled_fixtures[*]:-}" ]; then
   FIXTURE_LABELS=""
   for entry in "${labeled_fixtures[@]}"; do
     FIXTURE_LABELS="${FIXTURE_LABELS:+${FIXTURE_LABELS},}${entry%%=*}"

@@ -124,3 +124,5 @@ examples/09_lightweight_cli/neb_latest.extxyz
 examples/09_lightweight_cli/displacement_vector.npy
 examples/09_lightweight_cli/inputs/init_neb_chain.traj
 examples/09_lightweight_cli/inputs/init_neb_chain_ts.traj
+!docs/reports/data/ATST_P2_CLOSEOUT_20260922/**
+!docs/reports/data/ATST_PT_MPS_CLOSEOUT_20260922/**

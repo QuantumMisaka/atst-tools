@@ -1,0 +1,18 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "Record-channel check, DP channel: the benchmark record must carry the DP model as the dp_model fixture and no ABACUS fixture.",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 900
+  },
+  "cases": [
+    {
+      "case_id": "dp-record",
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_ro_a.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 900,
+      "workdir": "work/dp-record"
+    }
+  ]
+}

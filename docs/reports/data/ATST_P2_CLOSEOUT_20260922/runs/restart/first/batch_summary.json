@@ -1,0 +1,199 @@
+{
+  "allocation": {
+    "devices": [
+      "0"
+    ],
+    "gpu_seconds": 4.525,
+    "wall_s": 4.525
+  },
+  "cases": [
+    {
+      "args": [],
+      "attempt": 1,
+      "case_id": "restart",
+      "classification": null,
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_restart.yaml",
+      "devices": [
+        "0"
+      ],
+      "exit_code": null,
+      "finished_at": "2026-09-22T05:52:30.068100+00:00",
+      "gpu_seconds": 3.711,
+      "launcher": [],
+      "ranks": 1,
+      "ranks_source": "shared-worker",
+      "result_json": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/restart/atst_api_result.json",
+      "schema": "atst-bench-harness-v1",
+      "shared_worker": true,
+      "started_at": "2026-09-22T05:52:26.308214+00:00",
+      "status": "succeeded",
+      "stderr": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/worker.err",
+      "stdout": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/worker.out",
+      "threads": 4,
+      "wall_s": 3.711,
+      "workdir": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/work/restart"
+    }
+  ],
+  "cases_total": 1,
+  "cpu_budget": 8,
+  "devices": [
+    "0"
+  ],
+  "failed": 0,
+  "finished_at": "2026-09-22T05:52:30.863203+00:00",
+  "gpu_seconds_total": 3.711,
+  "revision": {
+    "branch": "dev/gpu-tuning-closeout-20260922",
+    "dirty": false,
+    "head": "0fd205a6cb8e37bf91126eb75be8a8f8dfbf0166",
+    "source_root": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/atst-tools"
+  },
+  "schema": "atst-bench-harness-v1",
+  "shared_worker": {
+    "devices": [
+      "0"
+    ],
+    "enabled": true,
+    "exit_code": 0,
+    "jobs": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/batch_jobs.json",
+    "per_case_wall_source": "batch_worker",
+    "pid": 3727840,
+    "stderr": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/worker.err",
+    "stdout": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/first/worker.out",
+    "threads": 4
+  },
+  "skipped": 0,
+  "slots_per_device": 1,
+  "started_at": "2026-09-22T05:52:26.308214+00:00",
+  "status": "complete",
+  "succeeded": 1,
+  "telemetry": {
+    "coverage_s": 4.525,
+    "memory_peak_mib": {
+      "source": "sampled_peak",
+      "value": 1096.0
+    },
+    "reason": null,
+    "sample_count": 5,
+    "samples": [
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-22T05:52:26.317115+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-22T05:52:27.335811+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 4.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac"
+          }
+        ],
+        "processes": {
+          "processes": [],
+          "reason": "no compute process was reported",
+          "source": "nvidia-smi",
+          "status": "unavailable"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-22T05:52:28.356178+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 466.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac",
+              "pid": 3727840,
+              "used_memory_mib": 462.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-22T05:52:29.375594+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      },
+      {
+        "devices": [
+          {
+            "memory_total_mib": 32768.0,
+            "memory_used_mib": 1096.0,
+            "utilization_gpu_pct": 0.0,
+            "uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac"
+          }
+        ],
+        "processes": {
+          "processes": [
+            {
+              "attribution": "reported",
+              "gpu_uuid": "GPU-5b1e904b-1227-1782-fb45-7066dda74cac",
+              "pid": 3727840,
+              "used_memory_mib": 1092.0
+            }
+          ],
+          "reason": null,
+          "source": "nvidia-smi",
+          "status": "observed"
+        },
+        "reason": null,
+        "sampled_at": "2026-09-22T05:52:30.394438+00:00",
+        "source": "nvidia-smi",
+        "status": "observed"
+      }
+    ],
+    "source": "nvidia-smi",
+    "status": "observed"
+  },
+  "timed_out": 0,
+  "wall_s": 4.525
+}

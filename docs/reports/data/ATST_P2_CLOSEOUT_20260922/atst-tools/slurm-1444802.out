@@ -1,0 +1,117 @@
+
+Currently Loaded Modules:
+  1) cuda/12.9.1                   3) openmpi/5.0.10-nvhpc26.3-gnu-cuda12-auto
+  2) nvhpc/26.3-gnu-cuda12-tuned   4) deepmd-kit/3.2.0
+
+ 
+
+job=1444802 node=4v100n20 devices=0 cpus=?
+atst_src=/home/galileo-group/galileouser02/atst-p2-closeout-20260922/atst-tools python=Python 3.13.15
+== 1. MPS probe (read-only) ==
+no MPS block in nvidia-smi -q
+no /tmp/nvidia-mps (no MPS client pipe directory here)
+mps_server_processes=2
+user-ha+ 2545101       1  0 Sep11 ?        00:00:00 nvidia-cuda-mps-control -d
+user-ha+ 2545124 2545101  0 Sep11 ?        00:03:55 nvidia-cuda-mps-server
+-- compute-apps view during this probe:
+pid, process_name, used_gpu_memory [MiB]
+== 2. read-only model sharing ==
+total 51042
+-r--r--r-- 1 galileouser02 galileo-group 62083547 Sep 22 13:44 model.ckpt-100000.pt
+model_dir_digest_before=6a9f1871479b6dee4e3bf08218cf5d859446a479913b37d5fcd92ac1cde3f6a8
+{"cases_total": 2, "failed": 0, "skipped": 0, "succeeded": 2, "timed_out": 0, "wall_s": 5.225}
+model_dir_digest_after=6a9f1871479b6dee4e3bf08218cf5d859446a479913b37d5fcd92ac1cde3f6a8
+OK: read-only model directory unchanged (bytes and mtimes)
+-- share summary:
+{
+  "allocation": {
+    "devices": [
+      "0"
+    ],
+    "gpu_seconds": 5.225,
+    "wall_s": 5.225
+  },
+  "cases": [
+    {
+      "args": [],
+      "attempt": 1,
+      "case_id": "ro-a",
+      "classification": null,
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_ro_a.yaml",
+      "devices": [
+        "0"
+      ],
+      "exit_code": null,
+      "finished_at": "2026-09-22T05:52:14.844801+00:00",
+-- cache directories under the batch tree:
+/home/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/share-second/.atst_cache
+/home/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/share-second/.atst_cache/attempt-1
+/home/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/share-second/.atst_cache/attempt-1/fontlist-v3.11.0.json
+-- sidecar facts (share cases):
+ro-a: attempt=1 status=complete threads={'MKL_NUM_THREADS': '4', 'NUMEXPR_NUM_THREADS': '4', 'OMP_NUM_THREADS': '4', 'OPENBLAS_NUM_THREADS': '4'} threads_source=harness
+  counters={'dp.calculator_built': 1, 'dp.force_calls': 5} gauges={'dp.cached_instances': 1.0}
+  memory_peak_mib={'source': 'sampled_peak', 'value': 466.0} samples=4
+  compute_process_statuses_across_samples={'unavailable': 3, 'observed': 1}
+  compute_processes: status='observed' reason=None count=1
+ro-b: attempt=1 status=complete threads={'MKL_NUM_THREADS': '4', 'NUMEXPR_NUM_THREADS': '4', 'OMP_NUM_THREADS': '4', 'OPENBLAS_NUM_THREADS': '4'} threads_source=harness
+  counters={'dp.calculator_built': 1, 'dp.calculator_reused': 1, 'dp.force_calls': 10} gauges={'dp.cached_instances': 1.0}
+  memory_peak_mib={'source': 'sampled_peak', 'value': 1096.0} samples=1
+  compute_process_statuses_across_samples={'observed': 1}
+  compute_processes: status='observed' reason=None count=1
+-- shared calculator reuse across the two cases (read-only model sharing):
+dp.calculator_reused total across cases = 1
+SHARED-INSTANCE ASSERTION OK (one DP calculator served both cases)
+== 3. per-attempt cache and evidence attribution (ATST_ATTEMPT 1/2) ==
+-- attempt 1
+=== Starting Relaxation with dp ===
+Warning: RELAX finished without satisfying its optimizer convergence criteria
+(workflow=relax, stage=relax, threshold_fmax=0.05 eV/Angstrom, nsteps=4, max_steps=4).
+Execution completion does not imply optimizer convergence.
+=== Relaxation Finished. Final energy: -3498.2024 eV ===
+-- attempt 2
+=== Starting Relaxation with dp ===
+Warning: RELAX finished without satisfying its optimizer convergence criteria
+(workflow=relax, stage=relax, threshold_fmax=0.05 eV/Angstrom, nsteps=4, max_steps=4).
+Execution completion does not imply optimizer convergence.
+=== Relaxation Finished. Final energy: -3498.2024 eV ===
+== 3b. attempt assertions ==
+cache entries: {'attempt-1': ['fontlist-v3.11.0.json'], 'attempt-2': ['fontlist-v3.11.0.json']}
+attempt 1: counters={'dp.calculator_built': 1, 'dp.force_calls': 5} gauges={'dp.cached_instances': 1.0} threads_source=explicit
+attempt 2: counters={'dp.calculator_built': 1, 'dp.force_calls': 5} gauges={'dp.cached_instances': 1.0} threads_source=explicit
+ATTEMPT ASSERTIONS OK (cache directory and evidence carry the same attempt)
+== 4. restart regression: same absolute workdir, two batches ==
+-- run first
+{"cases_total": 1, "failed": 0, "skipped": 0, "succeeded": 1, "timed_out": 0, "wall_s": 4.525}
+-- first summary:
+  "cases_total": 1,
+  "cpu_budget": 8,
+  "devices": [
+    "0"
+  ],
+  "failed": 0,
+  "finished_at": "2026-09-22T05:52:30.863203+00:00",
+-- run second
+{"cases_total": 1, "failed": 0, "skipped": 0, "succeeded": 1, "timed_out": 0, "wall_s": 4.573}
+-- second summary:
+  "cases_total": 1,
+  "cpu_budget": 8,
+  "devices": [
+    "0"
+  ],
+  "failed": 0,
+  "finished_at": "2026-09-22T05:52:35.810728+00:00",
+== 4b. restart assertions ==
+first: attempt=1 status=succeeded wall_s=3.711
+second: attempt=1 status=succeeded wall_s=3.721
+first_energy=-3498.2024201687445 second_energy=-3498.202403984692 delta=1.6184052583412267e-05
+batch_cache_dirs_after_second_run: ['attempt-1']
+case_cache_dirs_after_second_run: []
+  batch cache attempt-1: ['fontlist-v3.11.0.json']
+case_dir/atst_api_result.json: absent
+case_dir/atst_artifacts.json: present
+case_dir/runtime_evidence.json: present
+case_dir/relax_restart.traj: present
+case_dir/relax.traj: absent
+case_dir/relax_run: absent
+RESTART ASSERTIONS OK (equivalent recompute, one attempt cache directory, own artifacts)
+DONE

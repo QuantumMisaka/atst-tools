@@ -1,0 +1,18 @@
+{
+  "schema": "atst-bench-cases-v1",
+  "notes": "Record-channel check, ABACUS channel: the benchmark record must carry the ABACUS inputs as the abacus_inputs fixture and must not carry the DP model hash.",
+  "defaults": {
+    "threads": 4,
+    "timeout_s": 1800
+  },
+  "cases": [
+    {
+      "case_id": "abacus-record",
+      "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/abacus_relax_h2au.yaml",
+      "slots": 1,
+      "threads": 4,
+      "timeout_s": 1800,
+      "workdir": "work/abacus-record"
+    }
+  ]
+}

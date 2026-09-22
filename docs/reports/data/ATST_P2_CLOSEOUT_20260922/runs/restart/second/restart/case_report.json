@@ -1,0 +1,26 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "restart",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-p2-closeout-20260922/configs/dp_relax_restart.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": null,
+  "finished_at": "2026-09-22T05:52:34.968022+00:00",
+  "gpu_seconds": 3.721,
+  "launcher": [],
+  "ranks": 1,
+  "ranks_source": "shared-worker",
+  "result_json": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/second/restart/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "shared_worker": true,
+  "started_at": "2026-09-22T05:52:31.210217+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/second/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/runs/restart/second/worker.out",
+  "threads": 4,
+  "wall_s": 3.721,
+  "workdir": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/work/restart"
+}
