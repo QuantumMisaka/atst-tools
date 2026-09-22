@@ -1,0 +1,38 @@
+{
+  "artifact_manifest": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087133/out/work/atst_artifacts.json",
+  "artifacts": [
+    {
+      "path": "neb.traj",
+      "role": "trajectory"
+    }
+  ],
+  "is_root": true,
+  "metadata": {
+    "backend_source": "deepmd",
+    "runtime_evidence": "runtime_evidence.json"
+  },
+  "runtime": {
+    "attempt": 1,
+    "devices": {
+      "allocation_identity": "unverified",
+      "binding": "round_robin",
+      "bound": true,
+      "caller_bound": true,
+      "effective": [
+        "0"
+      ],
+      "inherited": [
+        "0"
+      ],
+      "requested": [],
+      "requested_source": null,
+      "threads": 1
+    },
+    "evidence": "runtime_evidence.json",
+    "status": "complete"
+  },
+  "schema": "atst-api-result-v1",
+  "status": "success",
+  "workdir": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087133/out/work",
+  "workflow": "neb"
+}

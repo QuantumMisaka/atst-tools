@@ -1,0 +1,23 @@
+
+Currently Loaded Modules:
+  1) deepmd-kit/3.2.0       6) openmpi/5.0.8-nvhpc25.7-gnu-auto
+  2) fftw/3.3.10            7) saiblas/2509-gnu-auto
+  3) libxc/7.0.0-auto       8) elpa/2025.06.001-2509-gnu-sm70-auto
+  4) cuda/12.9.1            9) abacus/LTSv3.10.1-sm70-auto
+  5) nvhpc/25.7-gnu-tuned
+
+job=1451597 node=4v100n26
+mpi_chain: Open MPI v5.0.8, package: Open MPI entropy@4v100pxn10.mr-sai.ai Distri
+{"cases_total": 1, "failed": 0, "skipped": 0, "succeeded": 1, "timed_out": 0, "wall_s": 14.465}
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+  File "/opt/apps/conda_env/deepmd-kit-3.2.0/lib/python3.13/pathlib/_local.py", line 546, in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/apps/conda_env/deepmd-kit-3.2.0/lib/python3.13/pathlib/_abc.py", line 632, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/apps/conda_env/deepmd-kit-3.2.0/lib/python3.13/pathlib/_local.py", line 537, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087196/work/runtime_evidence.json'

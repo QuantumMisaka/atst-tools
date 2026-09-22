@@ -19,7 +19,7 @@ Status: in_progress (P0-P5 complete, P6 in progress; the remaining items are lis
 - P2「计量端点与生命周期」的只读模型共享与重启回归、以及 P2「宿主 sampler」的 MPS 归属**已在 2026-09-22 现场收口**（SAI 作业 1444802）：模型目录摘要前后不变且 `dp.calculator_reused=1`、`ATST_ATTEMPT` 的缓存与证据归属一致、同 workdir 重跑末帧能量等价（Δ=1.6e-05 eV）；MPS 事实证明节点启用 MPS 且计算进程归因不可用（记 `unavailable` + reason，不填 0），见 [P2 收口报告](../../reports/ATST_P2_CLOSEOUT_2026-09-22.md)。两行随之下调为已勾选。
 - `not-planned` — P2「线程预算」的 DP TF 后端维度：**不做特意支持**，算法层兼容（线程预算与制品 kind 判定对 TF 同样生效），不安排 TF 制品验证（2026-09-22 维护者裁定；背景见 [本地验证报告 §10](../../reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md)）。
 - `open`（部分完成）— P6 交付与平台接入：文档面与 2.2.7 发布已完成，父仓 gitlink 已由父仓提交 `52d157dcc` 推进，平台侧 runtime 透传（P6 Task 6）已由父仓 `25df6ab17` 落地；独立终审与共享 image 的参数/runner 迁移仍未完成，见下文「P6」段。
-- `open` — 站点 `mpiexec` + runtime 重绑定的站点/上游确认：本仓侧根因已修（第三轮复核 P1-2，`0668d61`），修复后 `mpiexec -n 4 + round_robin` 复验通过（1434302），但该现象仍要求站点/上游确认，见 SAI 报告 §6 第 4 项与 §8。
+- ~~`open` — 站点 `mpiexec` + runtime 重绑定~~ **2026-09-22 现场复验收口**：修复（`0668d61`）后 `mpiexec --oversubscribe -n 8` + `binding: round_robin` 连续 3 次通过（作业 1451595/96/97，三节点，14.5–19.0 s，`bound=true`、`counters_mpi.world_size=8`），旧挂起现象不可复现；证据切片 `docs/reports/data/ATST_MPI_REBIND_REPEAT_20260922/`。是否属站点/上游已知行为不再作为阻断项：本仓侧根因已修（第三轮复核 P1-2，`0668d61`），修复后 `mpiexec -n 4 + round_robin` 复验通过（1434302），但该现象仍要求站点/上游确认，见 SAI 报告 §6 第 4 项与 §8。
 - `condition-blocked` — DP 通道的容器对照：站点 SIF 是 ABACUS toolbox 交付，deepmd 不在其范围，见 SAI 报告 §5j。
 - `condition-blocked` — FT²DP 单头 EMA 制品：本机无文件、站点钉版路径不可读，见[审阅地图 §4](../../reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md) 第 6 项。
 

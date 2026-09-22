@@ -1,0 +1,35 @@
+{
+  "schema_version": "atst-artifacts-v1",
+  "workflow": "neb",
+  "metadata": {
+    "runtime_evidence": "runtime_evidence.json"
+  },
+  "stages": [
+    {
+      "name": "ordinary_neb_warmup",
+      "status": "skipped",
+      "converged": null,
+      "role": "warmup",
+      "fmax": 0.2,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 20
+    },
+    {
+      "name": "neb",
+      "status": "complete",
+      "converged": false,
+      "role": "final",
+      "criterion": "neb_fmax",
+      "fmax": 0.5,
+      "fmax_unit": "eV/Angstrom",
+      "steps": 2,
+      "actual_steps": 2
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "trajectory",
+      "path": "neb.traj"
+    }
+  ]
+}

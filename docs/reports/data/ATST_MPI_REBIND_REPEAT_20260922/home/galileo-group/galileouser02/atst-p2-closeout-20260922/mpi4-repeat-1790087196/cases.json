@@ -1,0 +1,3 @@
+{"schema":"atst-bench-cases-v1","defaults":{"threads":1,"timeout_s":1800},
+ "cases":[{"case_id":"neb-roundrobin-8rank","config":"/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_mpi8.yaml",
+           "slots":1,"threads":1,"launcher":["mpiexec","--oversubscribe","-n","8"],"ranks":8,"timeout_s":1800,"workdir":"work"}]}

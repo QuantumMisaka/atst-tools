@@ -1,0 +1,30 @@
+{
+  "args": [],
+  "attempt": 1,
+  "case_id": "neb-roundrobin-8rank",
+  "classification": null,
+  "config": "/home/galileo-group/galileouser02/atst-p5-closeout-20260921/configs/dp_neb_ft2dp_chain10_mpi8.yaml",
+  "devices": [
+    "0"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-22T14:26:52.457317+00:00",
+  "gpu_seconds": 15.703,
+  "launcher": [
+    "mpiexec",
+    "--oversubscribe",
+    "-n",
+    "8"
+  ],
+  "ranks": 8,
+  "ranks_source": "declared",
+  "result_json": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087196/out/neb-roundrobin-8rank/atst_api_result.json",
+  "schema": "atst-bench-harness-v1",
+  "started_at": "2026-09-22T14:26:36.754299+00:00",
+  "status": "succeeded",
+  "stderr": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087196/out/neb-roundrobin-8rank/worker.err",
+  "stdout": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087196/out/neb-roundrobin-8rank/worker.out",
+  "threads": 1,
+  "wall_s": 15.703,
+  "workdir": "/org/galileo-group/galileouser02/atst-p2-closeout-20260922/mpi4-repeat-1790087196/out/work"
+}

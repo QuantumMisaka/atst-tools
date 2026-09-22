@@ -1,0 +1,7 @@
+--------------------------------------------------------------------------
+prterun detected that one or more processes exited with non-zero status,
+thus causing the job to be terminated. The first process to do so was:
+
+   Process name: [prterun-4v100n26-131351@1,6]
+   Exit code:    2
+--------------------------------------------------------------------------
