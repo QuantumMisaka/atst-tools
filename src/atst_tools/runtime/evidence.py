@@ -37,6 +37,17 @@ STATUS_OBSERVED = "observed"
 _PACKAGE_NAMES = ("numpy", "ase", "pydantic", "mpi4py", "deepmd-kit", "abacuslite")
 _MAX_SAMPLES = 20000
 
+# NVIDIA MPS daemons are host-level servers: while they run, client processes
+# do not necessarily appear in the ``nvidia-smi`` compute-process table.
+MPS_PROCESS_NAMES = ("nvidia-cuda-mps-control", "nvidia-cuda-mps-server")
+MPS_SCOPE = "process-namespace"
+MPS_SOCKET_PREFIX = Path("/tmp/nvidia-mps")
+SELF_REPORT_SCOPE = "allocator"
+SELF_REPORT_SOURCE = "torch.cuda"
+
+_PROC_ROOT = Path("/proc")
+_MIB = float(1024 * 1024)
+
 
 def _now() -> str:
     """Return the current UTC timestamp in ISO-8601 form."""
@@ -214,6 +225,197 @@ def _split(value: str | None) -> list[str]:
     return [part.strip() for part in value.split(",") if part.strip()]
 
 
+@dataclass
+class _ProbeLook:
+    """Outcome of one MPS probe: what it found and whether it completed."""
+
+    evidence: list[str] = field(default_factory=list)
+    status: str = "ok"
+    detail: str | None = None
+
+    @property
+    def label(self) -> str:
+        """Return the recorded status of this probe, with its explanation."""
+        return self.status if self.detail is None else f"{self.status}: {self.detail}"
+
+
+def probe_mps(timeout: float = 5.0, *, proc_root: Path | None = None) -> dict[str, Any]:
+    """Return whether an NVIDIA MPS daemon is visible to this process.
+
+    The probe reports what it found and never guesses: ``detected`` is true
+    only when an MPS daemon or an MPS socket path was seen, false only when a
+    process-table look completed without finding one, and null when no look
+    could complete (``reason`` then explains what failed).  ``scope`` bounds
+    the claim to this PID namespace, because a host-wide MPS server may run
+    outside it, and the absence of the socket path is not proof of absence.
+
+    Args:
+        timeout: Seconds allowed for the short-lived ``ps -ef`` fallback.
+        proc_root: Process table to scan; the host ``/proc`` by default.
+
+    Returns:
+        The ``mps`` fact: ``detected``, ``scope``, positive ``evidence``
+        lines, the per-probe ``probes`` status map and a ``reason``.
+    """
+    root = _PROC_ROOT if proc_root is None else Path(proc_root)
+    evidence: list[str] = []
+    probes: dict[str, str] = {}
+    details: list[str] = []
+    completed: list[_ProbeLook] = []
+
+    table_look = _proc_cmdline_look(root)
+    probes["proc_cmdline"] = table_look.label
+    evidence.extend(table_look.evidence)
+    completed.append(table_look)
+    if table_look.detail is not None:
+        details.append(table_look.detail)
+
+    if not evidence:
+        ps_look = _ps_look(timeout)
+        probes["ps"] = ps_look.label
+        evidence.extend(ps_look.evidence)
+        completed.append(ps_look)
+        if ps_look.detail is not None:
+            details.append(ps_look.detail)
+
+    socket_look = _socket_look(Path(MPS_SOCKET_PREFIX))
+    probes["socket_prefix"] = socket_look.label
+    evidence.extend(socket_look.evidence)
+    if socket_look.detail is not None:
+        details.append(socket_look.detail)
+
+    if evidence:
+        detected: bool | None = True
+        reason = None
+    elif any(look.status == "ok" for look in completed):
+        # A process-table look completed and saw no daemon; the socket look is
+        # supporting evidence only, so it can never support a negative.
+        detected = False
+        reason = None
+    else:
+        detected = None
+        reason = "MPS could not be probed: " + "; ".join(details)
+    return {
+        "detected": detected,
+        "scope": MPS_SCOPE,
+        "evidence": evidence,
+        "probes": probes,
+        "reason": reason,
+    }
+
+
+def _probe_mps_or_unknown(timeout: float = 5.0) -> dict[str, Any]:
+    """Return one MPS probe result, or an explicit unknown fact on failure."""
+    try:
+        return probe_mps(timeout=timeout)
+    except Exception as exc:  # pragma: no cover - defensive
+        return {
+            "detected": None,
+            "scope": MPS_SCOPE,
+            "evidence": [],
+            "probes": {},
+            "reason": f"MPS could not be probed ({type(exc).__name__})",
+        }
+
+
+def _entry_order(path: Path) -> tuple[int, int, str]:
+    """Order a process-table listing numerically by PID where possible."""
+    if path.name.isdigit():
+        return (0, int(path.name), "")
+    return (1, 0, path.name)
+
+
+def _mps_names_in(text: str) -> list[str]:
+    """Return the MPS daemon names mentioned in one command line."""
+    names: list[str] = []
+    for token in text.split():
+        name = os.path.basename(token)
+        if name in MPS_PROCESS_NAMES and name not in names:
+            names.append(name)
+    return names
+
+
+def _proc_cmdline_look(proc_root: Path) -> _ProbeLook:
+    """Scan a process table for MPS daemons through its ``cmdline`` files."""
+    look = _ProbeLook()
+    try:
+        entries = sorted(proc_root.iterdir(), key=_entry_order)
+    except OSError as exc:
+        look.status = "failed"
+        look.detail = f"{proc_root} could not be listed ({type(exc).__name__})"
+        return look
+    unreadable = 0
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            raw = (entry / "cmdline").read_bytes()
+        except OSError:
+            # Hidden or exited processes keep the negative inconclusive.
+            unreadable += 1
+            continue
+        text = raw.replace(b"\x00", b" ").decode("utf-8", "replace")
+        look.evidence.extend(
+            f"{name} pid {entry.name}" for name in _mps_names_in(text)
+        )
+    if unreadable:
+        look.status = "partial"
+        look.detail = f"{unreadable} process cmdline(s) could not be read"
+    return look
+
+
+def _ps_look(timeout: float) -> _ProbeLook:
+    """Look for MPS daemons through a short-lived ``ps -ef`` listing."""
+    look = _ProbeLook()
+    try:
+        completed = subprocess.run(
+            ["ps", "-ef"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        look.status = "failed"
+        look.detail = f"ps could not be executed ({type(exc).__name__})"
+        return look
+    if completed.returncode != 0:
+        look.status = "failed"
+        look.detail = f"ps exited with status {completed.returncode}"
+        return look
+    for line in completed.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 2 or not parts[1].isdigit():
+            continue
+        look.evidence.extend(
+            f"{name} pid {parts[1]}" for name in _mps_names_in(" ".join(parts[2:]))
+        )
+    return look
+
+
+def _socket_look(prefix: Path) -> _ProbeLook:
+    """Report whether an MPS socket path exists next to ``prefix``."""
+    look = _ProbeLook()
+    try:
+        matches = sorted(prefix.parent.glob(f"{prefix.name}*"))
+    except OSError as exc:
+        look.status = "failed"
+        look.detail = f"{prefix}* could not be inspected ({type(exc).__name__})"
+        return look
+    look.evidence.extend(f"{path} exists" for path in matches)
+    return look
+
+
+def _no_process_reason(mps: Mapping[str, Any]) -> str:
+    """Explain an empty compute-process table, naming MPS when it is active."""
+    if mps.get("detected") is True:
+        return (
+            "no compute process was reported; MPS is active on this host, so "
+            "client processes are not attributable"
+        )
+    return "no compute process was reported"
+
+
 def sample_gpus(timeout: float = 5.0) -> dict[str, Any]:
     """Take one host-scope GPU sample through a short-lived ``nvidia-smi`` query."""
     try:
@@ -271,14 +473,28 @@ def sample_gpus(timeout: float = 5.0) -> dict[str, Any]:
     }
 
 
-def sample_compute_processes(timeout: float = 5.0) -> dict[str, Any]:
+def sample_compute_processes(
+    timeout: float = 5.0, *, mps: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     """Take one host-scope compute-process sample (PID, memory, device UUID).
 
     Attribution stays conservative: the rows are what the host reports now.
     MPS, container PID namespaces and permissions can block or distort this
     view, so consumers must treat the result as reported evidence rather than
-    as an authoritative ownership map.
+    as an authoritative ownership map.  An empty table stays ``unavailable``;
+    when an MPS daemon is visible it also names MPS in ``reason`` instead of
+    guessing an owner or reporting a zero.
+
+    Args:
+        timeout: Seconds allowed for the short-lived ``nvidia-smi`` query.
+        mps: MPS fact to reuse, for example the one a sampler probed once for
+            the whole run; probed here when omitted.
+
+    Returns:
+        The sample: ``status``, ``reason``, ``source``, ``processes`` rows and
+        the ``mps`` fact that qualifies the attribution.
     """
+    mps_fact = dict(mps) if mps is not None else _probe_mps_or_unknown(timeout)
     try:
         completed = subprocess.run(
             [
@@ -297,6 +513,7 @@ def sample_compute_processes(timeout: float = 5.0) -> dict[str, Any]:
             "reason": f"nvidia-smi could not be executed ({type(exc).__name__})",
             "source": "nvidia-smi",
             "processes": [],
+            "mps": mps_fact,
         }
     if completed.returncode != 0:
         return {
@@ -304,6 +521,7 @@ def sample_compute_processes(timeout: float = 5.0) -> dict[str, Any]:
             "reason": f"nvidia-smi exited with status {completed.returncode}",
             "source": "nvidia-smi",
             "processes": [],
+            "mps": mps_fact,
         }
     processes: list[dict[str, Any]] = []
     for line in completed.stdout.splitlines():
@@ -320,9 +538,84 @@ def sample_compute_processes(timeout: float = 5.0) -> dict[str, Any]:
         )
     return {
         "status": STATUS_OBSERVED if processes else STATUS_UNAVAILABLE,
-        "reason": None if processes else "no compute process was reported",
+        "reason": None if processes else _no_process_reason(mps_fact),
         "source": "nvidia-smi",
         "processes": processes,
+        "mps": mps_fact,
+    }
+
+
+def sample_self_memory() -> dict[str, Any]:
+    """Read this process's own CUDA allocator statistics, or explain why not.
+
+    The reading is an allocator high-water mark of the calling process, not a
+    driver-level device reading: it covers torch allocations only and is
+    unaffected by MPS.  The helper never initialises CUDA, so it reports an
+    explicit null with a reason when torch is missing, built without CUDA or
+    has no initialised context in this process.
+
+    Returns:
+        The ``self_reported`` fact: ``scope``, ``source``, ``status``,
+        ``reason`` and one ``devices`` row per torch-visible device.
+    """
+    try:
+        import torch
+    except Exception as exc:
+        return _self_memory(
+            fact_reason=f"torch is not importable ({type(exc).__name__})"
+        )
+    cuda = getattr(torch, "cuda", None)
+    if cuda is None:
+        return _self_memory(fact_reason="the torch build exposes no cuda module")
+    try:
+        if not cuda.is_initialized():
+            build = getattr(getattr(torch, "version", None), "cuda", None)
+            if build is None:
+                fact_reason = (
+                    "this torch build has no CUDA support, so it reports no "
+                    "allocator statistics"
+                )
+            else:
+                fact_reason = (
+                    "CUDA is not initialised in this process, and the sampler "
+                    "never initialises it, so no allocator statistics exist"
+                )
+            return _self_memory(fact_reason=fact_reason)
+        devices = [
+            {
+                "index": index,
+                "max_memory_allocated_mib": round(
+                    float(cuda.max_memory_allocated(index)) / _MIB, 3
+                ),
+            }
+            for index in range(int(cuda.device_count()))
+        ]
+    except Exception as exc:
+        # A partial allocator reading is not a measurement, and measurement
+        # must never mask the scientific result.
+        return _self_memory(
+            fact_reason=f"torch.cuda could not be queried ({type(exc).__name__})"
+        )
+    if not devices:
+        return _self_memory(
+            fact_reason="CUDA is initialised but torch.cuda reports no device"
+        )
+    return _self_memory(devices=devices)
+
+
+def _self_memory(
+    *,
+    fact_reason: str | None = None,
+    devices: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build one ``self_reported`` fact from a reading or its reason."""
+    return {
+        "scope": SELF_REPORT_SCOPE,
+        "source": SELF_REPORT_SOURCE,
+        "status": STATUS_UNAVAILABLE if fact_reason else STATUS_OBSERVED,
+        "reason": fact_reason,
+        "sampled_at": _now(),
+        "devices": devices or [],
     }
 
 
@@ -377,6 +670,7 @@ class EvidenceSession:
                 "coverage_s": 0.0,
                 "samples": [],
                 "memory_peak_mib": {"value": None, "source": None},
+                "mps": None,
             }
         )
         payload = {
@@ -389,6 +683,7 @@ class EvidenceSession:
             "finished_at": _now(),
             "environment": environment_facts(self.environ),
             "devices": device_facts(self.config_runtime, self.environ),
+            "self_reported": sample_self_memory(),
             "counters": _counters.snapshot(),
             "counters_scope": "process",
             "gauges": _counters.gauge_snapshot(),
@@ -402,6 +697,14 @@ class EvidenceSession:
                 "this workflow when devices are shared.",
                 "Sampled memory peaks may miss short peaks; missing values are "
                 "reported as null, never zero.",
+                "Under NVIDIA MPS, per-client attribution is not available: "
+                "nvidia-smi can report no compute process while clients run, so "
+                "the sampler records the MPS fact and keeps `unavailable` "
+                "instead of guessing an owner.",
+                "`self_reported` is this process's torch allocator high-water "
+                "mark over torch-visible device indices, not a driver-level "
+                "reading: it excludes non-torch allocations, CUDA context "
+                "memory and allocations of other processes.",
             ],
         }
         if rank_counters is not None:
@@ -428,13 +731,17 @@ class HostSampler:
         self._last_status = STATUS_DISABLED
         self._reason: str | None = None
         self._source: str | None = None
+        self._mps: dict[str, Any] | None = None
         self._started = __import__("time").monotonic()
 
     def start(self) -> None:
+        # MPS is a host fact, so one probe covers every sample of this run.
+        self._mps = _probe_mps_or_unknown()
+
         def _loop() -> None:
             while not self._stop.is_set():
                 sample = sample_gpus()
-                processes = sample_compute_processes()
+                processes = sample_compute_processes(mps=self._mps)
                 sample["processes"] = processes
                 self._last_status = sample["status"]
                 self._reason = sample.get("reason")
@@ -475,6 +782,7 @@ class HostSampler:
                 "value": peak,
                 "source": "sampled_peak" if peak is not None else None,
             },
+            "mps": self._mps,
         }
 
 
