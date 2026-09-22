@@ -813,6 +813,9 @@ provide a separate backend selector. Multi-head DPA/DPA3 models should set
 behavior and writes no additional files. Any runtime request (a `runtime`
 section, a runtime CLI option, or `ATST_VISIBLE_DEVICES`) switches the run to
 the isolated worker path: devices and thread budgets are applied before the
+scientific stack is imported, and telemetry writes `runtime_evidence.json`
+next to the artifact manifest.
+
 DP 后端与制品（2026-09-22）：ATST 按制品后缀判定类型并存证——`.pt` 原始 checkpoint（推荐）、
 `.pth` 冻结归档（TorchScript，**与导出时的 deepmd-kit 构建锁定**）、`.pb`/`.pbtxt` TF 图（kind 级）。
 多任务（multi-task）PT 模型**必须**给 `head`：缺失或名称错误会抛 `DeepPotentialError`，
@@ -822,9 +825,6 @@ DP 后端与制品（2026-09-22）：ATST 按制品后缀判定类型并存证�
 线程预算：`runtime.threads` 同时写 `OMP_NUM_THREADS` 与 deepmd 自荐的
 `DP_INTRA_OP_PARALLELISM_THREADS`/`DP_INTER_OP_PARALLELISM_THREADS`；`calculator.dp.omp` 只设 OMP（既有语义不变）。
 `dp_model_identity()` 可回读 kind/backend/head/ntypes/rcut/type_map 等事实（会加载模型元数据，约数秒，不在默认运行路径调用）。
-
-scientific stack is imported, and telemetry writes `runtime_evidence.json`
-next to the artifact manifest.
 
 ```yaml
 runtime:
