@@ -12,6 +12,8 @@
 
 **Tech Stack:** Python 3.10+，ASE 3.28，pytest，GitHub Actions；测试环境 `conda run -n abacus-env env PYTHONPATH=$PWD/src pytest`。
 
+**Checkbox note (2026-09-22):** Tasks 1-8 were delivered across 2.2.5-2.2.8 (SCF frame selection, `PATCHES.md`, `ABACUSLITE_SNAPSHOT.md`, the CI drift gate, the labeled benchmark fixtures); the boxes below were not maintained. Task 9 (SIF delivery) moved to the parent ABACUS toolbox repository, and the upstream abacuslite pull requests stay deferred by maintainer decision.
+
 ## Global Constraints
 
 - 测试禁绝对路径（ABACUS 项目红线）；golden 夹具只放 `src/atst_tools/external/ASE_interface/abacuslite/io/testfiles/` 与 `tests/unit/`。

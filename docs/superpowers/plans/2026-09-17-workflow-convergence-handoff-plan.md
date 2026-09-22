@@ -10,6 +10,8 @@
 **Status:** released as 2.2.6 (A0–A6 complete; Paimon joint consumer agreement and real runtime acceptance remain with their owners; see §6)
 **Owner:** ATST maintainers/developer; Paimon developer owns consumer mapping and joint acceptance.
 
+**Checkbox note (2026-09-22):** the task list below is the original breakdown and was not maintained after delivery; the delivered evidence lives in the ledger and the 2.2.6/2.2.8 release notes. The remaining work is the Paimon consumer joint acceptance, owned by the consumer.
+
 ## 1. Scope and ownership
 
 The motivating defect is information loss between optimizer termination and artifact consumers, not a request to change optimization algorithms or certify transition states.

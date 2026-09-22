@@ -73,7 +73,7 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 
 依赖：P1。对应 SPEC §4.3、§5.3、§6。
 
-- [ ] 在初始化前应用明确的线程预算，覆盖 CPU affinity/cpuset 与 DP TF/PT 差异；不静默覆盖用户已有科学配置（线程预算/affinity 已实现并验证；**条件阻塞：缺 TF 原生制品**（`dp --pt convert-backend` 对 DPA-3.1 失败；TF 运行时在但无 TF 制品，见验证报告 §10）；该维度**部分完成**（2026-09-22：**PT 侧已覆盖**——deepmd 自荐的 `DP_INTRA_OP_PARALLELISM_THREADS`/`DP_INTER_OP_PARALLELISM_THREADS` 已并入运行时线程键（`tests/unit/test_runtime_thread_env.py`），PT 制品的多任务 head 校验与冻结归档错误翻译已落地（`tests/unit/test_dp_pt_backend.py`）；**TF 侧不做特意支持**：线程预算与制品 kind 判定在算法层对 TF 同样生效，不安排 TF 制品验证（2026-09-22 维护者裁定））；该行保持未勾选。
+- [x] 在初始化前应用明确的线程预算，覆盖 CPU affinity/cpuset 与 DP TF/PT 差异；不静默覆盖用户已有科学配置（线程预算/affinity 已实现并验证；**条件阻塞：缺 TF 原生制品**（`dp --pt convert-backend` 对 DPA-3.1 失败；TF 运行时在但无 TF 制品，见验证报告 §10）；该维度**部分完成**（2026-09-22：**PT 侧已覆盖**——deepmd 自荐的 `DP_INTRA_OP_PARALLELISM_THREADS`/`DP_INTER_OP_PARALLELISM_THREADS` 已并入运行时线程键（`tests/unit/test_runtime_thread_env.py`），PT 制品的多任务 head 校验与冻结归档错误翻译已落地（`tests/unit/test_dp_pt_backend.py`）；**TF 侧不做特意支持**：线程预算与制品 kind 判定在算法层对 TF 同样生效，不安排 TF 制品验证（2026-09-22 维护者裁定））；按维护者裁定在本轮范围内收口（PT 覆盖、TF 不计划）。
 - [x] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例（计数/存活对象/显存已实现：`counters`、`dp.cached_instances` gauge、`memory_peak_mib` 采样峰值；每 attempt 独立 cache 已验证；图像状态隔离由并行 NEB 逐帧等价间接覆盖；**2026-09-22 收口**：只读模型共享在真实只读目录（`444` 文件 / `555` 目录）与共享 worker 两个 DP 用例上验证——模型目录内容摘要+mtime 逐条不变、`dp.calculator_built=1`/`dp.calculator_reused=1`；重启回归在同一 workdir 连续两次 batch 上末帧能量等价（Δ=1.6e-05 eV）且缓存/产物归属本轮 attempt，见 [P2 收口报告](../../reports/ATST_P2_CLOSEOUT_2026-09-22.md)；单元守卫见 `tests/unit/test_runtime_model_sharing.py`、`tests/unit/test_runtime_restart_isolation.py`）。
 - [x] ABACUS 按实际 command 验证 launcher；复用现有 MPI 清理、profile 和 backend 选择（2026-09-22 收口：契约由 `tests/unit/test_factory.py` 的 ABACUS 工厂用例承载——`test_abacus_factory_flattens_config`、`test_abacus_factory_uses_explicit_version_command`、`test_abacus_factory_rejects_shell_style_omp_assignment`、`test_abacus_factory_passes_omp_without_shell_assignment`、`test_abacus_factory_formats_mpi_placeholder`、`test_abacus_factory_does_not_wrap_explicit_srun_command`、`test_abacus_factory_strips_outer_mpi_env_for_single_process_abacus`、`test_abacus_factory_strips_outer_mpi_env_for_env_wrapped_single_process_abacus`（本工作树实跑：`tests/unit/test_factory.py` 18 passed；其中 ABACUS 工厂用例 8 项，`-k abacus_factory` → 8 passed / 10 deselected）；依据 `docs/reports/DOCUMENTATION_STATUS_REPORT.md` 2026-09-21「P2 收口片」条目（该条目写"16 项"为当时文件规模，`3a7b5e6` 之后为 18 项）；站点侧同一 command 路径由 ABACUS 通道的实际运行执行，见 SAI 报告 §5b/§5d/§5j）。
 - [x] 增加 opt-in runtime sidecar、阶段耗时、初始化/力调用计数与版本来源；成功关联 manifest，失败保留部分证据（首片 2026-09-21：`runtime/evidence.py` 的 sidecar `atst-runtime-evidence-v1`、manifest `runtime_evidence` 引用、环境/设备事实、rank 0 单例宿主采样、失败保留 `partial`、计量失败不阻断运行；第二片：`runtime/counters.py` 进程级计数器（`dp.calculator_built/reused`、`dp.force_calls`、`abacus.calculator_built/force_calls`）随 sidecar 输出并标注 `counters_scope=process`；第三片：MPI 成功路径在 collective 后输出 `counters_mpi`（rank 求和，含 `world_size`）；第四片：阶段耗时 `phases`（`dispatch_s`/`attempt_s`）与结果 envelope 可选 `runtime` 摘要（legacy 无此键，逐字节兼容）；第五片（契约审计）：`memory_peak_mib` 采样峰值标记；子项全部交付并有单测）。
@@ -185,9 +185,9 @@ harness 语义：case 默认在配置文件所在目录运行（ATST 相对路�
 依赖：P5；平台部分独立排期/授权。
 
 - [x] 更新 atst `CONFIG_REFERENCE.md`、schema 生成参数表、用户指南、examples、FEATURE_STATUS_MATRIX 与文档账本；发布说明区分 CPU/mock、MPI、GPU、SIF 验证范围（2026-09-21/22 已随 2.2.7 发布完成，范围声明见 `docs/releases/RELEASE_NOTES_2.2.7.md` 的 Validation Matrix）。
-- [ ] 相称独立终审，按 atst 版本规则发布；父仓依赖同步与 gitlink 更新独立执行（发布已完成：2.2.7 于 2026-09-21 上线 PyPI/GitHub Release；父仓 gitlink 已由父仓提交 `52d157dcc` 推进到 `af9c8fa`；**独立终审仍 open**——现有审查为 P0 设计审查与 bench/services 二轮复核，不含整分支终审）。
+- [ ] 相称独立终审，按 atst 版本规则发布；父仓依赖同步与 gitlink 更新独立执行（发布已完成：2.2.7 于 2026-09-21 上线 PyPI/GitHub Release；父仓 gitlink 已由父仓提交 `52d157dcc` 推进到 `af9c8fa`；**独立终审与发布已完成**（2026-09-22：整分支独立终审给 approve with required changes，findings 已修；2.2.8 已上 PyPI 并 clean-install 复核）；父仓 gitlink 待升到 v2.2.8）。
 - [ ] 平台先消费单任务绑定/运行证据，再单独设计共享 image 的参数、resAlloc/prepare/runner 迁移；不重释现有 `n_gpu`（平台侧消费已落地：父仓 `25df6ab17` 让恒电势与过渡态 `prepare` 暴露 `runtime` 段；共享 image 的参数/runner 迁移仍 open）。
-- [ ] 核对恒电势 Task 3.2 共用 `toolkits/atst_runner.py` 抽取进展，平台 GPU 适配复用届时的 owner 入口；不另造 runner。
+- [x] 核对恒电势 Task 3.2 共用 `toolkits/atst_runner.py` 抽取进展（2026-09-22 核对：`toolbox/ABACUS/toolkits/atst_runner.py` 已存在，引入提交 `375ef7c6b`；平台 GPU 适配复用该入口），平台 GPU 适配复用届时的 owner 入口；不另造 runner。
 - [ ] 更新对应 owner guide 与交接测试，经本地 E2E、授权的平台发布验证后再宣称平台支持；只有新增依赖确需镜像变化时才插入非活动 SIF 候选。
 
 验收：standalone、SIF、本地 E2E、平台验证分别标注；可关闭 opt-in 回到旧入口。缺性能证据不修改生产默认。
@@ -211,8 +211,8 @@ atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线
 依据 SPEC §7A，GPU runtime 与恒电势算法没有性能验收上的相互前置依赖；共享文件由 atst 维护者串行集成，不要求等待整个恒电势项目完成。
 
 - [x] P0 对齐 runtime/calculation 字段和结果扩展；恒电势每轮允许新 calculator，不受"单模型实例"限制（2026-09-21：恒电势已合入 main，GPU 分支 rebase 于其上；字段对齐由联合验收测试 `tests/unit/test_joint_runtime_constant_potential.py` 锁定，见接口文档 §8.3）。
-- [ ] P2/P4 审查 cache、任务目录、restart、rank/image 状态，不能将 `nelec` 或前轮 E/F 混用。
-- [ ] 两项实现都可用后，运行恒电势单点/扫描与新 runtime 的组合回归；恒电势 NEB 共享另在其 P1 科学验收后验证（配置层联合校验已加并全绿；真实组合运行待 P5 授权后执行）。
+- [x] P2/P4 审查 cache、任务目录、restart、rank/image 状态（2026-09-22 收口：attempt 缓存与证据归属、同 workdir 重启由 `tests/unit/test_runtime_restart_isolation.py` 与 SAI 1444802 固定；rank/image 由既有 MPI 集成与并行 NEB 逐帧等价覆盖；恒电势 `nelec`/前轮 E-F 由 `tests/unit/test_constant_potential_restart.py` 固定），不能将 `nelec` 或前轮 E/F 混用。
+- [x] 两项实现都可用后，运行恒电势单点/扫描与新 runtime 的组合回归（2026-09-22 收口：SAI 1435012 已跑 `compensated_gate` 单点 + 三点扫描 with runtime；恒电势 NEB 共享仍待其 P1 科学验收）；恒电势 NEB 共享另在其 P1 科学验收后验证（配置层联合校验已加并全绿；真实组合运行待 P5 授权后执行）。
 
 恒电势 O7、M0 后端事实及电势收敛容差由恒电势 owner 解决；本计划不修改其算法或授权范围。组合回归尚未满足时只交付已验证的固定电荷/普通 DP runtime，不泛称恒电势已获优化支持。
 

@@ -28,7 +28,7 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 
 ## At A Glance
 
-| Area | Current 2.2.8 status (release candidate; not published) |
+| Area | Current 2.2.8 status (published; PyPI clean-install verified) |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
