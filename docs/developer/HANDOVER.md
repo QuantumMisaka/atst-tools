@@ -132,6 +132,11 @@ release 变更，都先从对应小节确认需要同步的文档。
 | 测量记录 | `python -m atst_tools.bench.record --manifest cases.json --out runs/bench_record.json --run-dir runs --job-id … --partition … --qos …` | 自描述记录：修订/分支/dirty、清单与夹具哈希、结果树哈希、operator 字段 |
 
 站点一键入口：`scripts/sai_runtime_bench.sbatch`（计时 sweep → 证据 pass → 记录）。
+通道夹具（2026-09-22）：`record` 的 `--fixture`（可重复）语义与记录字段不变，新增可重复的
+`--fixture-labeled LABEL=PATH`（与前者按命令行顺序共同写入 `inputs.fixtures`，元素多一个
+`label`；PATH 是目录时另记 `file_count`/`tree_sha256`，缺件 warning 措辞不变）。
+`scripts/sai_runtime_bench.sbatch` 因此按通道传参：`MODEL` → `dp_model=`、`ABACUS_INPUTS`
+（文件或目录）→ `abacus_inputs=`，label 集合写入 `--note`，ABACUS 通道不再记成 DP 模型哈希。
 清单模板：`examples/runtime_batch_cases.example.json`。清单字段：`case_id`、`config`、
 `slots`、`threads`、`timeout_s`、`workdir`、`launcher`、`ranks`、`env`；**每个 case 必须有
 自己的目录**（未给 `workdir` 时按配置目录，同目录会被拒绝，避免证据互相覆盖）。

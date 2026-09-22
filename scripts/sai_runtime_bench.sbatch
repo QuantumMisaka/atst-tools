@@ -22,7 +22,12 @@
 #   EVIDENCE_PASS=1    additionally run one single-repeat pass with per-case
 #                      runtime_evidence.json sidecars (timing pass keeps them
 #                      off so samplers cannot perturb makespan)
-#   MODEL=/path/model.pt  fixture hashed into the benchmark record
+#   MODEL=/path/model.pt   DP model, recorded as the `dp_model` fixture of the
+#                          benchmark record
+#   ABACUS_INPUTS=/path    ABACUS input file or directory (hashed as a tree when
+#                          it is a directory), recorded as the `abacus_inputs`
+#                          fixture so the ABACUS channel is not recorded with
+#                          the DP model hash
 #   DRY_RUN=1          print the commands instead of executing them
 #   ABACUS_MODULE=1    additionally load abacus/LTSv3.10.1-sm70-auto (ABACUS cases)
 #
@@ -112,17 +117,39 @@ if [ "${EVIDENCE_PASS:-1}" = "1" ]; then
 fi
 
 # 3) Self-describing record (operator fields stay null until filled in).
+#
+# Fixtures are labeled per benchmark channel: `MODEL` is the DP model and
+# `ABACUS_INPUTS` the ABACUS channel's inputs. The labels provided on this run
+# go into the note, so a record without a channel fixture is distinguishable
+# from one whose fixture argument was simply not passed.
+labeled_fixtures=()
+if [ -n "${MODEL:-}" ]; then
+  labeled_fixtures+=("dp_model=${MODEL}")
+fi
+if [ -n "${ABACUS_INPUTS:-}" ]; then
+  labeled_fixtures+=("abacus_inputs=${ABACUS_INPUTS}")
+fi
+FIXTURE_LABELS="none"
+if [ "${#labeled_fixtures[@]}" -gt 0 ]; then
+  FIXTURE_LABELS=""
+  for entry in "${labeled_fixtures[@]}"; do
+    FIXTURE_LABELS="${FIXTURE_LABELS:+${FIXTURE_LABELS},}${entry%%=*}"
+  done
+fi
+
 record_args=(
   --manifest "${MANIFEST}"
   --out "${OUT_DIR}/bench_record.json"
   --run-dir "${OUT_DIR}/sweep"
-  --note "sai_runtime_bench: devices=${DEVICES} slots=${SLOTS} repeats=${REPEATS}"
+  --note "sai_runtime_bench: devices=${DEVICES} slots=${SLOTS} repeats=${REPEATS} fixtures=${FIXTURE_LABELS}"
 )
 if [ "${EVIDENCE_PASS:-1}" = "1" ]; then
   record_args+=(--run-dir "${OUT_DIR}/evidence")
 fi
-if [ -n "${MODEL:-}" ]; then
-  record_args+=(--fixture "${MODEL}")
+if [ "${#labeled_fixtures[@]}" -gt 0 ]; then
+  for entry in "${labeled_fixtures[@]}"; do
+    record_args+=(--fixture-labeled "${entry}")
+  done
 fi
 if [ -n "${SLURM_JOB_ID:-}" ]; then
   record_args+=(--job-id "${SLURM_JOB_ID}")

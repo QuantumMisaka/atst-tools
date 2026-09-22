@@ -23,6 +23,13 @@ Usage::
 
     python -m atst_tools.bench.record --manifest cases.json --out record.json \\
         --run-dir runs/sweep --run-dir runs/single
+
+Fixtures are hashed under the channel they belong to, so an ABACUS job cannot
+be recorded with the DP model hash::
+
+    python -m atst_tools.bench.record --manifest cases.json --out record.json \\
+        --fixture-labeled dp_model=model.ckpt.pt \\
+        --fixture-labeled abacus_inputs=runs/abacus4/INPUT
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ import os
 import platform
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -50,6 +58,21 @@ OPERATOR_FIELDS: tuple[str, ...] = (
     "sacct_excerpt",
     "approved_by",
 )
+
+
+@dataclass(frozen=True)
+class FixtureSpec:
+    """One fixture referenced by a record.
+
+    Attributes:
+        path: File or directory to hash into the record.
+        label: Benchmark channel the fixture belongs to (for example
+            ``dp_model`` or ``abacus_inputs``), or ``None`` for a fixture given
+            without a label.
+    """
+
+    path: Path
+    label: str | None = None
 
 
 def _sha256(path: Path) -> str | None:
@@ -111,6 +134,36 @@ def _tree_digest(root: Path) -> dict[str, Any]:
         digest.update(f"{path.relative_to(root).as_posix()}:{file_hash}\n".encode())
         count += 1
     return {"file_count": count, "tree_sha256": digest.hexdigest()}
+
+
+def _fixture_entry(spec: FixtureSpec) -> dict[str, Any]:
+    """Describe one fixture for ``inputs.fixtures``.
+
+    Files keep the shape they had before labeled fixtures existed
+    (``path``/``exists``/``sha256``); ``label`` is added only for a labeled
+    fixture, and a directory adds ``file_count``/``tree_sha256`` in place of the
+    file hash.
+
+    Args:
+        spec: Fixture path and optional channel label.
+
+    Returns:
+        The record entry for that fixture.
+    """
+    path = Path(spec.path)
+    entry = _artifact(path)
+    if spec.label is not None:
+        entry["label"] = spec.label
+    if path.is_dir():
+        entry.update(_tree_digest(path))
+    return entry
+
+
+def _as_fixture_spec(item: FixtureSpec | str | Path) -> FixtureSpec:
+    """Return *item* as a :class:`FixtureSpec`, labeling plain paths as unlabeled."""
+    if isinstance(item, FixtureSpec):
+        return item
+    return FixtureSpec(path=Path(item))
 
 
 def _summarize_run_dir(run_dir: Path) -> dict[str, Any]:
@@ -182,11 +235,24 @@ def build_record(
     *,
     manifest: Path,
     run_dirs: Sequence[Path] = (),
-    fixtures: Sequence[Path] = (),
+    fixtures: Sequence[FixtureSpec | str | Path] = (),
     operator: Mapping[str, Any] | None = None,
     notes: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Build one benchmark record document (no file writes)."""
+    """Build one benchmark record document (no file writes).
+
+    Args:
+        manifest: Case manifest the run was driven by.
+        run_dirs: Batch-runner or sweep output directories to summarize.
+        fixtures: Fixtures to hash under ``inputs.fixtures``, in order. A plain
+            path counts as an unlabeled fixture; :class:`FixtureSpec` also
+            carries the channel ``label``.
+        operator: Operator-owned field values; unset ones stay ``None``.
+        notes: Free-form notes stored with the record.
+
+    Returns:
+        The ``atst-bench-record-v1`` payload.
+    """
     operator_payload: dict[str, Any] = {}
     provided = dict(operator or {})
     for key in OPERATOR_FIELDS:
@@ -194,6 +260,7 @@ def build_record(
     for key, value in provided.items():
         if key not in operator_payload:
             operator_payload[key] = value
+    fixture_specs = [_as_fixture_spec(item) for item in fixtures]
     results = [_summarize_run_dir(Path(run_dir)) for run_dir in run_dirs]
     run_revisions = [
         {"dir": entry["dir"], "revision": entry.get("revision")}
@@ -207,8 +274,11 @@ def build_record(
     warnings: list[str] = []
     if not Path(manifest).is_file():
         warnings.append(f"manifest is missing: {manifest}")
-    for path in fixtures:
-        if not Path(path).is_file():
+    for spec in fixture_specs:
+        path = Path(spec.path)
+        # A directory is a valid fixture (its tree is hashed); anything that is
+        # neither a file nor a directory cannot be referenced at all.
+        if not path.is_file() and not path.is_dir():
             warnings.append(f"fixture is missing: {path}")
     for entry in results:
         if not entry["exists"]:
@@ -225,7 +295,7 @@ def build_record(
         "host": _host_facts(),
         "inputs": {
             "manifest": _artifact(manifest),
-            "fixtures": [_artifact(path) for path in fixtures],
+            "fixtures": [_fixture_entry(spec) for spec in fixture_specs],
         },
         "results": results,
         "operator": operator_payload,
@@ -246,6 +316,36 @@ def write_record(payload: Mapping[str, Any], out_path: Path) -> Path:
     return path.resolve()
 
 
+class _FixtureAction(argparse.Action):
+    """Collect ``--fixture`` fixtures into the shared, order-preserving list."""
+
+    labeled = False
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        label: str | None = None
+        raw = str(values)
+        if self.labeled:
+            label, separator, raw = raw.partition("=")
+            label = label.strip()
+            if not separator or not label or not raw:
+                parser.error(f"{option_string} expects LABEL=PATH, got {values!r}")
+        items = list(getattr(namespace, self.dest, None) or [])
+        items.append(FixtureSpec(path=Path(raw), label=label))
+        setattr(namespace, self.dest, items)
+
+
+class _LabeledFixtureAction(_FixtureAction):
+    """Collect ``--fixture-labeled LABEL=PATH`` fixtures into the same list."""
+
+    labeled = True
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Build one benchmark record from the given directories."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -259,9 +359,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--fixture",
-        action="append",
-        default=[],
-        help="Fixture file to hash into the record (repeatable)",
+        action=_FixtureAction,
+        dest="fixture_specs",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Fixture file or directory to hash into the record, unlabeled "
+            "(repeatable; recorded in the order given)"
+        ),
+    )
+    parser.add_argument(
+        "--fixture-labeled",
+        action=_LabeledFixtureAction,
+        dest="fixture_specs",
+        default=None,
+        metavar="LABEL=PATH",
+        help=(
+            "Fixture file or directory recorded under an explicit channel label, "
+            "for example dp_model=model.ckpt.pt (repeatable; shares the order of "
+            "--fixture)"
+        ),
     )
     parser.add_argument("--job-id", default=None)
     parser.add_argument("--partition", default=None)
@@ -278,7 +395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     payload = build_record(
         manifest=Path(args.manifest),
         run_dirs=[Path(path) for path in args.run_dir],
-        fixtures=[Path(path) for path in args.fixture],
+        fixtures=args.fixture_specs or (),
         operator={
             "job_id": args.job_id,
             "partition": args.partition,

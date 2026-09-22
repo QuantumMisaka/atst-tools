@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from atst_tools.bench import record
 
 
@@ -238,3 +240,183 @@ def test_record_reports_gpu_inventory_failure_instead_of_guessing(monkeypatch):
     facts = record._host_facts()
     assert facts["gpu_inventory"] == []
     assert "status 9" in facts["gpu_inventory_error"]
+
+
+def test_record_keeps_the_unlabeled_fixture_entry_shape(tmp_path: Path) -> None:
+    """``--fixture`` keeps its exact pre-label entry shape and warning wording."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    fixture = tmp_path / "model.pt"
+    fixture.write_bytes(b"weights")
+    missing = tmp_path / "absent.pt"
+    out = tmp_path / "record.json"
+
+    assert (
+        record.main(
+            [
+                "--manifest",
+                str(manifest),
+                "--out",
+                str(out),
+                "--fixture",
+                str(fixture),
+                "--fixture",
+                str(missing),
+            ]
+        )
+        == 1
+    )
+
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert written["inputs"]["fixtures"] == [
+        {
+            "path": str(fixture.resolve()),
+            "exists": True,
+            "sha256": hashlib.sha256(b"weights").hexdigest(),
+        },
+        {"path": str(missing.resolve()), "exists": False, "sha256": None},
+    ]
+    assert f"fixture is missing: {missing}" in written["warnings"]
+
+
+def test_record_labels_fixtures_per_channel_in_cli_order(tmp_path: Path) -> None:
+    """Labels name the benchmark channel and never disturb the given order."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    model = tmp_path / "model.ckpt.pt"
+    model.write_bytes(b"weights")
+    abacus_inputs = tmp_path / "abacus_input"
+    abacus_inputs.mkdir()
+    (abacus_inputs / "INPUT").write_text("ks_solver cusolver\n", encoding="utf-8")
+    out = tmp_path / "record.json"
+
+    assert (
+        record.main(
+            [
+                "--manifest",
+                str(manifest),
+                "--out",
+                str(out),
+                "--fixture-labeled",
+                f"dp_model={model}",
+                "--fixture",
+                str(model),
+                "--fixture-labeled",
+                f"abacus_inputs={abacus_inputs}",
+            ]
+        )
+        == 0
+    )
+
+    entries = json.loads(out.read_text(encoding="utf-8"))["inputs"]["fixtures"]
+    assert [entry.get("label") for entry in entries] == [
+        "dp_model",
+        None,
+        "abacus_inputs",
+    ]
+    assert entries[0] == {
+        "path": str(model.resolve()),
+        "exists": True,
+        "sha256": hashlib.sha256(b"weights").hexdigest(),
+        "label": "dp_model",
+    }
+    assert entries[2]["exists"] is True
+    assert entries[2]["file_count"] == 1
+
+
+def test_record_hashes_a_directory_fixture_as_a_tree(tmp_path: Path) -> None:
+    """A directory fixture records its file count and content digest."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    inputs_dir = tmp_path / "abacus_input"
+    inputs_dir.mkdir()
+    (inputs_dir / "INPUT").write_text("ks_solver cusolver\n", encoding="utf-8")
+    nested = inputs_dir / "STRU"
+    nested.write_text("ATOMIC_SPECIES\n", encoding="utf-8")
+
+    payload = record.build_record(
+        manifest=manifest,
+        fixtures=[record.FixtureSpec(path=inputs_dir, label="abacus_inputs")],
+    )
+    entry = payload["inputs"]["fixtures"][0]
+    assert entry["path"] == str(inputs_dir.resolve())
+    assert entry["exists"] is True
+    assert entry["sha256"] is None
+    assert entry["label"] == "abacus_inputs"
+    assert entry["file_count"] == 2
+    assert entry["tree_sha256"] == record._tree_digest(inputs_dir)["tree_sha256"]
+    assert len(entry["tree_sha256"]) == 64
+    assert payload["warnings"] == []
+
+    # The digest is content-addressed: touching the tree must change it.
+    nested.write_text("ATOMIC_SPECIES\nLATTICE_CONSTANT 10.0\n", encoding="utf-8")
+    retouched = record.build_record(
+        manifest=manifest,
+        fixtures=[record.FixtureSpec(path=inputs_dir, label="abacus_inputs")],
+    )["inputs"]["fixtures"][0]
+    assert retouched["file_count"] == 2
+    assert retouched["tree_sha256"] != entry["tree_sha256"]
+
+
+def test_record_warns_for_missing_fixtures_of_both_forms(tmp_path: Path) -> None:
+    """A missing labeled path warns exactly like a missing ``--fixture``."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    missing_file = tmp_path / "absent.pt"
+    missing_dir = tmp_path / "absent_input"
+    out = tmp_path / "record.json"
+
+    assert (
+        record.main(
+            [
+                "--manifest",
+                str(manifest),
+                "--out",
+                str(out),
+                "--fixture-labeled",
+                f"dp_model={missing_file}",
+                "--fixture-labeled",
+                f"abacus_inputs={missing_dir}",
+            ]
+        )
+        == 1
+    )
+
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert written["warnings"] == [
+        f"fixture is missing: {missing_file}",
+        f"fixture is missing: {missing_dir}",
+    ]
+    for entry in written["inputs"]["fixtures"]:
+        assert entry["exists"] is False
+        assert entry["sha256"] is None
+        assert "file_count" not in entry and "tree_sha256" not in entry
+
+
+def test_record_rejects_a_labeled_fixture_without_a_label(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--fixture-labeled`` refuses an unusable ``LABEL=PATH`` instead of guessing."""
+    manifest = tmp_path / "cases.json"
+    _write_json(manifest, {"cases": []})
+    base = [
+        "--manifest",
+        str(manifest),
+        "--out",
+        str(tmp_path / "record.json"),
+        "--fixture-labeled",
+    ]
+    for malformed in ("dp_model", "=model.pt", "dp_model="):
+        with pytest.raises(SystemExit) as excinfo:
+            record.main([*base, malformed])
+        assert excinfo.value.code == 2
+        assert "expects LABEL=PATH" in capsys.readouterr().err
+
+    # Only the first '=' separates the label, so paths may contain '='.
+    odd = tmp_path / "model=tuned.pt"
+    odd.write_bytes(b"weights")
+    assert record.main([*base, f"dp_model={odd}"]) == 0
+    entry = json.loads((tmp_path / "record.json").read_text(encoding="utf-8"))
+    entry = entry["inputs"]["fixtures"][0]
+    assert entry["label"] == "dp_model"
+    assert entry["path"] == str(odd.resolve())
