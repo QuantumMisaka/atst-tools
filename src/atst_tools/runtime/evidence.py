@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.metadata
 import json
 import os
+import re
 import platform
 import subprocess
 import sys
@@ -335,7 +336,14 @@ def _mps_names_in(text: str) -> list[str]:
     tokens = text.split()
     if not tokens:
         return []
-    name = os.path.basename(tokens[0])
+    # ``/proc/<pid>/cmdline`` starts at the executable; a ``ps -ef`` line puts
+    # the executable right after its time column, so a name that only appears
+    # elsewhere (a reader, a history line) is not counted as evidence.
+    start = 0
+    for index, token in enumerate(tokens):
+        if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", token):
+            start = index + 1
+    name = os.path.basename(tokens[start]) if start < len(tokens) else ""
     return [name] if name in MPS_PROCESS_NAMES else []
 
 
