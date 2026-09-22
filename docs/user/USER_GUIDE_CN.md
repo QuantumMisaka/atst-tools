@@ -3,7 +3,7 @@
 ## 1. 项目定位
 
 ATST-Tools 是面向 ABACUS 和 DeePMD-kit 后端的 ASE 过渡态工作流工具。
-当前 2.2.7 版本已发布（详见
+当前 2.2.8 版本（候选，未发布）（详见
 [release notes](../releases/RELEASE_NOTES_2.2.7.md)）；官方无缓存 clean-install
 复核已通过；包升级不会自动更新既有部署环境。此前已发布的 2.2.5 保留为历史版本。
 当前版本把原 main branch 的脚本集合整理为可安装 Python package，

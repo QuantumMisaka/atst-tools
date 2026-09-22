@@ -35,7 +35,7 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 | Lightweight tools | `atst config`, `atst abacus`, `atst neb`, `atst traj`, `atst dimer`, `atst relax`, `atst vibration`. |
 | Calculators | ABACUS through `abacuslite`; DeePMD-kit through `deepmd.calculator.DP`. |
 | Configuration | Pydantic-governed YAML schema with generated user documentation. |
-| Release | `2.2.7`, published from tag `v2.2.7` at commit `af9c8fa6b82386a52055a5b3dced82eb3d8f4ef2`; official PyPI clean-install, CLI/API, and dependency checks passed as recorded in the [release notes](docs/releases/RELEASE_NOTES_2.2.7.md). |
+| Release | `2.2.8`, published from tag `v2.2.8` at commit `af9c8fa6b82386a52055a5b3dced82eb3d8f4ef2`; official PyPI clean-install, CLI/API, and dependency checks passed as recorded in the [release notes](docs/releases/RELEASE_NOTES_2.2.8.md). |
 
 ## What You Can Run
 
