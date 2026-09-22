@@ -282,6 +282,10 @@ def build_child_environment(
         cache_dir.mkdir(parents=True, exist_ok=True)
         for key in CACHE_ENV_KEYS:
             env[key] = str(cache_dir)
+    # Publish the resolved attempt so the worker attributes its own cache
+    # directory and its evidence/result documents to the same attempt instead
+    # of falling back to the default when the caller passed it explicitly.
+    env[ATTEMPT_ENV] = str(attempt)
     env[_devices.RUNTIME_BOUND_ENV] = "1"
     env[_devices.INHERITED_DEVICES_ENV] = ",".join(resolution.inherited)
     env[_devices.EFFECTIVE_DEVICES_ENV] = ",".join(resolution.effective)
