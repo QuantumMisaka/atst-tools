@@ -54,7 +54,7 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 | `dmf` | Direct MaxFlux | Experimental TS candidate/path optimizer; non-periodic first and not a validated TS result. |
 
 The `constant_potential` workflow is a development candidate shipped with the
-2.2.7 line; it carries no Paimon/public tool-chain or platform acceptance claim. The current ATST scope is ABACUS-only
+2.2.8 line; it carries no Paimon/public tool-chain or platform acceptance claim. The current ATST scope is ABACUS-only
 fixed-geometry single-point/serial scans plus fixed-cell `relax`/`neb` with the
 explicit `compensated_gate` boundary. The legacy `reference_fcp` boundary is
 reference-only and is rejected for optimization workflows; no Paimon/public

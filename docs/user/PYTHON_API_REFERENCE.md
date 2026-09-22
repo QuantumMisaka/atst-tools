@@ -165,7 +165,7 @@ schema as the CLI; it does not add a new stable root import. It is currently
 limited to fixed-geometry serial evaluations/scans and fixed-cell
 `compensated_gate` `relax`/`neb` calls. The legacy `reference_fcp` boundary is
 reference-only and cannot be used for those optimization workflows. This
-development candidate ships with the 2.2.7 line and has no Paimon/public
+development candidate ships with the 2.2.8 line and has no Paimon/public
 tool-chain acceptance claim.
 
 ### Process runner for external hosts
