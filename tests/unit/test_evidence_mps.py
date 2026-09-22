@@ -80,7 +80,8 @@ def test_empty_compute_apps_under_mps_name_mps_and_stay_unavailable(
     assert sample["mps"]["evidence"] == ["nvidia-cuda-mps-server pid 2545124"]
     # The reason keeps the legacy wording and names MPS instead of guessing.
     assert sample["reason"].startswith("no compute process was reported")
-    assert "MPS is active" in sample["reason"]
+    assert "not attributable" in sample["reason"]
+    assert "MPS is active" not in sample["reason"]
 
 
 def test_mps_is_found_in_the_process_table_cmdlines(monkeypatch, tmp_path):
@@ -407,3 +408,13 @@ def test_the_sidecar_records_self_reported_memory_without_initialising_cuda(
     limitations = " ".join(payload["limitations"])
     assert "MPS" in limitations
     assert "allocator" in limitations
+
+
+def test_a_mention_of_the_daemon_name_is_not_evidence(monkeypatch, tmp_path):
+    """A command line that only mentions the name must not claim MPS."""
+    from atst_tools.runtime import evidence as runtime_evidence
+
+    assert runtime_evidence._mps_names_in("grep nvidia-cuda-mps-server /var/log/x") == []
+    assert runtime_evidence._mps_names_in("/usr/bin/nvidia-cuda-mps-server -d") == [
+        "nvidia-cuda-mps-server"
+    ]

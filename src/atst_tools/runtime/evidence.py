@@ -326,13 +326,17 @@ def _entry_order(path: Path) -> tuple[int, int, str]:
 
 
 def _mps_names_in(text: str) -> list[str]:
-    """Return the MPS daemon names mentioned in one command line."""
-    names: list[str] = []
-    for token in text.split():
-        name = os.path.basename(token)
-        if name in MPS_PROCESS_NAMES and name not in names:
-            names.append(name)
-    return names
+    """Return the MPS daemon name when the command line *is* that daemon.
+
+    Only the executable token counts: a command line that merely mentions the
+    daemon name (a reader, an editor, a shell history listing) is not evidence
+    that an MPS daemon is running.
+    """
+    tokens = text.split()
+    if not tokens:
+        return []
+    name = os.path.basename(tokens[0])
+    return [name] if name in MPS_PROCESS_NAMES else []
 
 
 def _proc_cmdline_look(proc_root: Path) -> _ProbeLook:
@@ -410,8 +414,8 @@ def _no_process_reason(mps: Mapping[str, Any]) -> str:
     """Explain an empty compute-process table, naming MPS when it is active."""
     if mps.get("detected") is True:
         return (
-            "no compute process was reported; MPS is active on this host, so "
-            "client processes are not attributable"
+            "no compute process was reported; an MPS daemon name or client socket "
+            "is visible to this process, so client processes are not attributable"
         )
     return "no compute process was reported"
 
