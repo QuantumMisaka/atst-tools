@@ -312,16 +312,6 @@ Reference: Ásgeirsson, V.; Birgisson, B. O.; Bjornsson, R.; Becker, U.; Neese, 
 Jónsson, H. *Sella, an Open-Source Chemical Kinetics Environment.*
 J. Chem. Theory Comput. **18** (8), 4914-4930 (2022). <https://doi.org/10.1021/acs.jctc.2c00395>
 
-DP 后端与制品（2026-09-22）：ATST 按制品后缀判定类型并存证——`.pt` 原始 checkpoint（推荐）、
-`.pth` 冻结归档（TorchScript，**与导出时的 deepmd-kit 构建锁定**）、`.pb`/`.pbtxt` TF 图（kind 级）。
-多任务（multi-task）PT 模型**必须**给 `head`：缺失或名称错误会抛 `DeepPotentialError`，
-消息列出可用 heads 并给出 `dp --pt show <model> model-branch`（`dp --pt freeze -c <ckpt> -o out [--head <branch>]`
-是 PT 出品 `.pth` 的入口）。冻结归档若与当前构建算子不匹配，首次求值即被翻译为可操作错误
-（建议改用原始 `.pt` 或与归档匹配的构建）；`CUDA out of memory` 等真实错误原样上抛。
-线程预算：`runtime.threads` 同时写 `OMP_NUM_THREADS` 与 deepmd 自荐的
-`DP_INTRA_OP_PARALLELISM_THREADS`/`DP_INTER_OP_PARALLELISM_THREADS`；`calculator.dp.omp` 只设 OMP（既有语义不变）。
-`dp_model_identity()` 可回读 kind/backend/head/ntypes/rcut/type_map 等事实（会加载模型元数据，约数秒，不在默认运行路径调用）。
-
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `init_structure` | string | **Required** | Path to the initial structure. |
@@ -823,6 +813,16 @@ provide a separate backend selector. Multi-head DPA/DPA3 models should set
 behavior and writes no additional files. Any runtime request (a `runtime`
 section, a runtime CLI option, or `ATST_VISIBLE_DEVICES`) switches the run to
 the isolated worker path: devices and thread budgets are applied before the
+DP 后端与制品（2026-09-22）：ATST 按制品后缀判定类型并存证——`.pt` 原始 checkpoint（推荐）、
+`.pth` 冻结归档（TorchScript，**与导出时的 deepmd-kit 构建锁定**）、`.pb`/`.pbtxt` TF 图（kind 级）。
+多任务（multi-task）PT 模型**必须**给 `head`：缺失或名称错误会抛 `DeepPotentialError`，
+消息列出可用 heads 并给出 `dp --pt show <model> model-branch`（`dp --pt freeze -c <ckpt> -o out [--head <branch>]`
+是 PT 出品 `.pth` 的入口）。冻结归档若与当前构建算子不匹配，首次求值即被翻译为可操作错误
+（建议改用原始 `.pt` 或与归档匹配的构建）；`CUDA out of memory` 等真实错误原样上抛。
+线程预算：`runtime.threads` 同时写 `OMP_NUM_THREADS` 与 deepmd 自荐的
+`DP_INTRA_OP_PARALLELISM_THREADS`/`DP_INTER_OP_PARALLELISM_THREADS`；`calculator.dp.omp` 只设 OMP（既有语义不变）。
+`dp_model_identity()` 可回读 kind/backend/head/ntypes/rcut/type_map 等事实（会加载模型元数据，约数秒，不在默认运行路径调用）。
+
 scientific stack is imported, and telemetry writes `runtime_evidence.json`
 next to the artifact manifest.
 
