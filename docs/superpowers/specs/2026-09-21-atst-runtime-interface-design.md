@@ -128,9 +128,9 @@ runtime:
 - 新增轻量解析模块（建议 `atst_tools/runtime/`），包导入期不得引入 NumPy/ASE/DP/ABACUS/JAX；以 import smoke 测试固定。
 - `mpi4py` bootstrap 允许先于设备绑定（MPI 初始化 ≠ CUDA 初始化）；CUDA/DP/ABACUS/JAX 初始化必须晚于绑定。
 
-**缓存目录（冻结契约）**：每 attempt 一个可写目录 `<workflow_dir>/.atst_cache/<attempt>/`；child 环境设 `JAX_COMPILATION_CACHE_DIR`、`NUMBA_CACHE_DIR`、`MPLCONFIGDIR` 指向其内，路径记入证据。P1 可追加更多缓存键，但“每 attempt 独立可写目录”不变。
+**缓存目录（冻结契约）**：每 attempt 一个可写目录 `<workflow_dir>/.atst_cache/attempt-<N>/`（2026-09-22 命名精度修正为实现的目录名；`<N>` 为下条 attempt 编号）；child 环境设 `JAX_COMPILATION_CACHE_DIR`、`NUMBA_CACHE_DIR`、`MPLCONFIGDIR` 指向其内。P1 可追加更多缓存键，但“每 attempt 独立可写目录”不变。
 
-**attempt 编号**：取自 `ATST_ATTEMPT`（正整数，缺省/非法回退 1），用于缓存目录与证据归属。
+**attempt 编号**：取自 `ATST_ATTEMPT`（正整数，缺省/非法回退 1），用于缓存目录与证据归属；`build_child_environment` 必须把解析出的 attempt 一并发布到 child 环境（2026-09-22 修复：此前只派生缓存目录而未下传该变量，显式 attempt 下证据/结果文档会回落为 1）。
 
 **worker 参数**：隔离模式下 coordinator 不把 runtime 选项回传给 worker（`--devices` 等由 coordinator 消费）；worker 的权威事实是 `ATST_RUNTIME_BOUND` + `ATST_INHERITED_DEVICES`/`ATST_EFFECTIVE_DEVICES`，一致性校验按 §4 基准执行。
 

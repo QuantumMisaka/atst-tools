@@ -1,0 +1,15 @@
+# P2 closeout case B: same read-only model as case A, own trajectory, no
+# runtime section so both the isolated-worker and legacy in-process paths
+# share the same model artifact.
+calculation:
+  type: relax
+  init_structure: /home/galileo-group/galileouser02/atst-p2-closeout-20260922/fixtures/init_H2-Au.stru
+  fmax: 0.05
+  max_steps: 4
+  optimizer: FIRE
+  trajectory: relax_ro_b.traj
+
+calculator:
+  name: dp
+  dp:
+    model: /home/galileo-group/galileouser02/atst-p2-closeout-20260922/models-ro/model.ckpt-100000.pt

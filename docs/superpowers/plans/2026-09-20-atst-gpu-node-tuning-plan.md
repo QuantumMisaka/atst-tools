@@ -16,10 +16,9 @@ Status: in_progress (P0-P5 complete, P6 in progress; the remaining items are lis
 
 **剩余项（2026-09-22 状态口径对齐）**：P0–P5 已完成——P5 压力/收益矩阵无剩余行（host/SIF 成对见 `docs/reports/ATST_RUNTIME_SAI_V100_VALIDATION_2026-09-21.md` §5j，8 图×8 卡见 §5h）；P6 进行中。以下为计划内**仍不成立**的项，状态只有 `open` 或 `condition-blocked`，不得读作完成：
 
-- `open` — P2「计量端点与生命周期」的只读模型共享与重启回归：本轮 P5 未提供现场证据（该计划行保持未勾选）。
-- `open` — P2「宿主 sampler」的 MPS 归属：站点现场未出现 MPS 归因场景（该计划行保持未勾选）。
+- P2「计量端点与生命周期」的只读模型共享与重启回归、以及 P2「宿主 sampler」的 MPS 归属**已在 2026-09-22 现场收口**（SAI 作业 1444802）：模型目录摘要前后不变且 `dp.calculator_reused=1`、`ATST_ATTEMPT` 的缓存与证据归属一致、同 workdir 重跑末帧能量等价（Δ=1.6e-05 eV）；MPS 事实证明节点启用 MPS 且计算进程归因不可用（记 `unavailable` + reason，不填 0），见 [P2 收口报告](../../reports/ATST_P2_CLOSEOUT_2026-09-22.md)。两行随之下调为已勾选。
 - `condition-blocked` — P2「线程预算」的 DP TF 后端维度：缺 TF 原生制品（`dp --pt convert-backend` 对 DPA-3.1 失败），见 [本地验证报告 §10](../../reports/ATST_RUNTIME_LOCAL_GPU_VALIDATION_2026-09-21.md)。
-- `open` — P6 交付与平台接入：见下文「P6」段未勾选项。
+- `open`（部分完成）— P6 交付与平台接入：文档面与 2.2.7 发布已完成，父仓 gitlink 已由父仓提交 `52d157dcc` 推进，平台侧 runtime 透传（P6 Task 6）已由父仓 `25df6ab17` 落地；独立终审与共享 image 的参数/runner 迁移仍未完成，见下文「P6」段。
 - `open` — 站点 `mpiexec` + runtime 重绑定的站点/上游确认：本仓侧根因已修（第三轮复核 P1-2，`0668d61`），修复后 `mpiexec -n 4 + round_robin` 复验通过（1434302），但该现象仍要求站点/上游确认，见 SAI 报告 §6 第 4 项与 §8。
 - `condition-blocked` — DP 通道的容器对照：站点 SIF 是 ABACUS toolbox 交付，deepmd 不在其范围，见 SAI 报告 §5j。
 - `condition-blocked` — FT²DP 单头 EMA 制品：本机无文件、站点钉版路径不可读，见[审阅地图 §4](../../reports/ATST_GPU_TUNING_BRANCH_REVIEW_MAP_2026-09-21.md) 第 6 项。
@@ -75,10 +74,10 @@ atst 路径以下均相对于 `deps/atst-tools`；源码落点相对 `src/atst_t
 依赖：P1。对应 SPEC §4.3、§5.3、§6。
 
 - [ ] 在初始化前应用明确的线程预算，覆盖 CPU affinity/cpuset 与 DP TF/PT 差异；不静默覆盖用户已有科学配置（线程预算/affinity 已实现并验证；**条件阻塞：缺 TF 原生制品**（`dp --pt convert-backend` 对 DPA-3.1 失败；TF 运行时在但无 TF 制品，见验证报告 §10）；该维度**未完成**，需制品到位后补测，不因本轮 P5 完成而勾选）。
-- [ ] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例（计数/存活对象/显存已实现：`counters`、`dp.cached_instances` gauge、`memory_peak_mib` 采样峰值；每 attempt 独立 cache 已验证；图像状态隔离由并行 NEB 逐帧等价间接覆盖；只读模型共享与重启回归仍留 P5/后续）。
+- [x] 计量端点、active window 和最终补算的模型构建次数、存活对象与显存；保留合法进程内复用，验证独立可写缓存和只读模型共享。若优化生命周期，补跨 image 的 atoms/results 状态隔离与重启回归，不承诺未经证明的每 worker 单实例（计数/存活对象/显存已实现：`counters`、`dp.cached_instances` gauge、`memory_peak_mib` 采样峰值；每 attempt 独立 cache 已验证；图像状态隔离由并行 NEB 逐帧等价间接覆盖；**2026-09-22 收口**：只读模型共享在真实只读目录（`444` 文件 / `555` 目录）与共享 worker 两个 DP 用例上验证——模型目录内容摘要+mtime 逐条不变、`dp.calculator_built=1`/`dp.calculator_reused=1`；重启回归在同一 workdir 连续两次 batch 上末帧能量等价（Δ=1.6e-05 eV）且缓存/产物归属本轮 attempt，见 [P2 收口报告](../../reports/ATST_P2_CLOSEOUT_2026-09-22.md)；单元守卫见 `tests/unit/test_runtime_model_sharing.py`、`tests/unit/test_runtime_restart_isolation.py`）。
 - [x] ABACUS 按实际 command 验证 launcher；复用现有 MPI 清理、profile 和 backend 选择（2026-09-22 收口：契约由 `tests/unit/test_factory.py` 的 ABACUS 工厂用例承载——`test_abacus_factory_flattens_config`、`test_abacus_factory_uses_explicit_version_command`、`test_abacus_factory_rejects_shell_style_omp_assignment`、`test_abacus_factory_passes_omp_without_shell_assignment`、`test_abacus_factory_formats_mpi_placeholder`、`test_abacus_factory_does_not_wrap_explicit_srun_command`、`test_abacus_factory_strips_outer_mpi_env_for_single_process_abacus`、`test_abacus_factory_strips_outer_mpi_env_for_env_wrapped_single_process_abacus`（本工作树实跑：`tests/unit/test_factory.py` 18 passed；其中 ABACUS 工厂用例 8 项，`-k abacus_factory` → 8 passed / 10 deselected）；依据 `docs/reports/DOCUMENTATION_STATUS_REPORT.md` 2026-09-21「P2 收口片」条目（该条目写"16 项"为当时文件规模，`3a7b5e6` 之后为 18 项）；站点侧同一 command 路径由 ABACUS 通道的实际运行执行，见 SAI 报告 §5b/§5d/§5j）。
 - [x] 增加 opt-in runtime sidecar、阶段耗时、初始化/力调用计数与版本来源；成功关联 manifest，失败保留部分证据（首片 2026-09-21：`runtime/evidence.py` 的 sidecar `atst-runtime-evidence-v1`、manifest `runtime_evidence` 引用、环境/设备事实、rank 0 单例宿主采样、失败保留 `partial`、计量失败不阻断运行；第二片：`runtime/counters.py` 进程级计数器（`dp.calculator_built/reused`、`dp.force_calls`、`abacus.calculator_built/force_calls`）随 sidecar 输出并标注 `counters_scope=process`；第三片：MPI 成功路径在 collective 后输出 `counters_mpi`（rank 求和，含 `world_size`）；第四片：阶段耗时 `phases`（`dispatch_s`/`attempt_s`）与结果 envelope 可选 `runtime` 摘要（legacy 无此键，逐字节兼容）；第五片（契约审计）：`memory_peak_mib` 采样峰值标记；子项全部交付并有单测）。
-- [ ] 宿主 sampler/parser 区分 device/process，覆盖缺工具、权限不足、短任务无样本、MPS 归属未知和采样失败（device 行与计算进程行、缺工具/权限/无进程原因、短任务零样本、采样失败均有实现与单测；MPS 归属未知留 P5 现场）。
+- [x] 宿主 sampler/parser 区分 device/process，覆盖缺工具、权限不足、短任务无样本、MPS 归属未知和采样失败（device 行与计算进程行、缺工具/权限/无进程原因、短任务零样本、采样失败均有实现与单测；**MPS 归属 2026-09-22 给出站点结论**：站点节点在跑 `nvidia-cuda-mps-control`/`nvidia-cuda-mps-server`，`nvidia-smi --query-compute-apps` 无稳定进程行，sampler 逐样本记 `unavailable`（reason `no compute process was reported`）而不填 0，可用时记 `observed`；即 MPS 下不做计算进程归因，见 [P2 收口报告](../../reports/ATST_P2_CLOSEOUT_2026-09-22.md) §4.5）。
 
 验收：计量失败不掩盖科学运行结果；显式 GPU 不可用仍报执行错误；现有结果消费者可忽略新增可选字段。线程调优带来的真实收益由 P5 证明。
 
@@ -185,9 +184,9 @@ harness 语义：case 默认在配置文件所在目录运行（ATST 相对路�
 
 依赖：P5；平台部分独立排期/授权。
 
-- [ ] 更新 atst `CONFIG_REFERENCE.md`、schema 生成参数表、用户指南、examples、FEATURE_STATUS_MATRIX 与文档账本；发布说明区分 CPU/mock、MPI、GPU、SIF 验证范围。
-- [ ] 相称独立终审，按 atst 版本规则发布；父仓依赖同步与 gitlink 更新独立执行。
-- [ ] 平台先消费单任务绑定/运行证据，再单独设计共享 image 的参数、resAlloc/prepare/runner 迁移；不重释现有 `n_gpu`。
+- [x] 更新 atst `CONFIG_REFERENCE.md`、schema 生成参数表、用户指南、examples、FEATURE_STATUS_MATRIX 与文档账本；发布说明区分 CPU/mock、MPI、GPU、SIF 验证范围（2026-09-21/22 已随 2.2.7 发布完成，范围声明见 `docs/releases/RELEASE_NOTES_2.2.7.md` 的 Validation Matrix）。
+- [ ] 相称独立终审，按 atst 版本规则发布；父仓依赖同步与 gitlink 更新独立执行（发布已完成：2.2.7 于 2026-09-21 上线 PyPI/GitHub Release；父仓 gitlink 已由父仓提交 `52d157dcc` 推进到 `af9c8fa`；**独立终审仍 open**——现有审查为 P0 设计审查与 bench/services 二轮复核，不含整分支终审）。
+- [ ] 平台先消费单任务绑定/运行证据，再单独设计共享 image 的参数、resAlloc/prepare/runner 迁移；不重释现有 `n_gpu`（平台侧消费已落地：父仓 `25df6ab17` 让恒电势与过渡态 `prepare` 暴露 `runtime` 段；共享 image 的参数/runner 迁移仍 open）。
 - [ ] 核对恒电势 Task 3.2 共用 `toolkits/atst_runner.py` 抽取进展，平台 GPU 适配复用届时的 owner 入口；不另造 runner。
 - [ ] 更新对应 owner guide 与交接测试，经本地 E2E、授权的平台发布验证后再宣称平台支持；只有新增依赖确需镜像变化时才插入非活动 SIF 候选。
 
@@ -233,3 +232,5 @@ atst 开发者应在独立仓执行其验收：AGENTS 的 image MPI 维护基线
 2026-09-21（恒电势合入与 GPU rebase）：恒电势开发者完成合入（atst `main` = `7bc3f92`+`d30747b`，父仓另有 `375ef7c6b`/`7e3009e32`；§8.1 两项门禁均已被其修复，main 单测 943 项 0 失败）。GPU 分支 rebase 到 main：61 提交全部重放、**零冲突**；新增 SPEC §7A 联合验收测试并全绿（合体树：单测 1091 项 0 失败、真实 MPI 集成 22 项、wheel 门通过）。登台件按新 HEAD 重导出。P5 仍待授权。
 
 2026-09-22（状态口径对齐，仅状态文本）：按仓库内证据把本计划的状态文本对齐到实际——头部状态改为「P0–P5 已完成，P6 进行中」并新增「剩余项」清单；P5 的 host/SIF 成对行（SAI 报告 §5j、作业 1438496）与 NEB 图数×卡数映射行（§5h、作业 1438379）勾选并补证据指针；P2 的「ABACUS 按实际 command 验证 launcher」行以 `tests/unit/test_factory.py` 的 ABACUS 工厂用例收口（依据账本 2026-09-21「P2 收口片」条目）；P2 的 DP TF 维度行保持未勾选并显式标注条件阻塞。未改动代码、测试、SAI 报告正文与 P6/恒电势检查点段。
+
+2026-09-22（P2 现场收口与 record 通道）：按维护者授权在 SAI 4V100 执行作业 1444802/1444708——只读模型共享（模型目录摘要不变、共享实例计数）、`ATST_ATTEMPT` 缓存/证据归属、同 workdir 重启等价、MPS 现场事实与 record 双通道夹具全部断言通过；代码侧修 `launch.build_child_environment` 未发布 `ATST_ATTEMPT` 的归属缺口、`bench.record` 增通道夹具，新增 9 项单测。计划 P2 两行勾选，P6 文档行勾选并标注其余子项。证据与报告见 `docs/reports/ATST_P2_CLOSEOUT_2026-09-22.md`。

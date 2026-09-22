@@ -237,6 +237,8 @@ fail-closed 同批复验：只持有 0 号卡时请求 `devices: [1]` 的用例 
 
 ## 5i. host/SIF 成对：SIF 侧勘察与精确阻塞点（2026-09-21）
 
+> 2026-09-22 取代标注：本节记录的阻塞点已由 §5j 关闭（作业 1438496，host 142 s vs SIF 153 s）；本节保留勘察与移交过程作为历史证据。
+
 **范围先厘清**：`20260920-toolbox-atst/abacus-adam-sai-toolbox-atst.sif` 是 **ABACUS** toolbox 交付
 （标签 `Application: ABACUS`、`AtstToolsDelivery: toolbox`、`HostCluster: sai-native`、`Layer: 2`）；
 **deepmd 不在其范围内**——DP 通道的运行是站点 `deepmd-kit/3.2.0` module 环境（本项目所有 DP 运行都走它），
@@ -312,3 +314,5 @@ pydantic 2.13.5 / mpi4py 在）；`/opt/apps` 绑定后容器内能看到 ABACUS
 （完整示例 NEB 约 19 min/次）。**后续仅剩：host/SIF 成对与 8 图×8 卡**（8 ranks/1 卡压力行已于 2026-09-21 完成，见 §5d；host/SIF 需要站点侧 SIF 与挂载配合，8 图×8 卡需要站点协调超过 QOS 的卡数）。
 站点 `mpiexec` 重绑定挂起问题需与站点/上游（PRRTE/PMIx + exec）进一步确认。ABACUS 作业的 record
 fixture 当前传入了 DP 模型哈希（`MODEL` 变量），后续应按通道传入对应输入。
+
+> 2026-09-22 取代标注：上段「后续仅剩 host/SIF 与 8 图×8 卡」已由 §5j（1438496）与 §5h（1438379）关闭，P5 压力/收益矩阵无剩余行；record 夹具已按通道落地（`--fixture-labeled`，DP→`dp_model`、ABACUS→`abacus_inputs`），站点复验见 [P2 收口报告](ATST_P2_CLOSEOUT_2026-09-22.md)。站点 `mpiexec` 重绑定确认仍 open。

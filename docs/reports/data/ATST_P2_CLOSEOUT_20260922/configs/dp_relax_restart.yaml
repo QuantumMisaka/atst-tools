@@ -1,0 +1,21 @@
+# P2 closeout restart regression: same configuration run twice into the same
+# absolute case workdir; the second run must recompute from its own attempt
+# state instead of reusing the first run's results.
+calculation:
+  type: relax
+  init_structure: /home/galileo-group/galileouser02/atst-p2-closeout-20260922/fixtures/init_H2-Au.stru
+  fmax: 0.05
+  max_steps: 4
+  optimizer: FIRE
+  trajectory: relax_restart.traj
+
+calculator:
+  name: dp
+  dp:
+    model: /home/galileo-group/galileouser02/atst-p2-closeout-20260922/models-ro/model.ckpt-100000.pt
+
+runtime:
+  devices: [0]
+  binding: inherit
+  threads: auto
+  telemetry: true
