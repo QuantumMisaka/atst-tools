@@ -1,6 +1,6 @@
 # ATST-Tools Feature Status Matrix
 
-**Version**: 2.2.7
+**Version**: 2.2.8
 **Last Updated**: 2026-09-21
 **Status**: Published (PyPI clean-install verified)
 **Owner**: ATST-Tools maintainers

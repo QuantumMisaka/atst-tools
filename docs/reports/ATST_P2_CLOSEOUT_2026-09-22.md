@@ -130,10 +130,10 @@ sbatch run-record-channels.sbatch  # record 双通道（DP / ABACUS）
 | 断言 | 结果 |
 | --- | --- |
 | deepmd 自荐线程键到达 DP 子环境 | ✅ `DP_INTRA_OP_PARALLELISM_THREADS` / `DP_INTER_OP_PARALLELISM_THREADS` / `OMP_NUM_THREADS` 均 = 4，`threads_source=explicit` |
-| MPS 探测三态语义 | ✅ 现场 `detected=false`，三路探测（`/proc/*/cmdline`、`ps -ef`、客户端管道前缀）均完成——是「完成的否证」而非猜测 |
+| MPS 探测三态语义 | ✅（首轮 1445744 因断言过严中止，修正断言后 1445792 通过）现场 `detected=false`，三路探测（`/proc/*/cmdline`、`ps -ef`、客户端管道前缀）均完成——是「完成的否证」而非猜测 |
 | 计算进程归因 | ✅ 本轮 `status=observed`（`nvidia-smi` 报出行）；MPS 下空表时 reason 点名 MPS 的路径由 `tests/unit/test_evidence_mps.py` 覆盖 |
 | 自身归因 | ✅ `self_reported.status=observed`，`max_memory_allocated_mib=620.139`（torch 分配器口径，读取不触发 CUDA 初始化） |
 
-边界：MPS 守护进程在当日下午两次作业（`4v100n20`/`4v100n26`）均不可见（当日上午作业 1444802 曾可见），
+边界：MPS 守护进程在当日下午两次作业（`4v100n18`/`4v100n26`）均不可见（当日上午作业 1444802 曾可见），
 故「MPS 正向路径」尚未在站点观测到；探针在该情形下如实记 `detected=false` 并回落既有 reason，不产生错误归因。
 TF 后端不做特意支持：线程预算与制品 kind 判定在算法层对 TF 同样生效，但不安排 TF 制品验证。

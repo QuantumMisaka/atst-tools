@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.2.7-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.2.8-blue)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -28,7 +28,7 @@ documented separately below and in the [feature status matrix](docs/reports/FEAT
 
 ## At A Glance
 
-| Area | Current 2.2.7 status (published; PyPI clean-install verified) |
+| Area | Current 2.2.8 status (release candidate; not published) |
 | :--- | :--- |
 | Package | Python package with the `atst` console command. |
 | Main interface | `atst run CONFIG.yaml` for all calculator-backed workflows. |
