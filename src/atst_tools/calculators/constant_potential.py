@@ -86,7 +86,6 @@ _CP_FACT_KEYS = (
     "vacuum_level",
     "fermishift",
     "energy_boundary",
-    "profile_status",
     "boundary_parameters",
     "compensation",
     "mu_calc",
@@ -394,8 +393,6 @@ def _constant_potential_facts_error(
         return "constant-potential facts energy_boundary is unsupported"
     if facts["energy_boundary"] != identity["energy_boundary"]:
         return "constant-potential facts boundary disagrees with identity"
-    if not isinstance(facts["profile_status"], str) or not facts["profile_status"]:
-        return "constant-potential facts profile_status is malformed"
     if not isinstance(facts["boundary_parameters"], Mapping):
         return "constant-potential facts boundary_parameters is malformed"
     if not isinstance(identity["boundary_parameters"], Mapping):
@@ -917,11 +914,6 @@ class ConstantPotentialCalculator(Calculator):
         self._declared_work_ref = None if work_ref is None else _finite(work_ref, "work_ref")
         self.work_ref: float | None = None
         self._validate_boundary_settings()
-        self.profile_status = (
-            "reference_only_unvalidated"
-            if self.energy_boundary == "reference_fcp"
-            else "compensated_gate_pending_scientific_acceptance"
-        )
         self.potential_tolerance_v = _finite(potential_tolerance_v, "potential_tolerance_v")
         if self.potential_tolerance_v <= 0:
             raise ValueError("potential_tolerance_v must be positive")
@@ -1148,11 +1140,6 @@ class ConstantPotentialCalculator(Calculator):
             changed["interface_count"] = self.interface_count
         if changed and hasattr(self, "energy_boundary"):
             self._validate_boundary_settings()
-            self.profile_status = (
-                "reference_only_unvalidated"
-                if self.energy_boundary == "reference_fcp"
-                else "compensated_gate_pending_scientific_acceptance"
-            )
             self.results.clear()
             self.last_evaluation = None
             self.evaluation_history = []
@@ -1336,7 +1323,6 @@ class ConstantPotentialCalculator(Calculator):
             "fermishift": None if vacuum is None else -vacuum,
             "scf_converged": True,
             "energy_boundary": self.energy_boundary,
-            "profile_status": self.profile_status,
             "boundary_parameters": copy.deepcopy(self._actual_boundary_parameters),
             "compensation": compensation,
             "mu_calc": mu_calc,
@@ -1510,7 +1496,6 @@ class ConstantPotentialCalculator(Calculator):
             "vacuum_level": None if final["vacuum_level"] is None else float(final["vacuum_level"]),
             "fermishift": None if final["fermishift"] is None else float(final["fermishift"]),
             "energy_boundary": final["energy_boundary"],
-            "profile_status": self.profile_status,
             "boundary_parameters": self._jsonable(final["boundary_parameters"]),
             "compensation": self._jsonable(final["compensation"]),
             "mu_calc": float(final["mu_calc"]),

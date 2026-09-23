@@ -79,7 +79,6 @@ def _complete_cp_results(atoms, identity, energy):
         "vacuum_level": None,
         "fermishift": None,
         "energy_boundary": "compensated_gate",
-        "profile_status": "test",
         "boundary_parameters": {},
         "compensation": {
             "boundary": "compensated_gate",

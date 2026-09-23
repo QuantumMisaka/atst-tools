@@ -56,7 +56,6 @@ def _cp_results(atoms: Atoms, *, target: float, nelec: float) -> dict:
         "vacuum_level": None,
         "fermishift": None,
         "energy_boundary": "compensated_gate",
-        "profile_status": "test",
         "boundary_parameters": {"zgate": 0.7},
         "compensation": {
             "boundary": "compensated_gate",

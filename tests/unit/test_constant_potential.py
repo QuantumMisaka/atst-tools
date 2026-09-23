@@ -115,7 +115,6 @@ def test_constant_potential_newton_uses_measured_residual_and_publishes_omega(tm
     assert atoms.get_potential_energy() == pytest.approx(50.0)
     assert calculator.results["nelec"] == pytest.approx(10.0)
     assert calculator.results["potential_calc"] == pytest.approx(1.0)
-    assert calculator.results["profile_status"] == "reference_only_unvalidated"
     assert calculator.results["energy"] == pytest.approx(calculator.results["raw_energy"])
     assert calculator.results["cp_converged"] is True
     assert len(calculator.evaluation_history) == 2
@@ -239,7 +238,6 @@ def test_constant_potential_facts_reject_corrupt_compensation_evidence():
             "vacuum_level": None,
             "fermishift": None,
             "energy_boundary": "compensated_gate",
-            "profile_status": "compensated_gate_pending_scientific_acceptance",
             "boundary_parameters": {},
             "compensation": {
                 "boundary": "compensated_gate",
@@ -628,7 +626,6 @@ def test_compensated_gate_uses_density_conjugate_mu_and_raw_forces(tmp_path, mon
     assert atoms.get_potential_energy() == pytest.approx(50.0)
     np.testing.assert_allclose(calculator.results["forces"], np.ones((1, 3)) * 0.37)
     assert calculator.results["energy_boundary"] == "compensated_gate"
-    assert calculator.results["profile_status"] == "compensated_gate_pending_scientific_acceptance"
     assert calculator.results["mu_calc"] == pytest.approx(3.8)
     assert calculator.results["vacuum_level"] is None
     assert calculator.results["potential_calc"] is None
@@ -942,7 +939,6 @@ def test_constant_potential_asset_identity_survives_directory_move(tmp_path):
             "vacuum_level": 0.0,
             "fermishift": 0.0,
             "energy_boundary": "reference_fcp",
-            "profile_status": "reference_only_unvalidated",
             "boundary_parameters": identity_source["boundary_parameters"],
             "compensation": None,
             "mu_calc": -4.6,
