@@ -598,7 +598,7 @@ calculation:
 | `results_file` | string | `vibration_results.json` | Vibration JSON output. |
 | `validation_file` | string | `ts_validation.json` | Transition-state validation JSON output. |
 | `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
-| `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
+| `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. Restart requires the same FileIO/socket transport; use a new `name` or set `restart: false` when switching transports. |
 | `directory` | string | `vib_run` | Calculator working directory. |
 
 Thermochemistry is controlled by an optional nested block:
