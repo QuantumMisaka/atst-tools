@@ -21,7 +21,7 @@ from atst_tools.calculators.constant_potential import (
 )
 from atst_tools.calculators.factory import CalculatorFactory
 from atst_tools.utils.artifacts import write_artifact_manifest
-from atst_tools.utils.config_schema import apply_calculation_defaults
+from atst_tools.utils.config_schema import ABACUS_CONTROL_KEYS, apply_calculation_defaults
 from atst_tools.utils.electrochemistry import PotentialScanPoint, analyze_potential_scan, surface_area
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.convergence import StageRecord
@@ -120,9 +120,8 @@ class ConstantPotentialWorkflow:
         calculator = self.config.get("calculator", {})
         abacus = calculator.get("abacus", {}) if isinstance(calculator, Mapping) else {}
         abacus = dict(abacus) if isinstance(abacus, Mapping) else {}
-        control_keys = {"command", "directory", "mpi", "omp", "parameters", "version_command"}
         parameters = {
-            key: value for key, value in abacus.items() if key not in control_keys
+            key: value for key, value in abacus.items() if key not in ABACUS_CONTROL_KEYS
         }
         raw_parameters = abacus.get("parameters", {})
         if isinstance(raw_parameters, Mapping):

@@ -19,19 +19,14 @@ from atst_tools.calculators.abacuslite_backend import (
     BACKEND_SOURCE,
     import_generalio,
     import_latestio,
+    socket_input_parameters,
 )
 from atst_tools.utils.config import ConfigLoader
+from atst_tools.utils.config_schema import ABACUS_CONTROL_KEYS, abacus_socket_requested
 from atst_tools.utils.io import read_structure
 
 
-_ABACUS_META_KEYS = {
-    "command",
-    "directory",
-    "mpi",
-    "omp",
-    "parameters",
-    "version_command",
-}
+_ABACUS_META_KEYS = ABACUS_CONTROL_KEYS
 _ABACUS_NON_INPUT_KEYS = {
     "basis",
     "basissets",
@@ -63,6 +58,15 @@ def _as_mp_kpts(kpts: Any) -> dict[str, Any]:
 
 
 def _merged_abacus_parameters(abacus: dict[str, Any]) -> dict[str, Any]:
+    """Turn a ``calculator.abacus`` section into ABACUS parameters.
+
+    Control keys are dropped. With socket mode enabled, the backend's socket
+    INPUT rules are applied so prepared files match the requested transport.
+
+    Raises:
+        ValueError: If socket mode is enabled with a contradictory value,
+            e.g. ``calculation`` other than ``scf``.
+    """
     parameters = {
         key: value
         for key, value in abacus.items()
@@ -75,6 +79,8 @@ def _merged_abacus_parameters(abacus: dict[str, Any]) -> dict[str, Any]:
         parameters["basissets"] = parameters.pop("basis")
     if "basis_dir" in parameters:
         parameters["orbital_dir"] = parameters.pop("basis_dir")
+    if abacus_socket_requested(abacus.get("socket")):
+        parameters = socket_input_parameters(parameters)
     return parameters
 
 

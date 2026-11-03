@@ -24,6 +24,7 @@ from atst_tools.api.models import (
     WorkflowResult,
 )
 from atst_tools.calculators.abacuslite_backend import BACKEND_SOURCE
+from atst_tools.calculators.factory import socket_session
 from atst_tools.utils.artifacts import (
     SCHEMA_VERSION,
     add_backend_identity_to_manifest,
@@ -915,7 +916,10 @@ def _run_workflow(
         failure = None
         dispatch_started = time.monotonic()
         try:
-            value = _dispatch_normalized(config, options)
+            # Persistent ABACUS socket clients built by this workflow must not
+            # outlive it; clients owned by other callers are left untouched.
+            with socket_session():
+                value = _dispatch_normalized(config, options)
         except ATSTAPIError as exc:
             failure = exc
         except Exception as exc:

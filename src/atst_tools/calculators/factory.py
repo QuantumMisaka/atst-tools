@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import itertools
 import os
 import re
 import shlex
 import logging
 import math
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
-from typing import Any, Dict
+from typing import Any, Dict, Iterator
 
 from ase.calculators.calculator import Calculator
 
 from atst_tools.calculators.abacuslite_backend import (
-    Abacus, ATSTAbacusProfile, BACKEND_SOURCE, _default_version_command,
+    Abacus, AbacusSocketIO, ATSTAbacusProfile, BACKEND_SOURCE, _default_version_command,
 )
 from atst_tools.calculators.constant_potential import (
     ConstantPotentialCalculator,
@@ -23,13 +26,18 @@ from atst_tools.calculators.dp import DeepPotentialFactory
 from atst_tools.runtime import counters as runtime_counters
 from atst_tools.runtime import launch as runtime_launch
 from atst_tools.utils.config_schema import (
+    ABACUS_CONTROL_KEYS,
+    SOCKET_FIXED_CELL_MD_ENSEMBLES,
+    SOCKET_SUPPORTED_WORKFLOWS,
     ConstantPotentialConfig,
     validate_constant_potential_md_scope,
 )
 from atst_tools.utils.mpi import mpi_launcher_detected
 
 
-_ABACUS_CONTROL_KEYS = {"command", "mpi", "omp", "directory", "parameters", "version_command"}
+_ABACUS_CONTROL_KEYS = ABACUS_CONTROL_KEYS
+# INPUT keys that AbacusSocketIO validates only when passed through ``inp``.
+_SOCKET_INP_KEYS = ("calculation", "cal_force", "cal_stress")
 _MPI_ENV_KEYS_TO_CLEAR = (
     "OMPI_COMM_WORLD_SIZE",
     "OMPI_COMM_WORLD_RANK",
@@ -46,6 +54,9 @@ LOGGER = logging.getLogger(__name__)
 _ABACUS_BACKEND_LOGGED = False
 _SHELL_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 _MPI_LAUNCHERS = {"mpirun", "mpiexec", "srun"}
+_SOCKET_NAME_COUNTER = itertools.count()
+#: Socket clients owned by the innermost active :func:`socket_session`.
+_SOCKET_SESSION: ContextVar[list[Any] | None] = ContextVar("atst_abacus_socket_session", default=None)
 
 
 def _abacus_section(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -133,6 +144,96 @@ def _validate_abacus_command(command: str) -> None:
         )
 
 
+def _socket_options(raw: Any) -> Dict[str, Any] | None:
+    """Normalize ``calculator.abacus.socket`` into AbacusSocketIO keywords.
+
+    Args:
+        raw: ``None``/``False`` (disabled), ``True`` (enabled with defaults), or
+            a mapping with optional ``enabled``, ``unixsocket``, ``port`` and
+            ``timeout`` keys.
+
+    Returns:
+        Keyword arguments for ``AbacusSocketIO`` or ``None`` when disabled.
+
+    Raises:
+        ValueError: If the value has an unsupported shape or both ``port`` and
+            ``unixsocket`` are given.
+    """
+    if raw is None or raw is False:
+        return None
+    if raw is True:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("calculator.abacus.socket must be a boolean or a mapping")
+    options = dict(raw)
+    if not options.pop("enabled", True):
+        return None
+    unknown = set(options) - {"unixsocket", "port", "timeout"}
+    if unknown:
+        raise ValueError(f"Unknown calculator.abacus.socket keys: {sorted(unknown)}")
+    if options.get("port") is not None and options.get("unixsocket") is not None:
+        raise ValueError("calculator.abacus.socket accepts either port or unixsocket, not both")
+    if options.get("port") is None and options.get("unixsocket") is None:
+        # A per-process, per-calculator name keeps concurrent runs on one node
+        # from colliding on /tmp/ipi_<name>.
+        options["unixsocket"] = f"atst_{os.getpid()}_{next(_SOCKET_NAME_COUNTER)}"
+    options.setdefault("timeout", None)
+    return options
+
+
+def _check_socket_workflow(config: Dict[str, Any]) -> None:
+    """Reject socket mode for workflows that are not single fixed-cell runs."""
+    calculation = config.get("calculation")
+    if not isinstance(calculation, dict):
+        return
+    workflow = calculation.get("type")
+    if workflow is not None and workflow not in SOCKET_SUPPORTED_WORKFLOWS:
+        raise ValueError(
+            "calculator.abacus.socket is supported only for calculation.type in "
+            f"{list(SOCKET_SUPPORTED_WORKFLOWS)}; got {workflow!r}"
+        )
+    if workflow == "md":
+        if calculation.get("driver", "ase") != "ase":
+            raise ValueError("calculator.abacus.socket requires calculation.driver=ase for md")
+        ensemble = calculation.get("ensemble", "nvt")
+        if ensemble not in SOCKET_FIXED_CELL_MD_ENSEMBLES:
+            raise ValueError(
+                "calculator.abacus.socket requires a fixed-cell md ensemble "
+                f"{list(SOCKET_FIXED_CELL_MD_ENSEMBLES)}; got {ensemble!r}"
+            )
+
+
+def _close_socket_calculator(calculator: Any) -> None:
+    """Close one socket client; failures are logged, never raised."""
+    try:
+        calculator.close()
+    except Exception as exc:  # pragma: no cover - best-effort cleanup
+        LOGGER.warning("Failed to close ABACUS socket calculator: %s", exc)
+
+
+@contextmanager
+def socket_session() -> Iterator[list[Any]]:
+    """Own the ABACUS socket clients built while this context is active.
+
+    Clients created by :class:`AbacusFactory` inside the context are closed
+    when it exits, including on error. Clients created outside any session
+    belong to the caller, who closes them. Sessions are context-local (thread
+    and asyncio safe) and may nest; each session closes only the clients it
+    created.
+
+    Yields:
+        The list of socket clients owned by this session.
+    """
+    owned: list[Any] = []
+    token = _SOCKET_SESSION.set(owned)
+    try:
+        yield owned
+    finally:
+        _SOCKET_SESSION.reset(token)
+        while owned:
+            _close_socket_calculator(owned.pop())
+
+
 def _resolve_directory(path: str | None) -> str | None:
     if path is None:
         return None
@@ -197,12 +298,54 @@ class AbacusFactory:
             omp_num_threads=omp,
             version_command=version_command,
         )
-        calculator = Abacus(directory=directory, profile=profile, **parameters)
+        socket = _socket_options(abacus_config.get("socket"))
+        if socket is None:
+            calculator = Abacus(directory=directory, profile=profile, **parameters)
+        else:
+            calculator = AbacusFactory._socket_calculator(
+                config, directory, profile, parameters, socket
+            )
         return runtime_counters.instrument_calculator(
             calculator,
             build_key="abacus.calculator_built",
             call_key="abacus.force_calls",
         )
+
+
+    @staticmethod
+    def _socket_calculator(
+        config: Dict[str, Any],
+        directory: str,
+        profile: ATSTAbacusProfile,
+        parameters: Dict[str, Any],
+        socket: Dict[str, Any],
+    ) -> Calculator:
+        """Build an ``AbacusSocketIO`` calculator owned by the active socket session.
+
+        Endpoint conflicts are left to the backend: binding an occupied Unix
+        socket or TCP port fails when the first calculation starts the server.
+        """
+        _check_socket_workflow(config)
+        endpoint = (
+            f"unix:{socket['unixsocket']}" if socket.get("unixsocket") is not None else f"port:{socket['port']}"
+        )
+        parameters = dict(parameters)
+        inp = dict(parameters.pop("inp", {}) or {})
+        for key in _SOCKET_INP_KEYS:
+            if key in parameters:
+                inp[key] = parameters.pop(key)
+        calculator = AbacusSocketIO(
+            profile=profile,
+            directory=directory,
+            inp=inp,
+            **socket,
+            **parameters,
+        )
+        session = _SOCKET_SESSION.get()
+        if session is not None:
+            session.append(calculator)
+        LOGGER.info("Using ABACUS i-PI socket client (%s).", endpoint)
+        return calculator
 
 
 class CalculatorFactory:
@@ -218,6 +361,11 @@ class CalculatorFactory:
                 else None
             )
             if constant_potential is not None:
+                if _socket_options(_abacus_section(config).get("socket")) is not None:
+                    raise ValueError(
+                        "calculator.abacus.socket cannot be combined with "
+                        "calculator.constant_potential"
+                    )
                 return _constant_potential_calculator(config, constant_potential, kwargs)
             return AbacusFactory.get_calculator(config, **kwargs)
         if name in {"dp", "deepmd"}:

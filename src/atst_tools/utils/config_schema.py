@@ -1047,6 +1047,53 @@ def apply_calculation_defaults(calc_config: Dict[str, Any]) -> Dict[str, Any]:
     return _apply_model_defaults(model, dict(calc_config))
 
 
+class AbacusSocketConfig(StrictConfig):
+    """ABACUS i-PI socket client settings."""
+
+    enabled: bool = Field(default=True, description="Run ABACUS as a persistent i-PI socket client.")
+    unixsocket: str | None = Field(
+        default=None,
+        description="Unix socket name (/tmp/ipi_<name>); a unique name is generated when omitted.",
+    )
+    port: int | None = Field(default=None, gt=0, description="TCP port on localhost; exclusive with unixsocket.")
+    timeout: float | None = Field(default=None, gt=0, description="Socket timeout in seconds.")
+
+    @model_validator(mode="after")
+    def _validate_endpoint(self) -> "AbacusSocketConfig":
+        if self.port is not None and self.unixsocket is not None:
+            raise ValueError("calculator.abacus.socket accepts either port or unixsocket, not both")
+        return self
+
+
+#: ``calculator.abacus`` keys that control how ATST launches ABACUS. They are
+#: never ABACUS INPUT variables, so every INPUT writer must drop them.
+ABACUS_CONTROL_KEYS = frozenset(
+    {"command", "directory", "mpi", "omp", "parameters", "version_command", "socket"}
+)
+# Validated socket workflows, not the backend's full capability: each drives
+# exactly one fixed-cell ABACUS calculator for the whole run and has been
+# checked against FileIO with real ABACUS runs. Add a workflow only together
+# with that evidence.
+SOCKET_SUPPORTED_WORKFLOWS = ("relax", "md", "vibration", "dimer", "sella", "ccqn")
+# AbacusSocketIO is fixed-cell only, so variable-cell MD ensembles are excluded.
+SOCKET_FIXED_CELL_MD_ENSEMBLES = ("nve", "nvt")
+
+
+def abacus_socket_requested(value: Any) -> bool:
+    """Return whether a raw ``calculator.abacus.socket`` value enables socket mode.
+
+    Args:
+        value: ``None``/``False``/``True`` or a mapping with an optional
+            ``enabled`` flag (default ``True``).
+
+    Returns:
+        ``True`` when socket mode is requested.
+    """
+    if isinstance(value, Mapping):
+        return bool(value.get("enabled", True))
+    return bool(value)
+
+
 class AbacusConfig(BaseModel):
     """ABACUS calculator configuration.
 
@@ -1081,6 +1128,19 @@ class AbacusConfig(BaseModel):
     orbital_dir: str | None = Field(default=None, description="Orbital directory.")
     basis_dir: str | None = Field(default=None, description="Alias of orbital_dir.")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="ABACUS INPUT parameters.")
+    socket: bool | AbacusSocketConfig = Field(
+        default=False,
+        description=(
+            "Keep one ABACUS process alive as an i-PI socket client (requires the external "
+            "abacuslite package; fixed-cell, single-calculator workflows only)."
+        ),
+    )
+
+    def socket_enabled(self) -> bool:
+        """Return whether socket mode is requested."""
+        if isinstance(self.socket, AbacusSocketConfig):
+            return self.socket.enabled
+        return bool(self.socket)
 
 
 class DPConfig(StrictConfig):
@@ -1258,6 +1318,26 @@ class ATSTConfig(StrictConfig):
         if isinstance(self.calculation, MDCalculation):
             if self.calculation.driver == "abacus_native" and self.calculator.name != "abacus":
                 raise ValueError("calculation.driver=abacus_native requires calculator.name=abacus")
+        abacus_section = self.calculator.abacus
+        if self.calculator.name == "abacus" and abacus_section is not None and abacus_section.socket_enabled():
+            workflow = self.calculation.type
+            if workflow not in SOCKET_SUPPORTED_WORKFLOWS:
+                raise ValueError(
+                    "calculator.abacus.socket is supported only for calculation.type in "
+                    f"{list(SOCKET_SUPPORTED_WORKFLOWS)}; got {workflow!r}"
+                )
+            if isinstance(self.calculation, MDCalculation):
+                if self.calculation.driver != "ase":
+                    raise ValueError("calculator.abacus.socket requires calculation.driver=ase for md")
+                if self.calculation.ensemble not in SOCKET_FIXED_CELL_MD_ENSEMBLES:
+                    raise ValueError(
+                        "calculator.abacus.socket requires a fixed-cell md ensemble "
+                        f"{list(SOCKET_FIXED_CELL_MD_ENSEMBLES)}; got {self.calculation.ensemble!r}"
+                    )
+            if self.calculator.constant_potential is not None:
+                raise ValueError(
+                    "calculator.abacus.socket cannot be combined with calculator.constant_potential"
+                )
         cp = self.calculator.constant_potential
         if cp is not None:
             if self.calculator.name != "abacus":
@@ -1267,7 +1347,7 @@ class ATSTConfig(StrictConfig):
                 merged_parameters = {
                     key: value
                     for key, value in abacus.model_dump(mode="python").items()
-                    if key not in {"command", "directory", "mpi", "omp", "parameters", "version_command"}
+                    if key not in ABACUS_CONTROL_KEYS
                 }
                 merged_parameters.update(dict(abacus.parameters))
                 if "nupdown" in merged_parameters:
