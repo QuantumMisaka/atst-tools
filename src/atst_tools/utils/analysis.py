@@ -177,6 +177,43 @@ def path_progress(
     return np.asarray(values, dtype=float)
 
 
+def path_quality(
+    chain: Sequence[Atoms],
+    *,
+    init_index: int = 0,
+    final_index: int = -1,
+    use_mic: bool = True,
+    tolerance: float = 0.05,
+) -> dict[str, Any]:
+    """Report whether the projected path progress is monotonic.
+
+    A non-monotonic band means the frames are not a coherent initial -> final
+    path: the candidate ranking may still return the highest image, but the
+    progress and bond metrics must not be read as a reaction coordinate.
+    """
+    progress = path_progress(
+        chain,
+        init_index=init_index,
+        final_index=final_index,
+        use_mic=use_mic,
+    )
+    if len(progress) < 3:
+        return {
+            "monotonic": None,
+            "max_regression": None,
+            "tolerance": float(tolerance),
+            "progress": [float(value) for value in progress],
+        }
+    differences = np.diff(progress)
+    regressions = differences[differences < -float(tolerance)]
+    return {
+        "monotonic": bool(len(regressions) == 0),
+        "max_regression": float(-regressions.min()) if len(regressions) else 0.0,
+        "tolerance": float(tolerance),
+        "progress": [float(value) for value in progress],
+    }
+
+
 def candidate_metrics(
     chain: Sequence[Atoms],
     *,
@@ -226,10 +263,13 @@ def _complementary(
     k: int,
     window: Tuple[float, float],
 ) -> List[dict[str, Any]]:
-    """Pick candidates that cover different roles rather than one energy peak."""
-    lo, hi = window
-    in_window = [item for item in metrics if lo <= item["progress"] <= hi]
-    pool = in_window or list(metrics)
+    """Pick candidates that cover different roles, keeping the energy peak first.
+
+    A true transition state may be early or late along the path, so the
+    in-window preference must not displace the global energy maximum.  The
+    window is only used for the ``outside_progress_window`` flag in
+    :func:`rank_candidates`; here it only informs the complementary picks.
+    """
     selected: List[dict[str, Any]] = []
 
     def add(item: dict[str, Any]) -> None:
@@ -238,7 +278,7 @@ def _complementary(
         ):
             selected.append(item)
 
-    add(max(pool, key=lambda item: (item["energy_eV"], -item["index"])))
+    add(max(metrics, key=lambda item: (item["energy_eV"], -item["index"])))
     remaining = [item for item in metrics if item["index"] != selected[0]["index"]]
     if remaining:
         add(

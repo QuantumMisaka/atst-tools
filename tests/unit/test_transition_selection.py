@@ -10,6 +10,7 @@ from atst_tools.utils.analysis import (
     get_anchored_displacement_analysis,
     get_displacement_analysis,
     path_progress,
+    path_quality,
     rank_candidates,
 )
 from atst_tools.utils.reactive_modes import detect_bond_changes
@@ -69,7 +70,22 @@ def test_path_progress_is_zero_at_init_and_one_at_final():
     np.testing.assert_allclose(progress, [0.0, 0.5, 1.0])
 
 
-def test_rank_candidates_prefers_in_window_before_global_maximum():
+def test_path_quality_flags_non_monotonic_band():
+    chain = [
+        _image("H", [[0.0, 0.0, 0.0]], energy=0.0),
+        _image("H", [[0.1, 0.0, 0.0]], energy=0.1),
+        _image("H", [[0.9, 0.0, 0.0]], energy=1.0),
+        _image("H", [[0.4, 0.0, 0.0]], energy=0.2),
+        _image("H", [[1.0, 0.0, 0.0]], energy=0.0),
+    ]
+
+    quality = path_quality(chain)
+
+    assert quality["monotonic"] is False
+    assert quality["max_regression"] == pytest.approx(0.5, abs=1e-6)
+
+
+def test_rank_candidates_keeps_global_maximum_first_even_outside_window():
     chain = [
         _image("H", [[0.0, 0.0, 0.0]], energy=0.0),
         _image("H", [[0.05, 0.0, 0.0]], energy=2.0),
@@ -80,9 +96,9 @@ def test_rank_candidates_prefers_in_window_before_global_maximum():
 
     ranked = rank_candidates(chain, k=3)
 
-    assert ranked[0]["index"] == 2
-    assert ranked[0]["flags"] == []
-    assert {item["index"] for item in ranked} == {2, 1, 3}
+    assert ranked[0]["index"] == 1
+    assert "outside_progress_window" in ranked[0]["flags"]
+    assert {item["index"] for item in ranked} == {1, 2, 3}
 
 
 def test_detect_bond_changes_forms_and_breaks_co_bond():
