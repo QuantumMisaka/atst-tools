@@ -6,7 +6,8 @@ from itertools import combinations
 from typing import Any, Iterable
 
 import numpy as np
-from ase.data import covalent_radii
+from ase import Atoms
+from ase.data import chemical_symbols, covalent_radii
 from ase.geometry import find_mic
 
 
@@ -130,3 +131,110 @@ def enumerate_reactive_bond_modes(
                 )
     modes.sort(key=lambda item: (item["score"], item["reactive_bonds_1based"]))
     return modes[:max_modes]
+
+
+def detect_bond_changes(
+    init_atoms: Atoms,
+    final_atoms: Atoms,
+    *,
+    molecule_indices: Any = None,
+    bond_detect_scale: float = 1.2,
+    change_tol_A: float = 0.1,
+    include_catalyst_catalyst: bool = False,
+) -> dict[str, Any]:
+    """Detect formed, broken and significantly changed bonds between two frames.
+
+    This is a *reaction description proposal*, not a universal reaction
+    definition.  Bonds are inferred from the sum of Cordero covalent radii
+    scaled by ``bond_detect_scale``; the ASE table is used directly and is
+    recorded in the result.  A bond is only reported when its minimum-image
+    length changes by more than ``change_tol_A``, so a bond that merely
+    crosses the cutoff because of print or relaxation noise is ignored.
+
+    Args:
+        init_atoms: Initial-state frame.
+        final_atoms: Final-state frame with the same atom order and symbols.
+        molecule_indices: Optional 1-based active molecule/adsorbate indices.
+            When given, only bonds with at least one atom in this set are
+            considered unless ``include_catalyst_catalyst`` is true.
+        bond_detect_scale: Multiplier on the sum of covalent radii (default 1.2).
+        change_tol_A: Minimum absolute bond-length change in Angstrom.
+        include_catalyst_catalyst: Keep catalyst-catalyst bonds even when a
+            molecule filter is supplied.
+
+    Returns:
+        A JSON-compatible dict with ``bonds``, ``reactive_atoms_1based`` and
+        the radii provenance.  ``bonds`` entries carry the 1-based pair,
+        ``kind`` (``formed``/``broken``/``changed``), and the minimum-image
+        distances in both frames.
+    """
+    if len(init_atoms) != len(final_atoms):
+        raise ValueError("init_atoms and final_atoms must contain the same number of atoms")
+    init_symbols = init_atoms.get_chemical_symbols()
+    final_symbols = final_atoms.get_chemical_symbols()
+    if init_symbols != final_symbols:
+        raise ValueError("init_atoms and final_atoms must preserve atom order and symbols")
+
+    natoms = len(init_atoms)
+    molecule = (
+        set(parse_index_set(molecule_indices, natoms=natoms))
+        if molecule_indices not in (None, "")
+        else set()
+    )
+    numbers = init_atoms.get_atomic_numbers()
+    radii = np.asarray([covalent_radii[int(number)] for number in numbers], dtype=float)
+    cutoffs = (radii[:, None] + radii[None, :]) * float(bond_detect_scale)
+    init_distances = np.asarray(init_atoms.get_all_distances(mic=True), dtype=float)
+    final_distances = np.asarray(final_atoms.get_all_distances(mic=True), dtype=float)
+
+    bonds: list[dict[str, Any]] = []
+    for left in range(natoms):
+        for right in range(left + 1, natoms):
+            if molecule and not include_catalyst_catalyst:
+                if left not in molecule and right not in molecule:
+                    continue
+            cutoff = float(cutoffs[left, right])
+            d_init = float(init_distances[left, right])
+            d_final = float(final_distances[left, right])
+            in_init = d_init <= cutoff
+            in_final = d_final <= cutoff
+            delta = d_final - d_init
+            if in_init and not in_final and delta > float(change_tol_A):
+                kind = "broken"
+            elif in_final and not in_init and -delta > float(change_tol_A):
+                kind = "formed"
+            elif in_init and in_final and abs(delta) > float(change_tol_A):
+                kind = "changed"
+            else:
+                continue
+            bonds.append(
+                {
+                    "pair": [left + 1, right + 1],
+                    "label": f"{init_symbols[left]}{left + 1}-{init_symbols[right]}{right + 1}",
+                    "kind": kind,
+                    "d_init_A": d_init,
+                    "d_final_A": d_final,
+                    "delta_A": delta,
+                    "cutoff_A": cutoff,
+                }
+            )
+
+    reactive_atoms = sorted({atom for bond in bonds for atom in bond["pair"]})
+    fallback_elements = sorted(
+        {
+            chemical_symbols[int(number)]
+            for number in numbers
+            if np.isclose(float(covalent_radii[int(number)]), 2.0)
+        }
+    )
+    return {
+        "index_base": 1,
+        "source": "is_fs_diff",
+        "radii_source": "ase.data.covalent_radii (Cordero et al. 2008)",
+        "bond_detect_scale": float(bond_detect_scale),
+        "change_tol_A": float(change_tol_A),
+        "radii_quality": "fallback" if fallback_elements else "cordero",
+        "fallback_elements": fallback_elements,
+        "bonds": bonds,
+        "reactive_atoms_1based": reactive_atoms,
+    }
