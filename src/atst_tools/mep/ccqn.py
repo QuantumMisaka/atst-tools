@@ -31,7 +31,10 @@ from atst_tools.utils.convergence import (
 )
 from atst_tools.utils.idpp import align_atom_indices, interpolate_path
 from atst_tools.utils.geometry import prepare_fixed_cell_images
-from atst_tools.utils.reactive_modes import enumerate_reactive_bond_modes
+from atst_tools.utils.reactive_modes import (
+    detect_bond_changes,
+    enumerate_reactive_bond_modes,
+)
 
 # Interpolation-based cone axis (paper eq. 18): the path towards the product is
 # resolved with seven inner images, so the nine-frame path makes
@@ -92,6 +95,69 @@ def parse_reactive_bonds(value: Any, natoms: int | None = None) -> list[tuple[in
             raise ValueError(f"Reactive bond index out of range: {(left + 1, right + 1)}")
         pairs.add(tuple(sorted((left, right))))
     return sorted(pairs)
+
+
+def _select_reactive_bonds(atoms, product_atoms, auto_config):
+    """Prefer IS/product bond changes, then proximity enumeration.
+
+    A present product is direct evidence of what changes; the proximity
+    enumerator remains the fallback when no bond change is detected or the
+    product is absent.
+    """
+    if product_atoms is not None:
+        try:
+            detected = detect_bond_changes(
+                atoms,
+                product_atoms,
+                molecule_indices=auto_config.get("molecule_indices"),
+                bond_detect_scale=auto_config.get("bond_detect_scale", 1.2),
+            )
+            bonds = sorted(
+                detected.get("bonds", []),
+                key=lambda item: -abs(float(item.get("delta_A", 0.0))),
+            )
+            max_bonds = max(int(auto_config.get("max_bonds_per_mode", 1)), 1)
+            selected = bonds[:max_bonds]
+            if selected:
+                pairs_1based = [list(item["pair"]) for item in selected]
+                mode = {
+                    "reactive_bonds": [
+                        [left - 1, right - 1] for left, right in pairs_1based
+                    ],
+                    "reactive_bonds_1based": pairs_1based,
+                    "label": "+".join(
+                        str(item.get("label", "")) for item in selected
+                    ),
+                    "source": "is_fs_diff",
+                    "bonds": selected,
+                }
+                return (
+                    [mode],
+                    mode,
+                    [tuple(pair) for pair in mode["reactive_bonds"]],
+                    "is_fs_diff",
+                )
+        except Exception:
+            pass
+    modes = enumerate_reactive_bond_modes(
+        atoms,
+        molecule_indices=auto_config.get("molecule_indices"),
+        active_molecule_indices=auto_config.get("active_molecule_indices"),
+        active_catalyst_indices=auto_config.get("active_catalyst_indices"),
+        cutoff_A=auto_config.get("cutoff_A", 3.0),
+        max_modes=auto_config.get("max_modes", 20),
+        max_bonds_per_mode=auto_config.get("max_bonds_per_mode", 1),
+        bond_detect_scale=auto_config.get("bond_detect_scale", 1.2),
+    )
+    if not modes:
+        raise ValueError("auto_reactive_bonds found no candidate reactive modes")
+    selected = modes[0]
+    return (
+        modes,
+        selected,
+        [tuple(pair) for pair in selected["reactive_bonds"]],
+        "auto",
+    )
 
 
 def ccqn_ic_e_vector(atoms, forces, reactive_bonds, ic_mode: str = "democratic") -> np.ndarray:
@@ -942,21 +1008,9 @@ class AbacusCCQN:
                 "reactive_bonds_1based": [[left + 1, right + 1] for left, right in reactive_bonds],
             }
         if method == "ic" and not reactive_bonds and auto_config.get("enabled"):
-            modes = enumerate_reactive_bond_modes(
-                atoms,
-                molecule_indices=auto_config.get("molecule_indices"),
-                active_molecule_indices=auto_config.get("active_molecule_indices"),
-                active_catalyst_indices=auto_config.get("active_catalyst_indices"),
-                cutoff_A=auto_config.get("cutoff_A", 3.0),
-                max_modes=auto_config.get("max_modes", 20),
-                max_bonds_per_mode=auto_config.get("max_bonds_per_mode", 1),
-                bond_detect_scale=auto_config.get("bond_detect_scale", 1.2),
+            modes, selected_mode, reactive_bonds, selection_source = (
+                _select_reactive_bonds(atoms, product_atoms, auto_config)
             )
-            if not modes:
-                raise ValueError("auto_reactive_bonds found no candidate reactive modes")
-            selected_mode = modes[0]
-            reactive_bonds = [tuple(pair) for pair in selected_mode["reactive_bonds"]]
-            selection_source = "auto"
         elif method == "ic" and not reactive_bonds:
             selection_source = "none"
         self._write_mode_manifest(
