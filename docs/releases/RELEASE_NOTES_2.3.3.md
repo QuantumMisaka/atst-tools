@@ -62,13 +62,7 @@ the [feature matrix](../reports/FEATURE_STATUS_MATRIX.md) and
 
 ## Publication
 
-The candidate distributions were built from the release source and checked
-with strict Twine and the clean-wheel public API gate:
-
-| Artifact | Bytes | SHA256 |
-| --- | ---: | --- |
-| `atst_tools-2.3.3-py3-none-any.whl` | 373137 | `bf74b59f8a1f03860cea5bf0a20b1ea7ec0d289619a0f28a3eae006ba020d6d1` |
-| `atst_tools-2.3.3.tar.gz` | 331210 | `317a42da6738db2cbf7f7cd7f9751cbeb5af62db28cd6690c38a4beef11de8b1` |
-
-Tag and PyPI publication remain pending. After publication this section will
-record the exact release commit, GitHub Actions run and PyPI URLs.
+A local candidate build passed strict Twine and the clean-wheel public API
+gate. Tag and PyPI publication remain pending. After publication this section
+will record the exact release commit, GitHub Actions run, PyPI URLs and the
+hashes of the uploaded artifacts.
