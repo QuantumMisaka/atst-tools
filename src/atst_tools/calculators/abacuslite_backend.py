@@ -20,12 +20,32 @@ def _load_abacuslite_backend():
             "abacuslite is required by ATST-Tools; install abacuslite>=1.2.1,<2",
             name="abacuslite",
         )
-    from abacuslite import Abacus, AbacusProfile
+    from abacuslite import Abacus, AbacusProfile, AbacusSocketIO
 
-    return Abacus, AbacusProfile, "external"
+    return Abacus, AbacusProfile, AbacusSocketIO, "external"
 
 
-Abacus, AbacusProfile, BACKEND_SOURCE = _load_abacuslite_backend()
+Abacus, AbacusProfile, AbacusSocketIO, BACKEND_SOURCE = _load_abacuslite_backend()
+
+
+def socket_input_parameters(parameters: dict) -> dict:
+    """Apply the backend's socket-mode INPUT rules to ABACUS parameters.
+
+    Delegates to ``AbacusSocketIO._socket_inp`` so prepared INPUT files match
+    what the socket calculator writes: ``socket_driver = 1``,
+    ``calculation = scf`` and normalized ``cal_force``/``cal_stress``.
+
+    Args:
+        parameters: ABACUS INPUT parameters.
+
+    Returns:
+        A new parameter mapping with socket-mode values applied.
+
+    Raises:
+        ValueError: If ``calculation`` is not ``scf`` or a ``cal_*`` flag is
+            not a boolean value.
+    """
+    return AbacusSocketIO._socket_inp(parameters)
 
 
 def import_generalio():
@@ -131,6 +151,7 @@ class ATSTAbacusProfile(AbacusProfile):
 __all__ = [
     "Abacus",
     "AbacusProfile",
+    "AbacusSocketIO",
     "ATSTAbacusProfile",
     "BACKEND_SOURCE",
     "BackendSource",

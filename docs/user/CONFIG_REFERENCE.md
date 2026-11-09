@@ -598,7 +598,7 @@ calculation:
 | `results_file` | string | `vibration_results.json` | Vibration JSON output. |
 | `validation_file` | string | `ts_validation.json` | Transition-state validation JSON output. |
 | `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
-| `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. |
+| `restart` | bool | `false` | Reuse existing ASE vibration cache files. The default removes stale cache files before running. Restart requires the same FileIO/socket transport; use a new `name` or set `restart: false` when switching transports. |
 | `directory` | string | `vib_run` | Calculator working directory. |
 
 Thermochemistry is controlled by an optional nested block:
@@ -855,6 +855,71 @@ configuration field or user-selectable tolerance.
 | `pseudo_dir` | string | `.` | Directory containing pseudopotential files. |
 | `orbital_dir` | string | `.` | Directory containing basis set files. |
 | `parameters` | dict | `{}` | Key-value pairs for ABACUS `INPUT` file (e.g., `ecutwfc`, `scf_thr`). |
+| `socket` | bool \| dict | `false` | Run ABACUS as a persistent i-PI socket client (see below). |
+
+**Socket mode (`socket`).** By default every ASE force call starts a new
+ABACUS process (FileIO). With `socket: true`, one ABACUS process stays alive
+for the whole workflow and receives updated positions through the i-PI
+protocol (`socket_driver = 1`, `calculation = scf`), avoiding repeated start-up
+and initialization; ABACUS also extrapolates the charge density between steps
+(`chg_extrap` defaults to `first-order` in socket mode). It requires an ABACUS
+build with `socket_driver`; the client side is abacuslite's `AbacusSocketIO`,
+already provided by the required `abacuslite` dependency.
+
+Socket results travel in atomic units and are converted with ASE's CODATA
+constants, while FileIO reads values that ABACUS already converted with its own
+constants (`Hartree_to_eV = 27.211396`, `BOHR_TO_A = 0.5291770`). The two modes
+therefore differ by a small relative scale factor, not by a constant offset: at
+an identical geometry, socket energies are smaller in magnitude by 3.7e-7
+(about 0.09 eV for a 2.4e5 eV cell) and forces by 7.8e-7. Energy differences
+scale by the same factor (about 0.4 µeV for a 1 eV barrier), which is far below
+SCF noise, but absolute energies, energy references and cached results from the
+two modes should not be mixed.
+
+```yaml
+calculator:
+  name: abacus
+  abacus:
+    mpi: 16
+    socket: true            # unique Unix socket /tmp/ipi_atst_<pid>_<n>
+    # socket:               # or a mapping
+    #   unixsocket: h2au    # -> /tmp/ipi_h2au; exclusive with port
+    #   port: 31415         # TCP on localhost
+    #   enabled: true
+```
+
+An explicit `unixsocket` or `port` that is already in use, by ATST or another
+program, fails when ABACUS is first started; omit both to get a unique Unix
+socket. With socket mode enabled, prepared INPUT files and `--check-input`
+use the same socket INPUT as the run (`socket_driver 1`, `calculation scf`), and
+a contradictory `calculation` is rejected.
+
+`socket.timeout` (seconds) is passed unchanged to ASE's `SocketIOCalculator`
+and is unset by default, i.e. ATST waits indefinitely. It bounds each socket
+read, so once ABACUS is connected it covers a whole SCF plus force evaluation;
+the first step also includes ABACUS initialization. A value shorter than the
+slowest step aborts a healthy run, so set it only as a guard against a hung
+ABACUS process and size it well above the slowest expected step. A crash during
+ABACUS start-up is detected without a timeout.
+
+Restrictions: only `calculation.type` in `relax`, `md` (with `driver: ase`
+and a fixed-cell `ensemble: nve` or `nvt`; `npt` is rejected), `vibration`,
+`dimer`, `sella` and `ccqn` (single fixed-cell calculator per run); it cannot be
+combined with `calculator.constant_potential`; the cell must stay fixed. The
+ABACUS client is shut down when the workflow ends, including on failure. The
+ASE MD SCF guard reads each step's convergence from the socket response, so
+unconverged steps are still rejected.
+
+In socket mode ABACUS counts the first frame as an extrapolation step, so the
+default `first-order` scheme over-extrapolates at the second geometry.
+`vibration`, `dimer`, `sella` and `ccqn` also move back and forth between
+geometries, which breaks the linear trend `first-order` assumes. For these
+workflows, `chg_extrap: atomic` in `parameters` usually needs fewer SCF
+iterations. Smooth ASE MD trajectories suit the default `first-order` better.
+With the same SCF convergence criterion this should not materially change
+converged results, but unconverged steps and path-dependent diagnostics may
+differ. For paired FileIO/socket comparisons, set `chg_extrap` explicitly to the
+same value in both runs.
 
 `command` may be a bare executable (`abacus`), an explicit launcher
 (`mpirun -np 4 abacus`, `srun -n 4 abacus`), or a template using `{mpi}` such
