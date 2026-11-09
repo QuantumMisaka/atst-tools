@@ -2,7 +2,7 @@
 
 **Version**: 2.3.3
 **Date**: 2026-11-09
-**Status**: Release candidate; publication pending
+**Status**: Release candidate; tag ready, publication pending
 **Source**: `release/v2.3.3` (commit recorded at publication)
 **Tag**: `v2.3.3`
 
@@ -62,5 +62,13 @@ the [feature matrix](../reports/FEATURE_STATUS_MATRIX.md) and
 
 ## Publication
 
-Pending tag and PyPI publication. After publication this section will record
-the exact release commit, GitHub Actions run, PyPI URLs and artifact hashes.
+The candidate distributions were built from the release source and checked
+with strict Twine and the clean-wheel public API gate:
+
+| Artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `atst_tools-2.3.3-py3-none-any.whl` | 373137 | `bf74b59f8a1f03860cea5bf0a20b1ea7ec0d289619a0f28a3eae006ba020d6d1` |
+| `atst_tools-2.3.3.tar.gz` | 331210 | `317a42da6738db2cbf7f7cd7f9751cbeb5af62db28cd6690c38a4beef11de8b1` |
+
+Tag and PyPI publication remain pending. After publication this section will
+record the exact release commit, GitHub Actions run and PyPI URLs.
