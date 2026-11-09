@@ -19,7 +19,7 @@ or a calculator runtime. For command syntax, see the maintained
 [CLI reference](CLI_REFERENCE.md). For project installation, examples, and
 source, see the [repository README](../../README.md) and the
 [ATST-Tools repository](https://github.com/QuantumMisaka/atst-tools).
-This reference describes the [2.3.2 API](../releases/RELEASE_NOTES_2.3.2.md).
+This reference describes the [2.3.3 API](../releases/RELEASE_NOTES_2.3.3.md).
 Additions since 2.2.0
 (progress events, plotting helpers, and the profiles/plots result extensions)
 are marked "(2.2.1)".
@@ -45,7 +45,7 @@ responsibility.
 
 ## Stable imports
 
-The stable root imports in the current 2.3.2 release are:
+The stable root imports in the current 2.3.3 release are:
 
 ```python
 from atst_tools.api import (
@@ -428,7 +428,7 @@ Backend delegation has four invariants:
 
 ### `validate_ts(vibration_results, *, structure=None, fmax_threshold=0.05, imaginary_cutoff_cm1=50.0, output=None)`
 
-The current 2.3.2 release exposes `validate_ts` as a lazy root import from
+The current 2.3.3 release exposes `validate_ts` as a lazy root import from
 `atst_tools.api`. It screens stored vibration results and optional frozen
 structure facts. It never calls a live calculator or starts new force or
 vibration calculations. An ASE structure path supplies force evidence only

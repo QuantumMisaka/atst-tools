@@ -1,8 +1,8 @@
 # ATST-Tools Configuration Reference
 
-**Version**: 2.3.2
-**Last Updated**: 2026-10-20
-**Status**: Reference for the 2.3.2 release
+**Version**: 2.3.3
+**Last Updated**: 2026-11-09
+**Status**: Reference for the 2.3.3 release
 
 This document is the hand-written semantic reference for `config.yaml` files
 used by `atst run`. It explains workflow behavior, common configuration
@@ -88,7 +88,7 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 **Type**: `neb`
 
 The fixed-cell preparation, cache invalidation and `1e-5` matcher behavior
-described below are part of the current 2.3.2 release (introduced in 2.2.9).
+described below are part of the current 2.3.3 release (introduced in 2.2.9).
 
 Fixed-cell input preparation compares the complete cell matrix in Angstrom
 with `atol=1e-5`, `rtol=0`. The initial endpoint or first loaded band image
@@ -249,12 +249,12 @@ ordinary NEB applies.
 
 ### 2.3b Molecular Dynamics (MD)
 
-Post-2.3.2 development: ordinary ASE-driven ABACUS MD validates SCF
+The 2.3.3 release makes ordinary ASE-driven ABACUS MD validate SCF
 convergence on every calculator evaluation, using the same explicit-result
 or running-log evidence reader as CP. Missing or failed convergence evidence
 raises before the forces/stress can be consumed by the integrator; no completed
 summary or final structure is published. Successful ordinary ABACUS MD summaries
-include `scf_converged: true`. This fix is not part of the published 2.3.2 tag.
+include `scf_converged: true`.
 Other calculators and the native ABACUS MD route retain their existing behavior.
 **Type**: `md`
 

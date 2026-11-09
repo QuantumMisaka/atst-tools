@@ -1,6 +1,6 @@
 # ATST-Tools
 
-[![Version](https://img.shields.io/badge/version-2.3.2-blue)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-2.3.3-blue)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-LGPL--v3-blue)](#license)
 
@@ -70,10 +70,10 @@ backend inputs.
 
 ## Quick Start
 
-Obtain examples at the tag matching your installed version (shown for 2.3.2):
+Obtain examples at the tag matching your installed version (shown for 2.3.3):
 
 ```bash
-git clone --branch v2.3.2 https://github.com/QuantumMisaka/atst-tools.git
+git clone --branch v2.3.3 https://github.com/QuantumMisaka/atst-tools.git
 cd atst-tools
 ```
 
@@ -112,7 +112,7 @@ methods or DP variants. A complete walkthrough is also available in the
 | Use CLI commands | [CLI reference](docs/user/CLI_REFERENCE.md) |
 | Configure ABACUS input/output and parallelism | [ABACUS wrapper guide](docs/user/ABACUSLITE_WRAPPER_GUIDE.md) |
 | Embed workflows or use the JSON process runner | [Python API](docs/user/PYTHON_API_REFERENCE.md) |
-| Check support and releases | [Feature matrix](docs/reports/FEATURE_STATUS_MATRIX.md) · [2.3.2 release notes](docs/releases/RELEASE_NOTES_2.3.2.md) |
+| Check support and releases | [Feature matrix](docs/reports/FEATURE_STATUS_MATRIX.md) · [2.3.3 release notes](docs/releases/RELEASE_NOTES_2.3.3.md) |
 | Contribute | [Developer handover](docs/developer/HANDOVER.md) · [Source architecture](src/atst_tools/README.md) |
 
 The primary documentation is in English, with a [Chinese user guide](docs/user/USER_GUIDE_CN.md).

@@ -40,6 +40,23 @@ def test_anchored_selection_uses_candidate_not_global_maximum():
     assert global_max[0] == 2
 
 
+def test_legacy_displacement_analysis_keeps_global_norm_semantics():
+    chain = [
+        _image("H2", [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], energy=0.0),
+        _image("H2", [[0.5, 0.0, 0.0], [0.0, 0.0, 1.1]], energy=1.0),
+        _image("H2", [[1.0, 0.0, 0.0], [0.0, 0.0, 1.2]], energy=0.1),
+    ]
+
+    ts_index, main, norm_vector = get_displacement_analysis(chain, thr=0.5)
+
+    assert ts_index == 1
+    assert main == [0]
+    np.testing.assert_allclose(
+        norm_vector,
+        [0.5 / np.hypot(0.5, 0.1), 0.1 / np.hypot(0.5, 0.1)],
+    )
+
+
 def test_displacement_share_uses_minimum_image():
     cell = [10.0, 10.0, 10.0]
     chain = [
@@ -99,6 +116,16 @@ def test_rank_candidates_keeps_global_maximum_first_even_outside_window():
     assert ranked[0]["index"] == 1
     assert "outside_progress_window" in ranked[0]["flags"]
     assert {item["index"] for item in ranked} == {1, 2, 3}
+
+
+def test_rank_candidates_accepts_zero_limit():
+    chain = [
+        _image("H", [[0.0, 0.0, 0.0]], energy=0.0),
+        _image("H", [[0.5, 0.0, 0.0]], energy=1.0),
+        _image("H", [[1.0, 0.0, 0.0]], energy=0.0),
+    ]
+
+    assert rank_candidates(chain, k=0) == []
 
 
 def test_detect_bond_changes_forms_and_breaks_co_bond():

@@ -120,21 +120,42 @@ def get_displacement_analysis(
     neb_chain: Sequence[Atoms],
     thr: float = 0.10,
     *,
-    use_mic: bool = True,
+    use_mic: bool = False,
 ) -> Tuple[int, List[int], np.ndarray]:
-    """Compatibility wrapper: pick the highest-energy image, then select atoms.
+    """Legacy compatibility path: highest-energy image, global-norm vector.
 
     Prefer :func:`get_anchored_displacement_analysis` when the candidate is
     already known: the global maximum of a drifted path is not necessarily the
-    candidate that should be refined.
+    candidate that should be refined.  The legacy normalization divides each
+    atom's displacement by the norm of the complete displacement vector, not by
+    the sum of per-atom magnitudes; existing D2S/CLI callers rely on that
+    threshold behavior.
     """
     if not neb_chain:
         raise ValueError("neb_chain must not be empty")
     energies = [_energy(image) for image in neb_chain]
     ts_index = int(np.argmax(energies))
-    return get_anchored_displacement_analysis(
-        neb_chain, ts_index, thr=thr, use_mic=use_mic
-    )
+    before = max(0, ts_index - 1)
+    after = min(len(neb_chain) - 1, ts_index + 1)
+    if before == after:
+        return ts_index, [], np.zeros(0, dtype=float)
+    if use_mic:
+        vectors = mic_displacement(neb_chain[after], neb_chain[before])
+    else:
+        vectors = (
+            np.asarray(neb_chain[before].positions, dtype=float)
+            - np.asarray(neb_chain[after].positions, dtype=float)
+        )
+    length = float(np.linalg.norm(vectors))
+    if length < 1e-6:
+        return ts_index, [], np.zeros(len(vectors), dtype=float)
+    norm_vector = np.linalg.norm(vectors, axis=1) / length
+    main = [
+        atom_index
+        for atom_index, value in enumerate(norm_vector)
+        if value > float(thr)
+    ]
+    return ts_index, main, norm_vector
 
 
 def path_progress(
@@ -270,6 +291,8 @@ def _complementary(
     window is only used for the ``outside_progress_window`` flag in
     :func:`rank_candidates`; here it only informs the complementary picks.
     """
+    if k <= 0:
+        return []
     selected: List[dict[str, Any]] = []
 
     def add(item: dict[str, Any]) -> None:

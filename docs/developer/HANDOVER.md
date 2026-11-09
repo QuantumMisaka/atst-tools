@@ -11,13 +11,12 @@ to identify the documentation that must be updated.
 
 ## 1. Daily entry points
 
-Pending next patch release (2026-10-21): include the ordinary ASE/ABACUS MD
-per-evaluation SCF validity guard and `tests/unit/test_md_scf_validity.py`.
-It reuses CP's convergence-evidence reader, keeps converged-input YAML/API
-compatible, and intentionally rejects previously accepted unvalidated forces.
-The package version remains 2.3.2 until release preparation; do not attribute
-this fix to the existing PyPI artifact. Re-run short real-backend MD acceptance
-before downstream Paimon 1.2.77 publication.
+2.3.3 release preparation includes the ordinary ASE/ABACUS MD per-evaluation
+SCF validity guard, the experimental i-PI socket client, and the transition
+candidate/reaction-atom selection helpers. The MD guard reuses CP's
+convergence-evidence reader, keeps converged-input YAML/API compatible, and
+intentionally rejects previously accepted unvalidated forces. Re-run short
+real-backend MD acceptance before downstream Toolbox publication.
 
 - User entry points: [README.md](../../README.md), [docs/index.md](../index.md),
   [USER_GUIDE_CN.md](../user/USER_GUIDE_CN.md).

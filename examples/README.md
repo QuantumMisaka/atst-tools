@@ -46,7 +46,7 @@ repository checkout at the tag matching your installed version. All paths below
 state their starting directory. For a first session without a backend, follow
 the local CLI path before selecting a real calculation.
 
-The **current 2.3.2 release** uses an absolute `1e-5 Å` cell tolerance.
+The **current 2.3.3 release** uses an absolute `1e-5 Å` cell tolerance.
 Preprocessing preserves rounding within that bound, and NEB runtime copies adapt
 periodic vectors only when required by ASE. See the
 [fixed-cell rules](../docs/user/CONFIG_REFERENCE.md#22-nudged-elastic-band-neb).
