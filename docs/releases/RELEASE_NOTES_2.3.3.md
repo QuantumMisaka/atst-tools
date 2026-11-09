@@ -2,8 +2,8 @@
 
 **Version**: 2.3.3
 **Date**: 2026-11-09
-**Status**: Release candidate; tag ready, publication pending
-**Source**: `release/v2.3.3` (commit recorded at publication)
+**Status**: Published on PyPI and GitHub
+**Source**: `main`, release commit `6c71420142d138eea9dec5f6d98d1e8ee28cf989`
 **Tag**: `v2.3.3`
 
 ## Summary
@@ -62,7 +62,15 @@ the [feature matrix](../reports/FEATURE_STATUS_MATRIX.md) and
 
 ## Publication
 
-A local candidate build passed strict Twine and the clean-wheel public API
-gate. Tag and PyPI publication remain pending. After publication this section
-will record the exact release commit, GitHub Actions run, PyPI URLs and the
-hashes of the uploaded artifacts.
+The tagged publication run
+[42641517908](https://github.com/QuantumMisaka/atst-tools/actions/runs/42641517908)
+completed successfully after release readiness, the full unit suite,
+documentation governance, build, strict Twine and clean-wheel API gates.
+
+- [PyPI 2.3.3](https://pypi.org/project/atst-tools/2.3.3/)
+- [GitHub tag v2.3.3](https://github.com/QuantumMisaka/atst-tools/releases/tag/v2.3.3)
+
+| Artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `atst_tools-2.3.3-py3-none-any.whl` | 373137 | `ad8b3bbb7dc4092854666a1455fcdedd5db4000358306dfb4442982beef7c2d6` |
+| `atst_tools-2.3.3.tar.gz` | 330908 | `dce230f6606c12f6539e32efd370a0a18e1e90e451aab4b88f96007a5bb6e770` |

@@ -2,7 +2,7 @@
 
 **Version**: 2.3.3
 **Last Updated**: 2026-11-09
-**Status**: 2.3.3 release candidate; support and validation scope are distinguished below
+**Status**: 2.3.3 is published on PyPI and GitHub; support and validation scope are distinguished below
 
 2.3.3 includes the ordinary ASE/ABACUS MD per-evaluation SCF validity guard and
 the experimental i-PI socket client. The analytic regression checks cover
