@@ -87,6 +87,23 @@ Other common names such as `fmax`, `max_steps`, `optimizer`, `trajectory`, and `
 ### 2.2 Nudged Elastic Band (NEB)
 **Type**: `neb`
 
+Path generation evaluates IDPP pair distances and gradients using the current
+minimum image at every force evaluation. Periodic neighboring-image
+displacements also define the IDPP tangent and spring; endpoint coordinates
+remain as supplied. This is a shortest-periodic-path convention, not a method
+for prescribing multiple-cell winding. The reported final objective and force
+describe the returned geometry. MIC branch ties can be nonsmooth, so these
+corrections do not guarantee IDPP convergence.
+
+Before writing a generated band, and before D2S evaluates a generated rough
+NEB band, ATST rejects nonfinite geometry and severe interatomic contacts:
+`distance < 0.5 * (covalent_radius_i + covalent_radius_j)`, using ASE radii and
+actual periodic MIC distances. Errors identify the frame and atom pair with
+1-based labels. This conservative collision heuristic admits normal short H-H
+bonds; passing it is not proof of a physical reaction path. IDPP convergence
+and geometry acceptance are separate facts. CCQN's endpoint-relative contact
+ratio remains advisory and is not used as a universal collision cutoff.
+
 The fixed-cell preparation, cache invalidation and `1e-5` matcher behavior
 described below are part of the current 2.3.3 release (introduced in 2.2.9).
 
@@ -154,6 +171,24 @@ calculation:
 ```
 
 The nested NEB `make.method` value accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository `Fast_IDPPSolver`; `linear` writes the aligned linear interpolation directly. `init_structure`, `final_structure`, and `ts_guess` may be ABACUS `STRU` / `.stru` files. Their mobility flags are preserved as ASE constraints in the generated chain and in ABACUS image input writing, including full `m 0 0 0` fixed atoms and partial Cartesian mobility such as `m 1 0 1`. `sort_tol` / pymatgen autosort is intentionally dropped.
+
+IDPP now defaults to adaptive ASE FIRE updates (`make.idpp_optimizer: fire`).
+Use `legacy` for historical fixed-step updates. Both modes retain the same
+current-MIC distance objective, NEB force, constraints, maximum absolute force
+component threshold `1e-3`, and objective-change stopping criterion. The 2000-update
+cap remains a budget, not a required iteration count. In the Python solver,
+`step_size` and `max_disp` apply only to `optimizer="legacy"`; FIRE uses
+`dt=0.1`, `dtmax=1.0`, `maxstep=0.2`. IDPP forces are not physical DFT forces.
+
+Ordinary IDPP needs only IS/FS. An explicit `ts_guess` is an intentional user
+anchor, retained at its supplied Cartesian positions after requested atom
+alignment; there is no TS-moving/smoothing option. `make.image_distribution:
+length` (default) allocates segment intervals by MIC configuration-space
+endpoint chord lengths, with at least one extra image per moving segment when
+the budget permits. `equal` restores the historical half split. Chord lengths
+are estimates, so relaxed segment spacings need not be exactly equal. A TS join
+can retain a tangent kink, which generation does not remove by moving the
+anchor. Existing `init_chain`/restart bands are not redistributed.
 
 Without `ts_guess`, the generated band contains `n_images + 2` images. With a
 TS guess, the two segments contain `n_images` interpolated images in total,
@@ -652,7 +687,8 @@ After a vibration run, ATST-Tools writes `results_file`, a standardized `validat
 | `artifact_manifest` | string | `atst_artifacts.json` | Workflow artifact manifest JSON output. |
 
 D2S optimizes endpoints by default, then builds the rough DyNEB chain when
-`rough_method: neb`. `neb.idpp_maxiter` and `neb.idpp_tol` configure the
+`rough_method: neb`. `neb.idpp_optimizer` selects `fire` (default) or `legacy`;
+`neb.idpp_maxiter` and `neb.idpp_tol` configure the
 in-repository Fast IDPP path optimizer. `neb.scale_fmax` is forwarded to ASE
 `DyNEB(scale_fmax=...)`, and `neb.optimizer_kwargs` is forwarded to the rough
 DyNEB FIRE optimizer. With `rough_method: dmf`, D2S writes optimized endpoints

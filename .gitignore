@@ -142,3 +142,6 @@ examples/09_lightweight_cli/inputs/init_neb_chain_ts.traj
 !docs/reports/data/architecture_review_20261016/*.log
 !docs/reports/data/review_fixes_20261016/*.json
 !docs/reports/data/review_fixes_20261016/*.log
+
+# Versioned Pd IDPP regression audit evidence.
+!docs/reports/data/idpp_pd_audit_20261112/*.json

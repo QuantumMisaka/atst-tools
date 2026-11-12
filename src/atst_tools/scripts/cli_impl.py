@@ -282,6 +282,8 @@ def _add_neb_parser(subparsers):
     make.add_argument("--mag", help="Set magnetic moments, e.g. Fe:2.5,O:1.0")
     make.add_argument("--from-chain", help="Reuse the last N_IMAGES+2 frames from an existing chain")
     make.add_argument("--ts", help="Transition-state guess for segmented interpolation")
+    make.add_argument("--idpp-optimizer", choices=("fire", "legacy"), default="fire", help="IDPP update mode (default: fire)")
+    make.add_argument("--image-distribution", choices=("length", "equal"), default="length", help="Segmented image allocation (default: MIC length)")
     make.set_defaults(func=_neb_make_command)
 
     post = neb_subparsers.add_parser("post", help="Analyze an NEB trajectory")
@@ -366,6 +368,8 @@ def _neb_make_command(args):
         mag_num=mag_num,
         no_align=args.no_align,
         ts_file=args.ts,
+        idpp_optimizer=args.idpp_optimizer,
+        image_distribution=args.image_distribution,
     )
 
 

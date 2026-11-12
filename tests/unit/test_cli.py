@@ -960,6 +960,8 @@ def test_neb_make_delegates_to_generate(monkeypatch):
             "mag_num": None,
             "no_align": False,
             "ts_file": None,
+            "idpp_optimizer": "fire",
+            "image_distribution": "length",
         }
     ]
 

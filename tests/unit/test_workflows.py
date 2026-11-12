@@ -2034,7 +2034,7 @@ def test_d2s_rough_neb_forwards_idpp_controls(monkeypatch, tmp_path):
     )
     workflow.run_rough_neb(chain[0], chain[-1])
 
-    assert run_kwargs == {"maxiter": 5000, "tol": 1e-3}
+    assert run_kwargs == {"maxiter": 5000, "tol": 1e-3, "optimizer": "fire"}
 
 
 def test_run_dimer_preserves_dp_calculator_selection(monkeypatch, tmp_path):
@@ -4055,3 +4055,36 @@ def test_irc_workflow_reports_sella_runtime_boundary(monkeypatch, tmp_path):
         workflow.run()
 
     assert "Original error: RuntimeError: MGS failed" in str(excinfo.value)
+
+
+def test_d2s_rejects_collapsed_idpp_path_before_calculator_setup(monkeypatch, tmp_path):
+    """A periodic Pd collision must stop before any backend is requested."""
+    from atst_tools.workflows import d2s
+
+    endpoint = Atoms("Pd2", positions=[[0, 0, 0], [2.77, 0, 0]], cell=[8.3575, 8, 20], pbc=True)
+    collapsed = endpoint.copy()
+    collapsed.positions[1] = [8.3575 - 0.205, 0, 0]
+
+    class FakeSolver:
+        def run(self, **kwargs):
+            return [endpoint.copy(), collapsed, endpoint.copy()]
+
+    calls = []
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(d2s.Fast_IDPPSolver, "from_endpoints", lambda *args, **kwargs: FakeSolver())
+    monkeypatch.setattr(d2s, "ensure_neb_endpoint_results", lambda *args, **kwargs: calls.append("endpoint_backend"))
+    monkeypatch.setattr(d2s, "should_share_calculator", lambda *args, **kwargs: False)
+
+    def backend_requested(*args, **kwargs):
+        calls.append("backend")
+        raise AssertionError("backend requested before geometry check")
+
+    workflow = d2s.D2SWorkflow(
+        {"calculator": {"name": "dp", "dp": {"model": "model.pt"}}},
+        "dp",
+        {"type": "d2s", "method": "dimer", "neb": {"n_images": 1}},
+    )
+    monkeypatch.setattr(workflow, "_get_calc", backend_requested)
+    with pytest.raises(ValueError, match=r"D2S rough DyNEB.*Pd1-Pd2"):
+        workflow.run_rough_neb(endpoint, endpoint.copy())
+    assert calls == []

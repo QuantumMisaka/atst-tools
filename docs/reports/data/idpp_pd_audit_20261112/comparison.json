@@ -1,0 +1,122 @@
+[
+  {
+    "name": "fixed_0.05",
+    "status": "Converged",
+    "iterations": 1951,
+    "force_evaluations": 1951,
+    "seconds": 13.164519017002021,
+    "objective": 0.03223595380327968,
+    "max_force_component": 0.0009986878867898714,
+    "max_force_atom_norm": 0.0010378501647426077,
+    "min_pd": 2.7391817035484074,
+    "min_pd_by_frame": [
+      2.7412419776912555,
+      2.739516081957597,
+      2.7391817035484074,
+      2.7434219011416756,
+      2.758181175714495,
+      2.764554434681999
+    ],
+    "maxiter": 2000,
+    "tol": 0.05,
+    "gtol": 0.001,
+    "rms_atom_displacement_vs_baseline": 0.0,
+    "max_atom_displacement_vs_baseline": 0.0
+  },
+  {
+    "name": "fixed_0.1",
+    "status": "Converged",
+    "iterations": 936,
+    "force_evaluations": 936,
+    "seconds": 6.479871431001811,
+    "objective": 0.03225797671241689,
+    "max_force_component": 0.000998420270277098,
+    "max_force_atom_norm": 0.001029208588129205,
+    "min_pd": 2.7388035975830007,
+    "min_pd_by_frame": [
+      2.7412419776912555,
+      2.7395399661469577,
+      2.7388035975830007,
+      2.7431526515344857,
+      2.757986613941633,
+      2.764554434681999
+    ],
+    "maxiter": 2000,
+    "tol": 0.05,
+    "gtol": 0.001,
+    "rms_atom_displacement_vs_baseline": 0.002049929842342137,
+    "max_atom_displacement_vs_baseline": 0.017033292105448388
+  },
+  {
+    "name": "fixed_0.2",
+    "status": "Failed",
+    "iterations": 2000,
+    "force_evaluations": 2001,
+    "seconds": 14.543488873998285,
+    "objective": 0.052279048717098,
+    "max_force_component": 0.21178177087959457,
+    "max_force_atom_norm": 0.22728144327305994,
+    "min_pd": 2.6959539295872013,
+    "min_pd_by_frame": [
+      2.7412419776912555,
+      2.707580183697716,
+      2.6959539295872013,
+      2.714248281939604,
+      2.7432645697403553,
+      2.764554434681999
+    ],
+    "maxiter": 2000,
+    "tol": 0.05,
+    "gtol": 0.001,
+    "rms_atom_displacement_vs_baseline": 0.13027056564432865,
+    "max_atom_displacement_vs_baseline": 0.7294923840286947
+  },
+  {
+    "name": "fire_0.2",
+    "status": "Converged",
+    "iterations": 234,
+    "force_evaluations": 234,
+    "seconds": 1.5294280029993388,
+    "objective": 0.03227667642518553,
+    "max_force_component": 0.0009488042827253654,
+    "max_force_atom_norm": 0.001024382224526025,
+    "min_pd": 2.738670425656594,
+    "min_pd_by_frame": [
+      2.7412419776912555,
+      2.739469523270008,
+      2.738670425656594,
+      2.7430428503357427,
+      2.757431360709047,
+      2.764554434681999
+    ],
+    "maxiter": 2000,
+    "tol": 0.05,
+    "gtol": 0.001,
+    "rms_atom_displacement_vs_baseline": 0.0013752558526063305,
+    "max_atom_displacement_vs_baseline": 0.008338831156316078
+  },
+  {
+    "name": "fire_1.0",
+    "status": "Converged",
+    "iterations": 234,
+    "force_evaluations": 234,
+    "seconds": 1.6438867789984215,
+    "objective": 0.03227667642518553,
+    "max_force_component": 0.0009488042827253654,
+    "max_force_atom_norm": 0.001024382224526025,
+    "min_pd": 2.738670425656594,
+    "min_pd_by_frame": [
+      2.7412419776912555,
+      2.739469523270008,
+      2.738670425656594,
+      2.7430428503357427,
+      2.757431360709047,
+      2.764554434681999
+    ],
+    "maxiter": 2000,
+    "tol": 0.05,
+    "gtol": 0.001,
+    "rms_atom_displacement_vs_baseline": 0.0013752558526063305,
+    "max_atom_displacement_vs_baseline": 0.008338831156316078
+  }
+]

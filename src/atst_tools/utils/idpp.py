@@ -11,6 +11,8 @@ from ase.io import write
 from ase.constraints import FixAtoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.geometry import find_mic
+from ase.optimize import FIRE
+from ase.utils.abc import Optimizable
 from atst_tools.calculators.constant_potential import read_constant_potential_facts
 from atst_tools.utils.geometry import prepare_fixed_cell_images
 from atst_tools.utils.neb_endpoints import (
@@ -21,6 +23,8 @@ from atst_tools.utils.neb_endpoints import (
     mark_endpoint_result,
 )
 from atst_tools.utils.io import read_structure
+from atst_tools.utils.path_geometry import validate_path_geometry
+from atst_tools.utils.path_sampling import allocate_segment_images
 
 # Scipy Imports
 from scipy.optimize import linear_sum_assignment
@@ -174,17 +178,74 @@ def _mic_shift_rank_positions() -> np.ndarray:
 _MIC_SHIFT_RANK_POSITIONS = _mic_shift_rank_positions()
 
 
+class _IDPPOptimizable(Optimizable):
+    """Adapt the existing projected IDPP band force to an ASE optimizer."""
+
+    def __init__(self, solver, coords: np.ndarray, *, spring_const: float):
+        self.spring_const = spring_const
+        self.solver = solver
+        self.coords = coords
+        self._cache = None
+
+    def evaluate(self):
+        """Return objective and projected band force once per coordinate state."""
+        if self._cache is None:
+            funcs, true_forces = self.solver._get_funcs_and_forces(self.coords)
+            total_forces = self.solver._get_total_forces(
+                self.coords, true_forces, spring_const=self.spring_const
+            )
+            if self.solver._has_constraints:
+                total_forces = self.solver._project_forces(self.coords, total_forces)
+            if not np.isfinite(funcs).all() or not np.isfinite(total_forces).all():
+                raise ValueError("IDPP objective and forces must be finite")
+            self._cache = funcs, total_forces
+        return self._cache
+
+    def ndofs(self):
+        """Return the number of Cartesian interior-image degrees of freedom."""
+        return self.coords[1:-1].size
+
+    def get_x(self):
+        """Return a private flat array of the current interior coordinates."""
+        return self.coords[1:-1].ravel().copy()
+
+    def set_x(self, x):
+        """Set interior coordinates and apply their original ASE constraints."""
+        self.coords[1:-1] = x.reshape(self.coords[1:-1].shape)
+        if self.solver._has_constraints:
+            self.solver._project_positions(self.coords)
+        self._cache = None
+
+    def get_gradient(self):
+        """Return the negative NEB band force consumed by FIRE's dynamics."""
+        return -self.evaluate()[1].ravel()
+
+    def get_value(self):
+        """Return the summed pair-distance objective for diagnostics."""
+        return float(self.evaluate()[0].sum())
+
+    def iterimages(self):
+        """Yield copies of the complete current band."""
+        for image, positions in zip(self.solver.images, self.coords):
+            current = image.copy()
+            current.set_positions(positions, apply_constraint=False)
+            yield current
+
+
 class Fast_IDPPSolver:
     """
     IDPP solver compatible with pymatgen's NEB-like path relaxation.
 
-    The implementation removes the runtime dependency on pymatgen while
-    retaining its IDPP update scheme, which is used by the legacy examples.
+    The implementation retains the historical distance objective and NEB band
+    force without requiring pymatgen. ASE FIRE relaxes the current-MIC band
+    by default; the historical clipped fixed-step update remains available.
     """
     def __init__(self, images: List[Atoms], mic: bool = True, *, reference=None):
         images = prepare_fixed_cell_images(images, context="IDPP input", reference=reference)
         self.start_atoms = images[0]
         self.end_atoms = images[-1]
+        if len(images) < 2:
+            raise ValueError("IDPP requires both endpoint images")
         self.nimages = len(images) - 2
         self.natoms = len(self.start_atoms)
         self.cell = (self.start_atoms if reference is None else reference).get_cell()
@@ -217,6 +278,9 @@ class Fast_IDPPSolver:
             self.inv_cell = np.eye(3)
             self.mic = False
 
+        for image_index, image in enumerate(distance_images):
+            self._validate_pair_geometry(image.positions, image_index)
+
         d_start = self.start_atoms.get_all_distances(mic=self.mic)
         d_end = self.end_atoms.get_all_distances(mic=self.mic)
         
@@ -225,7 +289,7 @@ class Fast_IDPPSolver:
 
         initial_distances = np.array(
             [img.get_all_distances(mic=self.mic) for img in distance_images[1:-1]]
-        )
+        ).reshape(self.nimages, self.natoms, self.natoms)
         avg_dists = (self.target_dists + initial_distances) / 2.0
         self.weights = 1.0 / (avg_dists**4 + np.eye(self.natoms)[None, :, :] * 1e-8)
         self.translations = self._build_translations(distance_images)
@@ -338,7 +402,8 @@ class Fast_IDPPSolver:
         Preserve the historical 27-candidate tie order when it reaches a true
         nearest image. ASE's general MIC supplies the answer when a pair is
         unwrapped by multiple cells or a skew cell needs a farther lattice
-        shift. Translations stay fixed during the NEB-like optimization.
+        shift. This initialization snapshot is refreshed from current coordinates
+        during each objective and force evaluation.
 
         Args:
             images: Full image list; only the intermediate images are measured.
@@ -407,17 +472,53 @@ class Fast_IDPPSolver:
                         best_rank = rank
         return best_shift
 
+    def _validate_pair_geometry(self, positions: np.ndarray, image_index: int):
+        """Return current upper-pair MIC vectors, rejecting undefined geometry.
+
+        Args:
+            positions: Cartesian atom positions for one image.
+            image_index: Zero-based path frame index for the error context.
+
+        Returns:
+            Upper-triangle atom indices and the corresponding MIC vectors.
+
+        Raises:
+            ValueError: If positions are non-finite or a pair overlaps.
+        """
+        if not np.isfinite(positions).all():
+            raise ValueError(f"IDPP image {image_index + 1}: positions must be finite")
+        i_index, j_index = np.triu_indices(self.natoms, k=1)
+        vectors = positions[j_index] - positions[i_index]
+        if self.mic and len(vectors):
+            vectors = find_mic(vectors, self.cell, self.start_atoms.pbc)[0]
+        distances = np.linalg.norm(vectors, axis=1)
+        overlapping = np.flatnonzero(distances <= 1e-12)
+        if len(overlapping):
+            pair = overlapping[0]
+            raise ValueError(
+                f"IDPP image {image_index + 1}: overlapping atoms "
+                f"{i_index[pair] + 1}-{j_index[pair] + 1} under the active distance convention"
+            )
+        return i_index, j_index, vectors
+
     def _get_funcs_and_forces(self, coords: np.ndarray):
+        """Evaluate the IDPP objective and its force on the same current MIC."""
         funcs = []
         forces = []
         eye = np.eye(self.natoms, dtype=float)
         for image_index in range(self.nimages):
             image_coords = coords[image_index + 1]
-            vectors = (
-                image_coords[:, np.newaxis, :]
-                - image_coords[np.newaxis, :, :]
-                - self.translations[image_index]
+            i_index, j_index, pair_vectors = self._validate_pair_geometry(
+                image_coords, image_index + 1
             )
+            # Only solve each unordered pair once: MIC choices at an exact
+            # half-cell tie need not be antisymmetric when solved separately.
+            vectors = np.zeros((self.natoms, self.natoms, 3), dtype=float)
+            vectors[i_index, j_index] = -pair_vectors
+            vectors[j_index, i_index] = pair_vectors
+            raw = image_coords[j_index] - image_coords[i_index]
+            self.translations[image_index, i_index, j_index] = pair_vectors - raw
+            self.translations[image_index, j_index, i_index] = raw - pair_vectors
             trial_dist = np.linalg.norm(vectors, axis=2)
             delta = trial_dist - self.target_dists[image_index]
             aux = delta * self.weights[image_index] / (trial_dist + eye)
@@ -435,9 +536,14 @@ class Fast_IDPPSolver:
 
     def _get_total_forces(self, coords: np.ndarray, true_forces: np.ndarray, spring_const: float):
         total_forces = []
+        displacements = np.diff(coords, axis=0)
+        if self.mic:
+            displacements = find_mic(
+                displacements.reshape(-1, 3), self.cell, self.start_atoms.pbc
+            )[0].reshape(displacements.shape)
         for image_index in range(1, len(coords) - 1):
-            forward = (coords[image_index + 1] - coords[image_index]).ravel()
-            backward = (coords[image_index] - coords[image_index - 1]).ravel()
+            forward = displacements[image_index].ravel()
+            backward = displacements[image_index - 1].ravel()
             tangent = self._unit_vector(self._unit_vector(forward) + self._unit_vector(backward))
             spring_force = spring_const * (np.linalg.norm(forward) - np.linalg.norm(backward)) * tangent
             flat_force = true_forces[image_index - 1].copy().ravel()
@@ -455,45 +561,93 @@ class Fast_IDPPSolver:
         step_size=0.05,
         max_disp=0.05,
         spring_const=5.0,
+        *,
+        optimizer="fire",
     ):
-        print(f"  [IDPP] Starting NEB-like optimization ({self.nimages} intermediate images)...")
+        """Relax the band with FIRE or the historical clipped fixed step.
+
+        FIRE changes only the update scheme; both optimizers use the same
+        current-MIC objective, projected NEB force and ASE constraints. The
+        convergence force is the maximum absolute Cartesian component, rather
+        than ASE FIRE's default maximum per-atom Euclidean force norm.
+
+        Args:
+            maxiter: Maximum number of coordinate updates.
+            tol: Required summed change in per-image IDPP objectives.
+            gtol: Required maximum absolute projected band-force component.
+            step_size: Fixed-step multiplier, used only by ``legacy``.
+            max_disp: Per-coordinate displacement cap, used only by ``legacy``.
+            spring_const: NEB spring constant used by both optimizers.
+            optimizer: ``fire`` (default) or ``legacy``. FIRE uses ASE's
+                ``dt=0.1``, ``dtmax=1.0`` and a global band-step cap of 0.2 Å.
+
+        Returns:
+            A private complete band, including the unchanged endpoints.
+
+        Raises:
+            ValueError: If the optimizer is unknown, maxiter is non-positive,
+                or the evaluated geometry, objective or force is undefined.
+        """
+        if optimizer not in ("fire", "legacy"):
+            raise ValueError("IDPP optimizer must be 'fire' or 'legacy'")
+        if maxiter < 1:
+            raise ValueError("IDPP maxiter must be positive")
+        print(f"  [IDPP] Starting NEB-like optimization ({self.nimages} intermediate images, {optimizer})...")
         coords = np.array([img.get_positions() for img in self.images])
+        # Public image objects can be edited after construction. Endpoints are
+        # not evaluated by the interior force loop, including an empty band.
+        for endpoint_index in (0, len(coords) - 1):
+            self._validate_pair_geometry(coords[endpoint_index], endpoint_index)
         if self._has_constraints:
             self._project_positions(coords)
         old_funcs = np.zeros(self.nimages, dtype=float)
         final_funcs = old_funcs.copy()
-        max_force = np.inf
-        converged = False
+        max_force = 0.0
+        converged = not self.nimages
+        iterations = 0
 
-        for step in range(maxiter):
-            funcs, true_forces = self._get_funcs_and_forces(coords)
-            total_forces = self._get_total_forces(coords, true_forces, spring_const=spring_const)
-            if self._has_constraints:
-                total_forces = self._project_forces(coords, total_forces)
-
-            disp = step_size * total_forces
-            disp = np.where(np.abs(disp) > max_disp, np.sign(disp) * max_disp, disp)
-            coords[1 : self.nimages + 1] += disp
-            if self._has_constraints:
-                self._project_positions(coords)
-
-            max_force = float(np.abs(total_forces).max())
-            residual = float(np.sum(np.abs(old_funcs - funcs)))
-            final_funcs = funcs
-            if residual < tol and max_force < gtol:
-                converged = True
-                break
-            old_funcs = funcs
-        else:
-            step = maxiter - 1
-            warnings.warn("IDPP did not fully converge: maximum iteration number reached")
+        if self.nimages:
+            domain = _IDPPOptimizable(self, coords, spring_const=spring_const)
+            # The projected NEB force is not the gradient of the summed IDPP
+            # objective, so FIRE's optional energy-downhill check stays off.
+            fire = (
+                FIRE(domain, logfile=None, dt=0.1, dtmax=1.0, maxstep=0.2)
+                if optimizer == "fire" else None
+            )
+            for step in range(maxiter):
+                funcs, total_forces = domain.evaluate()
+                max_force = float(np.abs(total_forces).max())
+                residual = float(np.sum(np.abs(old_funcs - funcs)))
+                final_funcs = funcs
+                iterations = step + 1
+                if residual < tol and max_force < gtol:
+                    converged = True
+                    break
+                old_funcs = funcs.copy()
+                if fire is not None:
+                    # Calling step directly retains our component/residual
+                    # stopping test and reuses the cached current force.
+                    fire.step()
+                else:
+                    disp = step_size * total_forces
+                    disp = np.where(np.abs(disp) > max_disp, np.sign(disp) * max_disp, disp)
+                    domain.set_x(domain.get_x() + disp.ravel())
+            else:
+                # The last iteration performed a displacement. Report and
+                # judge the returned state, including its constraint projection.
+                final_funcs, total_forces = domain.evaluate()
+                max_force = float(np.abs(total_forces).max())
+                residual = float(np.sum(np.abs(old_funcs - final_funcs)))
+                converged = residual < tol and max_force < gtol
+                if not converged:
+                    warnings.warn("IDPP did not fully converge: maximum iteration number reached")
 
         # Self-reported outcome, readable by callers that cannot rely on the
         # printed report (for example when the solver runs quietly inside an
         # optimizer step).  Field values match the report printed below.
         self.status = 'Converged' if converged else 'Failed'
         self.converged = bool(converged)
-        self.iterations = int(step + 1)
+        self.iterations = int(iterations)
         self.final_s_idpp = float(np.sum(final_funcs))
         self.max_force = float(max_force)
         self.maxiter = int(maxiter)
@@ -504,7 +658,7 @@ class Fast_IDPPSolver:
         print("                 IDPP CONVERGENCE REPORT            ")
         print("-" * 60)
         print(f"  Status       : {'Converged' if converged else 'Failed'}")
-        print(f"  Iterations   : {step + 1}")
+        print(f"  Iterations   : {iterations}")
         print(f"  Final S_IDPP : {np.sum(final_funcs):.6f}")
         print(f"  Max Force    : {max_force:.6f} (Target: < {gtol})")
         print("-" * 60)
@@ -610,10 +764,11 @@ def _interpolate(
     path_status: dict | None = None,
     *,
     reference=None,
+    idpp_optimizer="fire",
 ):
     if method == 'IDPP':
         solver = Fast_IDPPSolver.from_endpoints(start, end, n_images, reference=reference)
-        images = solver.run(tol=tol)
+        images = solver.run(tol=tol, optimizer=idpp_optimizer)
         if path_status is not None:
             path_status.update(
                 method='IDPP',
@@ -640,6 +795,7 @@ def interpolate_path(
     quiet: bool = False,
     *,
     path_status: dict | None = None,
+    idpp_optimizer: str = 'fire',
 ) -> List[Atoms]:
     """Return an interpolated path between two endpoint structures.
 
@@ -653,6 +809,7 @@ def interpolate_path(
         method: Interpolation method, ``IDPP`` or ``linear``.
         tol: Convergence tolerance forwarded to the IDPP relaxation.
         quiet: Suppress solver progress output on ``stdout`` when ``True``.
+        idpp_optimizer: IDPP update scheme, ``fire`` (default) or ``legacy``.
         path_status: Optional mapping updated in place with the solver outcome,
             so callers that run quietly can still observe it.  It always
             receives the keys ``method``, ``status``, ``iterations``,
@@ -673,8 +830,8 @@ def interpolate_path(
         path_status['method'] = method
     if quiet:
         with contextlib.redirect_stdout(io.StringIO()):
-            return _interpolate(method, start, end, n_images, tol, path_status)
-    return _interpolate(method, start, end, n_images, tol, path_status)
+            return _interpolate(method, start, end, n_images, tol, path_status, idpp_optimizer=idpp_optimizer)
+    return _interpolate(method, start, end, n_images, tol, path_status, idpp_optimizer=idpp_optimizer)
 
 
 def generate(method:str, n_images:int, is_file:str, fs_file:str, 
@@ -683,13 +840,25 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
              mag_ele: list=None, mag_num: list=None,
              no_align: bool=False, tol: float=0.05,
              ts_file: str=None,
-             endpoint_prepare: Callable[[Atoms, Atoms], None] | None=None):
+             endpoint_prepare: Callable[[Atoms, Atoms], None] | None=None,
+             *, idpp_optimizer: str='fire', image_distribution: str='length'):
     """Generate a band, optionally preparing aligned endpoints before interpolation.
 
     ``endpoint_prepare`` is used by the NEB workflow to relax endpoints when
     their energy/force results are missing. Direct path generation remains a
     calculation-free operation when no callback is supplied.
+
+    ``image_distribution`` allocates extra images by MIC endpoint chord length
+    (``length``) or the historical ``equal`` split. A supplied TS frame is
+    additional to ``n_images`` and retained exactly during generation. It is
+    an intentional user-provided anchor, not a request to optimize it away.
+    ``idpp_optimizer`` selects ``fire`` or historical ``legacy`` updates.
     """
+
+    if idpp_optimizer not in ('fire', 'legacy'):
+        raise ValueError("idpp_optimizer must be 'fire' or 'legacy'")
+    if image_distribution not in ('length', 'equal'):
+        raise ValueError("image_distribution must be 'length' or 'equal'")
 
     # 1. Read files
     print(f'Reading files: {is_file} and {fs_file}')
@@ -771,13 +940,19 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
         interpolation_ts = ts_atom.copy()
         if fix_height is not None:
             set_fix_for_Atoms(interpolation_ts, fix_height, fix_dir)
-        left_count = n_images // 2
-        right_count = n_images - left_count
-        left_path = _interpolate(method, interpolation_start, interpolation_ts, left_count, tol, reference=is_atom)
-        right_path = _interpolate(method, interpolation_ts, interpolation_end, right_count, tol, reference=is_atom)
+        if image_distribution == 'length':
+            left_count, right_count = allocate_segment_images(
+                [interpolation_start, interpolation_ts, interpolation_end], n_images
+            )
+        else:
+            left_count = n_images // 2
+            right_count = n_images - left_count
+        print(f"Segment image allocation ({image_distribution}): {left_count} + TS + {right_count}")
+        left_path = _interpolate(method, interpolation_start, interpolation_ts, left_count, tol, reference=is_atom, idpp_optimizer=idpp_optimizer)
+        right_path = _interpolate(method, interpolation_ts, interpolation_end, right_count, tol, reference=is_atom, idpp_optimizer=idpp_optimizer)
         ase_path = left_path[:-1] + right_path
     else:
-        ase_path = _interpolate(method, interpolation_start, interpolation_end, n_images, tol)
+        ase_path = _interpolate(method, interpolation_start, interpolation_end, n_images, tol, idpp_optimizer=idpp_optimizer)
 
     # Restore the prepared endpoint objects. The temporary copies above
     # exist only to carry generation constraints into IDPP.
@@ -801,6 +976,7 @@ def generate(method:str, n_images:int, is_file:str, fs_file:str,
         mag_num,
     )
 
-    # 5. Write Output
+    # 5. Validate the actual path before publishing an input band.
+    validate_path_geometry(ase_path, context="Generated NEB path")
     print(f'Writing path: {output_file}, Number of images: {len(ase_path)}')
     write(output_file, ase_path, parallel=False)

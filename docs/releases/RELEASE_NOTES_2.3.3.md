@@ -62,6 +62,27 @@ the [feature matrix](../reports/FEATURE_STATUS_MATRIX.md) and
 
 ## Publication
 
+### Unreleased source follow-up (2026-11-12)
+
+The local source now repairs stale periodic images in Fast IDPP, uses MIC
+neighboring-frame tangents/springs, and reports the final returned geometry.
+Generated bands and D2S rough NEB bands reject nonfinite geometry and severe
+contacts before publication/calculator evaluation. Existing API/YAML signatures
+remain unchanged; periodic optimization trajectories can change, and previously
+accepted severely overlapping bands now raise an error. This follow-up is not
+included in the candidate validation counts above and has not been published.
+See the [repair evidence and limits](../reports/IDPP_DYNAMIC_MIC_2026-11-12.md).
+
+The follow-up optimization defaults IDPP to ASE FIRE while retaining the
+current objective and stopping tests (`optimizer="legacy"` restores fixed-step
+Python behavior). YAML/CLI expose `idpp_optimizer`; explicit TS segmentation
+uses MIC-length interval allocation by default (`image_distribution="equal"`
+restores the historical half split). Ordinary IS/FS generation remains the
+primary route. Supplied TS coordinates are retained, with no movement option;
+frame counts and existing-chain/restart behavior are unchanged. These defaults
+can change newly generated paths and iteration counts. Python `step_size` and
+`max_disp` are legacy-mode controls. No dependency version is raised.
+
 A local candidate build passed strict Twine and the clean-wheel public API
 gate. Tag and PyPI publication remain pending. After publication this section
 will record the exact release commit, GitHub Actions run, PyPI URLs and the

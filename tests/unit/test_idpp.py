@@ -271,7 +271,8 @@ def test_robust_interpolate_retains_constraints_and_linear_geometry():
     assert all(image.constraints for image in path[1:-1])
 
 
-def test_fast_idpp_projects_constraint_positions_and_convergence_forces():
+@pytest.mark.parametrize("optimizer", ["fire", "legacy"])
+def test_fast_idpp_projects_constraint_positions_and_convergence_forces(optimizer):
     """IDPP updates and its convergence force use ASE's constraint hooks."""
     start, end = _constrained_idpp_endpoints()
     solver = Fast_IDPPSolver.from_endpoints(start, end, nimages=1)
@@ -280,7 +281,7 @@ def test_fast_idpp_projects_constraint_positions_and_convergence_forces():
     solver._get_total_forces = lambda coords, true_forces, spring_const: raw_forces.copy()
 
     initial = solver.initial_positions[0].copy()
-    path = solver.run(maxiter=1, tol=0.0, gtol=0.0, step_size=0.05, max_disp=0.05)
+    path = solver.run(maxiter=1, tol=0.0, gtol=0.0, step_size=0.05, max_disp=0.05, optimizer=optimizer)
 
     image = path[1]
     np.testing.assert_allclose(image.positions[0], initial[0], atol=0.0)
@@ -514,7 +515,7 @@ def test_generate_uses_non_parallel_project_structure_io(monkeypatch):
 
     monkeypatch.setattr(idpp, "read_structure", fake_read_structure)
     monkeypatch.setattr(idpp, "write", fake_write)
-    monkeypatch.setattr(idpp, "_interpolate", lambda method, start_atoms, end_atoms, n_images, tol: [start_atoms, start_atoms.copy(), end_atoms])
+    monkeypatch.setattr(idpp, "_interpolate", lambda method, start_atoms, end_atoms, n_images, tol, **kwargs: [start_atoms, start_atoms.copy(), end_atoms])
 
     idpp.generate(
         method="IDPP",
@@ -818,3 +819,175 @@ def test_mic_shift_rank_positions_form_a_strict_total_order():
     assert candidates[-1].tolist() == [1.0, 1.0, 1.0]
     assert len(set(ranks)) == len(candidates)
     assert sorted(idpp_module._MIC_SHIFT_RANK_POSITIONS.tolist()) == list(range(len(candidates)))
+
+
+@pytest.mark.parametrize("pbc,mic", [(True, True), ([True, False, True], True), (True, False)])
+def test_idpp_current_pair_geometry_and_gradient_after_periodic_crossing(pbc, mic):
+    """An initially selected lattice image cannot hide a later short contact."""
+    cell = [[8.3575, 0, 0], [-4.17875, 7.2378, 0], [0, 0, 20]]
+    atoms = Atoms("Pd2", positions=[[0, 0, 0], [5.5875, .1, 0]], cell=cell, pbc=pbc)
+    solver = Fast_IDPPSolver([atoms.copy() for _ in range(3)], mic=mic)
+    coords = np.array([image.positions for image in solver.images])
+    coords[1, 1] = [.205, .02, 0]
+    objective, forces = solver._get_funcs_and_forces(coords)
+    probe = atoms.copy()
+    probe.positions = coords[1]
+    distance = probe.get_distance(0, 1, mic=mic)
+    expected = (distance - solver.target_dists[0, 0, 1]) ** 2 * solver.weights[0, 0, 1]
+    assert objective[0] == pytest.approx(expected)
+    assert forces[0, 1, 0] > 0
+    np.testing.assert_allclose(forces.sum(axis=1), 0, atol=1e-14)
+    epsilon = 1e-6
+    plus, minus = coords.copy(), coords.copy()
+    plus[1, 1, 0] += epsilon
+    minus[1, 1, 0] -= epsilon
+    derivative = (solver._get_funcs_and_forces(plus)[0][0] - solver._get_funcs_and_forces(minus)[0][0]) / (2 * epsilon)
+    assert forces[0, 1, 0] == pytest.approx(-derivative, rel=1e-7)
+
+
+@pytest.mark.parametrize("mic,expected", [(True, 5.0), (False, 0.0)])
+def test_idpp_spring_uses_periodic_neighbor_displacements(mic, expected):
+    """A wrapped endpoint keeps the physical spring length difference."""
+    images = [Atoms("H", positions=[[x, 0, 0]], cell=[10, 10, 10], pbc=True) for x in (9, 10, 2)]
+    solver = Fast_IDPPSolver(images, mic=mic)
+    coords = np.array([image.positions for image in images])
+    forces = solver._get_total_forces(coords, np.zeros((1, 1, 3)), spring_const=5)
+    np.testing.assert_allclose(forces, [[[expected, 0, 0]]])
+
+
+@pytest.mark.parametrize("optimizer", ["fire", "legacy"])
+def test_idpp_final_report_describes_returned_coordinates(optimizer):
+    atoms = Atoms("H2", positions=[[0, 0, 0], [2, 0, 0]])
+    middle = atoms.copy()
+    middle.positions[1, 1] = .5
+    solver = Fast_IDPPSolver([atoms, middle, atoms.copy()])
+    with pytest.warns(UserWarning, match="maximum iteration"):
+        path = solver.run(maxiter=1, tol=0, gtol=0, optimizer=optimizer)
+    coords = np.array([image.positions for image in path])
+    funcs, forces = solver._get_funcs_and_forces(coords)
+    total = solver._get_total_forces(coords, forces, spring_const=5)
+    assert solver.final_s_idpp == pytest.approx(funcs.sum(), rel=1e-12)
+    assert solver.max_force == pytest.approx(np.abs(total).max(), rel=1e-12)
+
+
+@pytest.mark.parametrize("position", [[0, 0, 0], [float("nan"), 0, 0]])
+def test_idpp_rejects_undefined_current_pair_geometry(position):
+    atoms = Atoms("H2", positions=[[0, 0, 0], [2, 0, 0]])
+    solver = Fast_IDPPSolver([atoms.copy() for _ in range(3)])
+    coords = np.array([image.positions for image in solver.images])
+    coords[1, 1] = position
+    with pytest.raises(ValueError, match="IDPP.*(overlap|finite)"):
+        solver._get_funcs_and_forces(coords)
+
+
+@pytest.mark.parametrize("symbols,distance,accepted", [("Pd2", .205, False), ("H2", .74, True)])
+def test_generate_checks_contact_before_publishing_path(tmp_path, monkeypatch, symbols, distance, accepted):
+    """A collapsed interpolation cannot overwrite an existing input band."""
+    endpoint = Atoms(symbols, positions=[[0, 0, 0], [2.77 if symbols == "Pd2" else .74, 0, 0]])
+    middle = endpoint.copy()
+    middle.positions[1, 0] = distance
+    monkeypatch.setattr(idpp, "read_structure", lambda *args, **kwargs: endpoint.copy())
+    monkeypatch.setattr(idpp, "_interpolate", lambda *args, **kwargs: [endpoint.copy(), middle, endpoint.copy()])
+    output = tmp_path / "path.traj"
+    output.write_bytes(b"previous band")
+    if accepted:
+        idpp.generate("IDPP", 1, "start", "end", str(output), None, no_align=True)
+        assert len(read(output, ":")) == 3
+    else:
+        with pytest.raises(ValueError, match="Generated NEB path"):
+            idpp.generate("IDPP", 1, "start", "end", str(output), None, no_align=True)
+        assert output.read_bytes() == b"previous band"
+
+
+def test_idpp_neighbor_displacements_keep_nonperiodic_directions_cartesian():
+    images = [Atoms("H", positions=[[0, y, 0]], cell=[10, 10, 10], pbc=[True, False, True]) for y in (9, 10, 2)]
+    solver = Fast_IDPPSolver(images)
+    coords = np.array([image.positions for image in images])
+    np.testing.assert_allclose(solver._get_total_forces(coords, np.zeros((1, 1, 3)), spring_const=5), 0)
+
+
+def test_idpp_pd_flat_fs_keeps_wrapped_slab_pairs_separated():
+    """The real TS-to-flat-FS reproducer must converge without Pd collapse."""
+    fixture = Path(__file__).resolve().parents[1] / "data" / "idpp_pd_flat_fs"
+    start = read(fixture / "ts_guess.extxyz")
+    end = read(fixture / "final.extxyz")
+    solver = Fast_IDPPSolver.from_endpoints(start, end, nimages=4)
+
+    path = solver.run(maxiter=2000, tol=0.05)
+
+    assert solver.converged is True
+    assert solver.iterations < 500
+    assert solver.max_force < solver.gtol
+    pd_indices = np.flatnonzero(start.numbers == 46)
+    for image in path:
+        distances = image.get_all_distances(mic=True)[np.ix_(pd_indices, pd_indices)]
+        np.fill_diagonal(distances, np.inf)
+        assert distances.min() > 2.0
+    np.testing.assert_array_equal(path[0].positions, start.positions)
+    np.testing.assert_array_equal(path[-1].positions, end.positions)
+    frozen = start.constraints[0].get_indices()
+    for image in path[1:-1]:
+        np.testing.assert_allclose(image.positions[frozen], start.positions[frozen], atol=1e-12)
+
+
+@pytest.mark.parametrize("optimizer", ["fire", "legacy"])
+@pytest.mark.parametrize("pbc,mic", [(False, True), ([True, True, False], True), (True, False)])
+def test_idpp_optimizers_restore_rotating_molecule_geometry(optimizer, pbc, mic):
+    """Both update schemes restore bonds without violating the fixed oxygen."""
+    start = Atoms("OH2", positions=[[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+                  cell=[[10, 0, 0], [-3, 8, 0], [0, 0, 20]], pbc=pbc)
+    end = start.copy()
+    end.positions[1:] = [[0, 1, 0], [-1, 0, 0]]
+    for atoms in (start, end):
+        atoms.set_constraint(FixAtoms(indices=[0]))
+    solver = Fast_IDPPSolver(robust_interpolate(start, end, 3), mic=mic)
+    path = solver.run(maxiter=1000, optimizer=optimizer)
+    assert solver.converged
+    for image in path[1:-1]:
+        np.testing.assert_allclose(image.positions[0], [0, 0, 0], atol=1e-14)
+        np.testing.assert_allclose(image.get_all_distances(mic=mic), start.get_all_distances(mic=mic), atol=.02)
+
+
+@pytest.mark.parametrize("optimizer", ["fire", "legacy"])
+def test_idpp_empty_interior_returns_endpoints_without_optimization(optimizer):
+    start = Atoms("H", positions=[[0, 0, 0]])
+    end = Atoms("H", positions=[[1, 0, 0]])
+    solver = Fast_IDPPSolver.from_endpoints(start, end, nimages=0)
+    path = solver.run(optimizer=optimizer)
+    assert solver.converged
+    assert solver.iterations == 0
+    assert solver.max_force == 0
+    assert solver.final_s_idpp == 0
+    assert len(path) == 2
+    np.testing.assert_array_equal(path[0].positions, start.positions)
+    np.testing.assert_array_equal(path[1].positions, end.positions)
+
+
+def test_idpp_rejects_unknown_optimizer():
+    atoms = Atoms("H", positions=[[0, 0, 0]])
+    solver = Fast_IDPPSolver([atoms.copy() for _ in range(3)])
+    with pytest.raises(ValueError, match="optimizer"):
+        solver.run(optimizer="unknown")
+
+
+def test_idpp_legacy_optimizer_retains_step_multiplier_and_coordinate_cap():
+    """The explicit legacy mode keeps its historical coordinate-wise update."""
+    atoms = Atoms("H", positions=[[0, 0, 0]])
+    solver = Fast_IDPPSolver([atoms.copy() for _ in range(3)])
+    forces = np.array([[[2., -4., .5]]])
+    solver._get_funcs_and_forces = lambda coords: (np.ones(1), forces.copy())
+    solver._get_total_forces = lambda coords, true_forces, spring_const: forces.copy()
+    with pytest.warns(UserWarning, match="maximum iteration"):
+        path = solver.run(maxiter=1, tol=0, gtol=0, step_size=.1,
+                          max_disp=.15, optimizer="legacy")
+    np.testing.assert_allclose(path[1].positions, [[.15, -.15, .05]])
+
+
+@pytest.mark.parametrize('endpoint', [0, -1])
+@pytest.mark.parametrize('nimages', [0, 1])
+def test_run_rechecks_endpoints_modified_after_construction(endpoint, nimages):
+    atoms = Atoms('H2', positions=[[0, 0, 0], [0.74, 0, 0]])
+    solver = Fast_IDPPSolver([atoms.copy() for _ in range(nimages + 2)])
+    solver.images[endpoint].positions[1] = solver.images[endpoint].positions[0]
+    with pytest.raises(ValueError, match='overlapping atoms'):
+        solver.run(maxiter=1)

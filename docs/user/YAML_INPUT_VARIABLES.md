@@ -15,6 +15,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.neb.make.method | calculation.neb.make | `'IDPP' \| 'linear'` | `'IDPP'` | Interpolation method. |
 | calculation.neb.make.output | calculation.neb.make | `str` | `'init_neb_chain.traj'` | Generated chain trajectory path. |
 | calculation.neb.make.ts_guess | calculation.neb.make | `str \| NoneType` | `null` | Optional transition-state guess for segmented interpolation. |
+| calculation.neb.make.idpp_optimizer | calculation.neb.make | `'fire' \| 'legacy'` | `'fire'` | IDPP update mode: adaptive FIRE or legacy clipped fixed-step descent. |
+| calculation.neb.make.image_distribution | calculation.neb.make | `'length' \| 'equal'` | `'length'` | Allocate segmented images by MIC configuration length or historical equal split; the TS frame is additional to n_images. |
 | calculation.neb.make.fix | calculation.neb.make | `str \| dict[str, Any] \| NoneType` | `null` | Optional fixed-atom rule, e.g. HEIGHT:DIR. |
 | calculation.neb.make.magmom | calculation.neb.make | `str \| dict[str, float] \| NoneType` | `null` | Optional magnetic moments by element. |
 | calculation.neb.make.no_align | calculation.neb.make | `bool` | `False` | Disable atom-index alignment before interpolation. |
@@ -137,7 +139,8 @@ Calculator backend variables are documented separately in `CONFIG_REFERENCE.md`.
 | calculation.d2s.neb.climb | calculation.d2s.neb | `bool` | `True` | Enable climbing image in rough DyNEB. |
 | calculation.d2s.neb.scale_fmax | calculation.d2s.neb | `float` | `0.0` | DyNEB dynamic-relaxation force scaling. |
 | calculation.d2s.neb.idpp_maxiter | calculation.d2s.neb | `int` | `2000` | Maximum iterations for the rough-path Fast IDPP optimizer. |
-| calculation.d2s.neb.idpp_tol | calculation.d2s.neb | `float` | `0.0001` | Gradient tolerance for the rough-path Fast IDPP optimizer. |
+| calculation.d2s.neb.idpp_tol | calculation.d2s.neb | `float` | `0.0001` | Objective-change tolerance for the rough-path Fast IDPP optimizer; force-component threshold remains 1e-3. |
+| calculation.d2s.neb.idpp_optimizer | calculation.d2s.neb | `'fire' \| 'legacy'` | `'fire'` | IDPP update mode for rough-path preparation. |
 | calculation.d2s.neb.max_steps | calculation.d2s.neb | `int` | `200` | Rough DyNEB maximum steps. |
 | calculation.d2s.neb.optimizer_kwargs | calculation.d2s.neb | `dict[str, Any]` | `schema defaults` | Keyword arguments forwarded to the rough DyNEB FIRE optimizer. |
 | calculation.d2s.dmf | calculation.type=d2s | `dict` | `schema defaults` | Experimental rough DMF configuration. |

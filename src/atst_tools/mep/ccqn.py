@@ -31,6 +31,7 @@ from atst_tools.utils.convergence import (
 )
 from atst_tools.utils.idpp import align_atom_indices, interpolate_path
 from atst_tools.utils.geometry import prepare_fixed_cell_images
+from atst_tools.utils.path_geometry import path_contact_facts
 from atst_tools.utils.reactive_modes import (
     detect_bond_changes,
     enumerate_reactive_bond_modes,
@@ -266,71 +267,8 @@ def _ccqn_interp_midpoint_e_vector(
 
 
 def _ccqn_interp_path_quality(frames) -> dict[str, Any]:
-    """Return the tightest interatomic contact facts of an interpolated path.
-
-    Every atom pair is graded against its own endpoints: the smallest distance
-    that pair reaches on any frame is compared with the smaller of the two
-    endpoint distances for that same pair.  A pair driven far below both
-    endpoints is the signature of an unconverged path relaxation rather than of
-    a reaction coordinate, and the path midpoint is then not a trustworthy axis
-    estimate.
-
-    The reference is deliberately per pair: a global endpoint minimum would be
-    dominated by the tightest bond of the system (for example a 1 Ang X-H bond)
-    and could hide a collapsed metal-metal contact.
-
-    Distances use the minimum image convention whenever the frames are periodic.
-
-    Args:
-        frames: Path frames, including both endpoints.
-
-    Returns:
-        Mapping with ``min_distance_A``, ``min_distance_pair`` (0-based),
-        ``min_distance_ratio``, ``ratio_pair`` (0-based) and
-        ``ratio_reference_A``. Empty when the path has no atom pair to measure.
-    """
-    if len(frames) < 2 or len(frames[0]) < 2:
-        return {}
-    natoms = len(frames[0])
-    use_mic = bool(np.any(frames[0].get_pbc()))
-    pair_mask = ~np.eye(natoms, dtype=bool)
-    start_distances = frames[0].get_all_distances(mic=use_mic)
-    end_distances = frames[-1].get_all_distances(mic=use_mic)
-    reference = np.minimum(start_distances, end_distances)
-    measured = pair_mask & (reference > 0.0)
-    safe_reference = np.where(measured, reference, 1.0)
-
-    min_distance = np.inf
-    min_pair = (0, 0)
-    worst_ratio = np.inf
-    worst_pair = (0, 0)
-    worst_reference = np.inf
-    for index, frame in enumerate(frames):
-        if index == 0:
-            distances = start_distances
-        elif index == len(frames) - 1:
-            distances = end_distances
-        else:
-            distances = frame.get_all_distances(mic=use_mic)
-        masked = np.where(pair_mask, distances, np.inf)
-        row, column = np.unravel_index(int(np.argmin(masked)), masked.shape)
-        if masked[row, column] < min_distance:
-            min_distance = float(masked[row, column])
-            min_pair = (int(row), int(column))
-        ratios = np.where(measured, distances / safe_reference, np.inf)
-        row, column = np.unravel_index(int(np.argmin(ratios)), ratios.shape)
-        if ratios[row, column] < worst_ratio:
-            worst_ratio = float(ratios[row, column])
-            worst_pair = (int(row), int(column))
-            worst_reference = float(reference[row, column])
-
-    return {
-        "min_distance_A": min_distance,
-        "min_distance_pair": min_pair,
-        "min_distance_ratio": worst_ratio,
-        "ratio_pair": worst_pair,
-        "ratio_reference_A": worst_reference,
-    }
+    """Return shared MIC contact facts for the CCQN midpoint advisory."""
+    return path_contact_facts(frames)
 
 
 def _emit_unphysical_path_advisory(quality: dict[str, Any]) -> None:

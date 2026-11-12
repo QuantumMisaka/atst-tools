@@ -268,6 +268,8 @@ def run_neb(config, calc_name, calc_config, world=None):
                     mag_num=mag_num,
                     no_align=make_config['no_align'],
                     ts_file=make_config.get('ts_guess'),
+                    idpp_optimizer=make_config['idpp_optimizer'],
+                    image_distribution=make_config['image_distribution'],
                     endpoint_prepare=prepare_make_endpoints if endpoint_optimization_enabled else None,
                 )
             if effective_parallel:

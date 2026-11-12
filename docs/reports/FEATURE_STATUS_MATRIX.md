@@ -1,7 +1,7 @@
 # ATST-Tools Feature Status Matrix
 
 **Version**: 2.3.3
-**Last Updated**: 2026-11-09
+**Last Updated**: 2026-11-12
 **Status**: 2.3.3 release candidate; support and validation scope are distinguished below
 
 2.3.3 includes the ordinary ASE/ABACUS MD per-evaluation SCF validity guard and
@@ -31,6 +31,8 @@ a universal accuracy guarantee. DMF retains its experimental status.
 | **CP reference_fcp** | Reference-only | Fixed-geometry reference-algorithm reproduction. | Historical parity and corrected energy-handoff evidence; rejected for optimization and MD. [Reference parity](ATST_CP_PARITY_2026-10-20.md). |
 | **Vibration** | ✅ Supported | Frequency Analysis and TS validation | Finite difference method with JSON results, TS validation, and artifact manifest support. |
 | **NEB** | ✅ Supported | Nudged Elastic Band | CI-NEB, two-stage NEB, optional endpoint relaxation before nested `make` interpolation, finite E/F reuse without ATST provenance markers, native ASE selector, artifact manifest, ABACUS STRU inputs, and MPI image-level parallelism are supported. Standalone runs with endpoint optimization disabled retain single-point repair. |
+| **Dynamic MIC IDPP** | Local source repair, unreleased | Current-coordinate pair MIC and periodic path tangents; final-geometry diagnostics and severe-contact rejection before generated-band publication/D2S evaluation. | Original Pd/CO case changes from 0.205 Å Pd–Pd collapse to convergence with minimum Pd–Pd 2.739 Å. This is interpolation evidence, not DFT/TS validation; see the [repair report](IDPP_DYNAMIC_MIC_2026-11-12.md). |
+| **FIRE IDPP and segment sampling** | Local source optimization, unreleased | Default adaptive FIRE with legacy mode; MIC-length allocation for explicit TS segments, with equal-split compatibility. | Ordinary Pd IS/FS converges in 265 evaluations. With explicit TS, interval-spacing ratio improves from 2.96 to 1.063 while retaining the TS coordinates. No TS-moving option; no DFT-path claim. See [evidence](IDPP_DYNAMIC_MIC_2026-11-12.md). |
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling, native ASE selector, endpoint single-point repair, and MPI image-level parallelism are supported. |
 | **Dimer** | ✅ Supported | TS Search | Min-mode following. |
 | **Sella** | ✅ Supported | Saddle Point Finder | Robust optimization. |

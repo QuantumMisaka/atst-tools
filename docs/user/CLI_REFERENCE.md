@@ -144,6 +144,7 @@ reader so original ABACUS outputs are not modified.
 ```bash
 atst neb make INIT FINAL N_IMAGES -o inputs/init_neb_chain.traj --method [IDPP|linear]
 atst neb make INIT FINAL N_IMAGES --ts TS_GUESS -o inputs/init_neb_chain.traj
+atst neb make INIT FINAL N_IMAGES --ts TS_GUESS --image-distribution equal --idpp-optimizer legacy
 atst neb make INIT FINAL N_IMAGES --from-chain old_neb.traj -o inputs/init_neb_chain.traj
 atst neb post neb.traj --n-max 5 --plot --vib-analysis
 atst neb post neb.traj --n-max 5 --plot --plot-label neb_energy_profile --energy-profile
@@ -156,6 +157,14 @@ atst neb summary --autoneb-prefix run_autoneb --format json --output neb_summary
 `atst neb make` performs structure interpolation only. If the input endpoints are pure structures without energy/force results, the output chain marks endpoint results as placeholders. `atst run` repairs those placeholders by running endpoint single-point calculations before NEB/AutoNEB starts; do not pass placeholder chains directly to bare ASE NEB.
 `--method` accepts `IDPP` (default) or `linear`. `IDPP` starts from the aligned linear interpolation and then runs the in-repository Fast IDPP solver; `linear` writes the aligned linear interpolation directly. Use `-o/--output` to choose the output trajectory and `--format` to override ASE input format detection. `INIT`, `FINAL`, and `--ts` may be ordinary ASE-readable structure files or ABACUS `STRU` / `.stru` files; ABACUS STRU files are dispatched through the project abacuslite reader because the installed ASE package does not register a native `abacus` I/O format. STRU mobility flags are preserved as ASE constraints in the generated chain, including full `m 0 0 0` fixed atoms and partial Cartesian mobility such as `m 1 0 1`; Fast IDPP applies those position and force constraints on every iteration. The `--fix HEIGHT:DIR` rule is also active during IDPP, so constrained endpoint coordinates should be consistent; endpoints remain the input frames.
 `atst neb make` also supports `--fix HEIGHT:DIR`, `--mag ELEMENT:MOMENT[,ELEMENT:MOMENT...]`, `--from-chain`, `--ts`, and `--no-align`. `sort_tol` and pymatgen autosort are intentionally not part of the refactored CLI.
+
+`--idpp-optimizer fire` is the default adaptive update; `legacy` retains the
+clipped fixed-step update. Ordinary IDPP requires only INIT/FINAL. When `--ts`
+is explicitly supplied, its coordinates remain fixed during generation and
+`--image-distribution length` allocates extra frames by MIC segment chord lengths;
+`equal` restores the historical half split. Total frame counts remain
+N_IMAGES+2 without TS and N_IMAGES+3 with TS. There is no TS-moving option;
+`--from-chain` and restart preserve their existing chain-selection behavior.
 
 `atst neb post` reads an existing NEB trajectory, reports the barrier, extracts the TS guess, and can suggest vibration atom indices. It supports `--n-max`, `--plot`, `--plot-label`, `--energy-profile`, `--plot-all`, `--view`, `--vib-analysis`, `--vib-thr`, `--output-prefix`, and `--strict-band`. Use `--energy-profile` to print each selected image's absolute energy, energy relative to the first image, and max force; use `--plot-label` to choose the `--plot` PDF prefix. It can analyze ordinary NEB trajectories or explicit AutoNEB final image files with `--autoneb-prefix` / `--autoneb-files`. It writes restartable chains only when requested with `--write-neb-init-chain` or `--write-latest`.
 

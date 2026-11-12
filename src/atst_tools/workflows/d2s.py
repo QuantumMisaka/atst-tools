@@ -27,6 +27,7 @@ from atst_tools.utils.convergence import (
     as_step_count,
 )
 from atst_tools.utils.idpp import Fast_IDPPSolver
+from atst_tools.utils.path_geometry import validate_path_geometry
 from atst_tools.utils.io import read_structure
 from atst_tools.utils.neb_endpoints import (
     ENDPOINT_COMPUTED,
@@ -327,6 +328,7 @@ class D2SWorkflow:
         images = solver.run(
             maxiter=self.neb_config["idpp_maxiter"],
             tol=self.neb_config["idpp_tol"],
+            optimizer=self.neb_config["idpp_optimizer"],
         )
         for index, cached in zip((0, -1), input_endpoint_results):
             if cached is not None:
@@ -336,6 +338,7 @@ class D2SWorkflow:
         images = prepare_fixed_cell_images(
             images, context="D2S rough DyNEB", runtime=True
         )
+        validate_path_geometry(images, context="D2S rough DyNEB")
         self._rough_fixed_cell = fixed_cell_metadata(images)
 
         ensure_neb_endpoint_results(

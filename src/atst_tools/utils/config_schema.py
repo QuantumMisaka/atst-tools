@@ -297,11 +297,12 @@ class NEBMakeConfig(StrictConfig):
     method: Literal["IDPP", "linear"] = Field(default="IDPP", description="Interpolation method.")
     output: str = Field(default="init_neb_chain.traj", description="Generated chain trajectory path.")
     ts_guess: str | None = Field(default=None, description="Optional transition-state guess for segmented interpolation.")
+    idpp_optimizer: Literal["fire", "legacy"] = Field(default="fire", description="IDPP update mode: adaptive FIRE or legacy clipped fixed-step descent.")
+    image_distribution: Literal["length", "equal"] = Field(default="length", description="Allocate segmented images by MIC configuration length or historical equal split; the TS frame is additional to n_images.")
     fix: str | Dict[str, Any] | None = Field(default=None, description="Optional fixed-atom rule, e.g. HEIGHT:DIR.")
     magmom: str | Dict[str, float] | None = Field(default=None, description="Optional magnetic moments by element.")
     no_align: bool = Field(default=False, description="Disable atom-index alignment before interpolation.")
     format: str | None = Field(default=None, description="Optional ASE input format override.")
-
 
 class NEBEndpointOptimizationConfig(StrictConfig):
     """NEB-family endpoint optimization configuration."""
@@ -685,7 +686,8 @@ class D2SNEBConfig(StrictConfig):
     climb: bool = Field(default=True, description="Enable climbing image in rough DyNEB.")
     scale_fmax: float = Field(default=0.0, ge=0, description="DyNEB dynamic-relaxation force scaling.")
     idpp_maxiter: int = Field(default=2000, gt=0, description="Maximum iterations for the rough-path Fast IDPP optimizer.")
-    idpp_tol: float = Field(default=1e-4, gt=0, description="Gradient tolerance for the rough-path Fast IDPP optimizer.")
+    idpp_tol: float = Field(default=1e-4, gt=0, description="Objective-change tolerance for the rough-path Fast IDPP optimizer; force-component threshold remains 1e-3.")
+    idpp_optimizer: Literal["fire", "legacy"] = Field(default="fire", description="IDPP update mode for rough-path preparation.")
     max_steps: int = Field(default=200, gt=0, description="Rough DyNEB maximum steps.")
     optimizer_kwargs: dict[str, Any] = Field(
         default_factory=dict,
