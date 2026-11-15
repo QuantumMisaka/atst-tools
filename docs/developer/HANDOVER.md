@@ -107,9 +107,11 @@ for item-level disposition.
 - Add or update `examples/<case>/config*.yaml` and `examples/README.md`.
 - Update `docs/reports/FEATURE_STATUS_MATRIX.md`.
 - Add or update workflow and example tests and any necessary validation report.
-- Keep runtime messages (print/warning/logging/exceptions) in English. When
-  changing convergence or diagnostic text, update tests that lock semantic
-  tokens.
+- Keep runtime messages (print/warning/logging/exceptions) in English. Tests should assert convergence outcomes, rejected invalid input,
+  numerical results and documented diagnostic context. Do not bind them to
+  incidental wording or a particular language; assert exact text only for an
+  explicit public or machine-readable contract. Use valid controls so an
+  unrelated exception cannot satisfy a rejection test.
 - Reuse `utils/geometry.py` for fixed-cell preparation: input tolerance
   `1e-5 Å` with `rtol=0`, retaining values within tolerance; adjust only the
   necessary periodic vectors in internal run copies for NEB. Prepare geometry
