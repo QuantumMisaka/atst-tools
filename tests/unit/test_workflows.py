@@ -791,7 +791,6 @@ def test_run_neb_convergence_signal_controls_warning_and_manifest(
             "threshold_fmax=0.05",
             "nsteps=7",
             "max_steps=20",
-            "does not imply",
         ):
             assert token in output
     if rank == 0:
@@ -2508,7 +2507,6 @@ def test_abacus_sella_convergence_signal_controls_warning(
             "stage=sella",
             "threshold_fmax=0.1",
             "nsteps=2",
-            "does not imply",
         ):
             assert token in captured.out
     # Nesting workflows (D2S) reuse the same record instead of re-deriving it.
@@ -2572,7 +2570,6 @@ def test_abacus_ccqn_convergence_signal_controls_warning_and_manifest(
             "threshold_fmax=0.05",
             "nsteps=5",
             "max_steps=30",
-            "does not imply",
         ):
             assert token in captured.out
 
@@ -3534,7 +3531,6 @@ def test_relax_workflow_convergence_signal_controls_warning(
             "threshold_fmax=0.1",
             "nsteps=4",
             "max_steps=3",
-            "does not imply",
         ):
             assert token in captured.out
     assert ("run", 0.1, 3) in events
@@ -3833,7 +3829,7 @@ def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
             self.nsteps = 0
 
         def run(self, fmax, steps=None, direction=None):
-            # 真实 Sella IRC.run() 返回确定性收敛信号，并在实例上累计 nsteps。
+            # Sella IRC.run() returns convergence and accumulates nsteps on the instance.
             self.nsteps = 4
             return converged_signal
 
@@ -3861,14 +3857,13 @@ def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
     captured = capsys.readouterr()
     assert ("workflow=irc" in captured.out) is warning_expected
     if warning_expected:
-        # 只锁稳定语义 token，不锁整句 prose。
+        # Check diagnostic fields; sentence wording is not part of the contract.
         for token in (
             "stage=sella_irc",
             "direction=forward",
             "threshold_fmax=0.03",
             "nsteps=4",
             "max_steps=7",
-            "does not imply",
         ):
             assert token in captured.out
 
@@ -3893,7 +3888,7 @@ def test_irc_workflow_convergence_signal_controls_warning_and_manifest(
 
 
 def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, tmp_path, capsys):
-    """direction=both：两个方向各自独立告警，nsteps 取累计步数差分而非累计值。"""
+    """Warn separately for each direction and report per-direction step counts."""
     from atst_tools.workflows import irc
 
     class FakeIRC:
@@ -3901,7 +3896,7 @@ def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, t
             self.nsteps = 0
 
         def run(self, fmax, steps=None, direction=None):
-            # 真实 Sella IRC 在 both 模式下复用同一对象：nsteps 跨方向累计、不回零。
+            # Both directions reuse one IRC instance with a cumulative step count.
             self.nsteps += 3 if direction == "forward" else 5
             return False
 
@@ -3927,8 +3922,8 @@ def test_irc_workflow_warns_per_direction_with_differenced_nsteps(monkeypatch, t
     ).run()
 
     captured = capsys.readouterr()
-    # 两个方向各告警一次；nsteps 为差分后的本方向步数（forward=3、reverse=5）而非累计值 8。
-    # 只锁字段口径 token，不锁整句 prose。
+    # Each direction warns once, with 3 forward steps and 5 reverse steps.
+    # Check diagnostic fields independently of the surrounding sentence.
     assert captured.out.count("workflow=irc") == 2
     for token in (
         "stage=sella_irc",

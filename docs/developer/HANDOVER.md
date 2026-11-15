@@ -194,7 +194,16 @@ fallback.
   acceptance wheel hashes, raw logs, and 2026-10-17 results remain in Git
   history. The old drift checker, vendored implementation CI, and snapshot
   mutation tests are retired; test new parser repairs in the independent
-  abacuslite repository.
+  abacuslite repository. Keep ATST coverage at its adapter and workflow
+  boundaries: launch/version commands, public ASE results, dependency failures,
+  and historical import identity. General STRU parsing/writing, backup rotation
+  and private frame-selector regressions belong to abacuslite. Before removing
+  a duplicate, verify that the owning suite covers the same failure mode.
+- Validate workflow matrices, dependencies and permissions as parsed YAML;
+  exercise shell logic with controlled commands. Formatting, virtual-environment
+  names and forwarding-module source length are not behavioral contracts.
+  Distribution tests check required modules and attribution files; installed
+  consumer tests check that historical imports resolve to the external package.
 - When maintaining abacuslite property-derived keywords, compare explicit
   inputs and derived values using ABACUS switch semantics: `True`, `1`, and
   `"1"` are equivalent. `False`/`0` still conflicts with the `"1"`
