@@ -214,6 +214,10 @@ atst run --show-template d2s --calculator dp
 | `dmf` | Direct MaxFlux 实验性 TS candidate / path optimizer | `atst run config.yaml` |
 | `constant_potential` | ABACUS 恒电势固定几何单点/串行扫描 | `atst run config.yaml` |
 
+Sella 搜索及 D2S 的 Sella refinement 默认使用 `eta: 0.005`；生成的 Sella
+模板与此一致，显式指定 `eta: 0.002` 等值仍然有效。IRC 的 eta 独立配置。
+详细语义见 [Sella 参数参考](CONFIG_REFERENCE.md#25-sella-saddle-point-finder)。
+
 常规 workflow 交付结构、阶段执行状态和 optimizer 已提供的收敛事实；完成计算
 不会自动运行 IRC，也不等于过渡态已验证。振动/IRC 等额外计算仍由 YAML 中明确配置。
 可使用独立只读筛查，检查已保存的振动结果和可选冻结结构证据：

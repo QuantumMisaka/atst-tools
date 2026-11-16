@@ -508,6 +508,10 @@ J. Chem. Theory Comput. **18** (8), 4914-4930 (2022). <https://doi.org/10.1021/a
 | `record_events` | bool | `true` | Write a flushed JSONL sidecar beside the trajectory (`sella.events.jsonl` by default); false disables event recording. No extra energy/force evaluations. |
 | `hessian_progress` | bool | `false` | Enable native Sella numerical-Hessian text progress, independently of JSONL recording. Explicit true requires runtime support. |
 
+The standalone workflow, D2S Sella refinement and generated Sella template use
+`eta: 0.005` by default. Explicit values such as `eta: 0.002` remain supported;
+the separate IRC workflow keeps its own eta setting.
+
 A Sella trajectory includes force-evaluation geometries, including finite-difference
 probes; its frame count is **not** the optimizer step count. The event sidecar
 records the initial state separately from completed optimizer steps, and links

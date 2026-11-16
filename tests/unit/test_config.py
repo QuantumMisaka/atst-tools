@@ -942,6 +942,43 @@ def test_run_templates_validate_against_schema():
             assert ConfigLoader.validate(config) is True
 
 
+@pytest.mark.parametrize("calculator", ["abacus", "dp"])
+def test_sella_template_keeps_the_workflow_eta_default(calculator):
+    from atst_tools.scripts.main import _template
+
+    config = YAML(typ="safe").load(_template("sella", calculator))
+
+    assert ConfigLoader.normalize(config)["calculation"]["eta"] == pytest.approx(0.005)
+
+
+@pytest.mark.parametrize("workflow", ["sella", "d2s"])
+@pytest.mark.parametrize("eta", [None, 0.002])
+def test_sella_eta_default_and_explicit_override(workflow, eta):
+    if workflow == "sella":
+        calculation = {"type": "sella", "init_structure": "init.stru"}
+        settings = calculation
+    else:
+        calculation = {
+            "type": "d2s",
+            "method": "sella",
+            "init_file": "init.stru",
+            "final_file": "final.stru",
+            "sella": {},
+        }
+        settings = calculation["sella"]
+    if eta is not None:
+        settings["eta"] = eta
+    config = ConfigLoader.normalize({
+        "calculation": calculation,
+        "calculator": {"name": "abacus", "abacus": {"parameters": {}}},
+    })
+    normalized = config["calculation"]
+    if workflow == "d2s":
+        normalized = normalized["sella"]
+
+    assert normalized["eta"] == pytest.approx(0.005 if eta is None else eta)
+
+
 def test_json_schema_can_be_generated():
     schema = json_schema()
 

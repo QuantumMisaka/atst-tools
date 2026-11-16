@@ -35,7 +35,7 @@ a universal accuracy guarantee. DMF retains its experimental status.
 | **FIRE IDPP and segment sampling** | Local source optimization, unreleased | Default adaptive FIRE with legacy mode; MIC-length allocation for explicit TS segments, with equal-split compatibility. | Ordinary Pd IS/FS converges in 265 evaluations. With explicit TS, interval-spacing ratio improves from 2.96 to 1.063 while retaining the TS coordinates. No TS-moving option; no DFT-path claim. See [evidence](IDPP_DYNAMIC_MIC_2026-11-12.md). |
 | **AutoNEB** | ✅ Supported | Automated NEB | Adaptive image handling, native ASE selector, endpoint single-point repair, and MPI image-level parallelism are supported. |
 | **Dimer** | ✅ Supported | TS Search | Min-mode following. |
-| **Sella** | ✅ Supported | Saddle Point Finder | Robust optimization. |
+| **Sella** | ✅ Supported | Saddle Point Finder | Standalone, D2S refinement and the generated Sella template default to `eta: 0.005`; explicit overrides remain supported. |
 | **CCQN** | ✅ Supported | Constrained Cone Quasi-Newton TS Search | Standalone workflow and D2S refinement option, including reactive-mode enumeration, product alignment, diagnostics, mode manifest, and artifact manifest. |
 | **D2S** | ✅ Supported | Double-Ended to Single | `atst run` dispatches endpoint optimization, rough DyNEB, then Dimer, Sella, or CCQN refinement. Experimental `rough_method: dmf` can replace rough DyNEB but is not a supported production default. |
 | **IRC** | ✅ Supported | Intrinsic Reaction Coordinate | Sella backend and descent backend are supported, with controlled boundary diagnostics and artifact manifests. |

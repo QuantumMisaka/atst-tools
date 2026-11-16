@@ -139,7 +139,7 @@ calculation:
   fmax: 0.05
   max_steps: 100
   trajectory: sella.traj
-  eta: 0.002
+  eta: 0.005
 """,
         "ccqn": """\
 calculation:

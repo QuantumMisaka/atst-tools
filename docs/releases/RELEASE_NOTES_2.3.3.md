@@ -62,6 +62,14 @@ the [feature matrix](../reports/FEATURE_STATUS_MATRIX.md) and
 
 ## Publication
 
+### Unreleased Sella template follow-up (2026-11-16)
+
+The generated standalone Sella YAML now uses `eta: 0.005`, matching the existing
+standalone and D2S Sella runtime defaults. Explicit eta overrides, including
+`0.002`, remain supported. Historical example settings and the separate IRC eta
+configuration are unchanged. This source follow-up is not part of the published
+artifact identities or validation counts above.
+
 ### Unreleased source follow-up (2026-11-12)
 
 The local source now repairs stale periodic images in Fast IDPP, uses MIC
