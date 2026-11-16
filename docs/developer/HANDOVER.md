@@ -214,7 +214,7 @@ fallback.
 
 | Contract | Owning regression suite | ATST consumer coverage retained |
 | --- | --- | --- |
-| Raw output formats, coordinate units, STRU I/O and backups | abacuslite `test_generalio.py`, `test_latestio.py`, `test_legacyio.py`, `test_reader_review.py` | Public ASE result handoff in `test_abacuslite_frame_selection.py` |
+| Raw output formats, coordinate units, STRU I/O and backups | abacuslite `test_generalio.py`, `test_latestio.py`, `test_legacyio.py`, `test_reader_contract.py` | Public ASE result handoff in `test_abacuslite_frame_selection.py` |
 | SCF periodic matching, tolerance, malformed frames and atom order | abacuslite `test_frame_selection.py`, `test_reader_contract.py`, `test_public_api.py` | Selected forces/Fermi/order, unrelated-output rejection and MD collection in `test_backend_routing.py` |
 | Launcher/env/version commands and dependency errors | ATST `test_abacuslite_profile.py` | Same suite |
 | Historical imports and installed-package provenance | ATST `test_backend_routing.py`, `test_abacuslite_consumer_runner.py` | Full installed consumer runner |
