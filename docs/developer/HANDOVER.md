@@ -209,6 +209,23 @@ fallback.
   `"1"` are equivalent. `False`/`0` still conflicts with the `"1"`
   automatically required by a `forces` or `stress` request.
 
+
+### Cross-repository test ownership
+
+| Contract | Owning regression suite | ATST consumer coverage retained |
+| --- | --- | --- |
+| Raw output formats, coordinate units, STRU I/O and backups | abacuslite `test_generalio.py`, `test_latestio.py`, `test_legacyio.py`, `test_reader_review.py` | Public ASE result handoff in `test_abacuslite_frame_selection.py` |
+| SCF periodic matching, tolerance, malformed frames and atom order | abacuslite `test_frame_selection.py`, `test_reader_contract.py`, `test_public_api.py` | Selected forces/Fermi/order, unrelated-output rejection and MD collection in `test_backend_routing.py` |
+| Launcher/env/version commands and dependency errors | ATST `test_abacuslite_profile.py` | Same suite |
+| Historical imports and installed-package provenance | ATST `test_backend_routing.py`, `test_abacuslite_consumer_runner.py` | Full installed consumer runner |
+| CI orchestration and release artifact/permission boundaries | ATST `test_ci_workflows.py`, `test_distribution.py` | Parsed configuration, controlled shell execution and installed artifacts |
+
+The plugin suites live in [QuantumMisaka/abacuslite](https://github.com/QuantumMisaka/abacuslite/tree/main/tests/unit).
+Before deleting a regression, check its failure mode in the owning suite at the
+coordinated candidate revision; this table assigns responsibility, not a frozen
+list of test names. Socket parameter normalization still uses a private plugin
+helper; a versioned public API migration is a separate follow-up.
+
 ## 6. Add or change dependencies
 
 - Keep default `dependencies` limited to light runtime dependencies needed
