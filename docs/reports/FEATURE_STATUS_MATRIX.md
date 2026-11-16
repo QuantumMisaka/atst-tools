@@ -1,8 +1,8 @@
 # ATST-Tools Feature Status Matrix
 
 **Version**: 2.3.3
-**Last Updated**: 2026-11-12
-**Status**: 2.3.3 release candidate; support and validation scope are distinguished below
+**Last Updated**: 2026-11-16
+**Status**: 2.3.3 is published on PyPI and GitHub; local unreleased follow-ups are identified below
 
 2.3.3 includes the ordinary ASE/ABACUS MD per-evaluation SCF validity guard and
 the experimental i-PI socket client. The analytic regression checks cover

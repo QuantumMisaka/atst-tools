@@ -107,9 +107,11 @@ for item-level disposition.
 - Add or update `examples/<case>/config*.yaml` and `examples/README.md`.
 - Update `docs/reports/FEATURE_STATUS_MATRIX.md`.
 - Add or update workflow and example tests and any necessary validation report.
-- Keep runtime messages (print/warning/logging/exceptions) in English. When
-  changing convergence or diagnostic text, update tests that lock semantic
-  tokens.
+- Keep runtime messages (print/warning/logging/exceptions) in English. Tests should assert convergence outcomes, rejected invalid input,
+  numerical results and documented diagnostic context. Do not bind them to
+  incidental wording or a particular language; assert exact text only for an
+  explicit public or machine-readable contract. Use valid controls so an
+  unrelated exception cannot satisfy a rejection test.
 - Reuse `utils/geometry.py` for fixed-cell preparation: input tolerance
   `1e-5 Å` with `rtol=0`, retaining values within tolerance; adjust only the
   necessary periodic vectors in internal run copies for NEB. Prepare geometry
@@ -192,11 +194,37 @@ fallback.
   acceptance wheel hashes, raw logs, and 2026-10-17 results remain in Git
   history. The old drift checker, vendored implementation CI, and snapshot
   mutation tests are retired; test new parser repairs in the independent
-  abacuslite repository.
+  abacuslite repository. Keep ATST coverage at its adapter and workflow
+  boundaries: launch/version commands, public ASE results, dependency failures,
+  and historical import identity. General STRU parsing/writing, backup rotation
+  and private frame-selector regressions belong to abacuslite. Before removing
+  a duplicate, verify that the owning suite covers the same failure mode.
+- Validate workflow matrices, dependencies and permissions as parsed YAML;
+  exercise shell logic with controlled commands. Formatting, virtual-environment
+  names and forwarding-module source length are not behavioral contracts.
+  Distribution tests check required modules and attribution files; installed
+  consumer tests check that historical imports resolve to the external package.
 - When maintaining abacuslite property-derived keywords, compare explicit
   inputs and derived values using ABACUS switch semantics: `True`, `1`, and
   `"1"` are equivalent. `False`/`0` still conflicts with the `"1"`
   automatically required by a `forces` or `stress` request.
+
+
+### Cross-repository test ownership
+
+| Contract | Owning regression suite | ATST consumer coverage retained |
+| --- | --- | --- |
+| Raw output formats, coordinate units, STRU I/O and backups | abacuslite `test_generalio.py`, `test_latestio.py`, `test_legacyio.py`, `test_reader_contract.py` | Public ASE result handoff in `test_abacuslite_frame_selection.py` |
+| SCF periodic matching, tolerance, malformed frames and atom order | abacuslite `test_frame_selection.py`, `test_reader_contract.py`, `test_public_api.py` | Selected forces/Fermi/order, unrelated-output rejection and MD collection in `test_backend_routing.py` |
+| Launcher/env/version commands and dependency errors | ATST `test_abacuslite_profile.py` | Same suite |
+| Historical imports and installed-package provenance | ATST `test_backend_routing.py`, `test_abacuslite_consumer_runner.py` | Full installed consumer runner |
+| CI orchestration and release artifact/permission boundaries | ATST `test_ci_workflows.py`, `test_distribution.py` | Parsed configuration, controlled shell execution and installed artifacts |
+
+The plugin suites live in [QuantumMisaka/abacuslite](https://github.com/QuantumMisaka/abacuslite/tree/main/tests/unit).
+Before deleting a regression, check its failure mode in the owning suite at the
+coordinated candidate revision; this table assigns responsibility, not a frozen
+list of test names. Socket parameter normalization still uses a private plugin
+helper; a versioned public API migration is a separate follow-up.
 
 ## 6. Add or change dependencies
 

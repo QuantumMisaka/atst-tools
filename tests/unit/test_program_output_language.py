@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = ROOT / "src/atst_tools"
-# Vendored upstream snapshot (abacuslite); not maintained for output language.
+# Third-party code under external/ retains its upstream language conventions.
 VENDORED_DIRNAME = "external"
 
 # CJK Unified Ideographs (+ Ext A, compatibility ideographs) and CJK
