@@ -1621,7 +1621,7 @@ def test_run_workflow_plot_failure_omits_plots(monkeypatch, tmp_path):
 def test_run_workflow_profiles_exception_omits_profiles_not_crash(
     monkeypatch, tmp_path
 ):
-    """profiles 是 best-effort：数据读取异常不得让已完成工作流崩溃。"""
+    """Optional profile extraction must not fail a completed workflow."""
     from atst_tools.api import RunOptions, run_workflow
     from atst_tools.api import services
 

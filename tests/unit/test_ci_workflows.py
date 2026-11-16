@@ -1,11 +1,15 @@
-"""Governance tests for GitHub Actions workflows."""
+"""Validate CI contracts through YAML structure and controlled shell execution."""
 
 from __future__ import annotations
 
-import re
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,161 +17,247 @@ GENERAL_TESTS_WORKFLOW = ROOT / ".github" / "workflows" / "tests.yml"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish-pypi.yml"
 
 
-def _job_block(workflow: str, job_name: str) -> str:
-    """Return one top-level GitHub Actions job block from static YAML text."""
-    pattern = rf"(?ms)^  {re.escape(job_name)}:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)"
-    match = re.search(pattern, workflow)
-    assert match is not None, f"missing workflow job: {job_name}"
-    return match.group(0)
+def _workflow(path):
+    # BaseLoader preserves GitHub's `on` key instead of YAML 1.1's boolean alias.
+    return yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
 
 
-def _job_permissions(job: str) -> list[str]:
-    """Return the entries in a job-local permissions mapping."""
-    match = re.search(r"(?ms)^    permissions:\n(?P<body>(?:^      [^\n]+\n)+)", job)
-    assert match is not None, "missing job-local permissions mapping"
-    return [line.strip() for line in match.group("body").splitlines()]
+def _action_steps(job, action):
+    return [
+        step for step in job["steps"]
+        if step.get("uses", "").split("@", 1)[0] == action
+    ]
 
 
-def _artifact_step(job: str, action: str) -> str:
-    """Return the step containing one upload/download action."""
-    action_start = job.index(f"        uses: {action}@v4")
-    step_start = job.rfind("      - ", 0, action_start)
-    assert step_start >= 0, f"missing step for {action}"
-    next_step = re.search(r"(?m)^      - ", job[action_start:])
-    step_end = action_start + next_step.start() if next_step else len(job)
-    return job[step_start:step_end]
+def _one_action(job, action):
+    steps = _action_steps(job, action)
+    assert len(steps) == 1
+    return steps[0]
 
 
-def _artifact_name(job: str, action: str) -> str:
-    """Return the artifact name configured for one upload/download action."""
-    step = _artifact_step(job, action)
-    match = re.search(r"(?m)^          name: ([^\n]+)", step)
-    assert match is not None, f"missing artifact name for {action}"
-    return match.group(1).strip()
+def _python_recorder(tmp_path):
+    """Record CI's Python invocations without installing or publishing anything."""
+    executable = tmp_path / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, pathlib, sys\n"
+        "with open(os.environ['COMMAND_LOG'], 'a') as stream:\n"
+        "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        "if sys.argv[1:3] == ['-m', 'venv']:\n"
+        "    target = pathlib.Path(sys.argv[3]) / 'bin' / 'python'\n"
+        "    target.parent.mkdir(parents=True, exist_ok=True)\n"
+        "    target.symlink_to(pathlib.Path(sys.argv[0]).resolve())\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o755)
+    return executable
 
 
-def test_general_pr_ci_workflow_runs_full_pytest_suite():
-    """General PR CI should run the full unit test suite on Python 3.10."""
-    workflow = GENERAL_TESTS_WORKFLOW.read_text(encoding="utf-8")
-    test_job = _job_block(workflow, "test")
-
-    assert "name: Tests" in workflow
-    assert "pull_request:" in workflow
-    assert "workflow_dispatch:" in workflow
-    assert 'python-version: "3.10"' in workflow
-    assert 'python -m pip install -e ".[test]"' in workflow
-    assert "python -m pytest tests -q" in test_job
-
-
-def test_general_ci_covers_main_and_documentation_governance():
-    """General CI should cover main pushes and the documentation checker."""
-    workflow = GENERAL_TESTS_WORKFLOW.read_text(encoding="utf-8")
-    docs_job = _job_block(workflow, "documentation-governance")
-
-    assert "  push:\n    branches: [main]" in workflow
-    assert "  test:\n" in workflow
-    assert "  documentation-governance:\n" in workflow
-    assert "python scripts/check_docs_governance.py" in docs_job
-    assert workflow.count('python-version: "3.10"') == 1
-    test_job = _job_block(workflow, "test")
-    assert 'python-version: ["3.10", "3.12"]' in test_job
-    assert 'python-version: ${{ matrix.python-version }}' in test_job
-    assert 'ase-version: ["3.28.0", "latest"]' in test_job
-    assert 'matrix.ase-version' in test_job
-    assert workflow.count('python -m pip install -e ".[test]"') == 2
-    assert "id-token: write" not in workflow
+def _run_steps(steps, tmp_path, **environment):
+    executable = _python_recorder(tmp_path)
+    log = tmp_path / "commands.jsonl"
+    env = {
+        **os.environ,
+        "PATH": f"{executable.parent}{os.pathsep}{os.environ['PATH']}",
+        "COMMAND_LOG": str(log),
+        **environment,
+    }
+    for step in steps:
+        if "run" in step:
+            subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+                cwd=tmp_path, env=env, check=True, capture_output=True, text=True,
+            )
+    return [json.loads(line) for line in log.read_text().splitlines()]
 
 
-def test_abacuslite_ci_runs_one_external_installed_consumer_suite():
-    workflow = GENERAL_TESTS_WORKFLOW.read_text(encoding="utf-8")
-    job = _job_block(workflow, "installed-abacuslite-consumer")
+def test_general_ci_covers_supported_matrix_and_documentation(tmp_path):
+    workflow = _workflow(GENERAL_TESTS_WORKFLOW)
+    triggers = workflow["on"]
+    assert {"pull_request", "push", "workflow_dispatch", "schedule"} <= triggers.keys()
+    assert triggers["push"]["branches"] == ["main"]
+    job = workflow["jobs"]["test"]
+    assert job["strategy"]["matrix"] == {
+        "python-version": ["3.10", "3.12"],
+        "ase-version": ["3.28.0", "latest"],
+    }
+    assert _one_action(job, "actions/setup-python")["with"]["python-version"] == (
+        "${{ matrix.python-version }}"
+    )
+    assert any(
+        step.get("env", {}).get("ASE_VERSION") == "${{ matrix.ase-version }}"
+        for step in job["steps"]
+    )
+    commands = _run_steps(job["steps"], tmp_path, ASE_VERSION="3.28.0")
+    assert ["-m", "pip", "install", "-e", ".[test]"] in commands
+    assert ["-m", "pip", "install", "ase==3.28.0"] in commands
+    assert ["-m", "pytest", "tests", "-q"] in commands
 
-    assert "abacuslite_ref:" in workflow
-    assert "schedule:" in workflow
-    assert "python -m build --wheel" in job
-    assert "venv-vendored" not in job and "venv-external" in job
-    assert job.count('run_abacuslite_consumer.py" --atst-root') == 1
-    assert "--backend external" in job
-    assert 'run_abacuslite_consumer.py" --verify-report' in job
-    assert "--report" in job
-    assert "abacuslite==1.2.1" in job
-    assert "abacuslite>=1.2.1,<2" in job
-    assert "git -C abacuslite-candidate rev-parse HEAD" in job
-
-
-def test_release_workflow_separates_resolution_preflight_and_publish():
-    """Release publication must consume a verified preflight artifact."""
-    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
-    preflight = _job_block(workflow, "release-preflight")
-    publish = _job_block(workflow, "publish")
-
-    assert "  resolve-release:\n" in workflow
-    assert "  release-preflight:\n" in workflow
-    assert "  publish:\n" in workflow
-    assert "      tag:\n" in workflow
-    assert "      ref:\n" not in workflow
-    assert "inputs.ref" not in workflow
-    assert "DISPATCH_TAG: ${{ inputs.tag }}" in workflow
-    resolver_run = re.search(r"(?ms)^        run:.*?(?=^      - |\Z)", workflow)
-    assert resolver_run is not None
-    assert "${{ inputs.tag }}" not in resolver_run.group(0)
-    assert "refs/tags/$RELEASE_TAG" in workflow
-    assert 'echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"' in workflow
-    validation = workflow.index('if [[ ! "$RELEASE_TAG"')
-    first_output = workflow.index("GITHUB_OUTPUT", validation)
-    assert validation < first_output
-    assert "ref: ${{ steps.resolve-release.outputs.ref }}" in workflow
-    assert "needs: resolve-release" in preflight
-    assert "ref: ${{ needs.resolve-release.outputs.ref }}" in preflight
-    assert "python scripts/check_release_readiness.py --tag \"$RELEASE_TAG\"" in preflight
-    checkout = preflight.index("ref: ${{ needs.resolve-release.outputs.ref }}")
-    readiness = preflight.index("python scripts/check_release_readiness.py", checkout)
-    assert checkout < readiness
-    assert "python -m pytest tests -q" in preflight
-    assert "python scripts/check_docs_governance.py" in preflight
-    assert "python -m build" in preflight
-    assert "python -m twine check --strict dist/*" in preflight
-    assert "python scripts/verify_wheel_api.py" in preflight
-    assert "actions/upload-artifact@v4" in preflight
-    assert "path: dist/*" in preflight
-    assert _artifact_name(preflight, "actions/upload-artifact") == "python-distributions"
-    assert _artifact_name(publish, "actions/download-artifact") == "python-distributions"
-
-    readiness = preflight.index("python scripts/check_release_readiness.py")
-    pytest = preflight.index("python -m pytest tests -q", readiness)
-    docs = preflight.index("python scripts/check_docs_governance.py", pytest)
-    build = preflight.index("python -m build", docs)
-    twine = preflight.index("python -m twine check --strict dist/*", build)
-    verify = preflight.index("python scripts/verify_wheel_api.py", twine)
-    artifact = preflight.index("actions/upload-artifact@v4", verify)
-    assert readiness < pytest < docs < build < twine < verify < artifact
+    docs_job = workflow["jobs"]["documentation-governance"]
+    commands = _run_steps(docs_job["steps"], tmp_path / "docs")
+    assert ["scripts/check_docs_governance.py"] in commands
+    assert workflow["permissions"] == {"contents": "read"}
+    for ci_job in workflow["jobs"].values():
+        assert ci_job.get("permissions", workflow["permissions"]).get("id-token") != "write"
 
 
-def test_release_publish_has_only_preflight_dependency_and_oidc_permission():
-    """Only the publish job may request the PyPI OIDC token."""
-    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
-    publish = _job_block(workflow, "publish")
+def test_installed_consumer_runs_and_verifies_the_same_external_report(tmp_path):
+    workflow = _workflow(GENERAL_TESTS_WORKFLOW)
+    assert "abacuslite_ref" in workflow["on"]["workflow_dispatch"]["inputs"]
+    job = workflow["jobs"]["installed-abacuslite-consumer"]
+    candidates = [
+        step for step in _action_steps(job, "actions/checkout")
+        if step.get("with", {}).get("repository") == "QuantumMisaka/abacuslite"
+    ]
+    assert len(candidates) == 1
+    assert candidates[0]["with"]["ref"] == "${{ inputs.abacuslite_ref }}"
+    steps = [
+        step for step in job["steps"]
+        if "scripts/run_abacuslite_consumer.py" in step.get("run", "")
+    ]
+    assert len(steps) == 1
+    runtime = tmp_path / "runtime"
+    executable = runtime / "venv-external" / "bin" / "python"
+    executable.parent.mkdir(parents=True)
+    # The runner's own suite validates installed provenance and report contents.
+    executable.symlink_to(tmp_path / "bin" / "python")
+    commands = _run_steps(
+        steps, tmp_path,
+        RUNNER_TEMP=str(runtime), GITHUB_WORKSPACE=str(ROOT),
+    )
+    runner = str(ROOT / "scripts/run_abacuslite_consumer.py")
+    report = str(runtime / "external.json")
+    assert commands == [
+        [runner, "--atst-root", str(ROOT), "--backend", "external", "--report", report],
+        [runner, "--verify-report", report],
+    ]
 
-    assert "needs: release-preflight" in publish
-    assert "needs: resolve-release" not in publish
-    assert "actions/download-artifact@v4" in publish
-    assert "actions/checkout@v4" not in publish
-    assert "python -m build" not in publish
-    assert _job_permissions(publish) == ["id-token: write"]
-    assert workflow.count("id-token: write") == 1
+
+@pytest.mark.parametrize(
+    ("event", "ref", "plugin"),
+    [
+        ("push", "", "abacuslite==1.2.1"),
+        ("schedule", "", "abacuslite>=1.2.1,<2"),
+        ("workflow_dispatch", "candidate", "candidate-wheel"),
+    ],
+)
+def test_installed_consumer_selects_published_scheduled_or_candidate_plugin(
+    tmp_path, event, ref, plugin
+):
+    job = _workflow(GENERAL_TESTS_WORKFLOW)["jobs"]["installed-abacuslite-consumer"]
+    steps = [step for step in job["steps"] if "-m venv" in step.get("run", "")]
+    assert len(steps) == 1
+    for folder, filename in (("atst-dist", "atst.whl"), ("plugin-dist", "plugin.whl")):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / filename).touch()
+    commands = _run_steps(
+        steps, tmp_path, RUNNER_TEMP=str(tmp_path),
+        GITHUB_EVENT_NAME=event, DISPATCH_REF=ref,
+        GITHUB_ENV=str(tmp_path / "github-env"),
+    )
+    expected = str(tmp_path / "plugin-dist/plugin.whl") if ref else plugin
+    plugin_installs = [
+        command for command in commands
+        if command[:3] == ["-m", "pip", "install"] and "--report" in command
+    ]
+    assert len(plugin_installs) == 1
+    assert plugin_installs[0][-1] == expected
+    assert commands[-1] == ["-m", "pip", "check"]
 
 
-def test_artifact_name_does_not_leak_from_a_later_step():
-    """Artifact extraction must not accept a later step's ``with.name``."""
-    job = """      - name: Upload distributions artifact
-        uses: actions/upload-artifact@v4
-        with:
-          path: dist/*
-      - name: Later step
-        run: echo done
-        with:
-          name: python-distributions
-"""
+@pytest.mark.parametrize(
+    ("event", "dispatch", "push", "expected"),
+    [
+        ("workflow_dispatch", "v2.3.3", "ignored", "v2.3.3"),
+        ("push", "ignored", "v2.3.4", "v2.3.4"),
+        ("workflow_dispatch", "main", "v2.3.3", None),
+        ("push", "v2.3.3", "v2.3.3; echo unsafe", None),
+    ],
+)
+def test_release_resolver_validates_selected_tag_before_emitting_outputs(
+    tmp_path, event, dispatch, push, expected
+):
+    job = _workflow(PUBLISH_WORKFLOW)["jobs"]["resolve-release"]
+    step, = job["steps"]
+    assert step["env"] == {
+        "DISPATCH_TAG": "${{ inputs.tag }}", "EVENT_NAME": "${{ github.event_name }}",
+        "PUSH_TAG": "${{ github.ref_name }}",
+    }
+    output = tmp_path / "github-output"
+    result = subprocess.run(
+        ["bash", "-e", "-o", "pipefail", "-c", step["run"]],
+        env={**os.environ, "EVENT_NAME": event, "DISPATCH_TAG": dispatch,
+             "PUSH_TAG": push, "GITHUB_OUTPUT": str(output)},
+        capture_output=True, text=True,
+    )
+    if expected is None:
+        assert result.returncode != 0
+        assert not output.exists() or not output.read_text()
+    else:
+        assert result.returncode == 0
+        assert dict(line.split("=", 1) for line in output.read_text().splitlines()) == {
+            "tag": expected, "ref": f"refs/tags/{expected}",
+        }
 
-    with pytest.raises(AssertionError, match="missing artifact name"):
-        _artifact_name(job, "actions/upload-artifact")
+
+def test_release_preflight_validates_source_before_uploading_distributions(tmp_path):
+    workflow = _workflow(PUBLISH_WORKFLOW)
+    assert workflow["on"]["push"]["tags"] == ["v*"]
+    assert set(workflow["on"]["workflow_dispatch"]["inputs"]) == {"tag"}
+    jobs = workflow["jobs"]
+    resolver = jobs["resolve-release"]
+    assert resolver["outputs"] == {
+        "tag": "${{ steps.resolve-release.outputs.tag }}",
+        "ref": "${{ steps.resolve-release.outputs.ref }}",
+    }
+    preflight = jobs["release-preflight"]
+    assert preflight["needs"] == "resolve-release"
+    assert _one_action(preflight, "actions/checkout")["with"]["ref"] == (
+        "${{ needs.resolve-release.outputs.ref }}"
+    )
+    checkout = _one_action(preflight, "actions/checkout")
+    assert preflight["steps"].index(checkout) < next(
+        index for index, step in enumerate(preflight["steps"]) if "run" in step
+    )
+    assert any(
+        step.get("env", {}).get("RELEASE_TAG") == "${{ needs.resolve-release.outputs.tag }}"
+        for step in preflight["steps"]
+    )
+    upload = _one_action(preflight, "actions/upload-artifact")
+    assert upload["with"] == {
+        "name": "python-distributions", "path": "dist/*", "if-no-files-found": "error",
+    }
+    upload_index = preflight["steps"].index(upload)
+    assert not any("run" in step for step in preflight["steps"][upload_index + 1:])
+    commands = _run_steps(preflight["steps"][:upload_index], tmp_path, RELEASE_TAG="v2.3.3")
+    assert commands[-6:] == [
+        ["scripts/check_release_readiness.py", "--tag", "v2.3.3"],
+        ["-m", "pytest", "tests", "-q"],
+        ["scripts/check_docs_governance.py"],
+        ["-m", "build"],
+        ["-m", "twine", "check", "--strict", "dist/*"],
+        ["scripts/verify_wheel_api.py", "--wheel", "dist/*.whl"],
+    ]
+
+
+def test_release_publishes_verified_artifact_with_exclusive_oidc_permission():
+    workflow = _workflow(PUBLISH_WORKFLOW)
+    jobs = workflow["jobs"]
+    publish = jobs["publish"]
+    assert publish["needs"] == "release-preflight"
+    assert workflow["permissions"] == {"contents": "read"}
+    assert publish["permissions"] == {"id-token": "write"}
+    assert all(
+        job.get("permissions", workflow["permissions"]).get("id-token") != "write"
+        for name, job in jobs.items() if name != "publish"
+    )
+    assert publish["environment"]["name"] == "pypi"
+    assert not any("run" in step for step in publish["steps"])
+    assert not _action_steps(publish, "actions/checkout")
+    download = _one_action(publish, "actions/download-artifact")
+    upload = _one_action(jobs["release-preflight"], "actions/upload-artifact")
+    assert download["with"]["name"] == upload["with"]["name"]
+    assert download["with"]["path"] == "dist"
+    publisher = _one_action(publish, "pypa/gh-action-pypi-publish")
+    assert publish["steps"].index(download) < publish["steps"].index(publisher)

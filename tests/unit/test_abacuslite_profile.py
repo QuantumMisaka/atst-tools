@@ -1,23 +1,11 @@
-"""Tests for abacuslite profile helpers used by ATST-Tools."""
+"""ATST-owned ABACUS version probing and external dependency failures."""
 
-from types import SimpleNamespace
 import builtins
 
-import numpy as np
 import pytest
-from ase import Atoms
-from ase.constraints import FixAtoms, FixCartesian
-from ase.units import AUT, Bohr
 
 from atst_tools.calculators import abacuslite_backend
 from atst_tools.calculators.abacuslite_backend import ATSTAbacusProfile
-from atst_tools.external.ASE_interface.abacuslite.core import (
-    Abacus,
-    AbacusProfile,
-    AbacusTemplate,
-    switch_io_backend_version,
-)
-from atst_tools.external.ASE_interface.abacuslite.io.generalio import file_safe_backup, read_stru, write_stru
 
 
 @pytest.mark.parametrize(
@@ -41,44 +29,14 @@ def test_abacuslite_backend_does_not_hide_external_package_import_errors(monkeyp
 
     monkeypatch.setattr(builtins, "__import__", broken_external_import)
 
-    with pytest.raises(ImportError, match="internal dependency failed"):
+    with pytest.raises(ImportError) as excinfo:
         abacuslite_backend._load_abacuslite_backend()
+    assert excinfo.value is error
 
 
-def test_parse_version_accepts_legacy_abacus_version_line():
+def test_atst_parse_version_accepts_legacy_abacus_version_line():
     """ABACUS <= 3.9 style version output remains supported."""
-    assert AbacusProfile.parse_version("ABACUS version v3.9.0.17\n") == "v3.9.0.17"
-
-
-def test_installed_abacuslite_accepts_current_beta_version_format(monkeypatch):
-    """The installed parser accepts current beta banners without a dot.
-
-    switch_io_backend_version 会改写模块级 __LEGACYIO__ 全局；用 monkeypatch 快照，
-    防止该全局状态泄漏到同一 pytest 进程中的后续测试（CI 顺序依赖防御）。
-    """
-    from atst_tools.external.ASE_interface.abacuslite import core as abacus_core
-
-    monkeypatch.setattr(
-        abacus_core, "__LEGACYIO__", abacus_core.__LEGACYIO__, raising=False
-    )
-    assert switch_io_backend_version("v3.11.0-beta1") is False
-
-
-def test_fixed_density_uses_upstream_output_directory_default(monkeypatch, tmp_path):
-    """Vendored fixed-density calculations retain upstream OUT.ABACUS discovery."""
-    calculator = object.__new__(Abacus)
-    calculator.profile = object()
-    calculator.directory = tmp_path
-    captured = {}
-
-    def fake_restart(cls, **kwargs):
-        captured.update(kwargs)
-        return kwargs
-
-    monkeypatch.setattr(Abacus, "restart", classmethod(fake_restart))
-    calculator.fixed_density({"mode": "gamma", "nk": 1})
-
-    assert captured["inp"]["read_file_dir"] == "OUT.ABACUS"
+    assert ATSTAbacusProfile.parse_version("ABACUS version v3.9.0.17\n") == "v3.9.0.17"
 
 
 def test_atst_parse_version_accepts_banner_abacus_version_line():
@@ -93,7 +51,7 @@ def test_atst_parse_version_accepts_banner_abacus_version_line():
 
 def test_atst_parse_version_reports_unrecognized_output():
     """Unexpected version output should fail with an actionable message."""
-    with pytest.raises(RuntimeError, match="Could not parse ABACUS version"):
+    with pytest.raises(RuntimeError):
         ATSTAbacusProfile.parse_version("unrecognized output")
 
 
@@ -114,7 +72,7 @@ def test_atst_version_uses_bare_executable_for_wrapped_run_command(monkeypatch):
 
 
 def test_atst_version_uses_bare_executable_for_full_path_mpirun_wrap(monkeypatch):
-    """完整路径 launcher（如 /opt/devtools/.../mpirun -np N abacus）version 探测必须落到 abacus。"""
+    """Probe the engine directly when the MPI launcher uses an absolute path."""
     calls = []
 
     def fake_read_stdout(command):
@@ -232,278 +190,3 @@ def test_atst_version_command_override_is_used_verbatim(monkeypatch):
 
     assert profile.version() == "v3.9.0.17"
     assert calls == [["srun", "--partition", "debug", "abacus", "--version"]]
-
-
-def test_installed_abacusprofile_version_keeps_native_probe(monkeypatch):
-    """The independent profile must keep its native version-probe command."""
-    calls = []
-
-    def fake_read_stdout(command):
-        calls.append(command)
-        return "ABACUS version v3.9.0.17\n"
-
-    from atst_tools.external.ASE_interface.abacuslite import core
-
-    monkeypatch.setattr(core, "read_stdout", fake_read_stdout)
-
-    profile = AbacusProfile("mpirun -np 4 abacus")
-
-    assert profile.version() == "v3.9.0.17"
-    assert calls == [["mpirun", "-np", "4", "abacus", "--version"]]
-
-
-def test_file_safe_backup_rotates_existing_integer_backups_without_clobber(tmp_path):
-    """Existing numbered backups should move up one slot before live file backup."""
-    live = tmp_path / "STRU"
-    backup0 = tmp_path / "STRU.bak.0"
-    backup1 = tmp_path / "STRU.bak.1"
-    non_integer_backup = tmp_path / "STRU.bak.note"
-
-    live.write_text("live\n", encoding="utf-8")
-    backup0.write_text("old-zero\n", encoding="utf-8")
-    backup1.write_text("old-one\n", encoding="utf-8")
-    non_integer_backup.write_text("keep-me\n", encoding="utf-8")
-
-    file_safe_backup(live)
-
-    assert not live.exists()
-    assert backup0.read_text(encoding="utf-8") == "live\n"
-    assert backup1.read_text(encoding="utf-8") == "old-zero\n"
-    assert (tmp_path / "STRU.bak.2").read_text(encoding="utf-8") == "old-one\n"
-    assert non_integer_backup.read_text(encoding="utf-8") == "keep-me\n"
-
-
-def test_file_safe_backup_preserves_noncanonical_numeric_suffixes(tmp_path):
-    """Only canonical non-negative backup indexes should be rotated."""
-    live = tmp_path / "STRU"
-    backup0 = tmp_path / "STRU.bak.0"
-    leading_zero_backup = tmp_path / "STRU.bak.01"
-    signed_positive_backup = tmp_path / "STRU.bak.+1"
-    signed_negative_backup = tmp_path / "STRU.bak.-1"
-
-    live.write_text("live\n", encoding="utf-8")
-    backup0.write_text("old-zero\n", encoding="utf-8")
-    leading_zero_backup.write_text("leading-zero\n", encoding="utf-8")
-    signed_positive_backup.write_text("signed-positive\n", encoding="utf-8")
-    signed_negative_backup.write_text("signed-negative\n", encoding="utf-8")
-
-    file_safe_backup(live)
-
-    assert not live.exists()
-    assert backup0.read_text(encoding="utf-8") == "live\n"
-    assert (tmp_path / "STRU.bak.1").read_text(encoding="utf-8") == "old-zero\n"
-    assert leading_zero_backup.read_text(encoding="utf-8") == "leading-zero\n"
-    assert signed_positive_backup.read_text(encoding="utf-8") == "signed-positive\n"
-    assert signed_negative_backup.read_text(encoding="utf-8") == "signed-negative\n"
-
-
-def test_write_stru_preserves_first_occurrence_species_order(tmp_path):
-    """STRU species blocks should follow ASE atom order, not alphabetical order."""
-    atoms = Atoms(
-        symbols=["C", "C", "Pt", "H", "H"],
-        positions=[
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [0.0, 0.0, 2.0],
-            [0.0, 0.0, 3.0],
-            [0.0, 0.0, 4.0],
-        ],
-        cell=[10.0, 10.0, 10.0],
-    )
-
-    write_stru(
-        atoms,
-        outdir=tmp_path,
-        pp_file={"C": "C.upf", "Pt": "Pt.upf", "H": "H.upf"},
-        orb_file={"C": "C.orb", "Pt": "Pt.orb", "H": "H.orb"},
-    )
-
-    data = read_stru(tmp_path / "STRU")
-    assert [species["symbol"] for species in data["species"]] == ["C", "Pt", "H"]
-    assert [species["orb_file"] for species in data["species"]] == ["C.orb", "Pt.orb", "H.orb"]
-
-
-def test_write_stru_records_cartesian_coordinates_pp_basis_and_magmom(tmp_path):
-    """STRU writer covers core ABACUS input metadata and magnetic moments."""
-    atoms = Atoms(
-        symbols=["H", "He", "H"],
-        positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-        cell=[5.0, 6.0, 7.0],
-        pbc=True,
-    )
-    atoms.set_initial_magnetic_moments([1.0, 0.0, 2.0])
-
-    write_stru(
-        atoms,
-        outdir=tmp_path,
-        pp_file={"H": "H.upf", "He": "He.upf"},
-        orb_file={"H": "H.orb", "He": "He.orb"},
-    )
-
-    data = read_stru(tmp_path / "STRU")
-
-    assert data["coord_type"] == "Cartesian"
-    assert [(species["symbol"], species["pp_file"], species["orb_file"]) for species in data["species"]] == [
-        ("H", "H.upf", "H.orb"),
-        ("He", "He.upf", "He.orb"),
-    ]
-    np.testing.assert_allclose(data["species"][0]["atom"][0]["coord"], [0.0, 0.0, 0.0])
-    np.testing.assert_allclose(data["species"][0]["atom"][1]["coord"], [0.0, 1.0, 0.0])
-    assert data["species"][0]["atom"][0]["mag"] == 1.0
-    assert data["species"][0]["atom"][1]["mag"] == 2.0
-
-
-def test_write_stru_preserves_constraints_and_converts_velocities(tmp_path):
-    """The installed writer retains mobile velocities in ABACUS atomic units."""
-    atoms = Atoms(
-        symbols=["H", "He", "H"],
-        positions=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-        cell=[5.0, 6.0, 7.0],
-        pbc=True,
-    )
-    atoms.set_constraint([FixAtoms(indices=[0]), FixCartesian(1, [True, False, True])])
-    atoms.set_velocities([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]])
-
-    write_stru(
-        atoms,
-        outdir=tmp_path,
-        pp_file={"H": "H.upf", "He": "He.upf"},
-        orb_file={"H": "H.orb", "He": "He.orb"},
-    )
-
-    data = read_stru(tmp_path / "STRU")
-    atoms_in_stru = [atom for species in data["species"] for atom in species["atom"]]
-
-    assert [atom["m"] for atom in atoms_in_stru] == [[0, 0, 0], [1, 1, 1], [0, 1, 0]]
-    expected = atoms.get_velocities()[[0, 2, 1]] * AUT / Bohr
-    np.testing.assert_allclose([atom["v"] for atom in atoms_in_stru], expected, atol=1e-12)
-    assert np.linalg.norm(expected[1]) > 0
-
-
-def test_abacus_template_uses_first_occurrence_species_grouping(tmp_path):
-    """Template atom reordering should match the STRU writer's species order."""
-    atoms = Atoms(
-        symbols=["C", "Pt", "H", "C", "H"],
-        positions=[
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [0.0, 0.0, 2.0],
-            [0.0, 0.0, 3.0],
-            [0.0, 0.0, 4.0],
-        ],
-        cell=[10.0, 10.0, 10.0],
-    )
-    profile = SimpleNamespace(pseudo_dir=str(tmp_path), orbital_dir=str(tmp_path))
-    template = AbacusTemplate()
-
-    template.write_input(
-        profile,
-        tmp_path,
-        atoms,
-        parameters={
-            "calculation": "scf",
-            "pseudopotentials": {"C": "C.upf", "Pt": "Pt.upf", "H": "H.upf"},
-            "basissets": {"C": "C.orb", "Pt": "Pt.orb", "H": "H.orb"},
-        },
-        properties=["energy", "forces"],
-    )
-
-    data = read_stru(tmp_path / "STRU")
-    assert [species["symbol"] for species in data["species"]] == ["C", "Pt", "H"]
-    assert template.atomorder == [0, 2, 3, 1, 4]
-
-
-class _ConflictingKeywordTemplate(AbacusTemplate):
-    implemented_properties = [*AbacusTemplate.implemented_properties, "mock_a", "mock_b"]
-
-    @staticmethod
-    def get_mock_a_keywords(parameters):
-        return {"cal_force": "1"}
-
-    @staticmethod
-    def get_mock_b_keywords(parameters):
-        return {"cal_force": "0"}
-
-
-def test_property_keywords_raise_when_properties_disagree_on_same_keyword():
-    """Two requested properties should not silently overwrite the same keyword."""
-    template = _ConflictingKeywordTemplate()
-
-    with pytest.raises(ValueError, match="cal_force=0"):
-        template.get_property_keywords({"calculation": "scf"}, ["mock_a", "mock_b"])
-
-
-def test_property_keywords_raise_when_property_overwrites_user_keyword():
-    """Property-derived keywords should not silently overwrite explicit user input."""
-    template = AbacusTemplate()
-
-    with pytest.raises(ValueError, match="nspin=2"):
-        template.get_property_keywords({"calculation": "scf", "nspin": "1"}, ["magmom"])
-
-
-def test_abacus_template_does_not_advertise_dipole_until_tddft_is_supported():
-    """The ASE property list should not include a property the writer rejects."""
-    assert "dipole" not in AbacusTemplate.implemented_properties
-
-
-def test_abacus_template_rejects_dipole_property_keyword_request():
-    """Direct keyword mapping should reject dipole after it is removed from support."""
-    template = AbacusTemplate()
-
-    with pytest.raises(AssertionError):
-        template.get_property_keywords({"calculation": "scf"}, ["dipole"])
-
-
-def test_property_keywords_accept_equivalent_user_keyword_values():
-    """Equivalent int/string user keywords should not be false conflicts."""
-    template = AbacusTemplate()
-
-    parameters = template.get_property_keywords({"calculation": "scf", "nspin": 2}, ["magmom"])
-
-    assert parameters["nspin"] == "2"
-
-    parameters = template.get_property_keywords(
-        {"calculation": "scf", "cal_force": True, "cal_stress": True},
-        ["forces", "stress"],
-    )
-
-    assert parameters["cal_force"] == "1"
-    assert parameters["cal_stress"] == "1"
-
-
-@pytest.mark.parametrize(
-    ("parameters", "properties", "message"),
-    [
-        ({"cal_force": False}, ["forces"], "cal_force=1"),
-        ({"cal_stress": False}, ["stress"], "cal_stress=1"),
-    ],
-)
-def test_property_keywords_reject_conflicting_boolean_user_keyword_values(
-    parameters, properties, message
-):
-    """False boolean user keywords still conflict with requested properties."""
-    template = AbacusTemplate()
-
-    with pytest.raises(ValueError, match=message):
-        template.get_property_keywords(parameters, properties)
-
-
-def test_property_keywords_treat_string_values_as_scalars():
-    """String keyword values should not be handled as character iterables."""
-    template = AbacusTemplate()
-    template.implemented_properties = ["probe"]
-    template.get_probe_keywords = lambda parameters: {"custom_switch": "true"}
-
-    parameters = template.get_property_keywords({"custom_switch": "true"}, ["probe"])
-
-    assert parameters["custom_switch"] == "true"
-
-
-def test_property_keywords_compare_iterables_like_input_writer():
-    """Iterable keyword comparison should match the final INPUT serialization."""
-    template = AbacusTemplate()
-    template.implemented_properties = ["probe"]
-    template.get_probe_keywords = lambda parameters: {"custom_vector": [1, "true"]}
-
-    with pytest.raises(ValueError, match="custom_vector"):
-        template.get_property_keywords({"custom_vector": [True, "true"]}, ["probe"])

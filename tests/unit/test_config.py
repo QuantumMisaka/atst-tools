@@ -954,8 +954,7 @@ def test_abacus_omp_stays_unset_unless_the_config_sets_it():
     """The ABACUS OMP budget is opt-in so ``runtime.threads`` is never shadowed.
 
     A schema default of 1 made every normalized config look like an explicit
-    request; only a user-written ``omp`` may override the runtime budget
-    (frozen interface design 6, unchanged item "P1 必须修改").
+    request; only a user-written ``omp`` may override the runtime budget.
     """
     base = {
         "calculation": {"type": "relax", "init_structure": "init.stru"},
